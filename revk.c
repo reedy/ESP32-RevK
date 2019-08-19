@@ -159,13 +159,13 @@ revk_init (const char *file, const char *date, const char *time, app_callback_t 
    tcpip_adapter_init ();
    app_setting = app_setting_cb;
    app_command = app_command_cb;
-   {// Chip ID from MAC
-	   unsigned char mac[6];
-   ESP_ERROR_CHECK(esp_efuse_mac_get_default(mac));
-   snprintf(revk_id,sizeof(revk_id),"%02X%02X%02X",mac[3],mac[4],mac[5]);
+   {                            // Chip ID from MAC
+      unsigned char mac[6];
+      ESP_ERROR_CHECK (esp_efuse_mac_get_default (mac));
+      snprintf (revk_id, sizeof (revk_id), "%02X%02X%02X", mac[3], mac[4], mac[5]);
    }
-   if(date&&strlen(date)==11&&time&&strlen(time)==8)
-   { // date expected as "May 13 2019", time as "07:35:27"
+   if (date && strlen (date) == 11 && time && strlen (time) == 8)
+   {                            // date expected as "May 13 2019", time as "07:35:27"
       int m = 0,
          d = atoi (date + 4);
       if (date[0] == 'J')
@@ -205,8 +205,8 @@ revk_init (const char *file, const char *date, const char *time, app_callback_t 
       else if (date[0] == 'D')
          m = 12;
       snprintf (revk_version, sizeof (revk_version), "%.4s-%02d-%02d %.8s", date + 7, m, d, time);
-   }
-		   else strcpy(revk_version,"?");
+   } else
+      strcpy (revk_version, "?");
    if (file)
    {                            // App name extract from file
       const char *p = strrchr (file, '/');
