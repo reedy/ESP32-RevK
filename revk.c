@@ -151,18 +151,62 @@ revk_task (void *pvParameters)
 }
 
 
-// Extrenal functions
+// External functions
 void
 revk_init (const char *file, const char *date, const char *time, app_callback_t * app_setting_cb, app_callback_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
-   strcpy (revk_id, "test");    // TODO
-   strcpy (revk_version, "Ver test");   // TODO
    nvs_flash_init ();
    tcpip_adapter_init ();
    app_setting = app_setting_cb;
    app_command = app_command_cb;
-   // Chip ID
-   // TODO
+   {// Chip ID from MAC
+	   unsigned char mac[6];
+   ESP_ERROR_CHECK(esp_efuse_mac_get_default(mac));
+   snprintf(revk_id,sizeof(revk_id),"%02X%02X%02X",mac[3],mac[4],mac[5]);
+   }
+   if(date&&strlen(date)==11&&time&&strlen(time)==8)
+   { // date expected as "May 13 2019", time as "07:35:27"
+      int m = 0,
+         d = atoi (date + 4);
+      if (date[0] == 'J')
+      {
+         if (date[1] == 'a')
+            m = 1;
+         else if (date[1] == 'u')
+         {
+            if (date[2] == 'n')
+               m = 6;
+            else if (date[2] == 'l')
+               m = 7;
+         }
+      } else if (date[0] == 'F')
+         m = 2;
+      else if (date[0] == 'M')
+      {
+         if (date[1] == 'a')
+         {
+            if (date[2] == 'r')
+               m = 3;
+            else if (date[2] == 'y')
+               m = 5;
+         }
+      } else if (date[0] == 'A')
+      {
+         if (date[1] == 'p')
+            m = 4;
+         else if (date[1] == 'u')
+            m = 8;
+      } else if (date[0] == 'S')
+         m = 9;
+      else if (date[0] == 'O')
+         m = 10;
+      else if (date[0] == 'N')
+         m = 11;
+      else if (date[0] == 'D')
+         m = 12;
+      snprintf (revk_version, sizeof (revk_version), "%.4s-%02d-%02d %.8s", date + 7, m, d, time);
+   }
+		   else strcpy(revk_version,"?");
    if (file)
    {                            // App name extract from file
       const char *p = strrchr (file, '/');
