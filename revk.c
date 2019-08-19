@@ -166,7 +166,7 @@ revk_init (const char *file, const char *date, const char *time, app_callback_t 
    {                            // Chip ID from MAC
       unsigned char mac[6];
       ESP_ERROR_CHECK (esp_efuse_mac_get_default (mac));
-      snprintf (revk_id, sizeof (revk_id), "%02X%02X%02X", mac[3], mac[4], mac[5]);
+      snprintf (revk_id, sizeof (revk_id), "%02X%02X%02X", mac[0]^mac[3], mac[1]^mac[4], mac[2]^mac[5]);
    }
    if (date && strlen (date) == 11 && time && strlen (time) == 8)
    {                            // date expected as "May 13 2019", time as "07:35:27"
@@ -320,6 +320,7 @@ ota_handler (esp_http_client_event_t * evt)
 {
    static int ota_size = 0;
    static int ota_running = 0;
+   static int ota_progress = 0;
    static esp_ota_handle_t ota_handle;
    static const esp_partition_t *ota_partition;
    switch (evt->event_id)
@@ -346,6 +347,7 @@ ota_handler (esp_http_client_event_t * evt)
       //ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
       if (!ota_running && ota_size && esp_http_client_get_status_code (evt->client) / 100 == 2)
       {                         // Start
+	      ota_progress=-100;
          esp_err_t err = esp_ota_begin (ota_partition = esp_ota_get_next_update_partition (NULL), ota_size, &ota_handle);
          if (err != ERR_OK)
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
@@ -353,7 +355,13 @@ ota_handler (esp_http_client_event_t * evt)
             ota_running = 1;
       }
       if (ota_running)
+      {
          esp_ota_write (ota_handle, evt->data, evt->data_len);
+	 ota_running+=evt->data_len;
+	 int percent=ota_running*100/ota_size;
+	 if(percent/10!=ota_progress/10)
+		 revk_info("upgrade","%3d%%",ota_progress=percent);
+      }
       break;
    case HTTP_EVENT_ON_FINISH:
       ESP_LOGI (TAG, "HTTP_EVENT_ON_FINISH");
