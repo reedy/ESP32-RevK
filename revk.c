@@ -64,9 +64,27 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
             ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
             break;
         case MQTT_EVENT_DATA:
+	    {
+	    const char *e=NULL;
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
             printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
             printf("DATA=%.*s\r\n", event->data_len, event->data);
+	    int p;
+	    for(p=event->topic_len;p&&event->topic[p-1]!='/';p--);
+	    char *tag=malloc(p+1);
+	    memcpy(tag,event->topic,p);
+	    tag[p]=0;
+	    for(p=0;p<event->topic_len&&event->topic[p]!='/';p++);
+	    char *value=malloc(event->data_len+1);
+	    memcpy(value,event->data,event->data_len+1);
+	    value[event->data_len]=0;
+	    if(p==7&&!memcmp(event->topic,"command",p))e=revk_command(tag,event->data_len, (const unsigned char*)event->data);
+	    else if(p==7&&!memcmp(event->topic,"setting",p))e=revk_setting(tag,event->data_len, (const unsigned char*)event->data);
+	    else e="";
+	    if(e)revk_error(tag,"Failed %s (%.*s)",*e?e:"Unknown",event->data_len,event->data);
+	    free(tag);
+	    free(value);
+	    }
             break;
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -137,31 +155,59 @@ xTaskCreatePinnedToCore(revk_task, "RevK", 16*1024,NULL,  1, &revk_task_id, tskN
 // MQTT reporting
 void revk_status(const char *tag,const char *fmt,...)
 { // Send status
+	// TODO
 }
 
 void revk_event(const char *tag,const char *fmt,...)
 { // Send event
+	// TODO
 }
 
 void revk_error(const char *tag,const char *fmt,...)
 { // Send error
+	// TODO
 }
 
 void revk_info(const char *tag,const char *fmt,...)
 { // Send info
+	// TODO
 }
 
-// Settings
-void revk_setting(const char *tag,const char *value)
-{ // Store a value (calls setting, same as if via MQTT)
-}
-
-void revk_reboot(void)
+const char * revk_restart(const char *reason)
 { // Restart cleanly
+	// TODO app_command to advise restart
+	// mqtt report to advise restart
+	revk_status(NULL,"0 %s",reason);
+	esp_restart();
+	return "Restart failed";
 }
 
-void revk_ota(void)
+const char * revk_ota(void)
 { // OTA and restart cleanly
+	// TODO
+	return "No OTA yet";
+	return ""; // OK / done
 }
 
+		const char *revk_setting(const char *tag,unsigned int len,const unsigned char *value)
+{
+	 // TODO Check setting has changed?
+	const char *e=NULL;
+	// TODO my settings
+	// App settings
+	if(!e&&app_setting)e=app_setting(tag,len,value);
+	// TODO if not error, store setting
+	return e;
+}
+
+		const char *revk_command(const char *tag,unsigned int len,const unsigned char *value)
+{
+	const char *e=NULL;
+	// My commands
+	if(!e&&!strcmp(tag,"upgrade"))e=revk_ota();
+	if(!e&&!strcmp(tag,"restart"))e=revk_restart("Restart command");
+		// App commands
+	if(!e&&app_command)e=app_command(tag,len,value);
+	return e;
+}
 

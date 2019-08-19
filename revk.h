@@ -27,7 +27,7 @@
 #include "mqtt_client.h"
 
 // Types
-typedef const char *app_callback_t(const char *tag,const char *value); // Return NULL=OK, empty-string=Unknown tag, string=error
+typedef const char *app_callback_t(const char *tag,unsigned int len,const unsigned char *value); // Return NULL=OK, empty-string=Unknown tag, string=error
 
 // Data
 extern const char *revk_app;	// App name
@@ -43,9 +43,10 @@ void revk_error(const char *tag,const char *fmt,...); // Send error
 void revk_info(const char *tag,const char *fmt,...); // Send info
 
 // Settings
-void revk_setting(const char *tag,const char *value); // Store a value (calls setting, same as if via MQTT)
-void revk_reboot(void); // Restart cleanly
-void revk_ota(void); // OTA and restart cleanly
+const char * revk_setting(const char *tag,unsigned int len,const unsigned char *value); // Store a setting (same as MQTT, so calls app_setting)
+const char * revk_command(const char *tag,unsigned int len,const unsigned char *value); // Do a command (same as MQTT, so calls app_command)
+const char * revk_restart(const char *reason); // Restart cleanly
+const char * revk_ota(void); // OTA and restart cleanly
 
 #endif
 
