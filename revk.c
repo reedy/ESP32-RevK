@@ -7,15 +7,15 @@
 #define CONFIG_BROKER_URI "mqtt://mqtt.revk.uk/"
 
 // Public
-const char *revk_app="";
+const char *revk_app = "";
 char revk_version[20];          // ISO date version
-char revk_id[7];	// Chip ID as hex
+char revk_id[7];                // Chip ID as hex
 
 // Local
-static TaskHandle_t revk_task_id=NULL;
+static TaskHandle_t revk_task_id = NULL;
 static app_callback_t *app_setting = NULL;
 static app_callback_t *app_command = NULL;
-esp_mqtt_client_handle_t mqtt_client=NULL;
+esp_mqtt_client_handle_t mqtt_client = NULL;
 
 // Local functions
 static const char *TAG = "RevK";
@@ -51,19 +51,21 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
    {
    case MQTT_EVENT_CONNECTED:
       ESP_LOGI (TAG, "MQTT_EVENT_CONNECTED");
-      void sub(const char *prefix)
+      void sub (const char *prefix)
       {
-	      char *topic;
-	      if(asprintf(&topic,"%s/%s/%s/#",prefix,revk_app,revk_id)<0)return;
-      esp_mqtt_client_subscribe (mqtt_client,topic,0);
-	      free(topic);
-	      if(asprintf(&topic,"%s/%s/*/#",prefix,revk_app)<0)return;
-      esp_mqtt_client_subscribe (mqtt_client,topic,0);
-	      free(topic);
+         char *topic;
+         if (asprintf (&topic, "%s/%s/%s/#", prefix, revk_app, revk_id) < 0)
+            return;
+         esp_mqtt_client_subscribe (mqtt_client, topic, 0);
+         free (topic);
+         if (asprintf (&topic, "%s/%s/*/#", prefix, revk_app) < 0)
+            return;
+         esp_mqtt_client_subscribe (mqtt_client, topic, 0);
+         free (topic);
       }
-      sub("command");	// TODO configurable
-      sub("setting");
-   revk_status(NULL,"1 %s",revk_version); // Up
+      sub ("command");          // TODO configurable
+      sub ("setting");
+      revk_status (NULL, "1 %s", revk_version); // Up
       break;
       // TODO trim
    case MQTT_EVENT_DISCONNECTED:
@@ -86,20 +88,20 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
          printf ("DATA=%.*s\r\n", event->data_len, event->data);
          int p;
          for (p = event->topic_len; p && event->topic[p - 1] != '/'; p--);
-         char *tag = malloc (event->topic_len+1-p);
-         memcpy (tag, event->topic+p, event->topic_len-p);
-         tag[event->topic_len-p] = 0;
+         char *tag = malloc (event->topic_len + 1 - p);
+         memcpy (tag, event->topic + p, event->topic_len - p);
+         tag[event->topic_len - p] = 0;
          for (p = 0; p < event->topic_len && event->topic[p] != '/'; p++);
          char *value = malloc (event->data_len + 1);
          memcpy (value, event->data, event->data_len + 1);
          value[event->data_len] = 0;
-         if (p == 7 && !memcmp (event->topic, "command", p)) // TODo configurable
+         if (p == 7 && !memcmp (event->topic, "command", p))    // TODo configurable
             e = revk_command (tag, event->data_len, (const unsigned char *) event->data);
-         else if (p == 7 && !memcmp (event->topic, "setting", p)) // TODo configurable
+         else if (p == 7 && !memcmp (event->topic, "setting", p))       // TODo configurable
             e = revk_setting (tag, event->data_len, (const unsigned char *) event->data);
          else
             e = "";
-	 ESP_LOGI(TAG,"MQTT err %s",e?:"(null)");
+         ESP_LOGI (TAG, "MQTT err %s", e ? : "(null)");
          if (e)
             revk_error (tag, "Failed %s (%.*s)", *e ? e : "Unknown", event->data_len, event->data);
          free (tag);
@@ -153,25 +155,28 @@ revk_task (void *pvParameters)
 void
 revk_init (const char *file, const char *date, const char *time, app_callback_t * app_setting_cb, app_callback_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
-	strcpy(revk_id,"test"); // TODO
-	strcpy(revk_version,"Ver test"); // TODO
+   strcpy (revk_id, "test");    // TODO
+   strcpy (revk_version, "Ver test");   // TODO
    nvs_flash_init ();
    tcpip_adapter_init ();
    app_setting = app_setting_cb;
    app_command = app_command_cb;
    // Chip ID
    // TODO
-   if(file)
-   { // App name extract from file
-   const char *p=strrchr(file,'/');
-   if(p)p++;else p=file;
-   const char *d=strrchr(p,'.');
-   if(d)
-   {
-	   revk_app=strncpy(malloc(d+1-p),p,d-p);
-	   ((char*)revk_app)[d-p]=0;
-   }
-   else revk_app = p;
+   if (file)
+   {                            // App name extract from file
+      const char *p = strrchr (file, '/');
+      if (p)
+         p++;
+      else
+         p = file;
+      const char *d = strrchr (p, '.');
+      if (d)
+      {
+         revk_app = strncpy (malloc (d + 1 - p), p, d - p);
+         ((char *) revk_app)[d - p] = 0;
+      } else
+         revk_app = p;
    }
    // Work out version string
    // TODO
@@ -180,10 +185,11 @@ revk_init (const char *file, const char *date, const char *time, app_callback_t 
       .uri = CONFIG_BROKER_URI,
       .event_handle = mqtt_event_handler,
    };
-   if(asprintf((char**)&mqtt_cfg.lwt_topic,"status/%s/%s",revk_app,revk_id)<0)return;
-   mqtt_cfg.lwt_msg_len=strlen(mqtt_cfg.lwt_msg="0 Failed");
-   mqtt_cfg.lwt_retain=1;
-   mqtt_cfg.lwt_qos=1;
+   if (asprintf ((char **) &mqtt_cfg.lwt_topic, "status/%s/%s", revk_app, revk_id) < 0)
+      return;
+   mqtt_cfg.lwt_msg_len = strlen (mqtt_cfg.lwt_msg = "0 Failed");
+   mqtt_cfg.lwt_retain = 1;
+   mqtt_cfg.lwt_qos = 1;
    ESP_LOGI (TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size ());
    mqtt_client = esp_mqtt_client_init (&mqtt_cfg);
    // TODO cert pinning
@@ -193,53 +199,58 @@ revk_init (const char *file, const char *date, const char *time, app_callback_t 
 
 // MQTT reporting
 void
-revk_mqtt (const char *prefix,int retain,const char *tag, const char *fmt, va_list ap)
+revk_mqtt (const char *prefix, int retain, const char *tag, const char *fmt, va_list ap)
 {                               // Send status
-	char *topic;
-	if(asprintf(&topic,tag?"%s/%s/%s/%s":"%s/%s/%s",prefix,revk_app,revk_id,tag)<0)return;
-		 char *buf;
-		 int l;
-if((l=vasprintf(&buf,fmt,ap))<0){free(topic);return;}
-	 ESP_LOGI (TAG, "MQTT publish %s %s",topic?:"-",buf);
-      esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
-free(buf);
-free(topic);
+   char *topic;
+   if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
+      return;
+   char *buf;
+   int l;
+   if ((l = vasprintf (&buf, fmt, ap)) < 0)
+   {
+      free (topic);
+      return;
+   }
+   ESP_LOGI (TAG, "MQTT publish %s %s", topic ? : "-", buf);
+   esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
+   free (buf);
+   free (topic);
 }
 
 void
 revk_status (const char *tag, const char *fmt, ...)
 {                               // Send status
-	                   va_list ap;
-                   va_start(ap, fmt);
-revk_mqtt("status",1,tag,fmt,ap); // TODo configurable
-                   va_end(ap);
+   va_list ap;
+   va_start (ap, fmt);
+   revk_mqtt ("status", 1, tag, fmt, ap);       // TODo configurable
+   va_end (ap);
 }
 
 void
 revk_event (const char *tag, const char *fmt, ...)
 {                               // Send event
-	                   va_list ap;
-                   va_start(ap, fmt);
-revk_mqtt("event",0,tag,fmt,ap); // TODo configurable
-                   va_end(ap);
+   va_list ap;
+   va_start (ap, fmt);
+   revk_mqtt ("event", 0, tag, fmt, ap);        // TODo configurable
+   va_end (ap);
 }
 
 void
 revk_error (const char *tag, const char *fmt, ...)
 {                               // Send error
-	                   va_list ap;
-                   va_start(ap, fmt);
-revk_mqtt("error",0,tag,fmt,ap); // TODo configurable
-                   va_end(ap);
+   va_list ap;
+   va_start (ap, fmt);
+   revk_mqtt ("error", 0, tag, fmt, ap);        // TODo configurable
+   va_end (ap);
 }
 
 void
 revk_info (const char *tag, const char *fmt, ...)
 {                               // Send info
-	                   va_list ap;
-                   va_start(ap, fmt);
-revk_mqtt("info",0,tag,fmt,ap); // TODo configurable
-                   va_end(ap);
+   va_list ap;
+   va_start (ap, fmt);
+   revk_mqtt ("info", 0, tag, fmt, ap); // TODo configurable
+   va_end (ap);
 }
 
 const char *
@@ -264,7 +275,7 @@ revk_ota (void)
 const char *
 revk_setting (const char *tag, unsigned int len, const unsigned char *value)
 {
-      ESP_LOGI (TAG, "MQTT setting %s",tag);
+   ESP_LOGI (TAG, "MQTT setting %s", tag);
    // TODO Check setting has changed?
    const char *e = NULL;
    // TODO my settings
@@ -278,7 +289,7 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
 const char *
 revk_command (const char *tag, unsigned int len, const unsigned char *value)
 {
-      ESP_LOGI (TAG, "MQTT command [%s]",tag);
+   ESP_LOGI (TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
    // My commands
    if (!e && !strcmp (tag, "upgrade"))
