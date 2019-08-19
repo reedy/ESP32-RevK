@@ -70,10 +70,13 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       sub ("command");          // TODO configurable
       sub ("setting");
       revk_status (NULL, "1 %s", revk_version); // Up
+      // TODO info?
+      // TODO app command
       break;
       // TODO trim
    case MQTT_EVENT_DISCONNECTED:
       ESP_LOGI (TAG, "MQTT_EVENT_DISCONNECTED");
+      // TODO app command
       break;
    case MQTT_EVENT_SUBSCRIBED:
       ESP_LOGI (TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
@@ -365,12 +368,15 @@ ota_handler (esp_http_client_event_t * evt)
       break;
    case HTTP_EVENT_ON_FINISH:
       ESP_LOGI (TAG, "HTTP_EVENT_ON_FINISH");
-      if (!ota_running)
-         revk_error ("Upgrade", "Failed");
-      else
+      if (!ota_running&&esp_http_client_get_status_code (evt->client)/100>3)
+         revk_error ("Upgrade", "Failed to start %d (%d)",esp_http_client_get_status_code (evt->client),ota_size);
+      if(ota_running)
       {
-         if (esp_ota_end (ota_handle) == ERR_OK)
+	      esp_err_t err=esp_ota_end (ota_handle);
+         if (err==ERR_OK)
             esp_ota_set_boot_partition (ota_partition);
+	 else
+            revk_error ("upgrade", "Error %s", esp_err_to_name (err));
       }
       ota_running = 0;
       break;
