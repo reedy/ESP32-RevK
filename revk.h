@@ -32,6 +32,7 @@ typedef const char *app_callback_t (const char *tag, unsigned int len, const uns
 // Data
 extern const char *revk_app;    // App name
 extern char revk_version[20];   // App version
+extern char revk_id[7];   // Chip ID hex
 
 // Calls
 void revk_init (const char *file, const char *date, const char *time, app_callback_t * app_setting, app_callback_t * app_command);
