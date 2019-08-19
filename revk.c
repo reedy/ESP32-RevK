@@ -1,10 +1,13 @@
 // Main control code, working with WiFi, MQTT, and managing settinsg and OTA
 
 #include "revk.h"
+#include "esp_http_client.h"
+#include "esp_ota_ops.h"
 
 #define CONFIG_WIFI_SSID "WineDark"
 #define CONFIG_WIFI_PASSWORD "old-town"
 #define CONFIG_BROKER_URI "mqtt://mqtt.revk.uk/"
+#define CONFIG_OTA_HOST "ota.revk.uk"
 
 // Public
 const char *revk_app = "";
@@ -13,6 +16,7 @@ char revk_id[7];                // Chip ID as hex
 
 // Local
 static TaskHandle_t revk_task_id = NULL;
+static TaskHandle_t ota_task_id = NULL;
 static app_callback_t *app_setting = NULL;
 static app_callback_t *app_command = NULL;
 esp_mqtt_client_handle_t mqtt_client = NULL;
@@ -102,7 +106,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
          else
             e = "";
          ESP_LOGI (TAG, "MQTT err %s", e ? : "(null)");
-         if (e)
+         if (!e||*e)
             revk_error (tag, "Failed %s (%.*s)", *e ? e : "Unknown", event->data_len, event->data);
          free (tag);
          free (value);
@@ -225,15 +229,18 @@ revk_init (const char *file, const char *date, const char *time, app_callback_t 
    // Work out version string
    // TODO
    // MQTT
-   esp_mqtt_client_config_t mqtt_cfg = {
+   char *topic;
+   if (asprintf (&topic, "status/%s/%s", revk_app, revk_id) < 0)
+      return;
+   const esp_mqtt_client_config_t mqtt_cfg = {
       .uri = CONFIG_BROKER_URI,
       .event_handle = mqtt_event_handler,
+      .lwt_topic=topic,
+      .lwt_qos=1,
+      .lwt_retain=1,
+      .lwt_msg_len=8,
+      .lwt_msg="0 Failed",
    };
-   if (asprintf ((char **) &mqtt_cfg.lwt_topic, "status/%s/%s", revk_app, revk_id) < 0)
-      return;
-   mqtt_cfg.lwt_msg_len = strlen (mqtt_cfg.lwt_msg = "0 Failed");
-   mqtt_cfg.lwt_retain = 1;
-   mqtt_cfg.lwt_qos = 1;
    ESP_LOGI (TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size ());
    mqtt_client = esp_mqtt_client_init (&mqtt_cfg);
    // TODO cert pinning
@@ -301,19 +308,99 @@ const char *
 revk_restart (const char *reason)
 {                               // Restart cleanly
    // TODO app_command to advise restart
-   // mqtt report to advise restart
    revk_status (NULL, "0 %s", reason);
+   esp_mqtt_client_stop(mqtt_client);
+   sleep(1);
    esp_restart ();
    return "Restart failed";
 }
 
+static esp_err_t ota_handler(esp_http_client_event_t *evt)
+{
+static int ota_size=0;
+static int ota_running=0;
+static esp_ota_handle_t ota_handle;
+static const esp_partition_t *ota_partition;
+    switch(evt->event_id) {
+        case HTTP_EVENT_ERROR:
+            ESP_LOGI(TAG, "HTTP_EVENT_ERROR");
+            break;
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_CONNECTED");
+	    ota_size=0;
+	    if(ota_running)esp_ota_end(ota_handle);
+	    ota_running=0;
+            break;
+        case HTTP_EVENT_HEADER_SENT:
+            ESP_LOGI(TAG, "HTTP_EVENT_HEADER_SENT");
+            break;
+        case HTTP_EVENT_ON_HEADER:
+            ESP_LOGI(TAG,"HTTP_HEADER %s: %s",evt->header_key,evt->header_value);
+	    if(!strcmp(evt->header_key,"Content-Length"))ota_size=atoi(evt->header_value);
+            break;
+        case HTTP_EVENT_ON_DATA:
+            //ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+	    if(!ota_running&&ota_size&&esp_http_client_get_status_code(evt->client)/100==2)
+	    { // Start
+		    esp_err_t err=esp_ota_begin(ota_partition=esp_ota_get_next_update_partition(NULL), ota_size,&ota_handle);
+		    if(err!=ERR_OK)
+			    revk_error("upgrade","Error %s",esp_err_to_name(err));
+		    else ota_running=1;
+	    }
+	    if(ota_running)esp_ota_write(ota_handle,evt->data,evt->data_len);
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
+	    if(!ota_running)revk_error("Upgrade","Failed");
+	    else
+	    {
+		    if(esp_ota_end(ota_handle)==ERR_OK)
+			    esp_ota_set_boot_partition(ota_partition);
+	    }
+            ota_running=0;
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+            break;
+    }
+    return ESP_OK;
+}
+
+static void
+ota_task (void *pvParameters)
+{
+	const char *host=pvParameters;
+	char *url;
+	if(asprintf(&url,"http://%s/%s.bin",host,revk_app)<0)
+	{ // Should not happen
+	ota_task_id=NULL;
+	vTaskDelete(NULL);
+	return;
+	}
+   // TODO LE cert golbal and using HTTPS
+   // TODO cert pinning
+esp_http_client_config_t config = {
+   .url = url,
+   .event_handler=ota_handler,
+};
+esp_http_client_handle_t client = esp_http_client_init(&config);
+esp_err_t err = esp_http_client_perform(client);
+	int status=esp_http_client_get_status_code(client);
+esp_http_client_cleanup(client);
+	free(url);
+	ota_task_id=NULL;
+	if(err!=ERR_OK)revk_error("upgrade","Error %s",esp_err_to_name(err));
+	else if(status/100!=2)revk_error("upgrade","Failed %d",status);
+	else revk_restart("OTA");
+	vTaskDelete(NULL);
+}
+
 const char *
-revk_ota (void)
+revk_ota (const char *host)
 {                               // OTA and restart cleanly
-   // TODO - specify URL?
-   // TODO LE cert glbal
-   return "No OTA yet";
-   return "";                   // OK / done
+	if(ota_task_id)return "OTA running";
+   xTaskCreatePinnedToCore (ota_task, "OTA", 16 * 1024, (char*)host, 1, &ota_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
+   return "";
 }
 
 const char *
@@ -337,7 +424,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
    const char *e = NULL;
    // My commands
    if (!e && !strcmp (tag, "upgrade"))
-      e = revk_ota ();
+      e = revk_ota (CONFIG_OTA_HOST);
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart ("Restart command");
    // App commands

@@ -47,6 +47,6 @@ void revk_info (const char *tag, const char *fmt, ...); // Send info
 const char *revk_setting (const char *tag, unsigned int len, const unsigned char *value);       // Store a setting (same as MQTT, so calls app_setting)
 const char *revk_command (const char *tag, unsigned int len, const unsigned char *value);       // Do a command (same as MQTT, so calls app_command)
 const char *revk_restart (const char *reason);  // Restart cleanly
-const char *revk_ota (void);    // OTA and restart cleanly
+const char *revk_ota (const char *host);    // OTA and restart cleanly
 
 #endif
