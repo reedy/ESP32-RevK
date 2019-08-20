@@ -366,7 +366,7 @@ ota_handler (esp_http_client_event_t * evt)
       //ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
       if (!ota_running && ota_size && esp_http_client_get_status_code (evt->client) / 100 == 2)
       {                         // Start
-         ota_progress = -100;
+         ota_progress = 0;
          if (!ota_partition)
             ota_partition = esp_ota_get_running_partition ();
          ota_partition = esp_ota_get_next_update_partition (ota_partition);
@@ -374,7 +374,10 @@ ota_handler (esp_http_client_event_t * evt)
          if (err != ERR_OK)
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
          else
+	 {
+		 revk_info("upgrade","Loading %d",ota_size);
             ota_running = 1;
+	 }
       }
       if (ota_running)
       {
@@ -394,7 +397,7 @@ ota_handler (esp_http_client_event_t * evt)
          esp_err_t err = esp_ota_end (ota_handle);
          if (err == ERR_OK)
          {
-            revk_info ("upgrade", "Updated %s", ota_partition->label);
+            revk_info ("upgrade", "Updated %s %d", ota_partition->label,ota_running-1);
             esp_ota_set_boot_partition (ota_partition);
          } else
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
