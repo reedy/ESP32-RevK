@@ -10,7 +10,6 @@
 #define CONFIG_OTA_HOST "ota.revk.uk"
 
 #define	settings	\
-		s(hostname);            \
 		s(otahost);             \
 		f(otasha1,20);          \
 		n(wifireset,300);       \
@@ -18,7 +17,6 @@
 		f(wifibssid,6);         \
 		n(wifichan,0);          \
 		s(wifipass);            \
-		s(wifissid2);           \
 		n(mqttreset,0);         \
 		s(mqtthost);            \
 		f(mqttsha1,20);         \
@@ -46,6 +44,7 @@ struct setting_s
 {
    setting_t *next;
    const char *name;
+   int64_t defval;
    void *data;
    signed char size;
    unsigned char array;
@@ -65,7 +64,7 @@ esp_mqtt_client_handle_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
 static const char *restart_reason = "Unknown";
-static nvs_handle nvs = 0;
+static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 
 // Local functions
@@ -114,8 +113,8 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
          esp_mqtt_client_subscribe (mqtt_client, topic, 0);
          free (topic);
       }
-      sub ("command");          // TODO configurable
-      sub ("setting");
+      sub (prefixcommand);
+      sub (prefixsetting);
       // Version, up
       revk_status (NULL, "1 %s", revk_version); // Up
       // Info
@@ -144,8 +143,6 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       {
          const char *e = NULL;
          ESP_LOGI (TAG, "MQTT_EVENT_DATA");
-         printf ("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-         printf ("DATA=%.*s\r\n", event->data_len, event->data);
          int p;
          for (p = event->topic_len; p && event->topic[p - 1] != '/'; p--);
          char *tag = malloc (event->topic_len + 1 - p);
@@ -155,15 +152,14 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
          char *value = malloc (event->data_len + 1);
          memcpy (value, event->data, event->data_len + 1);
          value[event->data_len] = 0;
-         if (p == 7 && !memcmp (event->topic, "command", p))    // TODo configurable
+         if (p == 7 && !memcmp (event->topic, prefixcommand, p))
             e = revk_command (tag, event->data_len, (const unsigned char *) event->data);
          else if (p == 7 && !memcmp (event->topic, "setting", p))       // TODo configurable
-            e = revk_setting (tag, event->data_len, (const unsigned char *) event->data);
+            e = (revk_setting (tag, event->data_len, (const unsigned char *) event->data) ? : "");      // Returns NULL if OK
          else
             e = "";
-         ESP_LOGI (TAG, "MQTT err %s", e ? : "(null)");
          if (!e || *e)
-            revk_error (tag, "Failed %s (%.*s)", *e ? e : "Unknown", event->data_len, event->data);
+            revk_error (tag, "Failed %s (%.*s)", e ? : "Unknown", event->data_len, event->data);
          free (tag);
          free (value);
       }
@@ -210,16 +206,14 @@ revk_task (void *pvParameters)
       {                         // Restart
          revk_status (NULL, "0 %s", restart_reason);
          esp_mqtt_client_stop (mqtt_client);
-         if (nvs)
-            nvs_commit (nvs);
+         ESP_ERROR_CHECK (nvs_commit (nvs));
          sleep (2);             // Wait for MQTT to close cleanly
          esp_restart ();
          restart_time = 0;
       }
       if (nvs_time && nvs_time < now)
       {
-         if (nvs)
-            nvs_commit (nvs);
+         ESP_ERROR_CHECK (nvs_commit (nvs));
          nvs_time = 0;
       }
    }
@@ -232,18 +226,46 @@ revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
    const esp_app_desc_t *app = esp_ota_get_app_description ();
    revk_app = app->project_name;
-   revk_version = app->version;
+   {
+      revk_version = app->version;
+      char *d = strstr (revk_version, "dirty");
+      if (d)
+         asprintf ((char **) &revk_version, "%.*s%s", d - revk_version, app->version, app->time);
+   }
    // TODO maybe compile date/time would be better?
    // TODO secure NVS option
    nvs_flash_init ();
-#define s(n)	revk_register(#n,0,0,&n,SETTING_REBOOT)
-#define f(n,s)	revk_register(#n,0,s,&n,SETTING_REBOOT|SETTING_BINARY)
-#define	n(n,d)	revk_register(#n,0,4,&n,SETTING_REBOOT)
+   ESP_ERROR_CHECK (nvs_open (revk_app, NVS_READWRITE, &nvs));
+#define s(n)	revk_register(#n,0,0,&n,0,SETTING_REBOOT)
+#define f(n,s)	revk_register(#n,0,s,&n,0,SETTING_REBOOT|SETTING_BINARY)
+#define	n(n,d)	revk_register(#n,0,4,&n,d,SETTING_REBOOT)
    settings
 #undef s
 #undef f
 #undef n
-      tcpip_adapter_init ();
+      // some defaults
+      if (!*prefixcommand)
+      prefixcommand = "command";
+   if (!*prefixsetting)
+      prefixsetting = "setting";
+   if (!*prefixerror)
+      prefixerror = "error";
+   if (!*prefixinfo)
+      prefixinfo = "info";
+   if (!*prefixevent)
+      prefixevent = "event";
+   if (!*prefixstate)
+      prefixstate = "state";
+   if (!*otahost)
+      otahost = "ota.revk.uk";
+   if (!*mqtthost)
+      mqtthost = "mqtt.iot";
+   if (!*wifissid && !wifipass)
+      wifipass = "security";
+   if (!*wifissid)
+      wifissid = "IoT";
+   restart_time = 0;            // If settings change at start up we can ignore.
+   tcpip_adapter_init ();
    app_command = app_command_cb;
    {                            // Chip ID from MAC
       unsigned char mac[6];
@@ -327,10 +349,10 @@ revk_info (const char *tag, const char *fmt, ...)
 }
 
 const char *
-revk_restart (const char *reason)
+revk_restart (const char *reason, int delay)
 {                               // Restart cleanly
    restart_reason = reason;
-   restart_time = esp_timer_get_time ();        // Reboot now
+   restart_time = esp_timer_get_time () + 1000000LL * delay;    // Reboot now
    return "";                   // Done
 }
 
@@ -374,10 +396,10 @@ ota_handler (esp_http_client_event_t * evt)
          if (err != ERR_OK)
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
          else
-	 {
-		 revk_info("upgrade","Loading %d",ota_size);
+         {
+            revk_info ("upgrade", "Loading %d", ota_size);
             ota_running = 1;
-	 }
+         }
       }
       if (ota_running)
       {
@@ -397,7 +419,7 @@ ota_handler (esp_http_client_event_t * evt)
          esp_err_t err = esp_ota_end (ota_handle);
          if (err == ERR_OK)
          {
-            revk_info ("upgrade", "Updated %s %d", ota_partition->label,ota_running-1);
+            revk_info ("upgrade", "Updated %s %d", ota_partition->label, ota_running - 1);
             esp_ota_set_boot_partition (ota_partition);
          } else
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
@@ -439,11 +461,7 @@ ota_task (void *pvParameters)
    else if (status / 100 != 2)
       revk_error ("upgrade", "Failed %d", status);
    else
-   {
-      const esp_partition_t *p = esp_ota_get_running_partition ();
-      if (p->subtype != ESP_PARTITION_SUBTYPE_APP_FACTORY)
-         revk_restart ("OTA");
-   }
+      revk_restart ("OTA", 0);
    ota_task_id = NULL;
    vTaskDelete (NULL);
 }
@@ -458,71 +476,73 @@ revk_ota (const char *host)
 }
 
 static int
-nvs_get (setting_t * s, void *data)
+nvs_get (setting_t * s, void *data, size_t len)
 {                               // Low level get logic, returns <0 if error. Calls the right nvs get function for type of setting
+   esp_err_t err;
    if (s->flags & SETTING_BINARY)
    {
-      unsigned int len = 0;
-      if (nvs_get_blob (nvs, s->name, data, &len) != ERR_OK)
-         return -1;
+      if ((err = nvs_get_blob (nvs, s->name, data, &len)) != ERR_OK)
+         return -err;
       return len;
    }
    if (s->size == 0)
    {                            // String
-      unsigned int len = 0;
-      if (nvs_get_str (nvs, s->name, data, &len) != ERR_OK)
-         return -1;
+      if ((err = nvs_get_str (nvs, s->name, data, &len)) != ERR_OK)
+         return -err;
       return len;
    }
+   uint64_t temp;
+   if (!data)
+      data = &temp;
    if (s->size == -8)
    {                            // int64
-      if (nvs_get_i64 (nvs, s->name, data) != ERR_OK)
-         return -1;
-      return s->size;
+      if ((err = nvs_get_i64 (nvs, s->name, data)) != ERR_OK)
+         return -err;
+      return 8;
    }
    if (s->size == -4)
    {                            // int32
-      if (nvs_get_i32 (nvs, s->name, data) != ERR_OK)
-         return -1;
-      return s->size;
+      if ((err = nvs_get_i32 (nvs, s->name, data)) != ERR_OK)
+         return -err;
+      return 4;
    }
    if (s->size == -2)
    {                            // int32
-      if (nvs_get_i16 (nvs, s->name, data) != ERR_OK)
-         return -1;
-      return s->size;
+      if ((err = nvs_get_i16 (nvs, s->name, data)) != ERR_OK)
+         return -err;
+      return 2;
    }
    if (s->size == -1)
    {                            // int8
-      if (nvs_get_i8 (nvs, s->name, data) != ERR_OK)
-         return -1;
-      return s->size;
+      if ((err = nvs_get_i8 (nvs, s->name, data)) != ERR_OK)
+         return -err;
+      return 1;
    }
    if (s->size == 8)
    {                            // uint64
-      if (nvs_get_u64 (nvs, s->name, data) != ERR_OK)
-         return -1;
-      return s->size;
+      if ((err = nvs_get_u64 (nvs, s->name, data)) != ERR_OK)
+         return -err;
+      return 8;
    }
    if (s->size == 4)
    {                            // uint32
-      if (nvs_get_u32 (nvs, s->name, data) != ERR_OK)
-         return -1;
-      return s->size;
+      if ((err = nvs_get_u32 (nvs, s->name, data)) != ERR_OK)
+         return -err;
+      return 4;
    }
    if (s->size == 2)
    {                            // uint32
-      if (nvs_get_u16 (nvs, s->name, data) != ERR_OK)
-         return -1;
-      return s->size;
+      if ((err = nvs_get_u16 (nvs, s->name, data)) != ERR_OK)
+         return -err;
+      return 2;
    }
    if (s->size == 1)
    {                            // uint8
-      if (nvs_get_u8 (nvs, s->name, data) != ERR_OK)
-         return -1;
-      return s->size;
+      if ((err = nvs_get_u8 (nvs, s->name, data)) != ERR_OK)
+         return -err;
+      return 1;
    }
-   return -1;
+   return -999;
 }
 
 static esp_err_t
@@ -535,7 +555,10 @@ nvs_set (setting_t * s, void *data)
       return nvs_set_blob (nvs, s->name, data, 1 + *((unsigned char *) data));  // Variable
    }
    if (s->size == 0)
+   {
+      ESP_LOGI (TAG, "Written %s=%s", s->name, (char *) data);
       return nvs_set_str (nvs, s->name, data);
+   }
    if (s->size == -8)
       return nvs_set_i64 (nvs, s->name, *((int64_t *) data));
    if (s->size == -4)
@@ -560,18 +583,12 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
 {
    if (!value)
       value = (unsigned char *) "";
-   ESP_LOGI (TAG, "MQTT setting %s", tag);
+   ESP_LOGI (TAG, "MQTT setting %s (%d)", tag, len);
    // Find setting in registered settings
    setting_t *s;
    for (s = setting; s && strcmp (s->name, tag); s = s->next);
    if (!s)
       return "No such setting";
-   if (!nvs)
-   {
-      esp_err_t err = nvs_open (revk_app, NVS_READWRITE, &nvs);
-      if (err != ERR_OK)
-         return esp_err_to_name (err);
-   }
    // Parse new setting
    unsigned char *n = NULL;
    int l = 0;
@@ -581,13 +598,10 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
          return "Wrong size";
       if (s->size)
       {
-         n = malloc (len);
+         n = malloc (s->size);
          if (value)
-            memcpy (n, value, l = len);
-         else if (s->flags & SETTING_ZERO)
-            memset (n, 0, len);
-         else
-            memset (n, 0xFF, len);
+            memcpy (n, value, l = s->size);
+         memset (n, s->defval, s->size);        // Assumed byte
          l = len;
       } else
       {                         // Dynamic size
@@ -614,8 +628,8 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
          value++;
          neg = 1;
       }
-      if (!len && (s->flags & SETTING_ZERO))
-         v = -1;
+      if (!len)
+         v = s->defval;
       else
          while (len && isdigit (*value))
          {
@@ -646,13 +660,13 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
    if (!n)
       return "Bad setting type";
    // See if setting has changed
-   int o = nvs_get (s, NULL);
+   int o = nvs_get (s, NULL, 0);
    if (o != l)
       o = -1;                   // Different size
    if (o > 0)
    {
       void *d = malloc (l);
-      if (nvs_get (s, d) < 0)
+      if (nvs_get (s, d, l) < 0)
       {
          free (d);
          return "Bad setting get";
@@ -661,7 +675,7 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
          o = -1;                // Different content
       free (d);
    }
-   if (l >= 0)
+   if (o >= 0)
       return NULL;              // No change
    // Save in flash
    if (nvs_set (s, n) != ERR_OK && (nvs_erase_key (nvs, s->name) != ERR_OK || nvs_set (s, n) != ERR_OK))
@@ -670,22 +684,35 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
       return "Unable to store";
    }
    if (s->flags & SETTING_BINARY)
-      ESP_LOGI (TAG, "Setting %s changed", tag);
+      ESP_LOGI (TAG, "Setting %s changed (%d)", tag, len);
    else
-      ESP_LOGI (TAG, "Setting %s changed %s", tag, value);
+      ESP_LOGI (TAG, "Setting %s changed %.*s", tag, len, value);
    // Store changed value
    if (!s->size)
    {                            // Dynamic
       void *o = *((void **) s->data);
-      *((void **) s->data) = n;
-      if (o)
-         free (o);
+      if (l == 1 && !*n)
+      {                         // Empty string/data
+         free (n);
+         *((void **) s->data) = "";
+         if (s->flags & SETTING_MALLOC)
+            free (o);
+         s->flags &= ~SETTING_MALLOC;
+      } else
+      {
+         *((void **) s->data) = n;
+         if (s->flags & SETTING_MALLOC)
+            free (o);
+         s->flags |= SETTING_MALLOC;
+      }
    } else
    {                            // Static
       memcpy (s->data, n, l);
       free (n);
    }
-   // Write new value
+   if (s->flags & SETTING_REBOOT)
+      revk_restart ("Settings changed", 5);
+   nvs_time = esp_timer_get_time () + 60000000;
    return NULL;                 // OK
 }
 
@@ -698,7 +725,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
    if (!e && !strcmp (tag, "upgrade"))
       e = revk_ota (CONFIG_OTA_HOST);
    if (!e && !strcmp (tag, "restart"))
-      e = revk_restart ("Restart command");
+      e = revk_restart ("Restart command", 0);
    // App commands
    if (!e && app_command)
       e = app_command (tag, len, value);
@@ -706,7 +733,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
 }
 
 void
-revk_register (const char *name, unsigned char array, signed char size, void *data, unsigned char flags)
+revk_register (const char *name, unsigned char array, signed char size, void *data, int64_t defval, unsigned char flags)
 {                               // Register setting (not expected to be thread safe, should be called from init)
    setting_t *s = malloc (sizeof (*s));
    s->name = name;
@@ -714,6 +741,7 @@ revk_register (const char *name, unsigned char array, signed char size, void *da
    s->size = size;
    s->data = data;
    s->flags = flags;
+   s->defval = defval;
    s->next = setting;
    setting = s;
    // Get value
@@ -721,16 +749,24 @@ revk_register (const char *name, unsigned char array, signed char size, void *da
    if (!s->size)
    {                            // Dynamic
       void *d = NULL;
-      l = nvs_get (s, NULL);
+      l = nvs_get (s, NULL, 0);
       if (l > 0)
       {
          d = malloc (l);
-         l = nvs_get (s, d);
+         l = nvs_get (s, d, l);
          if (l >= 0)
             *((void **) data) = d;
+         else
+            free (d);
       }
    } else
-      l = nvs_get (s, data);    // Stored static
+      l = nvs_get (s, data, s->size);   // Stored static
    if (l < 0)
-      ESP_LOGE (TAG, "Setting %s failed", s->name);
+   {
+      const char *e = revk_setting (name, 0, NULL);     // Defaulting logic
+      if (e && *e)
+         ESP_LOGE (TAG, "Setting %s failed %s", s->name, e);
+      else
+         ESP_LOGI (TAG, "Setting %s created", s->name);
+   }
 }
