@@ -3,6 +3,8 @@
 #include "revk.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
+#include "esp_tls.h"
+#include "lecert.h"
 
 #define	settings	\
 		s(otahost);             \
@@ -216,6 +218,7 @@ revk_task (void *pvParameters)
 void
 revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
+	ESP_ERROR_CHECK(esp_tls_set_global_ca_store(LECert,sizeof(LECert)));
    const esp_app_desc_t *app = esp_ota_get_app_description ();
    revk_app = app->project_name;
    {
@@ -436,7 +439,7 @@ ota_task (void *pvParameters)
 {
    const char *host = pvParameters;
    char *url;
-   if (asprintf (&url, "http://%s/%s.bin", host, revk_app) < 0)
+   if (asprintf (&url, "https://%s/%s.bin", host, revk_app) < 0)
    {                            // Should not happen
       ota_task_id = NULL;
       vTaskDelete (NULL);
