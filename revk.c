@@ -120,8 +120,10 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       revk_status (NULL, "1 %s", revk_version); // Up
       // Info
       const esp_partition_t *p = esp_ota_get_running_partition ();
-      revk_info (NULL, "%s", p->label);
-      // TODO WiFi status etc.
+      wifi_ap_record_t ap = { };
+      esp_wifi_sta_get_ap_info (&ap);
+      revk_info (NULL, "Running %s WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", p->label, ap.bssid[0], ap.bssid[1], ap.bssid[2],
+                 ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
       // TODO app command
       break;
       // TODO trim
