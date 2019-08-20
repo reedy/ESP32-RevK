@@ -362,7 +362,8 @@ ota_handler (esp_http_client_event_t * evt)
       {                         // Start
          ota_progress = -100;
 	 if(!ota_partition)ota_partition=esp_ota_get_running_partition();
-         esp_err_t err = esp_ota_begin (ota_partition = esp_ota_get_next_update_partition (ota_partition), ota_size, &ota_handle);
+	 ota_partition = esp_ota_get_next_update_partition (ota_partition);
+         esp_err_t err = esp_ota_begin (ota_partition , ota_size, &ota_handle);
          if (err != ERR_OK)
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
          else
