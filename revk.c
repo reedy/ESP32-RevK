@@ -1,4 +1,4 @@
-// Main control code, working with WiFi, MQTT, and managing settinsg and OTA
+// Main control code, working with WiFi, MQTT, and managing settings and OTA
 
 #include "revk.h"
 #include "esp_http_client.h"
@@ -9,6 +9,37 @@
 #define CONFIG_BROKER_URI "mqtt://mqtt.revk.uk/"
 #define CONFIG_OTA_HOST "ota.revk.uk"
 
+#define	settings	\
+		s(hostname);            \
+		s(otahost);             \
+		f(otasha1,20);          \
+		n(wifireset,300);       \
+		s(wifissid);            \
+		f(wifibssid,6);         \
+		n(wifichan,0);          \
+		s(wifipass);            \
+		s(wifissid2);           \
+		n(mqttreset,0);         \
+		s(mqtthost);            \
+		f(mqttsha1,20);         \
+		s(mqttuser);            \
+		s(mqttpass);            \
+		s(mqttport);            \
+		s(ntphost);             \
+		s(prefixcommand);       \
+		s(prefixsetting);       \
+		s(prefixstate);         \
+		s(prefixevent);         \
+		s(prefixinfo);          \
+		s(prefixerror);         \
+
+#define s(n)	char *n=NULL;
+#define f(n,s)	char n[s]={};
+#define	n(n,d)	int n=d;
+settings
+#undef s
+#undef f
+#undef n
 // Public
 const char *revk_app = "";
 char revk_version[20];          // ISO date version
@@ -17,8 +48,7 @@ char revk_id[7];                // Chip ID as hex
 // Local
 static TaskHandle_t revk_task_id = NULL;
 static TaskHandle_t ota_task_id = NULL;
-static app_callback_t *app_setting = NULL;
-static app_callback_t *app_command = NULL;
+static app_command_t *app_command = NULL;
 esp_mqtt_client_handle_t mqtt_client = NULL;
 
 // Local functions
@@ -157,11 +187,17 @@ revk_task (void *pvParameters)
 
 // External functions
 void
-revk_init (const char *file, const char *date, const char *time, app_callback_t * app_setting_cb, app_callback_t * app_command_cb)
+revk_init (const char *file, const char *date, const char *time, app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
    nvs_flash_init ();
-   tcpip_adapter_init ();
-   app_setting = app_setting_cb;
+#define s(n)	revk_register(#n,0,0,&n,SETTING_REBOOT)
+#define f(n,s)	revk_register(#n,0,s,&n,SETTING_REBOOT|SETTING_FIXED)
+#define	n(n,d)	revk_register(#n,0,4,&n,SETTING_REBOOT)
+   settings
+#undef s
+#undef f
+#undef n
+      tcpip_adapter_init ();
    app_command = app_command_cb;
    {                            // Chip ID from MAC
       unsigned char mac[6];
@@ -418,13 +454,10 @@ const char *
 revk_setting (const char *tag, unsigned int len, const unsigned char *value)
 {
    ESP_LOGI (TAG, "MQTT setting %s", tag);
-   // TODO Check setting has changed?
    const char *e = NULL;
-   // TODO my settings
-   // App settings
-   if (!e && app_setting)
-      e = app_setting (tag, len, value);
-   // TODO if not error, store setting
+
+   // TODO process setting
+
    return e;
 }
 
@@ -442,4 +475,10 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
    if (!e && app_command)
       e = app_command (tag, len, value);
    return e;
+}
+
+void
+revk_register (const char *name, int array, int size, void *data, int flags)
+{                               // Register setting (not expected to be thread safe, should be called from init)
+   // TODO
 }
