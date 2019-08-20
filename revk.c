@@ -4,11 +4,6 @@
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
 
-#define CONFIG_WIFI_SSID "WineDark"
-#define CONFIG_WIFI_PASSWORD "old-town"
-#define CONFIG_BROKER_URI "mqtt://mqtt.revk.uk/"
-#define CONFIG_OTA_HOST "ota.revk.uk"
-
 #define	settings	\
 		s(otahost);             \
 		f(otasha1,20);          \
@@ -184,15 +179,12 @@ revk_task (void *pvParameters)
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
    ESP_ERROR_CHECK (esp_wifi_init (&cfg));
    ESP_ERROR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_RAM));
-   wifi_config_t wifi_config = {
-      .sta = {
-              .ssid = CONFIG_WIFI_SSID,
-              .password = CONFIG_WIFI_PASSWORD,
-              },
-   };
+   wifi_config_t wifi_config = { };
+   strncpy ((char *) wifi_config.sta.ssid, wifissid, sizeof (wifi_config.sta.ssid));
+   strncpy ((char *) wifi_config.sta.password, wifipass, sizeof (wifi_config.sta.password));
    ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_STA));
    ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
-   ESP_LOGI (TAG, "start the WIFI SSID:[%s]", CONFIG_WIFI_SSID);
+   ESP_LOGI (TAG, "start the WIFI SSID:[%s]", wifissid);
    ESP_ERROR_CHECK (esp_wifi_start ());
    xEventGroupWaitBits (wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
    // Start MQTT
@@ -239,12 +231,12 @@ revk_init (app_command_t * app_command_cb)
 #define s(n)	revk_register(#n,0,0,&n,0,SETTING_REBOOT)
 #define f(n,s)	revk_register(#n,0,s,&n,0,SETTING_REBOOT|SETTING_BINARY)
 #define	n(n,d)	revk_register(#n,0,4,&n,d,SETTING_REBOOT)
-   settings
+   settings;
 #undef s
 #undef f
 #undef n
-      // some defaults
-      if (!*prefixcommand)
+   // some default settings
+   if (!*prefixcommand)
       prefixcommand = "command";
    if (!*prefixsetting)
       prefixsetting = "setting";
@@ -276,8 +268,14 @@ revk_init (app_command_t * app_command_cb)
    char *topic;
    if (asprintf (&topic, "status/%s/%s", revk_app, revk_id) < 0)
       return;
+   char *url;
+   if (asprintf (&url, "mqtt://%s/", mqtthost) < 0)
+   {
+      free (topic);
+      return;
+   }
    const esp_mqtt_client_config_t mqtt_cfg = {
-      .uri = CONFIG_BROKER_URI,
+      .uri = url,
       .event_handle = mqtt_event_handler,
       .lwt_topic = topic,
       .lwt_qos = 1,
@@ -723,7 +721,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
    const char *e = NULL;
    // My commands
    if (!e && !strcmp (tag, "upgrade"))
-      e = revk_ota (CONFIG_OTA_HOST);
+      e = revk_ota (otahost);
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart ("Restart command", 0);
    // App commands
