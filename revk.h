@@ -31,20 +31,20 @@ typedef const char *app_command_t (const char *tag, unsigned int len, const unsi
 
 // Data
 extern const char *revk_app;    // App name
-extern const char *revk_version;   // App version
+extern const char *revk_version;        // App version
 extern char revk_id[7];         // Chip ID hex
 
 // Calls
-void revk_init (app_command_t *app_command);
+void revk_init (app_command_t * app_command);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
 void revk_register (const char *name,   // Setting name (note max 15 characters inc any number suffix)
-                    unsigned char array,  // If non zero then settings are suffixed numerically 1 to array
+                    unsigned char array,        // If non zero then settings are suffixed numerically 1 to array
                     signed char size,   // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
                     void *data, // The setting itself (for string this points to a char* pointer)
-                    unsigned char flags); // Setting flags
+                    unsigned char flags);       // Setting flags
 #define	SETTING_REBOOT		1       // Reboot after changing setting (after a short delay to allow multiple settings)
 #define	SETTING_BINARY		2       // Binary data, size (if non 0) is exact size of data expected at memory pointed to by data/
-					// If size is 0 this is a string, malloced and stored at pointer at data, with first byte being length of binary data
+                                        // If size is 0 this is a string, malloced and stored at pointer at data, with first byte being length of binary data
 #define	SETTING_POLARITY	4       // A leading "-" causes top bit set (so only makes sense with unsigned values)
 #define	SETTING_ZERO		8       // Default (i.e. null / missing setting) sets to zero (always the case for string), else sets all 1's
 

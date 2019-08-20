@@ -54,7 +54,7 @@ struct setting_s
 
 // Public
 const char *revk_app = "";
-const char *revk_version="";          // ISO date version
+const char *revk_version = "";  // ISO date version
 char revk_id[7];                // Chip ID as hex
 
 // Local
@@ -222,7 +222,7 @@ revk_task (void *pvParameters)
 
 // External functions
 void
-revk_init (app_command_t *app_command_cb)
+revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
    const esp_app_desc_t *app = esp_ota_get_app_description ();
    revk_app = app->project_name;
