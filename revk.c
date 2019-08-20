@@ -116,8 +116,12 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       }
       sub ("command");          // TODO configurable
       sub ("setting");
+      // Version, up
       revk_status (NULL, "1 %s", revk_version); // Up
-      // TODO info?
+      // Info
+                       const esp_partition_t *p=esp_ota_get_running_partition();
+      revk_info(NULL,"%s",p->label); 
+      // TODO WiFi status etc.
       // TODO app command
       break;
       // TODO trim
@@ -430,7 +434,7 @@ ota_task (void *pvParameters)
       revk_error ("upgrade", "Failed %d", status);
    else
    {
-		 esp_partition_t *p=esp_ota_get_running_partition();
+		 const esp_partition_t *p=esp_ota_get_running_partition();
 		 if(p->subtype!=ESP_PARTITION_SUBTYPE_APP_FACTORY)
       revk_restart ("OTA");
    }
