@@ -119,8 +119,8 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       // Version, up
       revk_status (NULL, "1 %s", revk_version); // Up
       // Info
-                       const esp_partition_t *p=esp_ota_get_running_partition();
-      revk_info(NULL,"%s",p->label); 
+      const esp_partition_t *p = esp_ota_get_running_partition ();
+      revk_info (NULL, "%s", p->label);
       // TODO WiFi status etc.
       // TODO app command
       break;
@@ -339,7 +339,7 @@ ota_handler (esp_http_client_event_t * evt)
    static int ota_running = 0;
    static int ota_progress = 0;
    static esp_ota_handle_t ota_handle;
-   static const esp_partition_t *ota_partition=NULL;
+   static const esp_partition_t *ota_partition = NULL;
    switch (evt->event_id)
    {
    case HTTP_EVENT_ERROR:
@@ -365,9 +365,10 @@ ota_handler (esp_http_client_event_t * evt)
       if (!ota_running && ota_size && esp_http_client_get_status_code (evt->client) / 100 == 2)
       {                         // Start
          ota_progress = -100;
-	 if(!ota_partition)ota_partition=esp_ota_get_running_partition();
-	 ota_partition = esp_ota_get_next_update_partition (ota_partition);
-         esp_err_t err = esp_ota_begin (ota_partition , ota_size, &ota_handle);
+         if (!ota_partition)
+            ota_partition = esp_ota_get_running_partition ();
+         ota_partition = esp_ota_get_next_update_partition (ota_partition);
+         esp_err_t err = esp_ota_begin (ota_partition, ota_size, &ota_handle);
          if (err != ERR_OK)
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
          else
@@ -390,11 +391,10 @@ ota_handler (esp_http_client_event_t * evt)
       {
          esp_err_t err = esp_ota_end (ota_handle);
          if (err == ERR_OK)
-	 {
-            revk_info ("upgrade", "Updated %s",ota_partition->label);
+         {
+            revk_info ("upgrade", "Updated %s", ota_partition->label);
             esp_ota_set_boot_partition (ota_partition);
-	 }
-         else
+         } else
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
       }
       ota_running = 0;
@@ -435,9 +435,9 @@ ota_task (void *pvParameters)
       revk_error ("upgrade", "Failed %d", status);
    else
    {
-		 const esp_partition_t *p=esp_ota_get_running_partition();
-		 if(p->subtype!=ESP_PARTITION_SUBTYPE_APP_FACTORY)
-      revk_restart ("OTA");
+      const esp_partition_t *p = esp_ota_get_running_partition ();
+      if (p->subtype != ESP_PARTITION_SUBTYPE_APP_FACTORY)
+         revk_restart ("OTA");
    }
    ota_task_id = NULL;
    vTaskDelete (NULL);
