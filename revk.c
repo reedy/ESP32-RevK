@@ -8,7 +8,7 @@
 
 #define	settings	\
 		s(otahost);             \
-		f(otasha1,20);          \
+		s(otacert);		\
 		n(wifireset,300);       \
 		s(wifissid);            \
 		f(wifibssid,6);         \
@@ -16,11 +16,10 @@
 		s(wifipass);            \
 		n(mqttreset,0);         \
 		s(mqtthost);            \
-		f(mqttsha1,20);         \
 		s(mqttuser);            \
 		s(mqttpass);            \
 		s(mqttport);            \
-		s(ntphost);             \
+		s(mqttcert);		\
 		s(prefixcommand);       \
 		s(prefixsetting);       \
 		s(prefixstate);         \
@@ -218,7 +217,7 @@ revk_task (void *pvParameters)
 void
 revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
-	ESP_ERROR_CHECK(esp_tls_set_global_ca_store(LECert,sizeof(LECert)));
+   ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
    const esp_app_desc_t *app = esp_ota_get_app_description ();
    revk_app = app->project_name;
    {
@@ -272,12 +271,12 @@ revk_init (app_command_t * app_command_cb)
    if (asprintf (&topic, "status/%s/%s", revk_app, revk_id) < 0)
       return;
    char *url;
-   if (asprintf (&url, "mqtt://%s/", mqtthost) < 0)
+   if (asprintf (&url, "%s://%s/", *mqttcert ? "mqtts" : "mqtt", mqtthost) < 0)
    {
       free (topic);
       return;
    }
-   const esp_mqtt_client_config_t mqtt_cfg = {
+   esp_mqtt_client_config_t config = {
       .uri = url,
       .event_handle = mqtt_event_handler,
       .lwt_topic = topic,
@@ -286,8 +285,10 @@ revk_init (app_command_t * app_command_cb)
       .lwt_msg_len = 8,
       .lwt_msg = "0 Failed",
    };
+   if (*mqttcert)
+      config.cert_pem = mqttcert;
    ESP_LOGI (TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size ());
-   mqtt_client = esp_mqtt_client_init (&mqtt_cfg);
+   mqtt_client = esp_mqtt_client_init (&config);
    // TODO cert pinning
    // Start task
    xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
@@ -452,6 +453,10 @@ ota_task (void *pvParameters)
       .url = url,
       .event_handler = ota_handler,
    };
+   if (*otacert)
+      config.cert_pem = otacert;        // Pinned cert
+   else
+      config.use_global_ca_store = true;        // Global cert
    esp_http_client_handle_t client = esp_http_client_init (&config);
    esp_err_t err = esp_http_client_perform (client);
    int status = esp_http_client_get_status_code (client);
@@ -724,7 +729,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
    const char *e = NULL;
    // My commands
    if (!e && !strcmp (tag, "upgrade"))
-      e = revk_ota (otahost);
+      e = revk_ota (otahost);   // TODO user provided host
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart ("Restart command", 0);
    // App commands
