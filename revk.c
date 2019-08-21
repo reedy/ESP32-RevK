@@ -96,7 +96,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
    switch (event->event_id)
    {
    case MQTT_EVENT_CONNECTED:
-      ESP_LOGI (TAG, "MQTT_EVENT_CONNECTED");
+      ESP_LOGD (TAG, "MQTT_EVENT_CONNECTED");
       void sub (const char *prefix)
       {
          char *topic;
@@ -119,26 +119,18 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       esp_wifi_sta_get_ap_info (&ap);
       revk_info (NULL, "Running %s WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", p->label, ap.bssid[0], ap.bssid[1], ap.bssid[2],
                  ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
-      // TODO app command
+      if (app_command)
+         app_command ("connect", strlen (mqtthost), (unsigned char *) mqtthost);
       break;
-      // TODO trim
    case MQTT_EVENT_DISCONNECTED:
-      ESP_LOGI (TAG, "MQTT_EVENT_DISCONNECTED");
-      // TODO app command
-      break;
-   case MQTT_EVENT_SUBSCRIBED:
-      ESP_LOGI (TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-      break;
-   case MQTT_EVENT_UNSUBSCRIBED:
-      ESP_LOGI (TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
-      break;
-   case MQTT_EVENT_PUBLISHED:
-      ESP_LOGI (TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+      ESP_LOGD (TAG, "MQTT_EVENT_DISCONNECTED");
+      if (app_command)
+         app_command ("disconnect", strlen (mqtthost), (unsigned char *) mqtthost);
       break;
    case MQTT_EVENT_DATA:
       {
          const char *e = NULL;
-         ESP_LOGI (TAG, "MQTT_EVENT_DATA");
+         ESP_LOGD (TAG, "MQTT_EVENT_DATA");
          int p;
          for (p = event->topic_len; p && event->topic[p - 1] != '/'; p--);
          char *tag = malloc (event->topic_len + 1 - p);
@@ -161,10 +153,9 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       }
       break;
    case MQTT_EVENT_ERROR:
-      ESP_LOGI (TAG, "MQTT_EVENT_ERROR");
+      ESP_LOGD (TAG, "MQTT_EVENT_ERROR");
       break;
    default:
-      ESP_LOGI (TAG, "Other event id:%d", event->event_id);
       break;
    }
    return ESP_OK;
@@ -185,7 +176,7 @@ revk_task (void *pvParameters)
    strncpy ((char *) wifi_config.sta.password, wifipass, sizeof (wifi_config.sta.password));
    ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_STA));
    ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
-   ESP_LOGI (TAG, "start the WIFI SSID:[%s]", wifissid);
+   ESP_LOGI (TAG, "Start the WIFi SSID:[%s]", wifissid);
    ESP_ERROR_CHECK (esp_wifi_start ());
    xEventGroupWaitBits (wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
    // Start MQTT
@@ -201,7 +192,7 @@ revk_task (void *pvParameters)
             restart_reason = "Unknown";
          revk_status (NULL, "0 %s", restart_reason);
          if (app_command)
-            app_command ("restart", strlen (restart_reason), restart_reason);
+            app_command ("restart", strlen (restart_reason), (unsigned char *) restart_reason);
          esp_mqtt_client_stop (mqtt_client);
          ESP_ERROR_CHECK (nvs_commit (nvs));
          sleep (2);             // Wait for MQTT to close cleanly
@@ -291,9 +282,9 @@ revk_init (app_command_t * app_command_cb)
    };
    if (*mqttcert)
       config.cert_pem = mqttcert;
+   ESP_LOGI (TAG, "Start the MQTT [%s]", mqtthost);
    ESP_LOGI (TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size ());
    mqtt_client = esp_mqtt_client_init (&config);
-   // TODO cert pinning
    // Start task
    xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
 }
@@ -312,7 +303,7 @@ revk_mqtt (const char *prefix, int retain, const char *tag, const char *fmt, va_
       free (topic);
       return;
    }
-   ESP_LOGI (TAG, "MQTT publish %s %s", topic ? : "-", buf);
+   ESP_LOGD (TAG, "MQTT publish %s %s", topic ? : "-", buf);
    esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
    free (buf);
    free (topic);
@@ -376,25 +367,25 @@ ota_handler (esp_http_client_event_t * evt)
    switch (evt->event_id)
    {
    case HTTP_EVENT_ERROR:
-      ESP_LOGI (TAG, "HTTP_EVENT_ERROR");
+      ESP_LOGD (TAG, "HTTP_EVENT_ERROR");
       break;
    case HTTP_EVENT_ON_CONNECTED:
-      ESP_LOGI (TAG, "HTTP_EVENT_ON_CONNECTED");
+      ESP_LOGD (TAG, "HTTP_EVENT_ON_CONNECTED");
       ota_size = 0;
       if (ota_running)
          esp_ota_end (ota_handle);
       ota_running = 0;
       break;
    case HTTP_EVENT_HEADER_SENT:
-      ESP_LOGI (TAG, "HTTP_EVENT_HEADER_SENT");
+      ESP_LOGD (TAG, "HTTP_EVENT_HEADER_SENT");
       break;
    case HTTP_EVENT_ON_HEADER:
-      ESP_LOGI (TAG, "HTTP_HEADER %s: %s", evt->header_key, evt->header_value);
+      ESP_LOGD (TAG, "HTTP_HEADER %s: %s", evt->header_key, evt->header_value);
       if (!strcmp (evt->header_key, "Content-Length"))
          ota_size = atoi (evt->header_value);
       break;
    case HTTP_EVENT_ON_DATA:
-      //ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+      //ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
       if (!ota_running && ota_size && esp_http_client_get_status_code (evt->client) / 100 == 2)
       {                         // Start
          ota_progress = 0;
@@ -425,7 +416,7 @@ ota_handler (esp_http_client_event_t * evt)
       }
       break;
    case HTTP_EVENT_ON_FINISH:
-      ESP_LOGI (TAG, "HTTP_EVENT_ON_FINISH");
+      ESP_LOGD (TAG, "HTTP_EVENT_ON_FINISH");
       if (!ota_running && esp_http_client_get_status_code (evt->client) / 100 > 3)
          revk_error ("Upgrade", "Failed to start %d (%d)", esp_http_client_get_status_code (evt->client), ota_size);
       if (ota_running)
@@ -441,7 +432,7 @@ ota_handler (esp_http_client_event_t * evt)
       ota_running = 0;
       break;
    case HTTP_EVENT_DISCONNECTED:
-      ESP_LOGI (TAG, "HTTP_EVENT_DISCONNECTED");
+      ESP_LOGD (TAG, "HTTP_EVENT_DISCONNECTED");
       break;
    }
    return ESP_OK;
@@ -574,7 +565,7 @@ nvs_set (setting_t * s, void *data)
    }
    if (s->size == 0)
    {
-      ESP_LOGI (TAG, "Written %s=%s", s->name, (char *) data);
+      ESP_LOGD (TAG, "Written %s=%s", s->name, (char *) data);
       return nvs_set_str (nvs, s->name, data);
    }
    if (s->size == -8)
@@ -603,7 +594,7 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
    // TODO boolean
    if (!value)
       value = (unsigned char *) "";
-   ESP_LOGI (TAG, "MQTT setting %s (%d)", tag, len);
+   ESP_LOGD (TAG, "MQTT setting %s (%d)", tag, len);
    // Find setting in registered settings
    setting_t *s;
    for (s = setting; s && strcmp (s->name, tag); s = s->next);
@@ -713,9 +704,9 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
       return "Unable to store";
    }
    if (s->flags & SETTING_BINARY)
-      ESP_LOGI (TAG, "Setting %s changed (%d)", tag, len);
+      ESP_LOGD (TAG, "Setting %s changed (%d)", tag, len);
    else
-      ESP_LOGI (TAG, "Setting %s changed %.*s", tag, len, value);
+      ESP_LOGD (TAG, "Setting %s changed %.*s", tag, len, value);
    // Store changed value
    if (!s->size)
    {                            // Dynamic
@@ -748,7 +739,7 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
 const char *
 revk_command (const char *tag, unsigned int len, const unsigned char *value)
 {
-   ESP_LOGI (TAG, "MQTT command [%s]", tag);
+   ESP_LOGD (TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
    // My commands
    if (!e && !strcmp (tag, "upgrade"))
@@ -796,6 +787,6 @@ revk_register (const char *name, unsigned char array, signed char size, void *da
       if (e && *e)
          ESP_LOGE (TAG, "Setting %s failed %s", s->name, e);
       else
-         ESP_LOGI (TAG, "Setting %s created", s->name);
+         ESP_LOGD (TAG, "Setting %s created", s->name);
    }
 }
