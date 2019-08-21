@@ -354,7 +354,10 @@ const char *
 revk_restart (const char *reason, int delay)
 {                               // Restart cleanly
    restart_reason = reason;
-   restart_time = esp_timer_get_time () + 1000000LL * delay;    // Reboot now
+   if (delay < 0)
+      restart_time = 0;         // Cancelled
+   else
+      restart_time = esp_timer_get_time () + 1000000LL * delay; // Reboot now
    return "";                   // Done
 }
 
