@@ -597,8 +597,8 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
       return "No such setting";
    if (!len && s->defval)
    {
-      len = strlen(s->defval);
-      value = (const unsigned char*)s->defval;
+      len = strlen (s->defval);
+      value = (const unsigned char *) s->defval;
    }
    // Parse new setting
    unsigned char *n = NULL;
