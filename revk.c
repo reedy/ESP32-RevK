@@ -595,6 +595,8 @@ nvs_set (setting_t * s, void *data)
 const char *
 revk_setting (const char *tag, unsigned int len, const unsigned char *value)
 {
+   // TODO array
+   // TODO boolean
    if (!value)
       value = (unsigned char *) "";
    ESP_LOGI (TAG, "MQTT setting %s (%d)", tag, len);
