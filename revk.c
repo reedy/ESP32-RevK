@@ -40,7 +40,7 @@ struct setting_s
 {
    setting_t *next;
    const char *name;
-   int64_t defval;
+   const char *defval;
    void *data;
    signed char size;
    unsigned char array;
@@ -232,7 +232,7 @@ revk_init (app_command_t * app_command_cb)
    ESP_ERROR_CHECK (nvs_open (revk_app, NVS_READWRITE, &nvs));
 #define s(n)	revk_register(#n,0,0,&n,0,SETTING_REBOOT)
 #define f(n,s)	revk_register(#n,0,s,&n,0,SETTING_REBOOT|SETTING_BINARY)
-#define	n(n,d)	revk_register(#n,0,4,&n,d,SETTING_REBOOT)
+#define	n(n,d)	revk_register(#n,0,4,&n,#d,SETTING_REBOOT)
    settings;
 #undef s
 #undef f
@@ -595,6 +595,11 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
    for (s = setting; s && strcmp (s->name, tag); s = s->next);
    if (!s)
       return "No such setting";
+   if (!len && s->defval)
+   {
+      len = strlen(s->defval);
+      value = (const unsigned char*)s->defval;
+   }
    // Parse new setting
    unsigned char *n = NULL;
    int l = 0;
@@ -607,7 +612,8 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
          n = malloc (s->size);
          if (value)
             memcpy (n, value, l = s->size);
-         memset (n, s->defval, s->size);        // Assumed byte
+         else
+            memset (n, 0, s->size);
          l = len;
       } else
       {                         // Dynamic size
@@ -634,14 +640,13 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
          value++;
          neg = 1;
       }
-      if (!len)
-         v = s->defval;
-      else
-         while (len && isdigit (*value))
-         {
-            v = v * 10 + (*value++ - '0');
-            len--;
-         }
+      while (len && isdigit (*value))
+      {
+         v = v * 10 + (*value++ - '0');
+         len--;
+      }
+      if (len)
+         return "Bad number";
       if (s->size > 0 && (s->flags & SETTING_POLARITY))
          v |= (1ULL << (s->size * 8 - 1));      // Set top bit
       else if (s->size < 0 && neg)
@@ -674,6 +679,7 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
       void *d = malloc (l);
       if (nvs_get (s, d, l) < 0)
       {
+         free (n);
          free (d);
          return "Bad setting get";
       }
@@ -682,7 +688,10 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
       free (d);
    }
    if (o >= 0)
+   {
+      free (n);
       return NULL;              // No change
+   }
    // Save in flash
    if (nvs_set (s, n) != ERR_OK && (nvs_erase_key (nvs, s->name) != ERR_OK || nvs_set (s, n) != ERR_OK))
    {
@@ -739,7 +748,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
 }
 
 void
-revk_register (const char *name, unsigned char array, signed char size, void *data, int64_t defval, unsigned char flags)
+revk_register (const char *name, unsigned char array, signed char size, void *data, const char *defval, unsigned char flags)
 {                               // Register setting (not expected to be thread safe, should be called from init)
    setting_t *s = malloc (sizeof (*s));
    s->name = name;
