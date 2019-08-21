@@ -197,7 +197,11 @@ revk_task (void *pvParameters)
       int64_t now = esp_timer_get_time ();
       if (restart_time && restart_time < now)
       {                         // Restart
+         if (!restart_reason)
+            restart_reason = "Unknown";
          revk_status (NULL, "0 %s", restart_reason);
+         if (app_command)
+            app_command ("restart", strlen (restart_reason), restart_reason);
          esp_mqtt_client_stop (mqtt_client);
          ESP_ERROR_CHECK (nvs_commit (nvs));
          sleep (2);             // Wait for MQTT to close cleanly
