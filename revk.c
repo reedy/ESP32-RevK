@@ -397,13 +397,18 @@ ota_handler (esp_http_client_event_t * evt)
          if (!ota_partition)
             ota_partition = esp_ota_get_running_partition ();
          ota_partition = esp_ota_get_next_update_partition (ota_partition);
-         esp_err_t err = esp_ota_begin (ota_partition, ota_size, &ota_handle);
-         if (err != ERR_OK)
-            revk_error ("upgrade", "Error %s", esp_err_to_name (err));
+         if (!ota_partition)
+            revk_error ("upgrade", "No OTA parition available");        // TODO if running in OTA, boot to factory to allow OTA
          else
          {
-            revk_info ("upgrade", "Loading %d", ota_size);
-            ota_running = 1;
+            esp_err_t err = esp_ota_begin (ota_partition, ota_size, &ota_handle);
+            if (err != ERR_OK)
+               revk_error ("upgrade", "Error %s", esp_err_to_name (err));
+            else
+            {
+               revk_info ("upgrade", "Loading %d", ota_size);
+               ota_running = 1;
+            }
          }
       }
       if (ota_running)
