@@ -225,7 +225,7 @@ revk_init (app_command_t * app_command_cb)
    }
    // TODO secure NVS option
    nvs_flash_init ();
-   ESP_ERROR_CHECK (nvs_open (revk_app, NVS_READWRITE, &nvs));
+   ESP_ERROR_CHECK (nvs_open (revk_app, NVS_READWRITE, &nvs));  // TODO should we open/close on use?
 #define s(n)	revk_register(#n,0,0,&n,0,0)
 #define f(n,s)	revk_register(#n,0,s,&n,0,SETTING_BINARY)
 #define	n(n,d)	revk_register(#n,0,4,&n,#d,0)
@@ -603,11 +603,11 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    }
    if (!value)
       value = (const unsigned char *) "";
-   char tag[16];
+   char tag[16];                // Max NVS name size
    if (snprintf (tag, sizeof (tag), s->array ? "%s%u" : "%s", s->name, index ? : 1) >= sizeof (tag))
       return "Setting name too long";
    ESP_LOGD (TAG, "MQTT setting %s (%d)", tag, len);
-   char erase = 0;
+   char erase = 0;              // Using default, so remove from flash (as defaults may change later, don't store the default in flash)
    if (!len && s->defval && !(flags & SETTING_BITFIELD))
    {                            // Use default value
       len = strlen (s->defval);
@@ -766,17 +766,16 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
             *((int8_t *) (n = malloc (l = 1))) = v;
       }
    }
-
    if (!n)
       return "Bad setting type";
    // See if setting has changed
    int o = nvs_get (s, tag, NULL, 0);
    if (o != l)
-      o = -1;                   // Different size
+        o = -1;                 // Different size
    if (o > 0)
    {
       void *d = malloc (l);
-      if (nvs_get (s, tag, d, l) < 0)
+      if (nvs_get (s, tag, d, l) != o)
       {
          free (n);
          free (d);
@@ -786,54 +785,39 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          o = -1;                // Different content
       free (d);
    }
-   if (o >= 0)
-   {
-      free (n);
-      return NULL;              // No change
+   if (o < 0)
+   {                            // Flash changed
+      if (erase)
+         nvs_erase_key (nvs, tag);
+      else if (nvs_set (s, tag, n) != ERR_OK && (nvs_erase_key (nvs, tag) != ERR_OK || nvs_set (s, tag, n) != ERR_OK))
+      {
+         free (n);
+         return "Unable to store";
+      }
+      if (flags & SETTING_BINARY)
+         ESP_LOGD (TAG, "Setting %s changed (%d)", tag, len);
+      else
+         ESP_LOGD (TAG, "Setting %s changed %.*s", tag, len, value);
+      nvs_time = esp_timer_get_time () + 60000000;
    }
-   // Save in flash
-   if (erase)
-      nvs_erase_key (nvs, tag);
-   else if (nvs_set (s, tag, n) != ERR_OK && (nvs_erase_key (nvs, tag) != ERR_OK || nvs_set (s, tag, n) != ERR_OK))
-   {
-      free (n);
-      return "Unable to store";
-   }
-   if (flags & SETTING_BINARY)
-      ESP_LOGD (TAG, "Setting %s changed (%d)", tag, len);
-   else
-      ESP_LOGD (TAG, "Setting %s changed %.*s", tag, len, value);
    if (flags & SETTING_LIVE)
-   {
-      // Store changed value
+   {                            // Store changed value in memory live
       void *data = s->data;
       if (s->array && index > 1 && !(flags & SETTING_BOOLEAN))
          data += (s->size ? : sizeof (void *)) * (index - 1);
       if (!s->size)
       {                         // Dynamic
          void *o = *((void **) data);
-         if (l == 1 && !*n)
-         {                      // Empty string/data
-            free (n);
-            *((void **) data) = "";
-            if (s->flags & SETTING_MALLOC)
-               free (o);
-            s->flags &= ~SETTING_MALLOC;
-         } else
-         {
-            *((void **) data) = n;
-            if (s->flags & SETTING_MALLOC)
-               free (o);
-            s->flags |= SETTING_MALLOC;
-         }
+         *((void **) data) = n;
+         if (o)
+            free (o);
       } else
       {                         // Static
          memcpy (data, n, l);
          free (n);
       }
-   } else
+   } else if (o < 0)
       revk_restart ("Settings changed", 5);
-   nvs_time = esp_timer_get_time () + 60000000;
    return NULL;                 // OK
 }
 
@@ -904,7 +888,11 @@ revk_register (const char *name, unsigned char array, unsigned char size, void *
       ESP_LOGE (TAG, "%s missing size on bitfield", name);
    else if (flags & SETTING_BITFIELD && strlen (defval) > 8 * size)
       ESP_LOGE (TAG, "%s too small for bitfield", name);
-   setting_t *s = malloc (sizeof (*s));
+   setting_t *s;
+   for (s = setting; s && strcmp (s->name, name); s = s->next);
+   if (s)
+      ESP_LOGE (TAG, "%s duplicate", name);
+   s = malloc (sizeof (*s));
    s->name = name;
    s->array = array;
    s->size = size;
@@ -913,6 +901,7 @@ revk_register (const char *name, unsigned char array, unsigned char size, void *
    s->defval = defval;
    s->next = setting;
    setting = s;
+   memset (data, 0, (size ? : sizeof (void *)) * (!(flags & SETTING_BOOLEAN) && array ? array : 1));    // Initialise memory
    // Get value
    int get_val (const char *tag, int index)
    {
@@ -928,10 +917,10 @@ revk_register (const char *name, unsigned char array, unsigned char size, void *
          {                      // 1 byte means zero len or zero terminated so use default
             d = malloc (l);
             l = nvs_get (s, tag, d, l);
-            if (l >= 0)
+            if (l > 0)
                *((void **) data) = d;
             else
-               free (d);
+               free (d);        // Should not happen
          } else
             l = -1;             // default
       } else
@@ -940,29 +929,27 @@ revk_register (const char *name, unsigned char array, unsigned char size, void *
    }
    const char *e;
    if (array)
-   {
+   {                            // Work through tags
       int i;
       for (i = 1; i <= array; i++)
       {
-         char tag[16];
+         char tag[16];          // NVS tag size
          if (snprintf (tag, sizeof (tag), "%s%u", s->name, i) < sizeof (tag) && get_val (tag, i) < 0)
          {
             e = revk_setting_internal (s, 0, NULL, i, SETTING_LIVE);    // Defaulting logic
             if (e && *e)
-               ESP_LOGE (TAG, "Setting %s failed %s", s->name, e);
+               ESP_LOGE (TAG, "Setting %s failed %s", tag, e);
             else
-               ESP_LOGD (TAG, "Setting %s created", s->name);
+               ESP_LOGD (TAG, "Setting %s created", tag);
          }
       }
-   } else
+   } else                       // Simple setting, not array
+   if (get_val (s->name, 0) < 0)
    {
-      if (get_val (s->name, 0) < 0)
-      {
-         e = revk_setting_internal (s, 0, NULL, 0, SETTING_LIVE);       // Defaulting logic
-         if (e && *e)
-            ESP_LOGE (TAG, "Setting %s failed %s", s->name, e);
-         else
-            ESP_LOGD (TAG, "Setting %s created", s->name);
-      }
+      e = revk_setting_internal (s, 0, NULL, 0, SETTING_LIVE);  // Defaulting logic
+      if (e && *e)
+         ESP_LOGE (TAG, "Setting %s failed %s", s->name, e);
+      else
+         ESP_LOGD (TAG, "Setting %s created", s->name);
    }
 }

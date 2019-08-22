@@ -49,7 +49,6 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
 #define	SETTING_BOOLEAN		8       // Boolean value (array sets bits)
 #define	SETTING_BITFIELD	16      // Numeric value has bit field prefix (from defval string)
 #define	SETTING_HEX		32      // Source string is hex coded
-#define	SETTING_MALLOC		128     // Internally used - marks if current dynamic setting is malloc'd and so needs freeing if changed
 
 // MQTT reporting
 void revk_status (const char *tag, const char *fmt, ...);       // Send status
