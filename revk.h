@@ -39,15 +39,16 @@ void revk_init (app_command_t * app_command);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
 void revk_register (const char *name,   // Setting name (note max 15 characters inc any number suffix)
                     unsigned char array,        // If non zero then settings are suffixed numerically 1 to array
-                    signed char size,   // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
+                    unsigned char size, // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
                     void *data, // The setting itself (for string this points to a char* pointer)
                     const char *defval, // default value (default for each byte for BINARY fixed size)
                     unsigned char flags);       // Setting flags
-#define	SETTING_REBOOT		1       // Reboot after changing setting (after a short delay to allow multiple settings)
-#define	SETTING_BINARY		2       // Binary data, size (if non 0) is exact size of data expected at memory pointed to by data/
-                                        // If size is 0 this is a string, malloced and stored at pointer at data, with first byte being length of binary data
-#define	SETTING_POLARITY	4       // A leading "-" causes top bit set (so only makes sense with unsigned values)
-#define	SETTING_BOOLEAN		8       // Boolean value (array sets bits in value)
+#define	SETTING_LIVE		1       // Setting update live (else reboots shortly after any change)
+#define	SETTING_BINARY		2       // Binary block rather than numeric
+#define	SETTING_SIGNED		4       // Numeric is signed
+#define	SETTING_BOOLEAN		8       // Boolean value (array sets bits)
+#define	SETTING_BITFIELD	16      // Numeric value has bit field prefix (from defval string)
+#define	SETTING_HEX		32      // Source string is hex coded
 #define	SETTING_MALLOC		128     // Internally used - marks if current dynamic setting is malloc'd and so needs freeing if changed
 
 // MQTT reporting
