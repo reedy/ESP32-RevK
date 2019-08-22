@@ -36,6 +36,8 @@ settings
 #undef f
 #undef n
 #undef p
+char *test[2];                  // TODO debug
+
 // Local types
 typedef struct setting_s setting_t;
 struct setting_s
@@ -119,8 +121,8 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info (&ap);
-      revk_info (NULL, "Running %s WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", p->label, ap.bssid[0], ap.bssid[1], ap.bssid[2],
-                 ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
+      revk_info (NULL, "Running %s WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d mem=%d", p->label, ap.bssid[0], ap.bssid[1],
+                 ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary, esp_get_free_heap_size ());
       if (app_command)
          app_command ("connect", strlen (mqtthost), (unsigned char *) mqtthost);
       break;
@@ -206,6 +208,7 @@ revk_task (void *pvParameters)
          ESP_ERROR_CHECK (nvs_commit (nvs));
          nvs_time = 0;
       }
+      revk_info ("test", "[%s] [%s]", test[0], test[1]);        // TODO debug
    }
 }
 
@@ -235,6 +238,7 @@ revk_init (app_command_t * app_command_cb)
 #undef f
 #undef n
 #undef p
+   revk_register ("test", 2, 0, &test, "hello", SETTING_LIVE);  // TODO debug
    // some default settings
    otahost = "ota.revk.uk";
    if (!*mqtthost)
@@ -277,7 +281,6 @@ revk_init (app_command_t * app_command_cb)
    if (*mqttpass)
       config.password = mqttpass;
    ESP_LOGI (TAG, "Start the MQTT [%s]", mqtthost);
-   ESP_LOGI (TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size ());
    mqtt_client = esp_mqtt_client_init (&config);
    // Start task
    xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
@@ -379,34 +382,42 @@ ota_handler (esp_http_client_event_t * evt)
          ota_size = atoi (evt->header_value);
       break;
    case HTTP_EVENT_ON_DATA:
-      //ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
-      if (!ota_running && ota_size && esp_http_client_get_status_code (evt->client) / 100 == 2)
-      {                         // Start
-         ota_progress = 0;
-         if (!ota_partition)
-            ota_partition = esp_ota_get_running_partition ();
-         ota_partition = esp_ota_get_next_update_partition (ota_partition);
-         if (!ota_partition)
-            revk_error ("upgrade", "No OTA parition available");        // TODO if running in OTA, boot to factory to allow OTA
-         else
-         {
-            esp_err_t err = esp_ota_begin (ota_partition, ota_size, &ota_handle);
-            if (err != ERR_OK)
-               revk_error ("upgrade", "Error %s", esp_err_to_name (err));
+      {
+         //ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+         int64_t now = esp_timer_get_time ();
+         static int64_t next = 0;
+         if (!ota_running && ota_size && esp_http_client_get_status_code (evt->client) / 100 == 2)
+         {                      // Start
+            ota_progress = 0;
+            if (!ota_partition)
+               ota_partition = esp_ota_get_running_partition ();
+            ota_partition = esp_ota_get_next_update_partition (ota_partition);
+            if (!ota_partition)
+               revk_error ("upgrade", "No OTA parition available");     // TODO if running in OTA, boot to factory to allow OTA
             else
             {
-               revk_info ("upgrade", "Loading %d", ota_size);
-               ota_running = 1;
+               esp_err_t err = esp_ota_begin (ota_partition, ota_size, &ota_handle);
+               if (err != ERR_OK)
+                  revk_error ("upgrade", "Error %s", esp_err_to_name (err));
+               else
+               {
+                  revk_info ("upgrade", "Loading %d", ota_size);
+                  ota_running = 1;
+                  next = now + 1000000;
+               }
             }
          }
-      }
-      if (ota_running)
-      {
-         esp_ota_write (ota_handle, evt->data, evt->data_len);
-         ota_running += evt->data_len;
-         int percent = ota_running * 100 / ota_size;
-         if (percent / 10 != ota_progress / 10)
-            revk_info ("upgrade", "%3d%%", ota_progress = percent);
+         if (ota_running)
+         {
+            esp_ota_write (ota_handle, evt->data, evt->data_len);
+            ota_running += evt->data_len;
+            int percent = ota_running * 100 / ota_size;
+            if (percent != ota_progress && next > now)
+            {
+               revk_info ("upgrade", "%3d%%", ota_progress = percent);
+               next = now + 1000000;
+            }
+         }
       }
       break;
    case HTTP_EVENT_ON_FINISH:
@@ -771,7 +782,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    // See if setting has changed
    int o = nvs_get (s, tag, NULL, 0);
    if (o != l)
-        o = -1;                 // Different size
+      o = -1;                   // Different size
    if (o > 0)
    {
       void *d = malloc (l);
