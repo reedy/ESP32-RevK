@@ -715,6 +715,12 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          char neg = 0;
          int bits = s->size * 8;
          uint64_t bitfield = 0;
+         if (flags & SETTING_SET)
+         {                      // Set top bit if a value is present
+            bits--;
+            if (len)
+               bitfield |= (1ULL << bits);
+         }
          if (flags & SETTING_BITFIELD && s->defval)
          {                      // Bit fields
             while (len)

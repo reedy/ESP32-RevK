@@ -49,6 +49,7 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
 #define	SETTING_BOOLEAN		8       // Boolean value (array sets bits)
 #define	SETTING_BITFIELD	16      // Numeric value has bit field prefix (from defval string)
 #define	SETTING_HEX		32      // Source string is hex coded
+#define	SETTING_SET		64	// Set top bit of numeric if a value is present at all
 
 // MQTT reporting
 void revk_status (const char *tag, const char *fmt, ...);       // Send status
