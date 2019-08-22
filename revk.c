@@ -138,16 +138,21 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
          char *tag = malloc (event->topic_len + 1 - p);
          memcpy (tag, event->topic + p, event->topic_len - p);
          tag[event->topic_len - p] = 0;
+         char *value = malloc (event->data_len + 1);
+         if (event->data_len)
+            memcpy (value, event->data, event->data_len);
+         value[event->data_len] = 0;    // Safe
          for (p = 0; p < event->topic_len && event->topic[p] != '/'; p++);
          if (p == 7 && !memcmp (event->topic, prefixcommand, p))
-            e = revk_command (tag, event->data_len, (const unsigned char *) event->data);
+            e = revk_command (tag, event->data_len, (const unsigned char *) value);
          else if (p == 7 && !memcmp (event->topic, "setting", p))       // TODo configurable
-            e = (revk_setting (tag, event->data_len, (const unsigned char *) event->data) ? : "");      // Returns NULL if OK
+            e = (revk_setting (tag, event->data_len, (const unsigned char *) value) ? : "");    // Returns NULL if OK
          else
             e = "";
          if (!e || *e)
-            revk_error (tag, "Failed %s (%.*s)", e ? : "Unknown", event->data_len, event->data);
+            revk_error (tag, "Failed %s", e ? : "Unknown");
          free (tag);
+         free (value);
       }
       break;
    case MQTT_EVENT_ERROR:
@@ -418,7 +423,7 @@ ota_handler (esp_http_client_event_t * evt)
             {
                ota_running += evt->data_len;
                int percent = ota_running * 100 / ota_size;
-               if (percent != ota_progress && next < now)
+               if (percent != ota_progress && (percent == 100 || next < now))
                {
                   revk_info ("upgrade", "%3d%%", ota_progress = percent);
                   next = now + 1000000;
@@ -615,7 +620,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    {
       if (index > s->array)
          return "Bad index";
-      if (index > 1 && !(flags & SETTING_BOOLEAN))
+      if (s->array && index > 1 && !(flags & SETTING_BOOLEAN))
          data += (index - 1) * (s->size ? : sizeof (void *));
    }
    if (!value)
@@ -703,12 +708,26 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       uint64_t v = 0;
       if (flags & SETTING_BOOLEAN)
       {                         // Boolean
+         if (s->size == 1)
+            v = *(uint8_t *) data;
+         else if (s->size == 2)
+            v = *(uint16_t *) data;
+         else if (s->size == 4)
+            v = *(uint32_t *) data;
+         else if (s->size == 8)
+            v = *(uint64_t *) data;
          if (len && strchr ("YytT1", *value))
          {
             if (s->array && index)
-               v |= (1 << (index - 1));
+               v |= (1ULL << (index - 1));
             else
                v |= 1;
+         } else
+         {
+            if (s->array && index)
+               v &= ~(1ULL << (index - 1));
+            else
+               v &= ~1;
          }
       } else
       {
@@ -760,9 +779,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
                v = n;
                value++;
                len--;
-            }
-
-         else
+         } else
             while (len && isdigit (*value))
             {
                uint64_t n = v * 10 + (*value++ - '0');
@@ -802,7 +819,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          else if (s->size == 4)
             *((int32_t *) (n = malloc (l = 4))) = v;
          else if (s->size == 2)
-            *((int32_t *) (n = malloc (l = 2))) = v;
+            *((int16_t *) (n = malloc (l = 2))) = v;
          else if (s->size == 1)
             *((int8_t *) (n = malloc (l = 1))) = v;
       }
@@ -846,12 +863,26 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       if (!s->size)
       {                         // Dynamic
          void *o = *((void **) data);
-         *((void **) data) = n;
-         if (o)
-            free (o);
+         // See if different?
+         if (!o || ((flags & SETTING_BINARY) ? memcmp (o, n, 1 + *(uint8_t *) o) : strcmp (o, (char *) n)))
+         {
+            *((void **) data) = n;
+            if (o)
+               free (o);
+         } else
+            free (n);           // No change
       } else
-      {                         // Static
-         memcpy (data, n, s->size);
+      {                         // Static (try and make update atomic)
+         if (s->size == 1)
+            *(uint8_t *) data = *(uint8_t *) n;
+         else if (s->size == 2)
+            *(uint16_t *) data = *(uint16_t *) n;
+         else if (s->size == 4)
+            *(uint32_t *) data = *(uint32_t *) n;
+         else if (s->size == 8)
+            *(uint64_t *) data = *(uint64_t *) n;
+         else
+            memcpy (data, n, s->size);
          free (n);
       }
    } else if (o < 0)
@@ -908,9 +939,22 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
    const char *e = NULL;
    // My commands
    if (!e && !strcmp (tag, "upgrade"))
-      e = revk_ota (otahost);
+   {
+      if (!strncasecmp ((char *) value, "http://", 7) || !strncasecmp ((char *) value, "https://", 8))
+         e = revk_ota ((char *) value);
+      else
+         e = revk_ota (otahost);
+   }
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart ("Restart command", 0);
+   if (!e && !strcmp (tag, "factory") && len == strlen (revk_id) + strlen (revk_app)
+       && !strncmp ((char *) value, revk_id, strlen (revk_id)) && !strcmp ((char *) value + strlen (revk_id), revk_app))
+   {
+      setting_t *s;
+      for (s = setting; s; s = s->next)
+         nvs_erase_key (nvs, s->name);
+      revk_restart ("Factory reset", 0);
+   }
    // App commands
    if (!e && app_command)
       e = app_command (tag, len, value);
@@ -926,6 +970,7 @@ revk_register (const char *name, unsigned char array, unsigned char size, void *
       ESP_LOGE (TAG, "%s missing size on bitfield", name);
    else if (flags & SETTING_BITFIELD && strlen (defval) > 8 * size)
       ESP_LOGE (TAG, "%s too small for bitfield", name);
+   // TODO other checks, maybe as asserts
    setting_t *s;
    for (s = setting; s && strcmp (s->name, name); s = s->next);
    if (s)
