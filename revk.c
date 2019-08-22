@@ -36,8 +36,6 @@ settings
 #undef f
 #undef n
 #undef p
-   uint64_t test[2];            // TODO debug
-
 // Local types
 typedef struct setting_s setting_t;
 struct setting_s
@@ -204,7 +202,6 @@ revk_task (void *pvParameters)
          ESP_ERROR_CHECK (nvs_commit (nvs));
          nvs_time = 0;
       }
-      revk_info ("test", "[%llu] [%llu]", test[0], test[1]);    // TODO debug
    }
 }
 
@@ -234,7 +231,6 @@ revk_init (app_command_t * app_command_cb)
 #undef f
 #undef n
 #undef p
-   revk_register ("test", 2, sizeof (test[0]), &test, NULL, SETTING_LIVE);      // TODO debug
    // some default settings
    otahost = "ota.revk.uk";
    if (!*mqtthost)
@@ -402,6 +398,7 @@ ota_handler (esp_http_client_event_t * evt)
                {
                   revk_error ("upgrade", "Error %s", esp_err_to_name (err));
                   ota_size = 0;
+                  ota_partition = NULL;
                } else
                {
                   revk_info ("upgrade", "Loading %d", ota_size);
@@ -618,7 +615,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    {
       if (index > s->array)
          return "Bad index";
-      if (index > 1 && !(flags & SETTING_BINARY))
+      if (index > 1 && !(flags & SETTING_BOOLEAN))
          data += (index - 1) * (s->size ? : sizeof (void *));
    }
    if (!value)
@@ -653,8 +650,6 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
             p++;                // Separator
          l++;
       }
-      if (s->size && l && l != s->size)
-         return "Wrong size";
    } else
       l = len;
    if (flags & SETTING_BINARY)
@@ -667,28 +662,35 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          o = n = malloc (l + 1);        // One byte for length
          *o++ = l;
          l++;
-      } else
+      } else if (l && l != s->size)
+         return "Wrong size";
+      else
+      {
          o = n = malloc (s->size);
-      if (!l)
-         memset (n, 0, l);      // Default
-      else if (flags & SETTING_HEX)
-      {                         // hex
-         int p = 0;
-         while (p < len)
-         {                      // store hex length
-            int v = (isalpha (value[p]) ? 9 : 0) + (value[p] & 15);
-            p++;
-            if (p < len && isxdigit (value[p]))
-            {
-               int v = v * 16 + (isalpha (value[p]) ? 9 : 0) + (value[p] & 15);
-               p++;             // Second hex digit in byte
+         if (!l)
+            memset (n, 0, s->size);     // Default
+      }
+      if (l)
+      {
+         if (flags & SETTING_HEX)
+         {                      // hex
+            int p = 0;
+            while (p < len)
+            {                   // store hex length
+               int v = (isalpha (value[p]) ? 9 : 0) + (value[p] & 15);
+               p++;
+               if (p < len && isxdigit (value[p]))
+               {
+                  v = v * 16 + (isalpha (value[p]) ? 9 : 0) + (value[p] & 15);
+                  p++;          // Second hex digit in byte
+               }
+               *o++ = v;
+               if (p < len && !isalnum (value[p]))
+                  p++;          // Separator
             }
-            *o++ = v;
-            if (p < len && !isalnum (value[p]))
-               p++;             // Separator
-         }
-      } else
-         memcpy (o, value, len);        // Binary
+         } else
+            memcpy (o, value, len);     // Binary
+      }
    } else if (!s->size)
    {                            // String
       n = malloc (len + 1);     // One byte for null termination
@@ -712,6 +714,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       {
          char neg = 0;
          int bits = s->size * 8;
+         uint64_t bitfield = 0;
          if (flags & SETTING_BITFIELD && s->defval)
          {                      // Bit fields
             while (len)
@@ -719,7 +722,10 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
                char *c = strchr (s->defval, *value);
                if (!c)
                   break;
-               v |= (1ULL << (bits - 1 - (c - s->defval)));
+               uint64_t m = (1ULL << (bits - 1 - (c - s->defval)));
+               if (bitfield & m)
+                  break;
+               bitfield |= m;
                len--;
                value++;
             }
@@ -742,9 +748,10 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          if (flags & SETTING_HEX)
             while (len && isxdigit (*value))
             {                   // Hex
-               if (v * 16 + 15 < v)
+               uint64_t n = v * 16 + (isalpha (*value) ? 9 : 0) + (*value & 15);
+               if (n < v)
                   return "Silly number";
-               v = v * 16 + (isalpha (*value) ? 9 : 0) + (*value & 15);
+               v = n;
                value++;
                len--;
             }
@@ -752,22 +759,25 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          else
             while (len && isdigit (*value))
             {
-               if (v * 10 + 9 < v)
+               uint64_t n = v * 10 + (*value++ - '0');
+               if (n < v)
                   return "Silly number";
-               v = v * 10 + (*value++ - '0');
+               v = n;
                len--;
             }
          if (len)
             return "Bad number";
-         if ((v - ((v && (flags & SETTING_SIGNED)) ? 1 : 0)) >> bits)
-         {
-            revk_info ("parse", "v=%llu, bits=%d, shift=%llu -1>>1=%llu,-1>>31=%llu, -1>>32=%llu, -1>>63=%llu -1>>64=%llu", v, bits,
-                       (v - ((v && (flags & SETTING_SIGNED)) ? 1 : 0)) >> bits, -1LL >> 1, -1LL >> 31, -1LL >> 32, -1LL >> 63,
-                       -1LL >> 64);
+         if (flags & SETTING_SIGNED)
+            bits--;
+         if (bits < 0 || (bits < 64 && ((v - (v && neg ? 1 : 0)) >> bits)))
             return "Number too big";
-         }
          if (neg)
             v = -v;
+         if (flags & SETTING_SIGNED)
+            bits++;
+         if (bits < 64)
+            v &= (1ULL << bits) - 1;
+         v |= bitfield;
       }
       if (flags & SETTING_SIGNED)
       {
@@ -827,9 +837,6 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    }
    if (flags & SETTING_LIVE)
    {                            // Store changed value in memory live
-      void *data = s->data;
-      if (s->array && index > 1 && !(flags & SETTING_BOOLEAN))
-         data += (s->size ? : sizeof (void *)) * (index - 1);
       if (!s->size)
       {                         // Dynamic
          void *o = *((void **) data);
@@ -838,7 +845,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
             free (o);
       } else
       {                         // Static
-         memcpy (data, n, l);
+         memcpy (data, n, s->size);
          free (n);
       }
    } else if (o < 0)
