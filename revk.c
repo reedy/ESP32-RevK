@@ -36,7 +36,7 @@ settings
 #undef f
 #undef n
 #undef p
-char *test[2];                  // TODO debug
+   uint64_t test[2];            // TODO debug
 
 // Local types
 typedef struct setting_s setting_t;
@@ -141,9 +141,6 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
          memcpy (tag, event->topic + p, event->topic_len - p);
          tag[event->topic_len - p] = 0;
          for (p = 0; p < event->topic_len && event->topic[p] != '/'; p++);
-         char *value = malloc (event->data_len + 1);
-         memcpy (value, event->data, event->data_len + 1);
-         value[event->data_len] = 0;
          if (p == 7 && !memcmp (event->topic, prefixcommand, p))
             e = revk_command (tag, event->data_len, (const unsigned char *) event->data);
          else if (p == 7 && !memcmp (event->topic, "setting", p))       // TODo configurable
@@ -153,7 +150,6 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
          if (!e || *e)
             revk_error (tag, "Failed %s (%.*s)", e ? : "Unknown", event->data_len, event->data);
          free (tag);
-         free (value);
       }
       break;
    case MQTT_EVENT_ERROR:
@@ -208,7 +204,7 @@ revk_task (void *pvParameters)
          ESP_ERROR_CHECK (nvs_commit (nvs));
          nvs_time = 0;
       }
-      revk_info ("test", "[%s] [%s]", test[0], test[1]);        // TODO debug
+      revk_info ("test", "[%llu] [%llu]", test[0], test[1]);    // TODO debug
    }
 }
 
@@ -238,7 +234,7 @@ revk_init (app_command_t * app_command_cb)
 #undef f
 #undef n
 #undef p
-   revk_register ("test", 2, 0, &test, "hello", SETTING_LIVE);  // TODO debug
+   revk_register ("test", 2, sizeof (test[0]), &test, NULL, SETTING_LIVE);      // TODO debug
    // some default settings
    otahost = "ota.revk.uk";
    if (!*mqtthost)
@@ -382,24 +378,31 @@ ota_handler (esp_http_client_event_t * evt)
          ota_size = atoi (evt->header_value);
       break;
    case HTTP_EVENT_ON_DATA:
+      if (ota_size)
       {
          //ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
          int64_t now = esp_timer_get_time ();
          static int64_t next = 0;
-         if (!ota_running && ota_size && esp_http_client_get_status_code (evt->client) / 100 == 2)
+         if (esp_http_client_get_status_code (evt->client) / 100 != 2)
+            ota_size = 0;       // Failed
+         if (!ota_running && ota_size)
          {                      // Start
             ota_progress = 0;
             if (!ota_partition)
                ota_partition = esp_ota_get_running_partition ();
             ota_partition = esp_ota_get_next_update_partition (ota_partition);
             if (!ota_partition)
+            {
                revk_error ("upgrade", "No OTA parition available");     // TODO if running in OTA, boot to factory to allow OTA
-            else
+               ota_size = 0;
+            } else
             {
                esp_err_t err = esp_ota_begin (ota_partition, ota_size, &ota_handle);
                if (err != ERR_OK)
+               {
                   revk_error ("upgrade", "Error %s", esp_err_to_name (err));
-               else
+                  ota_size = 0;
+               } else
                {
                   revk_info ("upgrade", "Loading %d", ota_size);
                   ota_running = 1;
@@ -407,15 +410,22 @@ ota_handler (esp_http_client_event_t * evt)
                }
             }
          }
-         if (ota_running)
+         if (ota_running && ota_size)
          {
-            esp_ota_write (ota_handle, evt->data, evt->data_len);
-            ota_running += evt->data_len;
-            int percent = ota_running * 100 / ota_size;
-            if (percent != ota_progress && next > now)
+            esp_err_t err = esp_ota_write (ota_handle, evt->data, evt->data_len);
+            if (err != ERR_OK)
             {
-               revk_info ("upgrade", "%3d%%", ota_progress = percent);
-               next = now + 1000000;
+               revk_error ("upgrade", "Error %s", esp_err_to_name (err));
+               ota_size = 0;
+            } else
+            {
+               ota_running += evt->data_len;
+               int percent = ota_running * 100 / ota_size;
+               if (percent != ota_progress && next < now)
+               {
+                  revk_info ("upgrade", "%3d%%", ota_progress = percent);
+                  next = now + 1000000;
+               }
             }
          }
       }
@@ -431,6 +441,7 @@ ota_handler (esp_http_client_event_t * evt)
          {
             revk_info ("upgrade", "Updated %s %d", ota_partition->label, ota_running - 1);
             esp_ota_set_boot_partition (ota_partition);
+            revk_restart ("OTA", 0);
          } else
             revk_error ("upgrade", "Error %s", esp_err_to_name (err));
       }
@@ -472,8 +483,6 @@ ota_task (void *pvParameters)
       revk_error ("upgrade", "Error %s", esp_err_to_name (err));
    else if (status / 100 != 2)
       revk_error ("upgrade", "Failed %d", status);
-   else
-      revk_restart ("OTA", 0);
    ota_task_id = NULL;
    vTaskDelete (NULL);
 }
@@ -619,7 +628,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       return "Setting name too long";
    ESP_LOGD (TAG, "MQTT setting %s (%d)", tag, len);
    char erase = 0;              // Using default, so remove from flash (as defaults may change later, don't store the default in flash)
-   if (!len && s->defval && !(flags & SETTING_BITFIELD))
+   if (!len && s->defval && !(flags & SETTING_BITFIELD) && index <= 1)
    {                            // Use default value
       len = strlen (s->defval);
       value = (const unsigned char *) s->defval;
@@ -630,26 +639,26 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    // Parse new setting
    unsigned char *n = NULL;
    int l = 0;
+   if (flags & SETTING_HEX)
+   {                            // Count length
+      int p = 0;
+      while (p < len)
+      {                         // get hex length
+         if (!isxdigit (value[p]))
+            break;
+         p++;
+         if (p < len && isxdigit (value[p]))
+            p++;                // Second hex digit in byte
+         if (p < len && !isalnum (value[p]))
+            p++;                // Separator
+         l++;
+      }
+      if (s->size && l && l != s->size)
+         return "Wrong size";
+   } else
+      l = len;
    if (flags & SETTING_BINARY)
    {                            // Blob
-      if (flags & SETTING_HEX)
-      {                         // Count length
-         int p = 0;
-         while (p < len)
-         {                      // get hex length
-            if (!isxdigit (value[p]))
-               break;
-            p++;
-            if (p < len && isxdigit (value[p]))
-               p++;             // Second hex digit in byte
-            if (p < len && !isalnum (value[p]))
-               p++;             // Separator
-            l++;
-         }
-         if (s->size && l && l != s->size)
-            return "Wrong size";
-      } else
-         l = len;
       unsigned char *o;
       if (!s->size)
       {                         // Dynamic
@@ -710,7 +719,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
                char *c = strchr (s->defval, *value);
                if (!c)
                   break;
-               v |= (1 << (bits - 1 - (c - s->defval)));
+               v |= (1ULL << (bits - 1 - (c - s->defval)));
                len--;
                value++;
             }
@@ -751,7 +760,12 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          if (len)
             return "Bad number";
          if ((v - ((v && (flags & SETTING_SIGNED)) ? 1 : 0)) >> bits)
+         {
+            revk_info ("parse", "v=%llu, bits=%d, shift=%llu -1>>1=%llu,-1>>31=%llu, -1>>32=%llu, -1>>63=%llu -1>>64=%llu", v, bits,
+                       (v - ((v && (flags & SETTING_SIGNED)) ? 1 : 0)) >> bits, -1LL >> 1, -1LL >> 31, -1LL >> 32, -1LL >> 63,
+                       -1LL >> 64);
             return "Number too big";
+         }
          if (neg)
             v = -v;
       }
@@ -859,11 +873,11 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
          return 2;              // not array, and more characters, no match
       int v = 0;
       while (isdigit ((int) (*b)))
-         v = v * 10 + *b++;
+         v = v * 10 + (*b++) - '0';
       if (*b)
          return 3;              // More on end after any digits, no match
-      if (v > s->array)
-         return 4;              // Too big, no match
+      if (!v || v > s->array)
+         return 4;              // Invalid index, no match
       index = v;
       return 0;                 // Match, index
    }
