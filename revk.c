@@ -477,7 +477,7 @@ revk_ota (const char *host)
 }
 
 static int
-nvs_get (setting_t * s, const char *tag,void *data, size_t len)
+nvs_get (setting_t * s, const char *tag, void *data, size_t len)
 {                               // Low level get logic, returns <0 if error. Calls the right nvs get function for type of setting
    esp_err_t err;
    if (s->flags & SETTING_BINARY)
@@ -552,13 +552,13 @@ nvs_get (setting_t * s, const char *tag,void *data, size_t len)
 }
 
 static esp_err_t
-nvs_set (setting_t * s, const char *tag,void *data)
+nvs_set (setting_t * s, const char *tag, void *data)
 {                               // Low level get logic, returns <0 if error. Calls the right nvs get function for type of setting
    if (s->flags & SETTING_BINARY)
    {
       if (s->size)
-         return nvs_set_blob (nvs, tag, data, s->size);     // Fixed
-      return nvs_set_blob (nvs, tag, data, 1 + *((unsigned char *) data));  // Variable
+         return nvs_set_blob (nvs, tag, data, s->size); // Fixed
+      return nvs_set_blob (nvs, tag, data, 1 + *((unsigned char *) data));      // Variable
    }
    if (s->size == 0)
    {
@@ -607,14 +607,14 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    if (snprintf (tag, sizeof (tag), s->array ? "%s%u" : "%s", s->name, index ? : 1) >= sizeof (tag))
       return "Setting name too long";
    ESP_LOGD (TAG, "MQTT setting %s (%d)", tag, len);
-   char erase=0;
+   char erase = 0;
    if (!len && s->defval && !(flags & SETTING_BITFIELD))
    {                            // Use default value
       len = strlen (s->defval);
       value = (const unsigned char *) s->defval;
       if (flags & SETTING_BINARY)
          flags |= SETTING_HEX;
-      erase=1;
+      erase = 1;
    }
    // Parse new setting
    unsigned char *n = NULL;
@@ -679,59 +679,71 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    } else
    {                            // Numeric
       uint64_t v = 0;
-      char neg = 0;
-      int bits = s->size * 8;
-      if (flags & SETTING_BITFIELD && s->defval)
-      {                         // Bit fields
-         while (len)
+      if (flags & SETTING_BOOLEAN)
+      {                         // Boolean
+         if (len && strchr ("YytT1", *value))
          {
-            char *c = strchr (s->defval, *value);
-            if (!c)
-               break;
-            v |= (1 << (bits - 1 - (c - s->defval)));
-            len--;
-            value++;
+            if (s->array && index)
+               v |= (1 << (index - 1));
+            else
+               v |= 1;
          }
-         bits -= strlen (s->defval);
-      }
-      if (len && bits <= 0)
-         return "Extra data on end";
-      if (len > 2 && *value == '0' && value[1] == 'x')
+      } else
       {
-         flags |= SETTING_HEX;
-         len -= 2;
-         value += 2;
-      }
-      if (len && *value == '-' && (flags & SETTING_SIGNED))
-      {                         // Decimal
-         len--;
-         value++;
-         neg = 1;
-      }
-      if (flags & SETTING_HEX)
-         while (len && isxdigit (*value))
-         {                      // Hex
-            if (v * 16 + 15 < v)
-               return "Silly number";
-            v = v * 16 + (isalpha (*value) ? 9 : 0) + (*value & 15);
-            value++;
-            len--;
+         char neg = 0;
+         int bits = s->size * 8;
+         if (flags & SETTING_BITFIELD && s->defval)
+         {                      // Bit fields
+            while (len)
+            {
+               char *c = strchr (s->defval, *value);
+               if (!c)
+                  break;
+               v |= (1 << (bits - 1 - (c - s->defval)));
+               len--;
+               value++;
+            }
+            bits -= strlen (s->defval);
          }
-
-      else
-         while (len && isdigit (*value))
+         if (len && bits <= 0)
+            return "Extra data on end";
+         if (len > 2 && *value == '0' && value[1] == 'x')
          {
-            if (v * 10 + 9 < v)
-               return "Silly number";
-            v = v * 10 + (*value++ - '0');
-            len--;
+            flags |= SETTING_HEX;
+            len -= 2;
+            value += 2;
          }
-      if (len)
-         return "Bad number";
-      if ((v - ((v && (flags & SETTING_SIGNED)) ? 1 : 0)) >> bits)
-         return "Number too big";
-      if (neg)
-         v = -v;
+         if (len && *value == '-' && (flags & SETTING_SIGNED))
+         {                      // Decimal
+            len--;
+            value++;
+            neg = 1;
+         }
+         if (flags & SETTING_HEX)
+            while (len && isxdigit (*value))
+            {                   // Hex
+               if (v * 16 + 15 < v)
+                  return "Silly number";
+               v = v * 16 + (isalpha (*value) ? 9 : 0) + (*value & 15);
+               value++;
+               len--;
+            }
+
+         else
+            while (len && isdigit (*value))
+            {
+               if (v * 10 + 9 < v)
+                  return "Silly number";
+               v = v * 10 + (*value++ - '0');
+               len--;
+            }
+         if (len)
+            return "Bad number";
+         if ((v - ((v && (flags & SETTING_SIGNED)) ? 1 : 0)) >> bits)
+            return "Number too big";
+         if (neg)
+            v = -v;
+      }
       if (flags & SETTING_SIGNED)
       {
          if (s->size == 8)
@@ -758,13 +770,13 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    if (!n)
       return "Bad setting type";
    // See if setting has changed
-   int o = nvs_get (s,tag, NULL, 0);
+   int o = nvs_get (s, tag, NULL, 0);
    if (o != l)
       o = -1;                   // Different size
    if (o > 0)
    {
       void *d = malloc (l);
-      if (nvs_get (s,tag, d, l) < 0)
+      if (nvs_get (s, tag, d, l) < 0)
       {
          free (n);
          free (d);
@@ -780,9 +792,9 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       return NULL;              // No change
    }
    // Save in flash
-    if(erase)nvs_erase_key(nvs,tag);
-    else
-   if (nvs_set (s,tag, n) != ERR_OK && (nvs_erase_key (nvs, tag) != ERR_OK || nvs_set (s,tag, n) != ERR_OK))
+   if (erase)
+      nvs_erase_key (nvs, tag);
+   else if (nvs_set (s, tag, n) != ERR_OK && (nvs_erase_key (nvs, tag) != ERR_OK || nvs_set (s, tag, n) != ERR_OK))
    {
       free (n);
       return "Unable to store";
@@ -902,30 +914,38 @@ revk_register (const char *name, unsigned char array, unsigned char size, void *
    s->next = setting;
    setting = s;
    // Get value
-   int l = -1;
-   if (!s->size)
-   {                            // Dynamic
-      void *d = NULL;
-      l = nvs_get (s, NULL, 0);
-      if (l > 1)
-      { // 1 byte means zero len or zero terminated so use default
-         d = malloc (l);
-         l = nvs_get (s, d, l);
-         if (l >= 0)
-            *((void **) data) = d;
-         else
-            free (d);
-      } else
-         l = -1;                // default
-   } else
-      l = nvs_get (s, data, s->size);   // Stored static
-   if (l < 0)
+   int get_val (const char *tag, int index)
    {
-      const char *e;
-      if (array)
+      void *data = s->data;
+      if (s->array && index > 1 && !(flags & SETTING_BOOLEAN))
+         data += (s->size ? : sizeof (void *)) * (index - 1);
+      int l = -1;
+      if (!s->size)
+      {                         // Dynamic
+         void *d = NULL;
+         l = nvs_get (s, tag, NULL, 0);
+         if (l > 1)
+         {                      // 1 byte means zero len or zero terminated so use default
+            d = malloc (l);
+            l = nvs_get (s, tag, d, l);
+            if (l >= 0)
+               *((void **) data) = d;
+            else
+               free (d);
+         } else
+            l = -1;             // default
+      } else
+         l = nvs_get (s, tag, data, s->size);   // Stored static
+      return l;
+   }
+   const char *e;
+   if (array)
+   {
+      int i;
+      for (i = 1; i <= array; i++)
       {
-         int i;
-         for (i = 1; i <= array; i++)
+         char tag[16];
+         if (snprintf (tag, sizeof (tag), "%s%u", s->name, i) < sizeof (tag) && get_val (tag, i) < 0)
          {
             e = revk_setting_internal (s, 0, NULL, i, SETTING_LIVE);    // Defaulting logic
             if (e && *e)
@@ -933,7 +953,10 @@ revk_register (const char *name, unsigned char array, unsigned char size, void *
             else
                ESP_LOGD (TAG, "Setting %s created", s->name);
          }
-      } else
+      }
+   } else
+   {
+      if (get_val (s->name, 0) < 0)
       {
          e = revk_setting_internal (s, 0, NULL, 0, SETTING_LIVE);       // Defaulting logic
          if (e && *e)
