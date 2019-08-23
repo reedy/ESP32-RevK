@@ -16,7 +16,7 @@ struct pn532_s
 
 static int
 uart_rx (pn532_t * p, uint8_t * buf, uint32_t length, int ms)
-{ // Low level UART rx with optional logging
+{                               // Low level UART rx with optional logging
    ms /= portTICK_PERIOD_MS;
    if (!ms)
       ms = 1;
@@ -30,7 +30,7 @@ uart_rx (pn532_t * p, uint8_t * buf, uint32_t length, int ms)
 
 static int
 uart_tx (pn532_t * p, const uint8_t * src, size_t size)
-{ // Low level UART tx with optional logging
+{                               // Low level UART tx with optional logging
    int l = uart_write_bytes (p->uart, (char *) src, size);
 #ifdef HEXLOG
    if (l > 0)
@@ -75,7 +75,7 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
       free (p);
       return NULL;
    }
-   ESP_LOGD(TAG,"PN532 UART %d Tx %d Rx %d",uart,tx,rx);
+   ESP_LOGD (TAG, "PN532 UART %d Tx %d Rx %d", uart, tx, rx);
    uint8_t buf[8];
    // Poke serial
    buf[0] = 0x55;
@@ -150,7 +150,7 @@ pn532_tx (pn532_t * p, int len1, uint8_t * data1, int len2, uint8_t * data2)
       *b++ = -l;                // Checksum
    }
    *b++ = 0xD4;                 // Direction (host to PN532)
-   uint8_t sum = 0;
+   uint8_t sum = b[-1];
    int i;
    for (i = 0; i < len1; i++)
       sum += data1[i];
@@ -179,7 +179,7 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
    int l = uart_rx (p, buf, 6, 100);
    if (l < 6 || buf[0] || buf[1] || buf[2] != 0xFF)
       return -1;
-   int len = buf[3];
+   int len = 0;
    if (buf[3] == 0xFF && buf[4] == 0xFF)
    {                            // Extended
       l = uart_rx (p, buf + 6, 3, 20);
@@ -201,41 +201,44 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
    if (!len)
       return -6;                // Invalue
    len--;
-   uint8_t sum = 0;
+   uint8_t sum = 0xD5;
    if (len > max1 + max2)
       return -7;                // Too big
-   l = max1;
-   if (l > len)
-      l = len;
-   if (l)
+   if (data1)
    {
-      if (uart_read_bytes (p->uart, data1, l, 20) != l)
-         return -8;             // Bad read
-      ESP_LOG_BUFFER_HEX_LEVEL (TAG, data1, l, ESP_LOG_INFO);
-      len -= l;
-      while (l)
-         sum += data1[--l];
+      l = max1;
+      if (l > len)
+         l = len;
+      if (l)
+      {
+         if (uart_read_bytes (p->uart, data1, l, 20) != l)
+            return -8;          // Bad read
+         len -= l;
+         while (l)
+            sum += data1[--l];
+      }
    }
-   l = max2;
-   if (l > len)
-      l = len;
-   if (l)
+   if (data2)
    {
-      if (uart_read_bytes (p->uart, data2, l, 20) != l)
-         return -9;             // Bad read
-      ESP_LOG_BUFFER_HEX_LEVEL (TAG, data2, l, ESP_LOG_INFO);
-      len -= l;
-      while (l)
-         sum += data1[--l];
+      l = max2;
+      if (l > len)
+         l = len;
+      if (l)
+      {
+         if (uart_read_bytes (p->uart, data2, l, 20) != l)
+            return -9;          // Bad read
+         len -= l;
+         while (l)
+            sum += data1[--l];
+      }
    }
    l = uart_rx (p, buf, 2, 20);
-   ESP_LOG_BUFFER_HEX_LEVEL (TAG, buf, l, ESP_LOG_INFO);
    if (l != 2)
-      return -10;               // Postable
+      return -10;               // Postamble
    if ((uint8_t) (buf[0] + sum))
       return -11;               // checksum
    if (buf[1])
-      return -12;               // postable
+      return -12;               // postamble
    return len;
 }
 
@@ -248,3 +251,16 @@ pn532_dx (pn532_t * p, unsigned int len, uint8_t * data, unsigned int max)
 }
 
 // Other higher level functions
+int
+pn532_InListPassiveTarget (pn532_t * p, int max, uint8_t * data)
+{
+   uint8_t buf[3];
+   buf[0] = 0x4A;               // InListPassiveTarget
+   buf[1] = 2;                  // 2 tags (we only report 1)
+   buf[2] = 0;                  // 106 kbps type A (ISO/IEC14443 Type A)
+   int l = pn532_tx (p, 3, buf, 0, NULL);
+   if (l < 0)
+      return l;
+   l = pn532_rx (p, 0, NULL, max, data);
+   return l;
+}
