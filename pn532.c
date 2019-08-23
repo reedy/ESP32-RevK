@@ -18,12 +18,14 @@ static int
 uart_rx (pn532_t * p, uint8_t * buf, uint32_t length, int ms)
 {                               // Low level UART rx with optional logging
    ms /= portTICK_PERIOD_MS;
-   if (!ms)
+   if (ms < 1)
       ms = 1;
    int l = uart_read_bytes (p->uart, buf, length, ms);
 #ifdef HEXLOG
    if (l > 0)
       ESP_LOG_BUFFER_HEX_LEVEL ("NFCRx", buf, l, HEXLOG);
+   if (l != length)
+      ESP_LOGI (TAG, "Rx %d/%d %d*%dms", l, length, ms, portTICK_PERIOD_MS);
 #endif
    return l;
 }
@@ -35,7 +37,10 @@ uart_tx (pn532_t * p, const uint8_t * src, size_t size)
 #ifdef HEXLOG
    if (l > 0)
       ESP_LOG_BUFFER_HEX_LEVEL ("NFCTx", src, l, HEXLOG);
+   if (l != size)
+      ESP_LOGI (TAG, "Tx %d/%d", l, size);
 #endif
+   uart_wait_tx_done (p->uart, 100 / portTICK_PERIOD_MS);
    return l;
 }
 
@@ -69,7 +74,7 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
    };
    esp_err_t err;
    if ((err = uart_param_config (uart, &uart_config)) || (err = uart_set_pin (uart, tx, rx, -1, -1))
-       || (err = uart_driver_install (uart, 1024, 1024, 0, NULL, 0)))
+       || (err = uart_driver_install (uart, 280, 0, 0, NULL, 0)) || (err = uart_set_mode (uart, UART_MODE_UART)))
    {
       ESP_LOGE (TAG, "UART fail %s", esp_err_to_name (err));
       free (p);
@@ -77,6 +82,7 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
    }
    ESP_LOGD (TAG, "PN532 UART %d Tx %d Rx %d", uart, tx, rx);
    uint8_t buf[8];
+#if 0
    // Poke serial
    buf[0] = 0x55;
    buf[1] = 0x55;
@@ -84,7 +90,7 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
    buf[3] = 0x00;
    buf[4] = 0x00;
    uart_tx (p, buf, 5);
-   // TODO define what is returned from these functions
+#endif
    // Set up PN532
    buf[0] = 0x02;               // GetFirmwareVersion
    if (pn532_tx (p, 0, NULL, 1, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
@@ -133,6 +139,11 @@ pn532_tx (pn532_t * p, int len1, uint8_t * data1, int len2, uint8_t * data2)
 {                               // Send data to PN532
    uint8_t buf[20],
     *b = buf;
+   *b++ = 0x55;                 // Wake up from sleep?
+   *b++ = 0x55;
+   *b++ = 0x00;
+   *b++ = 0x00;
+   *b++ = 0x00;
    *b++ = 0x00;                 // Preamble
    *b++ = 0x00;                 // Start 1
    *b++ = 0xFF;                 // Start 2
@@ -150,14 +161,13 @@ pn532_tx (pn532_t * p, int len1, uint8_t * data1, int len2, uint8_t * data2)
       *b++ = -l;                // Checksum
    }
    *b++ = 0xD4;                 // Direction (host to PN532)
-   uint8_t sum = b[-1];
-   int i;
-   for (i = 0; i < len1; i++)
-      sum += data1[i];
-   for (i = 0; i < len2; i++)
-      sum += data2[i];
+   uint8_t sum = 0xD4;
+   for (l = 0; l < len1; l++)
+      sum += data1[l];
+   for (l = 0; l < len2; l++)
+      sum += data2[l];
    // Send data
-   uart_flush (p->uart);
+   uart_flush_input (p->uart);
    uart_tx (p, buf, b - buf);
    if (len1)
       uart_tx (p, data1, len1);
@@ -166,8 +176,9 @@ pn532_tx (pn532_t * p, int len1, uint8_t * data1, int len2, uint8_t * data2)
    buf[0] = -sum;               // Checksum
    buf[1] = 0x00;               // Postamble
    uart_tx (p, buf, 2);
-   i = uart_rx (p, buf, 6, 20);
-   if (i < 6 || buf[0] || buf[1] || buf[2] != 0xFF || buf[3] || buf[4] != 0xFF || buf[5])
+   // Get ACK and check it
+   l = uart_rx (p, buf, 6, 10);
+   if (l < 6 || buf[0] || buf[1] || buf[2] != 0xFF || buf[3] || buf[4] != 0xFF || buf[5])
       return -1;                // Bad
    return 0;                    // OK
 }
@@ -182,7 +193,7 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
    int len = 0;
    if (buf[3] == 0xFF && buf[4] == 0xFF)
    {                            // Extended
-      l = uart_rx (p, buf + 6, 3, 20);
+      l = uart_rx (p, buf + 6, 3, 10);
       if (l != 6)
          return -1;
       if ((uint8_t) (buf[5] + buf[6] + buf[7]))
@@ -201,6 +212,7 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
    if (!len)
       return -6;                // Invalue
    len--;
+   int res = len;
    uint8_t sum = 0xD5;
    if (len > max1 + max2)
       return -7;                // Too big
@@ -211,7 +223,7 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
          l = len;
       if (l)
       {
-         if (uart_read_bytes (p->uart, data1, l, 20) != l)
+         if (uart_rx (p, data1, l, 10) != l)
             return -8;          // Bad read
          len -= l;
          while (l)
@@ -225,21 +237,23 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
          l = len;
       if (l)
       {
-         if (uart_read_bytes (p->uart, data2, l, 20) != l)
+         if (uart_rx (p, data2, l, 10) != l)
             return -9;          // Bad read
          len -= l;
          while (l)
             sum += data2[--l];
       }
    }
-   l = uart_rx (p, buf, 2, 20);
+   if (len)
+      return -10;               // Uh?
+   l = uart_rx (p, buf, 2, 10);
    if (l != 2)
-      return -10;               // Postamble
+      return -11;               // Postamble
    if ((uint8_t) (buf[0] + sum))
-      return -11;               // checksum
+      return -12;               // checksum
    if (buf[1])
-      return -12;               // postamble
-   return len;
+      return -13;               // postamble
+   return res;
 }
 
 // Data exchange (for DESFire use)
