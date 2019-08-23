@@ -5,6 +5,8 @@ static const char TAG[] = "PN532";
 #include "esp_log.h"
 #include <driver/uart.h>
 
+// TODO defined meaningful error codes
+
 #define	HEXLOG ESP_LOG_INFO
 
 struct pn532_s
@@ -14,8 +16,9 @@ struct pn532_s
    uint8_t rx;                  // Rx GPIO
    uint8_t pending;             // Pending response
    uint8_t cards;               // Cards present (0, 1 or 2)
-   uint8_t cardidlen;           // Length of last card ID read
-   uint8_t cardid[10];          // Binary card id of last card ID read
+   uint8_t tg;                  // First card target id (normally 1)
+   uint8_t nfcid[11];           // First card ID last seen (starts with len)
+   uint8_t ats[30];             // First card ATS last seen (starts with len)
 };
 
 static int
@@ -130,6 +133,19 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
    return p;
 }
 
+// Data access
+uint8_t *
+pn532_ats (pn532_t * p)
+{
+   return p->ats;
+}
+
+uint8_t *
+pn532_nfcid (pn532_t * p)
+{
+   return p->nfcid;
+}
+
 // Low level access functions
 int
 pn532_tx (pn532_t * p, uint8_t cmd, int len1, uint8_t * data1, int len2, uint8_t * data2)
@@ -189,20 +205,20 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
    uint8_t buf[9];
    int l = uart_rx (p, buf, 7, 100);
    if (l < 7 || buf[0] || buf[1] || buf[2] != 0xFF)
-      return -1;
+      return -1;                // Bad header
    int len = 0;
    if (buf[3] == 0xFF && buf[4] == 0xFF)
    {                            // Extended
       l = uart_rx (p, buf + 7, 3, 10);
       if (l != 6)
-         return -1;
+         return -1;             // Missed bytes
       if ((uint8_t) (buf[5] + buf[6] + buf[7]))
          return -2;             // Bad checksum
       len = (buf[5] << 8) + buf[6];
       if (buf[8] != 0xD5)
          return -3;             // Not reply
       if (buf[9] != pending)
-         return -4;
+         return -4;             // Not right reply
    } else
    {                            // Normal
       if ((uint8_t) (buf[3] + buf[4]))
@@ -211,7 +227,7 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
       if (buf[5] != 0xD5)
          return -5;             // Not reply
       if (buf[6] != pending)
-         return -4;
+         return -4;             // Not right reply
    }
    if (len < 2)
       return -6;                // Invalid
@@ -322,9 +338,34 @@ pn532_Cards (pn532_t * p)
    int l = pn532_rx (p, 1, buf, sizeof (buf), buf);
    if (l < 0)
       return l;
-   if (l < 1)
-      return -1;                // ?
    // Extract first card ID
-   // TODO
-   return p->cards = buf[0];
+   uint8_t *b = buf,
+      *e = buf + l;             // end
+   if (b >= e)
+      return -1;                // No card count
+   p->cards = *b++;
+   if (b >= e)
+      return -1;                // No target id
+   p->tg = *b++;
+   if (b >= e)
+      return -1;                // No HFCIDlen
+   if (b + *b > e)
+      return 1;                 // Too short
+   if (*b < sizeof (p->nfcid))
+      memcpy (p->nfcid, b, *b + 1);     // OK
+   else
+      memset (p->nfcid, 0, sizeof (p->nfcid));  // Too big
+   b += *b + 1;
+   if (b >= e)
+      return -1;                // No ATS len
+   if (!*b || b + *b > e)
+      return 1;                 // Zero or missing ATS
+   if (*b < sizeof (p->ats))
+   {
+      memcpy (p->ats, b, *b);   // OK
+      (*p->ats)--;              // Make len of what follows for consistency
+   } else
+      memset (p->ats, 0, sizeof (p->ats));      // Too big
+   b += *b;                     // ready for second target (which we are not looking at)
+   return p->cards;
 }
