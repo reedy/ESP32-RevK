@@ -17,8 +17,8 @@ pn532_t *pn532_init(int uart,int tx,int rx,uint8_t p3); // Init PN532 (P3 is por
 void *pn532_end(pn532_t *p);
 
 // Low level access functions
-int pn532_send(pn532_t*,int len,uint8_t *data);	// Send data to PN532
-int pn532_recv(pn532_t*,int max,uint8_t *data);	// Recv data from PN532
+int pn532_tx(pn532_t*,int ,uint8_t *,int ,uint8_t *);	// Send data to PN532 (up to two blocks) return 0 or negative for error
+int pn532_rx(pn532_t*,int ,uint8_t *,int ,uint8_t *);	// Recv data from PN532, (in to up to two blocks) return total length or -ve for error
 
 // Card access function - sends to card starting CMD byte, and receives reply in to same buffer, starting status byte, returns len
 int pn532_dx (pn532_t*, unsigned int len, uint8_t *data, unsigned int max);
