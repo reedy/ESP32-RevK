@@ -1,4 +1,5 @@
 // Main control code, working with WiFi, MQTT, and managing settings and OTA
+static const char *TAG = "RevK";
 
 #include "revk.h"
 #include "esp_http_client.h"
@@ -68,7 +69,6 @@ static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 
 // Local functions
-static const char *TAG = "RevK";
 static EventGroupHandle_t wifi_event_group;
 const static int CONNECTED_BIT = BIT0;
 static esp_err_t
@@ -317,7 +317,7 @@ revk_state (const char *tag, const char *fmt, ...)
 {                               // Send status
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt_ap (prefixstate, 1, tag, fmt, ap);    // TODo configurable
+   revk_mqtt_ap (prefixstate, 1, tag, fmt, ap); // TODo configurable
    va_end (ap);
 }
 
@@ -326,7 +326,7 @@ revk_event (const char *tag, const char *fmt, ...)
 {                               // Send event
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt_ap (prefixevent, 0, tag, fmt, ap);    // TODo configurable
+   revk_mqtt_ap (prefixevent, 0, tag, fmt, ap); // TODo configurable
    va_end (ap);
 }
 
@@ -335,7 +335,7 @@ revk_error (const char *tag, const char *fmt, ...)
 {                               // Send error
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt_ap (prefixerror, 0, tag, fmt, ap);    // TODo configurable
+   revk_mqtt_ap (prefixerror, 0, tag, fmt, ap); // TODo configurable
    va_end (ap);
 }
 
@@ -344,7 +344,7 @@ revk_info (const char *tag, const char *fmt, ...)
 {                               // Send info
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt_ap (prefixinfo, 0, tag, fmt, ap);     // TODo configurable
+   revk_mqtt_ap (prefixinfo, 0, tag, fmt, ap);  // TODo configurable
    va_end (ap);
 }
 
