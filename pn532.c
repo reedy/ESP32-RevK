@@ -229,7 +229,7 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
             return -9;          // Bad read
          len -= l;
          while (l)
-            sum += data1[--l];
+            sum += data2[--l];
       }
    }
    l = uart_rx (p, buf, 2, 20);
