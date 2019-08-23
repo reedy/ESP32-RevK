@@ -33,8 +33,6 @@ typedef const char *app_command_t (const char *tag, unsigned int len, const unsi
 extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
 extern char revk_id[7];         // Chip ID hex
-extern volatile char revk_mqtt;     // MQTT running
-extern volatile char revk_wifi;     // WiFi running
 
 // Calls
 void revk_init (app_command_t * app_command);

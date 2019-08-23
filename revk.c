@@ -54,8 +54,6 @@ struct setting_s
 const char *revk_app = "";
 const char *revk_version = "";  // ISO date version
 char revk_id[7];                // Chip ID as hex
-volatile char revk_mqtt = 0;    // MQTT running
-volatile char revk_wifi = 0;    // WiFi running
 
 // Local
 static TaskHandle_t revk_task_id = NULL;
@@ -69,8 +67,9 @@ static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 
 // Local functions
-static EventGroupHandle_t wifi_event_group;
-const static int CONNECTED_BIT = BIT0;
+static EventGroupHandle_t revk_group;
+const static int GROUP_WIFI = BIT0;
+const static int GROUP_MQTT = BIT1;
 static esp_err_t
 wifi_event_handler (void *ctx, system_event_t * event)
 {
@@ -80,14 +79,12 @@ wifi_event_handler (void *ctx, system_event_t * event)
       esp_wifi_connect ();
       break;
    case SYSTEM_EVENT_STA_GOT_IP:
-      revk_wifi = 1;
-      xEventGroupSetBits (wifi_event_group, CONNECTED_BIT);
+      xEventGroupSetBits (revk_group, GROUP_WIFI);
       break;
    case SYSTEM_EVENT_STA_DISCONNECTED:
-      revk_wifi = 0;
       // TODO cycle wifi config
+      xEventGroupClearBits (revk_group, GROUP_WIFI);
       esp_wifi_connect ();
-      xEventGroupClearBits (wifi_event_group, CONNECTED_BIT);
       break;
    default:
       break;
@@ -104,7 +101,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
    {
    case MQTT_EVENT_CONNECTED:
       ESP_LOGD (TAG, "MQTT_EVENT_CONNECTED");
-      revk_mqtt = 1;
+      xEventGroupSetBits (revk_group, GROUP_MQTT);
       void sub (const char *prefix)
       {
          char *topic;
@@ -132,7 +129,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       break;
    case MQTT_EVENT_DISCONNECTED:
       ESP_LOGD (TAG, "MQTT_EVENT_DISCONNECTED");
-      revk_mqtt = 0;
+      xEventGroupClearBits (revk_group, GROUP_MQTT);
       if (app_command)
          app_command ("disconnect", strlen (mqtthost), (unsigned char *) mqtthost);
       break;
@@ -175,20 +172,7 @@ static void
 revk_task (void *pvParameters)
 {                               // Main RevK task
    pvParameters = pvParameters;
-   // WiFi
-   wifi_event_group = xEventGroupCreate ();
-   ESP_ERROR_CHECK (esp_event_loop_init (wifi_event_handler, NULL));
-   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
-   ESP_ERROR_CHECK (esp_wifi_init (&cfg));
-   ESP_ERROR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_RAM));
-   wifi_config_t wifi_config = { };
-   strncpy ((char *) wifi_config.sta.ssid, wifissid, sizeof (wifi_config.sta.ssid));
-   strncpy ((char *) wifi_config.sta.password, wifipass, sizeof (wifi_config.sta.password));
-   ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_STA));
-   ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
-   ESP_LOGI (TAG, "Start the WIFi SSID:[%s]", wifissid);
-   ESP_ERROR_CHECK (esp_wifi_start ());
-   xEventGroupWaitBits (wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
+   xEventGroupWaitBits (revk_group, GROUP_WIFI, false, true, portMAX_DELAY);
    // Start MQTT
    esp_mqtt_client_start (mqtt_client);
    // Idle
@@ -287,6 +271,19 @@ revk_init (app_command_t * app_command_cb)
       config.password = mqttpass;
    ESP_LOGI (TAG, "Start the MQTT [%s]", mqtthost);
    mqtt_client = esp_mqtt_client_init (&config);
+   // WiFi
+   revk_group = xEventGroupCreate ();
+   ESP_ERROR_CHECK (esp_event_loop_init (wifi_event_handler, NULL));
+   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
+   ESP_ERROR_CHECK (esp_wifi_init (&cfg));
+   ESP_ERROR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_RAM));
+   wifi_config_t wifi_config = { };
+   strncpy ((char *) wifi_config.sta.ssid, wifissid, sizeof (wifi_config.sta.ssid));
+   strncpy ((char *) wifi_config.sta.password, wifipass, sizeof (wifi_config.sta.password));
+   ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_STA));
+   ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
+   ESP_LOGI (TAG, "Start the WIFi SSID:[%s]", wifissid);
+   ESP_ERROR_CHECK (esp_wifi_start ());
    // Start task
    xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
 }
@@ -306,7 +303,7 @@ revk_mqtt_ap (const char *prefix, int retain, const char *tag, const char *fmt, 
       return;
    }
    ESP_LOGD (TAG, "MQTT publish %s %s", topic ? : "-", buf);
-   if (revk_mqtt)
+   if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
       esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
    free (buf);
    free (topic);
@@ -333,6 +330,7 @@ revk_event (const char *tag, const char *fmt, ...)
 void
 revk_error (const char *tag, const char *fmt, ...)
 {                               // Send error
+   xEventGroupWaitBits (revk_group, GROUP_WIFI | GROUP_MQTT, false, true, 10000 / portTICK_PERIOD_MS);  // Chance of reporting issues
    va_list ap;
    va_start (ap, fmt);
    revk_mqtt_ap (prefixerror, 0, tag, fmt, ap); // TODo configurable
@@ -738,8 +736,8 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          if (flags & SETTING_SET)
          {                      // Set top bit if a value is present
             bits--;
-            if (len)
-               bitfield |= (1ULL << bits);
+            if (len && value != (const unsigned char *) s->defval)
+               bitfield |= (1ULL << bits);      // Value is set (not so if using default value)
          }
          if (flags & SETTING_BITFIELD && s->defval)
          {                      // Bit fields
