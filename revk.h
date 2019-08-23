@@ -33,6 +33,8 @@ typedef const char *app_command_t (const char *tag, unsigned int len, const unsi
 extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
 extern char revk_id[7];         // Chip ID hex
+extern volatile char revk_mqtt;     // MQTT running
+extern volatile char revk_wifi;     // WiFi running
 
 // Calls
 void revk_init (app_command_t * app_command);
@@ -54,7 +56,7 @@ esp_err_t revk_err_check (esp_err_t, const char *file, int line);       // Log i
 #define	REVK_ERR_CHECK(x) revk_err_check(x,__FILE__,__LINE__)
 
 // MQTT reporting
-void revk_state (const char *tag, const char *fmt, ...);       // Send status
+void revk_state (const char *tag, const char *fmt, ...);        // Send status
 void revk_event (const char *tag, const char *fmt, ...);        // Send event
 void revk_error (const char *tag, const char *fmt, ...);        // Send error
 void revk_info (const char *tag, const char *fmt, ...); // Send info

@@ -53,6 +53,8 @@ struct setting_s
 const char *revk_app = "";
 const char *revk_version = "";  // ISO date version
 char revk_id[7];                // Chip ID as hex
+volatile char revk_mqtt = 0;    // MQTT running
+volatile char revk_wifi = 0;    // WiFi running
 
 // Local
 static TaskHandle_t revk_task_id = NULL;
@@ -78,9 +80,12 @@ wifi_event_handler (void *ctx, system_event_t * event)
       esp_wifi_connect ();
       break;
    case SYSTEM_EVENT_STA_GOT_IP:
+      revk_wifi = 1;
       xEventGroupSetBits (wifi_event_group, CONNECTED_BIT);
       break;
    case SYSTEM_EVENT_STA_DISCONNECTED:
+      revk_wifi = 0;
+      // TODO cycle wifi config
       esp_wifi_connect ();
       xEventGroupClearBits (wifi_event_group, CONNECTED_BIT);
       break;
@@ -99,6 +104,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
    {
    case MQTT_EVENT_CONNECTED:
       ESP_LOGD (TAG, "MQTT_EVENT_CONNECTED");
+      revk_mqtt = 1;
       void sub (const char *prefix)
       {
          char *topic;
@@ -114,7 +120,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       sub (prefixcommand);
       sub (prefixsetting);
       // Version, up
-      revk_state (NULL, "1 %s", revk_version); // Up
+      revk_state (NULL, "1 %s", revk_version);  // Up
       // Info
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
@@ -126,6 +132,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       break;
    case MQTT_EVENT_DISCONNECTED:
       ESP_LOGD (TAG, "MQTT_EVENT_DISCONNECTED");
+      revk_mqtt = 0;
       if (app_command)
          app_command ("disconnect", strlen (mqtthost), (unsigned char *) mqtthost);
       break;
@@ -237,6 +244,7 @@ revk_init (app_command_t * app_command_cb)
 #undef n
 #undef p
    // some default settings
+   // TODO using revk_setting logic for defaults? Or find better way to set these for build time
    otahost = "ota.revk.uk";
    if (!*mqtthost)
       mqtthost = "mqtt.iot";
@@ -254,7 +262,7 @@ revk_init (app_command_t * app_command_cb)
    }
    // MQTT
    char *topic;
-   if (asprintf (&topic, "%s/%s/%s", prefixstate,revk_app, revk_id) < 0)
+   if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
       return;
    char *url;
    if (asprintf (&url, "%s://%s/", *mqttcert ? "mqtts" : "mqtt", mqtthost) < 0)
@@ -285,7 +293,7 @@ revk_init (app_command_t * app_command_cb)
 
 // MQTT reporting
 void
-revk_mqtt (const char *prefix, int retain, const char *tag, const char *fmt, va_list ap)
+revk_mqtt_ap (const char *prefix, int retain, const char *tag, const char *fmt, va_list ap)
 {                               // Send status
    char *topic;
    if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
@@ -298,7 +306,8 @@ revk_mqtt (const char *prefix, int retain, const char *tag, const char *fmt, va_
       return;
    }
    ESP_LOGD (TAG, "MQTT publish %s %s", topic ? : "-", buf);
-   esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
+   if (revk_mqtt)
+      esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
    free (buf);
    free (topic);
 }
@@ -308,7 +317,7 @@ revk_state (const char *tag, const char *fmt, ...)
 {                               // Send status
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt (prefixstate, 1, tag, fmt, ap);       // TODo configurable
+   revk_mqtt_ap (prefixstate, 1, tag, fmt, ap);    // TODo configurable
    va_end (ap);
 }
 
@@ -317,7 +326,7 @@ revk_event (const char *tag, const char *fmt, ...)
 {                               // Send event
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt (prefixevent, 0, tag, fmt, ap);        // TODo configurable
+   revk_mqtt_ap (prefixevent, 0, tag, fmt, ap);    // TODo configurable
    va_end (ap);
 }
 
@@ -326,7 +335,7 @@ revk_error (const char *tag, const char *fmt, ...)
 {                               // Send error
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt (prefixerror, 0, tag, fmt, ap);        // TODo configurable
+   revk_mqtt_ap (prefixerror, 0, tag, fmt, ap);    // TODo configurable
    va_end (ap);
 }
 
@@ -335,7 +344,7 @@ revk_info (const char *tag, const char *fmt, ...)
 {                               // Send info
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt (prefixinfo, 0, tag, fmt, ap); // TODo configurable
+   revk_mqtt_ap (prefixinfo, 0, tag, fmt, ap);     // TODo configurable
    va_end (ap);
 }
 
