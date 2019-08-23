@@ -114,7 +114,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       sub (prefixcommand);
       sub (prefixsetting);
       // Version, up
-      revk_status (NULL, "1 %s", revk_version); // Up
+      revk_state (NULL, "1 %s", revk_version); // Up
       // Info
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
@@ -193,7 +193,7 @@ revk_task (void *pvParameters)
       {                         // Restart
          if (!restart_reason)
             restart_reason = "Unknown";
-         revk_status (NULL, "0 %s", restart_reason);
+         revk_state (NULL, "0 %s", restart_reason);
          if (app_command)
             app_command ("restart", strlen (restart_reason), (unsigned char *) restart_reason);
          esp_mqtt_client_stop (mqtt_client);
@@ -254,7 +254,7 @@ revk_init (app_command_t * app_command_cb)
    }
    // MQTT
    char *topic;
-   if (asprintf (&topic, "status/%s/%s", revk_app, revk_id) < 0)
+   if (asprintf (&topic, "%s/%s/%s", prefixstate,revk_app, revk_id) < 0)
       return;
    char *url;
    if (asprintf (&url, "%s://%s/", *mqttcert ? "mqtts" : "mqtt", mqtthost) < 0)
@@ -304,11 +304,11 @@ revk_mqtt (const char *prefix, int retain, const char *tag, const char *fmt, va_
 }
 
 void
-revk_status (const char *tag, const char *fmt, ...)
+revk_state (const char *tag, const char *fmt, ...)
 {                               // Send status
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt ("status", 1, tag, fmt, ap);       // TODo configurable
+   revk_mqtt (prefixstate, 1, tag, fmt, ap);       // TODo configurable
    va_end (ap);
 }
 
@@ -317,7 +317,7 @@ revk_event (const char *tag, const char *fmt, ...)
 {                               // Send event
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt ("event", 0, tag, fmt, ap);        // TODo configurable
+   revk_mqtt (prefixevent, 0, tag, fmt, ap);        // TODo configurable
    va_end (ap);
 }
 
@@ -326,7 +326,7 @@ revk_error (const char *tag, const char *fmt, ...)
 {                               // Send error
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt ("error", 0, tag, fmt, ap);        // TODo configurable
+   revk_mqtt (prefixerror, 0, tag, fmt, ap);        // TODo configurable
    va_end (ap);
 }
 
@@ -335,7 +335,7 @@ revk_info (const char *tag, const char *fmt, ...)
 {                               // Send info
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt ("info", 0, tag, fmt, ap); // TODo configurable
+   revk_mqtt (prefixinfo, 0, tag, fmt, ap); // TODo configurable
    va_end (ap);
 }
 
@@ -398,10 +398,8 @@ ota_handler (esp_http_client_event_t * evt)
                ota_size = 0;
             } else
             {
-               esp_err_t err = esp_ota_begin (ota_partition, ota_size, &ota_handle);
-               if (err != ERR_OK)
+               if (REVK_ERR_CHECK (esp_ota_begin (ota_partition, ota_size, &ota_handle)))
                {
-                  revk_error ("upgrade", "Error %s", esp_err_to_name (err));
                   ota_size = 0;
                   ota_partition = NULL;
                } else
@@ -414,10 +412,8 @@ ota_handler (esp_http_client_event_t * evt)
          }
          if (ota_running && ota_size)
          {
-            esp_err_t err = esp_ota_write (ota_handle, evt->data, evt->data_len);
-            if (err != ERR_OK)
+            if (REVK_ERR_CHECK (esp_ota_write (ota_handle, evt->data, evt->data_len)))
             {
-               revk_error ("upgrade", "Error %s", esp_err_to_name (err));
                ota_size = 0;
             } else
             {
@@ -438,14 +434,12 @@ ota_handler (esp_http_client_event_t * evt)
          revk_error ("Upgrade", "Failed to start %d (%d)", esp_http_client_get_status_code (evt->client), ota_size);
       if (ota_running)
       {
-         esp_err_t err = esp_ota_end (ota_handle);
-         if (err == ERR_OK)
+         if (!REVK_ERR_CHECK (esp_ota_end (ota_handle)))
          {
             revk_info ("upgrade", "Updated %s %d", ota_partition->label, ota_running - 1);
             esp_ota_set_boot_partition (ota_partition);
             revk_restart ("OTA", 0);
-         } else
-            revk_error ("upgrade", "Error %s", esp_err_to_name (err));
+         }
       }
       ota_running = 0;
       break;
@@ -477,14 +471,12 @@ ota_task (void *pvParameters)
    else
       config.use_global_ca_store = true;        // Global cert
    esp_http_client_handle_t client = esp_http_client_init (&config);
-   esp_err_t err = esp_http_client_perform (client);
+   esp_err_t err = REVK_ERR_CHECK (esp_http_client_perform (client));
    int status = esp_http_client_get_status_code (client);
    esp_http_client_cleanup (client);
    free (url);
-   if (err != ERR_OK)
-      revk_error ("upgrade", "Error %s", esp_err_to_name (err));
-   else if (status / 100 != 2)
-      revk_error ("upgrade", "Failed %d", status);
+   if (!err && status / 100 != 2)
+      revk_error ("upgrade", "HTTP code %d", status);
    ota_task_id = NULL;
    vTaskDelete (NULL);
 }
@@ -1035,4 +1027,12 @@ revk_register (const char *name, unsigned char array, unsigned char size, void *
       else
          ESP_LOGD (TAG, "Setting %s created", s->name);
    }
+}
+
+esp_err_t
+revk_err_check (esp_err_t e, const char *file, int line)
+{
+   if (e != ERR_OK)
+      revk_error ("error", "Error at line %s in %s (%s)", line, file, esp_err_to_name (e));
+   return e;
 }
