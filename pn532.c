@@ -20,7 +20,7 @@ uart_rx (pn532_t * p, uint8_t * buf, uint32_t length, int ms)
    ms /= portTICK_PERIOD_MS;
    if (!ms)
       ms = 1;
-   int l = uart_rx (p, buf, length, ms);
+   int l = uart_read_bytes (p->uart, buf, length, ms);
 #ifdef HEXLOG
    if (l > 0)
       ESP_LOG_BUFFER_HEX_LEVEL ("NFCRx", buf, l, HEXLOG);
