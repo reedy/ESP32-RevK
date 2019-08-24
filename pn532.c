@@ -17,6 +17,8 @@ struct pn532_s
    uint8_t pending;             // Pending response
    uint8_t cards;               // Cards present (0, 1 or 2)
    uint8_t tg;                  // First card target id (normally 1)
+   uint16_t sens_res;           // From InListPassiveTarget
+   uint8_t sel_res;             // From InListPassiveTarget
    uint8_t nfcid[11];           // First card ID last seen (starts with len)
    uint8_t ats[30];             // First card ATS last seen (starts with len)
 };
@@ -90,7 +92,7 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
    }
    ESP_LOGD (TAG, "PN532 UART %d Tx %d Rx %d", uart, tx, rx);
    uint8_t buf[8];
-   // Set up PN532 (SAM first as in vLowBat more)
+   // Set up PN532 (SAM first as in vLowBat mode)
    pn532_kick (p);
    // SAMConfiguration
    buf[0] = 0x01;               // Normal
@@ -141,8 +143,20 @@ pn532_ats (pn532_t * p)
 }
 
 uint8_t *
-pn532_nfcid (pn532_t * p)
+pn532_nfcid (pn532_t * p, char text[21])
 {
+   if (text)
+   {
+      char *o = text;
+      uint8_t *i = p->nfcid;
+      if (*i <= 10)
+      {
+         int len = *i++;
+         while (len--)
+            o += sprintf (o, "%02X", *i++);
+      }
+      *o++ = 0;                 // End
+   }
    return p->nfcid;
 }
 
@@ -304,8 +318,12 @@ pn532_ready (pn532_t * p)
 int
 pn532_dx (pn532_t * p, unsigned int len, uint8_t * data, unsigned int max)
 {                               // Card access function - sends to card starting CMD byte, and receives reply in to same buffer, starting status byte, returns len
-   // TODO
-   return -1;
+   if (!p->cards)
+      return 0;                 // No card
+   int l = pn532_tx (p, 0x40, 1, &p->tg, len, data);
+   if (l < 0)
+      return l;
+   return pn532_rx (p, 0, NULL, max, data);
 }
 
 // Other higher level functions
@@ -323,19 +341,32 @@ pn532_ILPT_Send (pn532_t * p)
 }
 
 int
+pn532_Present (pn532_t * p)
+{
+   uint8_t buf[1];
+   if (!p->pending && p->cards && *p->ats && (p->ats[1] == 0x75 // DESFire
+                                              || p->ats[1] == 0x78      // ISO
+       ))
+   {                            // We have cards, check in field still
+      buf[0] = 6;               // Test 6 Attention Request Test or ISO/IEC14443-4 card presence detection
+      if (pn532_tx (p, 0x00, 1, buf, 0, NULL) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 1)
+         return -1;             // Problem
+      if (!*buf)
+         return p->cards;       // Still in field
+   }
+   return pn532_Cards (p);      // Look for card - older MIFARE need re-doing to see if present sttill
+}
+
+int
 pn532_Cards (pn532_t * p)
 {                               // -ve for error, else number of cards
-   if (p->cards)
-   {
-      // TODO if we think in field, and that type of card, do an in field check and return answer
-   }
+   uint8_t buf[100];
    // InListPassiveTarget to get card count and baseID
    if (!p->pending)
       pn532_ILPT_Send (p);
    if (p->pending != 0x4B)
       return -1;                // We expect to be waiting for InListPassiveTarget response
-   uint8_t buf[100];
-   int l = pn532_rx (p, 1, buf, sizeof (buf), buf);
+   int l = pn532_rx (p, 0, NULL, sizeof (buf), buf);
    if (l < 0)
       return l;
    // Extract first card ID
@@ -344,28 +375,36 @@ pn532_Cards (pn532_t * p)
    if (b >= e)
       return -1;                // No card count
    p->cards = *b++;
-   if (b >= e)
-      return -1;                // No target id
-   p->tg = *b++;
-   if (b >= e)
-      return -1;                // No HFCIDlen
-   if (b + *b > e)
-      return 1;                 // Too short
-   if (*b < sizeof (p->nfcid))
-      memcpy (p->nfcid, b, *b + 1);     // OK
-   else
-      memset (p->nfcid, 0, sizeof (p->nfcid));  // Too big
-   b += *b + 1;
-   if (b >= e)
-      return -1;                // No ATS len
-   if (!*b || b + *b > e)
-      return 1;                 // Zero or missing ATS
-   if (*b < sizeof (p->ats))
-   {
-      memcpy (p->ats, b, *b);   // OK
-      (*p->ats)--;              // Make len of what follows for consistency
+   if (p->cards)
+   {                            // Get details of first card
+      if (b + 5 > e)
+         return -1;             // No card data
+      p->tg = *b++;
+      p->sens_res = (b[0] << 8) + b[1];
+      b += 2;
+      p->sel_res = *b++;
+      if (b + *b + 1 > e)
+         return -1;             // Too short
+      if (*b < sizeof (p->nfcid))
+         memcpy (p->nfcid, b, *b + 1);  // OK
+      else
+         memset (p->nfcid, 0, sizeof (p->nfcid));       // Too big
+      b += *b + 1;
+      if (b >= e)
+         return -1;             // No ATS len
+      if (!*b || b + *b > e)
+         return -1;             // Zero or missing ATS
+      if (*b <= sizeof (p->ats))
+      {
+         memcpy (p->ats, b, *b);        // OK
+         (*p->ats)--;           // Make len of what follows for consistency
+      } else
+         memset (p->ats, 0, sizeof (p->ats));   // Too big
+      b += *b;                  // ready for second target (which we are not looking at)
    } else
-      memset (p->ats, 0, sizeof (p->ats));      // Too big
-   b += *b;                     // ready for second target (which we are not looking at)
+   {                            // Gone
+      memset (p->nfcid, 0, sizeof (p->nfcid));
+      memset (p->ats, 0, sizeof (p->ats));
+   }
    return p->cards;
 }
