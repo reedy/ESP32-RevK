@@ -99,7 +99,15 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
    buf[1] = 20;                 // *50ms timeout
    buf[2] = 0x01;               // Use IRQ
    if (pn532_tx (p, 0x14, 0, NULL, 3, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
-      return pn532_end (p);
+   {                            // Again
+      pn532_kick (p);
+      // SAMConfiguration
+      buf[0] = 0x01;            // Normal
+      buf[1] = 20;              // *50ms timeout
+      buf[2] = 0x01;            // Use IRQ
+      if (pn532_tx (p, 0x14, 0, NULL, 3, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
+         return pn532_end (p);
+   }
    // GetFirmwareVersion
    if (pn532_tx (p, 0x02, 0, NULL, 0, NULL) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
       return pn532_end (p);
