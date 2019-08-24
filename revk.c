@@ -65,6 +65,8 @@ static int64_t nvs_time = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
+static int wifi_count = 0;
+static int mqtt_count = 0;
 
 // Local functions
 static EventGroupHandle_t revk_group;
@@ -83,6 +85,7 @@ wifi_event_handler (void *ctx, system_event_t * event)
       break;
    case SYSTEM_EVENT_STA_DISCONNECTED:
       // TODO cycle wifi config
+      wifi_count++;
       xEventGroupClearBits (revk_group, GROUP_WIFI);
       esp_wifi_connect ();
       break;
@@ -100,7 +103,6 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
    switch (event->event_id)
    {
    case MQTT_EVENT_CONNECTED:
-      ESP_LOGD (TAG, "MQTT_EVENT_CONNECTED");
       xEventGroupSetBits (revk_group, GROUP_MQTT);
       void sub (const char *prefix)
       {
@@ -122,13 +124,14 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info (&ap);
-      revk_info (NULL, "Running %s WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d mem=%d", p->label, ap.bssid[0], ap.bssid[1],
-                 ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary, esp_get_free_heap_size ());
+      revk_info (NULL, "Running %s WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d mem=%d %dms W%d M%d L%d", p->label, ap.bssid[0],
+                 ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary,
+                 esp_get_free_heap_size (), portTICK_PERIOD_MS, wifi_count, mqtt_count, CONFIG_LOG_DEFAULT_LEVEL);
       if (app_command)
          app_command ("connect", strlen (mqtthost), (unsigned char *) mqtthost);
       break;
    case MQTT_EVENT_DISCONNECTED:
-      ESP_LOGD (TAG, "MQTT_EVENT_DISCONNECTED");
+      mqtt_count++;
       xEventGroupClearBits (revk_group, GROUP_MQTT);
       if (app_command)
          app_command ("disconnect", strlen (mqtthost), (unsigned char *) mqtthost);
@@ -136,7 +139,6 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
    case MQTT_EVENT_DATA:
       {
          const char *e = NULL;
-         ESP_LOGD (TAG, "MQTT_EVENT_DATA");
          int p;
          for (p = event->topic_len; p && event->topic[p - 1] != '/'; p--);
          char *tag = malloc (event->topic_len + 1 - p);
@@ -160,7 +162,6 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       }
       break;
    case MQTT_EVENT_ERROR:
-      ESP_LOGD (TAG, "MQTT_EVENT_ERROR");
       break;
    default:
       break;
@@ -368,27 +369,22 @@ ota_handler (esp_http_client_event_t * evt)
    switch (evt->event_id)
    {
    case HTTP_EVENT_ERROR:
-      ESP_LOGD (TAG, "HTTP_EVENT_ERROR");
       break;
    case HTTP_EVENT_ON_CONNECTED:
-      ESP_LOGD (TAG, "HTTP_EVENT_ON_CONNECTED");
       ota_size = 0;
       if (ota_running)
          esp_ota_end (ota_handle);
       ota_running = 0;
       break;
    case HTTP_EVENT_HEADER_SENT:
-      ESP_LOGD (TAG, "HTTP_EVENT_HEADER_SENT");
       break;
    case HTTP_EVENT_ON_HEADER:
-      ESP_LOGD (TAG, "HTTP_HEADER %s: %s", evt->header_key, evt->header_value);
       if (!strcmp (evt->header_key, "Content-Length"))
          ota_size = atoi (evt->header_value);
       break;
    case HTTP_EVENT_ON_DATA:
       if (ota_size)
       {
-         //ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
          int64_t now = esp_timer_get_time ();
          static int64_t next = 0;
          if (esp_http_client_get_status_code (evt->client) / 100 != 2)
@@ -436,7 +432,6 @@ ota_handler (esp_http_client_event_t * evt)
       }
       break;
    case HTTP_EVENT_ON_FINISH:
-      ESP_LOGD (TAG, "HTTP_EVENT_ON_FINISH");
       if (!ota_running && esp_http_client_get_status_code (evt->client) / 100 > 3)
          revk_error ("Upgrade", "Failed to start %d (%d)", esp_http_client_get_status_code (evt->client), ota_size);
       if (ota_running)
@@ -451,7 +446,6 @@ ota_handler (esp_http_client_event_t * evt)
       ota_running = 0;
       break;
    case HTTP_EVENT_DISCONNECTED:
-      ESP_LOGD (TAG, "HTTP_EVENT_DISCONNECTED");
       break;
    }
    return ESP_OK;

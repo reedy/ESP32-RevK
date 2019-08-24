@@ -27,8 +27,8 @@ static int
 uart_rx (pn532_t * p, uint8_t * buf, uint32_t length, int ms)
 {                               // Low level UART rx with optional logging
    ms /= portTICK_PERIOD_MS;
-   if (ms < 1)
-      ms = 1;
+   if (ms < 2)
+      ms = 2;                   // Ensure some timeout
    int l = uart_read_bytes (p->uart, buf, length, ms);
 #ifdef HEXLOG
    if (l > 0)
@@ -316,14 +316,24 @@ pn532_ready (pn532_t * p)
 
 // Data exchange (for DESFire use)
 int
-pn532_dx (pn532_t * p, unsigned int len, uint8_t * data, unsigned int max)
+pn532_dx (void *pv, unsigned int len, uint8_t * data, unsigned int max)
 {                               // Card access function - sends to card starting CMD byte, and receives reply in to same buffer, starting status byte, returns len
+   pn532_t *p = pv;
    if (!p->cards)
       return 0;                 // No card
    int l = pn532_tx (p, 0x40, 1, &p->tg, len, data);
    if (l < 0)
       return l;
-   return pn532_rx (p, 0, NULL, max, data);
+   uint8_t status;
+   l = pn532_rx (p, 1, &status, max, data);
+   if (l < 0)
+      return l;
+   if (l < 1)
+      return -1;
+   if (status)
+      return -status;
+   l--;                         // PN532 status
+   return l;
 }
 
 // Other higher level functions
