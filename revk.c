@@ -11,16 +11,16 @@ static const char *TAG = "RevK";
 		s(otahost,CONFIG_REVK_OTAHOST);             \
 		s(otacert,NULL);		\
 		u32(wifireset,300);       \
-		s(wifissid,CONFIG_REVK_WIFISSID);            \
-		f(wifibssid,6);         \
-		u8(wifichan,0);          \
-		s(wifipass,CONFIG_REVK_WIFIPASS);            \
+		sa(wifissid,3,CONFIG_REVK_WIFISSID);            \
+		f(wifibssid,3,6);         \
+		u8(wifichan,3,0);          \
+		sa(wifipass,3,CONFIG_REVK_WIFIPASS);            \
 		u32(mqttreset,0);         \
-		s(mqtthost,CONFIG_REVK_MQTTHOST);            \
-		s(mqttuser,NULL);            \
-		s(mqttpass,NULL);            \
-		u16(mqttport,0);            \
-		s(mqttcert,NULL);		\
+		sa(mqtthost,3,CONFIG_REVK_MQTTHOST);            \
+		sa(mqttuser,3,NULL);            \
+		sa(mqttpass,3,NULL);            \
+		u16(mqttport,3,0);            \
+		sa(mqttcert,3,NULL);		\
 		p(command);       \
 		p(setting);       \
 		p(state);         \
@@ -28,14 +28,16 @@ static const char *TAG = "RevK";
 		p(info);          \
 		p(error);         \
 
-#define s(n,d)	char *n;
-#define f(n,s)	char n[s];
+#define s(n,d)		char *n;
+#define sa(n,a,d)	char *n[a];
+#define f(n,a,s)	char n[a][s];
 #define	u32(n,d)	uint32_t n;
-#define	u16(n,d)	uint16_t n;
-#define	u8(n,d)	uint8_t n;
-#define p(n)	char *prefix##n;
+#define	u16(n,a,d)	uint16_t n[a];
+#define	u8(n,a,d)	uint8_t n[a];
+#define p(n)		char *prefix##n;
 settings
 #undef s
+#undef sa
 #undef f
 #undef u32
 #undef u16
@@ -70,17 +72,11 @@ static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 static int wifi_count = 0;
+static int wifi_index = 0;
 static int mqtt_count = 0;
+static int mqtt_index = 0;
 
 // Local functions
-static void
-log_wifi_state (void)
-{
-   wifi_ap_record_t ap = { };
-   esp_wifi_sta_get_ap_info (&ap);
-   revk_info (NULL, "WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", ap.bssid[0],
-              ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
-}
 
 static EventGroupHandle_t revk_group;
 const static int GROUP_WIFI = BIT0;
@@ -95,7 +91,6 @@ wifi_event_handler (void *ctx, system_event_t * event)
       break;
    case SYSTEM_EVENT_STA_GOT_IP:
       xEventGroupSetBits (revk_group, GROUP_WIFI);
-      log_wifi_state ();
       break;
    case SYSTEM_EVENT_STA_DISCONNECTED:
       // TODO cycle wifi config
@@ -140,15 +135,14 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       esp_wifi_sta_get_ap_info (&ap);
       revk_info (NULL, "Running %s mem=%d %dms W%d M%d L%d", p->label,
                  esp_get_free_heap_size (), portTICK_PERIOD_MS, wifi_count, mqtt_count, CONFIG_LOG_DEFAULT_LEVEL);
-      log_wifi_state ();
       if (app_command)
-         app_command ("connect", strlen (mqtthost), (unsigned char *) mqtthost);
+         app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DISCONNECTED:
       mqtt_count++;
       xEventGroupClearBits (revk_group, GROUP_MQTT);
       if (app_command)
-         app_command ("disconnect", strlen (mqtthost), (unsigned char *) mqtthost);
+         app_command ("disconnect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DATA:
       {
@@ -213,6 +207,19 @@ revk_task (void *pvParameters)
          ESP_ERROR_CHECK (nvs_commit (nvs));
          nvs_time = 0;
       }
+      {                         // No event for channel change, etc
+         static int lastch = 0;
+         static uint8_t lastbssid[6];
+         wifi_ap_record_t ap = { };
+         esp_wifi_sta_get_ap_info (&ap);
+         if (lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6))
+         {
+            revk_info (NULL, "WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3],
+                       ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
+            lastch = ap.primary;
+            memcpy (lastbssid, ap.bssid, 6);
+         }
+      }
    }
 }
 
@@ -233,14 +240,16 @@ revk_init (app_command_t * app_command_cb)
    // TODO secure NVS option
    nvs_flash_init ();
    ESP_ERROR_CHECK (nvs_open (revk_app, NVS_READWRITE, &nvs));  // TODO should we open/close on use?
-#define s(n,d)	revk_register(#n,0,0,&n,d,0)
-#define f(n,s)	revk_register(#n,0,s,&n,0,SETTING_BINARY)
-#define	u32(n,d)	revk_register(#n,0,sizeof(n),&n,#d,0)
-#define	u16(n,d)	revk_register(#n,0,sizeof(n),&n,#d,0)
-#define	u8(n,d)	revk_register(#n,0,sizeof(n),&n,#d,0)
+#define s(n,d)		revk_register(#n,0,0,&n,d,0)
+#define sa(n,a,d)	revk_register(#n,a,0,&n,d,0)
+#define f(n,a,s)	revk_register(#n,a,s,&n,0,SETTING_BINARY)
+#define	u32(n,d)	revk_register(#n,0,4,&n,#d,0)
+#define	u16(n,a,d)	revk_register(#n,a,2,&n,#d,0)
+#define	u8(n,a,d)	revk_register(#n,a,1,&n,#d,0)
 #define p(n)	revk_register("prefix"#n,0,0,&prefix##n,#n,0)
    settings;
 #undef s
+#undef sa
 #undef f
 #undef u32
 #undef u16
@@ -259,7 +268,7 @@ revk_init (app_command_t * app_command_cb)
    if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
       return;
    char *url;
-   if (asprintf (&url, "%s://%s/", *mqttcert ? "mqtts" : "mqtt", mqtthost) < 0)
+   if (asprintf (&url, "%s://%s/", *mqttcert[mqtt_index] ? "mqtts" : "mqtt", mqtthost[mqtt_index]) < 0)
    {
       free (topic);
       return;
@@ -273,13 +282,13 @@ revk_init (app_command_t * app_command_cb)
       .lwt_msg_len = 8,
       .lwt_msg = "0 Failed",
    };
-   if (*mqttcert)
-      config.cert_pem = mqttcert;
-   if (*mqttuser)
-      config.username = mqttuser;
-   if (*mqttpass)
-      config.password = mqttpass;
-   ESP_LOGI (TAG, "Start the MQTT [%s]", mqtthost);
+   if (*mqttcert[mqtt_index])
+      config.cert_pem = mqttcert[mqtt_index];
+   if (*mqttuser[mqtt_index])
+      config.username = mqttuser[mqtt_index];
+   if (*mqttpass[mqtt_index])
+      config.password = mqttpass[mqtt_index];
+   ESP_LOGI (TAG, "Start the MQTT [%s]", mqtthost[mqtt_index]);
    mqtt_client = esp_mqtt_client_init (&config);
    // WiFi
    revk_group = xEventGroupCreate ();
@@ -288,11 +297,13 @@ revk_init (app_command_t * app_command_cb)
    ESP_ERROR_CHECK (esp_wifi_init (&cfg));
    ESP_ERROR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_RAM));
    wifi_config_t wifi_config = { };
-   strncpy ((char *) wifi_config.sta.ssid, wifissid, sizeof (wifi_config.sta.ssid));
-   strncpy ((char *) wifi_config.sta.password, wifipass, sizeof (wifi_config.sta.password));
+   // TODO channel
+   // TODO bssid
+   strncpy ((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof (wifi_config.sta.ssid));
+   strncpy ((char *) wifi_config.sta.password, wifipass[wifi_index], sizeof (wifi_config.sta.password));
    ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_STA));
    ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
-   ESP_LOGI (TAG, "Start the WIFi SSID:[%s]", wifissid);
+   ESP_LOGI (TAG, "Start the WIFi SSID:[%s]", wifissid[wifi_index]);
    ESP_ERROR_CHECK (esp_wifi_start ());
    // Start task
    xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
