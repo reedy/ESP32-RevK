@@ -129,7 +129,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       sub (prefixcommand);
       sub (prefixsetting);
       // Version, up
-      revk_state (NULL, "1 %s", revk_version);  // Up
+      revk_state (NULL, "1 ESP32 %s", revk_version);  // Up
       // Info
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
