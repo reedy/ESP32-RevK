@@ -8,19 +8,19 @@ static const char *TAG = "RevK";
 #include "lecert.h"
 
 #define	settings	\
-		s(otahost);             \
-		s(otacert);		\
-		n(wifireset,300);       \
-		s(wifissid);            \
+		s(otahost,CONFIG_REVK_OTAHOST);             \
+		s(otacert,NULL);		\
+		u32(wifireset,300);       \
+		s(wifissid,CONFIG_REVK_WIFISSID);            \
 		f(wifibssid,6);         \
-		n(wifichan,0);          \
-		s(wifipass);            \
-		n(mqttreset,0);         \
-		s(mqtthost);            \
-		s(mqttuser);            \
-		s(mqttpass);            \
-		s(mqttport);            \
-		s(mqttcert);		\
+		u8(wifichan,0);          \
+		s(wifipass,CONFIG_REVK_WIFIPASS);            \
+		u32(mqttreset,0);         \
+		s(mqtthost,CONFIG_REVK_MQTTHOST);            \
+		s(mqttuser,NULL);            \
+		s(mqttpass,NULL);            \
+		u16(mqttport,0);            \
+		s(mqttcert,NULL);		\
 		p(command);       \
 		p(setting);       \
 		p(state);         \
@@ -28,14 +28,18 @@ static const char *TAG = "RevK";
 		p(info);          \
 		p(error);         \
 
-#define s(n)	char *n;
+#define s(n,d)	char *n;
 #define f(n,s)	char n[s];
-#define	n(n,d)	uint32_t n;
+#define	u32(n,d)	uint32_t n;
+#define	u16(n,d)	uint16_t n;
+#define	u8(n,d)	uint8_t n;
 #define p(n)	char *prefix##n;
 settings
 #undef s
 #undef f
-#undef n
+#undef u32
+#undef u16
+#undef u8
 #undef p
 // Local types
 typedef struct setting_s setting_t;
@@ -69,6 +73,15 @@ static int wifi_count = 0;
 static int mqtt_count = 0;
 
 // Local functions
+static void
+log_wifi_state (void)
+{
+   wifi_ap_record_t ap = { };
+   esp_wifi_sta_get_ap_info (&ap);
+   revk_info (NULL, "WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", ap.bssid[0],
+              ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
+}
+
 static EventGroupHandle_t revk_group;
 const static int GROUP_WIFI = BIT0;
 const static int GROUP_MQTT = BIT1;
@@ -82,6 +95,7 @@ wifi_event_handler (void *ctx, system_event_t * event)
       break;
    case SYSTEM_EVENT_STA_GOT_IP:
       xEventGroupSetBits (revk_group, GROUP_WIFI);
+      log_wifi_state ();
       break;
    case SYSTEM_EVENT_STA_DISCONNECTED:
       // TODO cycle wifi config
@@ -124,9 +138,9 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info (&ap);
-      revk_info (NULL, "Running %s WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d mem=%d %dms W%d M%d L%d", p->label, ap.bssid[0],
-                 ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary,
+      revk_info (NULL, "Running %s mem=%d %dms W%d M%d L%d", p->label,
                  esp_get_free_heap_size (), portTICK_PERIOD_MS, wifi_count, mqtt_count, CONFIG_LOG_DEFAULT_LEVEL);
+      log_wifi_state ();
       if (app_command)
          app_command ("connect", strlen (mqtthost), (unsigned char *) mqtthost);
       break;
@@ -219,25 +233,19 @@ revk_init (app_command_t * app_command_cb)
    // TODO secure NVS option
    nvs_flash_init ();
    ESP_ERROR_CHECK (nvs_open (revk_app, NVS_READWRITE, &nvs));  // TODO should we open/close on use?
-#define s(n)	revk_register(#n,0,0,&n,0,0)
+#define s(n,d)	revk_register(#n,0,0,&n,d,0)
 #define f(n,s)	revk_register(#n,0,s,&n,0,SETTING_BINARY)
-#define	n(n,d)	revk_register(#n,0,4,&n,#d,0)
+#define	u32(n,d)	revk_register(#n,0,sizeof(n),&n,#d,0)
+#define	u16(n,d)	revk_register(#n,0,sizeof(n),&n,#d,0)
+#define	u8(n,d)	revk_register(#n,0,sizeof(n),&n,#d,0)
 #define p(n)	revk_register("prefix"#n,0,0,&prefix##n,#n,0)
    settings;
 #undef s
 #undef f
-#undef n
+#undef u32
+#undef u16
+#undef u8
 #undef p
-   // some default settings
-   // TODO using revk_setting logic for defaults? Or find better way to set these for build time
-   //if(!*otahost)
-   otahost = "ota.revk.uk";
-   //if (!*mqtthost)
-      mqtthost = "mqtt.revk.uk";
-   //if (!*wifissid && !wifipass)
-      wifipass = "security";
-   //if (!*wifissid)
-      wifissid = "IoT";
    restart_time = 0;            // If settings change at start up we can ignore.
    tcpip_adapter_init ();
    app_command = app_command_cb;

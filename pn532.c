@@ -7,7 +7,7 @@ static const char TAG[] = "PN532";
 
 // TODO defined meaningful error codes
 
-#define	HEXLOG ESP_LOG_INFO
+//#define	HEXLOG ESP_LOG_INFO
 
 struct pn532_s
 {
