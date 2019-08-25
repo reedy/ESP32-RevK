@@ -1,0 +1,27 @@
+menu "RevK"
+
+	config REVK_WIFISSID
+	string "Default WiFi SSID"
+	default "IoT"
+	help
+		This defines the factory reset default WiFi SSID
+
+	config REVK_WIFIPASS
+	string "Default WiFi passphrase"
+	default "security"
+	help
+		This defines the factory reset default WiFi passphrase
+
+	config REVK_MQTTHOST
+	string "Default MQTT host"
+	default "mqtt.iot"
+	help
+		This defines the factory reset default MQTT host (insecure)
+
+	config REVK_OTAHOST
+	string "Default OTA host"
+	default "ota.iot"
+	help
+		This defines the factory reset default OTA host (https)
+
+endmenu
