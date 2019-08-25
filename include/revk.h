@@ -32,7 +32,8 @@ typedef const char *app_command_t (const char *tag, unsigned int len, const unsi
 // Data
 extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
-extern char revk_id[7];         // Chip ID hex
+extern char revk_id[7];         // Chip ID hex (derived from MAC)
+extern uint32_t revk_binid;	// Chip ID binary
 
 // Calls
 void revk_init (app_command_t * app_command);

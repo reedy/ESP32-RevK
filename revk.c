@@ -59,7 +59,8 @@ struct setting_s
 // Public
 const char *revk_app = "";
 const char *revk_version = "";  // ISO date version
-char revk_id[7];                // Chip ID as hex
+char revk_id[7];                // Chip ID as hex (derived from MAC)
+uint32_t rev_binid=0;	// Binary chip ID
 
 // Local
 static TaskHandle_t revk_task_id = NULL;
@@ -261,7 +262,8 @@ revk_init (app_command_t * app_command_cb)
    {                            // Chip ID from MAC
       unsigned char mac[6];
       ESP_ERROR_CHECK (esp_efuse_mac_get_default (mac));
-      snprintf (revk_id, sizeof (revk_id), "%02X%02X%02X", mac[0] ^ mac[3], mac[1] ^ mac[4], mac[2] ^ mac[5]);
+      revk_binid=((mac[0]<<16)+(mac[1]<<8)+mac[2])^((mac[3]<<16)+(mac[4]<<8)+mac[5]);
+      snprintf (revk_id, sizeof (revk_id), "%06X",revk_binid);
    }
    // MQTT
    char *topic;
