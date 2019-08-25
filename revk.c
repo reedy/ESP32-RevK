@@ -133,8 +133,8 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info (&ap);
-      revk_info (NULL, "Running %s mem=%d %dms W%d M%d L%d", p->label,
-                 esp_get_free_heap_size (), portTICK_PERIOD_MS, wifi_count, mqtt_count, CONFIG_LOG_DEFAULT_LEVEL);
+      revk_info (NULL, "MQTT%d(%d) %s mem=%d %dms L%d", mqtt_index + 1, mqtt_count, p->label,
+                 esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
       if (app_command)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
@@ -214,8 +214,8 @@ revk_task (void *pvParameters)
          esp_wifi_sta_get_ap_info (&ap);
          if (lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6))
          {
-            revk_info (NULL, "WiFi %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3],
-                       ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
+            revk_info (NULL, "WiFi%d(%d) %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", wifi_index + 1, wifi_count, ap.bssid[0],
+                       ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
             lastch = ap.primary;
             memcpy (lastbssid, ap.bssid, 6);
          }
@@ -429,7 +429,7 @@ ota_handler (esp_http_client_event_t * evt)
                {
                   revk_info ("upgrade", "Loading %d", ota_size);
                   ota_running = 1;
-                  next = now + 1000000;
+                  next = now + 5000000;
                }
             }
          }
@@ -442,10 +442,10 @@ ota_handler (esp_http_client_event_t * evt)
             {
                ota_running += evt->data_len;
                int percent = ota_running * 100 / ota_size;
-               if (percent != ota_progress && (percent == 100 || next < now))
+               if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                {
                   revk_info ("upgrade", "%3d%%", ota_progress = percent);
-                  next = now + 1000000;
+                  next = now + 5000000;
                }
             }
          }

@@ -4,10 +4,11 @@ static const char TAG[] = "PN532";
 #include "pn532.h"
 #include "esp_log.h"
 #include <driver/uart.h>
+#include <driver/gpio.h>
 
 // TODO defined meaningful error codes
 
-//#define	HEXLOG ESP_LOG_INFO
+//#define       HEXLOG ESP_LOG_INFO
 
 struct pn532_s
 {
@@ -15,6 +16,7 @@ struct pn532_s
    uint8_t tx;                  // Tx GPIO
    uint8_t rx;                  // Rx GPIO
    uint8_t pending;             // Pending response
+   uint8_t lasterr;             // Last error (obviously not for PN532_ERR_NULL)
    uint8_t cards;               // Cards present (0, 1 or 2)
    uint8_t tg;                  // First card target id (normally 1)
    uint16_t sens_res;           // From InListPassiveTarget
@@ -23,9 +25,44 @@ struct pn532_s
    uint8_t ats[30];             // First card ATS last seen (starts with len)
 };
 
+// Data
+static const char *const pn532_err_str[PN532_ERR_STATUS_MAX + 1] = {
+#define p(n) [PN532_ERR_##n]="PN532_ERR_"#n,
+#define s(v,n) [PN532_ERR_STATUS_##n]="PN532_ERR_STATUS_"#n,
+   pn532_errs
+#undef p
+#undef s
+};
+
+pn532_err_t
+pn532_lasterr (pn532_t * p)
+{
+   if (!p)
+      return -PN532_ERR_NULL;
+#if 0
+   if (p->lasterr > PN532_ERR_STATUS)
+      ESP_LOGI (TAG, "Last err status %02X", p->lasterr - PN532_ERR_STATUS);
+   else
+      ESP_LOGI (TAG, "Last err %d", p->lasterr);
+#endif
+   return p->lasterr;
+}
+
+const char *
+pn532_err_to_name (pn532_err_t e)
+{
+   if (e < 0)
+      e = -e;
+   if (e > PN532_ERR_STATUS_MAX)
+      return "PN532_ERR_UNKNOWN";
+   return pn532_err_str[e];
+}
+
 static int
 uart_rx (pn532_t * p, uint8_t * buf, uint32_t length, int ms)
 {                               // Low level UART rx with optional logging
+   if (!p)
+      return -PN532_ERR_NULL;
    ms /= portTICK_PERIOD_MS;
    if (ms < 2)
       ms = 2;                   // Ensure some timeout
@@ -42,6 +79,8 @@ uart_rx (pn532_t * p, uint8_t * buf, uint32_t length, int ms)
 static int
 uart_tx (pn532_t * p, const uint8_t * src, size_t size)
 {                               // Low level UART tx with optional logging
+   if (!p)
+      return -PN532_ERR_NULL;
    int l = uart_write_bytes (p->uart, (char *) src, size);
 #ifdef HEXLOG
    if (l > 0)
@@ -51,6 +90,24 @@ uart_tx (pn532_t * p, const uint8_t * src, size_t size)
 #endif
    uart_wait_tx_done (p->uart, 100 / portTICK_PERIOD_MS);
    return l;
+}
+
+static int
+uart_preamble (pn532_t * p, int ms)
+{                               // Wait for preamble
+   if (!p)
+      return -PN532_ERR_NULL;
+   uint8_t last = 0xFF;
+   while (1)
+   {
+      uint8_t c;
+      int l = uart_rx (p, &c, 1, ms);
+      if (l < 1)
+         return l;
+      if (last == 0x00 && c == 0xFF)
+         return 2;
+      last = c;
+   }
 }
 
 void *
@@ -91,16 +148,15 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
       return NULL;
    }
    ESP_LOGD (TAG, "PN532 UART %d Tx %d Rx %d", uart, tx, rx);
+   gpio_set_drive_capability(tx,GPIO_DRIVE_CAP_3); // Oomph?
    uint8_t buf[8];
    // Set up PN532 (SAM first as in vLowBat mode)
-   pn532_kick (p);
    // SAMConfiguration
    buf[0] = 0x01;               // Normal
    buf[1] = 20;                 // *50ms timeout
    buf[2] = 0x01;               // Use IRQ
    if (pn532_tx (p, 0x14, 0, NULL, 3, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
    {                            // Again
-      pn532_kick (p);
       // SAMConfiguration
       buf[0] = 0x01;            // Normal
       buf[1] = 20;              // *50ms timeout
@@ -172,10 +228,16 @@ pn532_nfcid (pn532_t * p, char text[21])
 int
 pn532_tx (pn532_t * p, uint8_t cmd, int len1, uint8_t * data1, int len2, uint8_t * data2)
 {                               // Send data to PN532
+   if (!p)
+      return -PN532_ERR_NULL;
    if (p->pending)
-      return -1;                // Command outstanding
-   uint8_t buf[10],
+      return -(p->lasterr = PN532_ERR_CMDPENDING);
+   uint8_t buf[20],
     *b = buf;
+   *b++ = 0x55;	// Helps ensure no issue talking to PN532
+   *b++ = 0x55;
+   *b++ = 0x55;
+   *b++ = 0x55;
    *b++ = 0x00;                 // Preamble
    *b++ = 0x00;                 // Start 1
    *b++ = 0xFF;                 // Start 2
@@ -210,9 +272,18 @@ pn532_tx (pn532_t * p, uint8_t cmd, int len1, uint8_t * data1, int len2, uint8_t
    buf[1] = 0x00;               // Postamble
    uart_tx (p, buf, 2);
    // Get ACK and check it
-   l = uart_rx (p, buf, 6, 10);
-   if (l < 6 || buf[0] || buf[1] || buf[2] != 0xFF || buf[3] || buf[4] != 0xFF || buf[5])
-      return -1;                // Bad
+   l = uart_preamble (p, 10);
+   if (l < 2)
+      return -(p->lasterr = PN532_ERR_TIMEOUTACK);
+   l = uart_rx (p, buf, 3, 10);
+   if (l < 3)
+      return -(p->lasterr = PN532_ERR_TIMEOUTACK);
+   if (buf[2])
+      return -(p->lasterr = PN532_ERR_BADACK);
+   if (buf[0] == 0xFF && !buf[1])
+      return -(p->lasterr = PN532_ERR_NACK);
+   if (buf[0] || buf[1] != 0xFF)
+      return -(p->lasterr = PN532_ERR_BADACK);  // Bad
    p->pending = cmd + 1;
    return 0;                    // OK
 }
@@ -220,44 +291,49 @@ pn532_tx (pn532_t * p, uint8_t cmd, int len1, uint8_t * data1, int len2, uint8_t
 int
 pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
 {                               // Recv data from PN532
+   if (!p)
+      return -PN532_ERR_NULL;
    if (!p->pending)
-      return -14;               // No response pending
+      return -(p->lasterr = PN532_ERR_NOTPENDING);
    uint8_t pending = p->pending;
    p->pending = 0;
+   int l = uart_preamble (p, 100);
+   if (l < 2)
+      return -(p->lasterr = PN532_ERR_TIMEOUT);
    uint8_t buf[9];
-   int l = uart_rx (p, buf, 7, 100);
-   if (l < 7 || buf[0] || buf[1] || buf[2] != 0xFF)
-      return -1;                // Bad header
+   l = uart_rx (p, buf, 4, 100);
+   if (l < 4)
+      return PN532_ERR_TIMEOUT;
    int len = 0;
-   if (buf[3] == 0xFF && buf[4] == 0xFF)
+   if (buf[0] == 0xFF && buf[1] == 0xFF)
    {                            // Extended
-      l = uart_rx (p, buf + 7, 3, 10);
-      if (l != 6)
-         return -1;             // Missed bytes
-      if ((uint8_t) (buf[5] + buf[6] + buf[7]))
-         return -2;             // Bad checksum
-      len = (buf[5] << 8) + buf[6];
-      if (buf[8] != 0xD5)
-         return -3;             // Not reply
-      if (buf[9] != pending)
-         return -4;             // Not right reply
+      l = uart_rx (p, buf + 4, 3, 10);
+      if (l < 3)
+         return -(p->lasterr = PN532_ERR_TIMEOUT);
+      if ((uint8_t) (buf[2] + buf[3] + buf[4]))
+         return -(p->lasterr = PN532_ERR_HEADER);       // Bad checksum
+      len = (buf[2] << 8) + buf[3];
+      if (buf[5] != 0xD5)
+         return -(p->lasterr = PN532_ERR_HEADER);       // Not reply
+      if (buf[6] != pending)
+         return -(p->lasterr = PN532_ERR_CMDMISMATCH);  // Not right reply
    } else
    {                            // Normal
-      if ((uint8_t) (buf[3] + buf[4]))
-         return -4;             // Bad checksum
-      len = buf[3];
-      if (buf[5] != 0xD5)
-         return -5;             // Not reply
-      if (buf[6] != pending)
-         return -4;             // Not right reply
+      if ((uint8_t) (buf[0] + buf[1]))
+         return -(p->lasterr = PN532_ERR_HEADER);       // Bad checksum
+      len = buf[0];
+      if (buf[2] != 0xD5)
+         return -(p->lasterr = PN532_ERR_HEADER);       // Not reply
+      if (buf[3] != pending)
+         return -(p->lasterr = PN532_ERR_CMDMISMATCH);  // Not right reply
    }
    if (len < 2)
-      return -6;                // Invalid
+      return -(p->lasterr = PN532_ERR_HEADER);  // Invalid
    len -= 2;
    int res = len;
    uint8_t sum = 0xD5 + pending;
    if (len > max1 + max2)
-      return -7;                // Too big
+      return -(p->lasterr = PN532_ERR_SPACE);   // Too big
    if (data1)
    {
       l = max1;
@@ -265,8 +341,8 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
          l = len;
       if (l)
       {
-         if (uart_rx (p, data1, l, 10) != l)
-            return -8;          // Bad read
+         if (uart_rx (p, data1, l, 10) < l)
+            return -(p->lasterr = PN532_ERR_TIMEOUT);   // Bad read
          len -= l;
          while (l)
             sum += data1[--l];
@@ -279,46 +355,33 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
          l = len;
       if (l)
       {
-         if (uart_rx (p, data2, l, 10) != l)
-            return -9;          // Bad read
+         if (uart_rx (p, data2, l, 10) < l)
+            return -(p->lasterr = PN532_ERR_TIMEOUT);   // Bad read
          len -= l;
          while (l)
             sum += data2[--l];
       }
    }
-   if (len)
-      return -10;               // Uh?
    l = uart_rx (p, buf, 2, 10);
-   if (l != 2)
-      return -11;               // Postamble
+   if (l < 2)
+      return -(p->lasterr = PN532_ERR_TIMEOUT); // Postamble
    if ((uint8_t) (buf[0] + sum))
-      return -12;               // checksum
+      return -(p->lasterr = PN532_ERR_CHECKSUM);        // checksum
    if (buf[1])
-      return -13;               // postamble
+      return -(p->lasterr = PN532_ERR_POSTAMBLE);       // postamble
    return res;
-}
-
-void
-pn532_kick (pn532_t * p)
-{                               // Kick if in VLowBat mode
-   // Poke serial to wake up
-   uint8_t buf[5];
-   buf[0] = 0x55;
-   buf[1] = 0x55;
-   buf[2] = 0x00;
-   buf[3] = 0x00;
-   buf[4] = 0x00;
-   uart_tx (p, buf, 5);
 }
 
 int
 pn532_ready (pn532_t * p)
 {
+   if (!p)
+      return -PN532_ERR_NULL;
    if (!p->pending)
-      return -1;                // Nothing pending
+      return -(p->lasterr = PN532_ERR_NOTPENDING);      // Nothing pending
    size_t length;
    if (uart_get_buffered_data_len (p->uart, &length))
-      return -2;                // Error
+      return -(p->lasterr = 2); // Error
    return length;
 }
 
@@ -327,6 +390,8 @@ int
 pn532_dx (void *pv, unsigned int len, uint8_t * data, unsigned int max)
 {                               // Card access function - sends to card starting CMD byte, and receives reply in to same buffer, starting status byte, returns len
    pn532_t *p = pv;
+   if (!p)
+      return -PN532_ERR_NULL;
    if (!p->cards)
       return 0;                 // No card
    int l = pn532_tx (p, 0x40, 1, &p->tg, len, data);
@@ -337,10 +402,10 @@ pn532_dx (void *pv, unsigned int len, uint8_t * data, unsigned int max)
    if (l < 0)
       return l;
    if (l < 1)
-      return -1;
+      return -(p->lasterr = PN532_ERR_SHORT);
    if (status)
-      return -status;
-   l--;                         // PN532 status
+      return -(p->lasterr = PN532_ERR_STATUS - status);
+   l--;                         // Allow for status
    return l;
 }
 
@@ -348,6 +413,8 @@ pn532_dx (void *pv, unsigned int len, uint8_t * data, unsigned int max)
 int
 pn532_ILPT_Send (pn532_t * p)
 {
+   if (!p)
+      return -PN532_ERR_NULL;
    uint8_t buf[3];
    // InListPassiveTarget
    buf[0] = 2;                  // 2 tags (we only report 1)
@@ -361,14 +428,22 @@ pn532_ILPT_Send (pn532_t * p)
 int
 pn532_Present (pn532_t * p)
 {
+   if (!p)
+      return -PN532_ERR_NULL;
    uint8_t buf[1];
    if (!p->pending && p->cards && *p->ats && (p->ats[1] == 0x75 // DESFire
                                               || p->ats[1] == 0x78      // ISO
        ))
    {                            // We have cards, check in field still
       buf[0] = 6;               // Test 6 Attention Request Test or ISO/IEC14443-4 card presence detection
-      if (pn532_tx (p, 0x00, 1, buf, 0, NULL) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 1)
-         return -1;             // Problem
+      int l = pn532_tx (p, 0x00, 1, buf, 0, NULL);
+      if (l < 0)
+         return l;
+      l = pn532_rx (p, 0, NULL, sizeof (buf), buf);
+      if (l < 0)
+         return l;
+      if (l < 1)
+         return PN532_ERR_SHORT;
       if (!*buf)
          return p->cards;       // Still in field
    }
@@ -378,12 +453,14 @@ pn532_Present (pn532_t * p)
 int
 pn532_Cards (pn532_t * p)
 {                               // -ve for error, else number of cards
+   if (!p)
+      return -PN532_ERR_NULL;
    uint8_t buf[100];
    // InListPassiveTarget to get card count and baseID
    if (!p->pending)
       pn532_ILPT_Send (p);
    if (p->pending != 0x4B)
-      return -1;                // We expect to be waiting for InListPassiveTarget response
+      return -(p->lasterr = PN532_ERR_CMDMISMATCH);     // We expect to be waiting for InListPassiveTarget response
    int l = pn532_rx (p, 0, NULL, sizeof (buf), buf);
    if (l < 0)
       return l;
@@ -391,27 +468,27 @@ pn532_Cards (pn532_t * p)
    uint8_t *b = buf,
       *e = buf + l;             // end
    if (b >= e)
-      return -1;                // No card count
+      return -(p->lasterr = PN532_ERR_SHORT);   // No card count
    p->cards = *b++;
    if (p->cards)
    {                            // Get details of first card
       if (b + 5 > e)
-         return -1;             // No card data
+         return -(p->lasterr = PN532_ERR_SPACE);        // No card data
       p->tg = *b++;
       p->sens_res = (b[0] << 8) + b[1];
       b += 2;
       p->sel_res = *b++;
       if (b + *b + 1 > e)
-         return -1;             // Too short
+         return -(p->lasterr = PN532_ERR_SHORT);        // Too short
       if (*b < sizeof (p->nfcid))
          memcpy (p->nfcid, b, *b + 1);  // OK
       else
          memset (p->nfcid, 0, sizeof (p->nfcid));       // Too big
       b += *b + 1;
       if (b >= e)
-         return -1;             // No ATS len
+         return -(p->lasterr = PN532_ERR_SPACE);        // No ATS len
       if (!*b || b + *b > e)
-         return -1;             // Zero or missing ATS
+         return -(p->lasterr = PN532_ERR_SHORT);        // Zero or missing ATS
       if (*b <= sizeof (p->ats))
       {
          memcpy (p->ats, b, *b);        // OK
