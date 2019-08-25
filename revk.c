@@ -60,7 +60,7 @@ struct setting_s
 const char *revk_app = "";
 const char *revk_version = "";  // ISO date version
 char revk_id[7];                // Chip ID as hex (derived from MAC)
-uint32_t rev_binid=0;	// Binary chip ID
+uint32_t revk_binid=0;	// Binary chip ID
 
 // Local
 static TaskHandle_t revk_task_id = NULL;
