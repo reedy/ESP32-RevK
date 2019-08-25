@@ -9,7 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <malloc.h>
-#include "../DESFireAES/desfireaes.h"
+#include "desfireaes.h"
 
 typedef struct pn532_s pn532_t;
 

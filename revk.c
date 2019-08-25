@@ -230,12 +230,13 @@ revk_init (app_command_t * app_command_cb)
 #undef p
    // some default settings
    // TODO using revk_setting logic for defaults? Or find better way to set these for build time
+   //if(!*otahost)
    otahost = "ota.revk.uk";
-   if (!*mqtthost)
-      mqtthost = "mqtt.iot";
-   if (!*wifissid && !wifipass)
+   //if (!*mqtthost)
+      mqtthost = "mqtt.revk.uk";
+   //if (!*wifissid && !wifipass)
       wifipass = "security";
-   if (!*wifissid)
+   //if (!*wifissid)
       wifissid = "IoT";
    restart_time = 0;            // If settings change at start up we can ignore.
    tcpip_adapter_init ();
