@@ -241,6 +241,8 @@ wifi_event_handler (void *ctx, system_event_t * event)
       xEventGroupSetBits (revk_group, GROUP_WIFI);
       if (app_command)
          app_command ("wifi", strlen (wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
+      sntp_stop ();
+      sntp_init ();
       break;
    case SYSTEM_EVENT_STA_DISCONNECTED:
       if (wifireset)
