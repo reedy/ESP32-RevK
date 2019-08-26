@@ -24,4 +24,10 @@ menu "RevK"
 	help
 		This defines the factory reset default OTA host (https)
 
+	config REVK_NTPHOST
+	string "Default NTP host"
+	default "pool.ntp.org"
+	help
+		This defines the factory reset default NTP host
+
 endmenu

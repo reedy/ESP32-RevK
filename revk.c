@@ -11,7 +11,7 @@ static const char *TAG = "RevK";
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		s(otacert,NULL);			\
-		s(ntphost,"time.aa.net.uk");		\
+		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		u32(wifireset,300);			\
 		sa(wifissid,3,CONFIG_REVK_WIFISSID);	\
 		f(wifibssid,3,6);			\
