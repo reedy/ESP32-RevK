@@ -266,7 +266,7 @@ revk_task (void *pvParameters)
    {
       sleep (1);
       int64_t now = esp_timer_get_time ();
-      if (restart_time && restart_time < now)
+      if (restart_time && restart_time < now && !ota_task_id)
       {                         // Restart
          if (!restart_reason)
             restart_reason = "Unknown";
@@ -390,7 +390,7 @@ revk_raw (const char *prefix, const char *tag, int len, uint8_t * data, int reta
       return;
    ESP_LOGD (TAG, "MQTT publish %s (%d)", topic ? : "-", len);
    if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
-      esp_mqtt_client_publish (mqtt_client, topic, (const char*)data, len, 1, retain);
+      esp_mqtt_client_publish (mqtt_client, topic, (const char *) data, len, 1, retain);
    free (topic);
 }
 
