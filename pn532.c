@@ -302,7 +302,7 @@ pn532_rx (pn532_t * p, int max1, uint8_t * data1, int max2, uint8_t * data2)
    uint8_t buf[9];
    l = uart_rx (p, buf, 4, 100);
    if (l < 4)
-      return PN532_ERR_TIMEOUT;
+      return -(p->lasterr = PN532_ERR_TIMEOUT);
    int len = 0;
    if (buf[0] == 0xFF && buf[1] == 0xFF)
    {                            // Extended
@@ -386,25 +386,31 @@ pn532_ready (pn532_t * p)
 
 // Data exchange (for DESFire use)
 int
-pn532_dx (void *pv, unsigned int len, uint8_t * data, unsigned int max)
+pn532_dx (void *pv, unsigned int len, uint8_t * data, unsigned int max, const char **strerr)
 {                               // Card access function - sends to card starting CMD byte, and receives reply in to same buffer, starting status byte, returns len
+   if (strerr)
+      *strerr = NULL;
    pn532_t *p = pv;
    if (!p)
       return -PN532_ERR_NULL;
    if (!p->cards)
       return 0;                 // No card
    int l = pn532_tx (p, 0x40, 1, &p->tg, len, data);
+   if (l >= 0)
+   {
+      uint8_t status;
+      l = pn532_rx (p, 1, &status, max, data);
+      if (!l)
+         l = -PN532_ERR_SHORT;
+      else if (l >= 1 && status)
+         return l = -PN532_ERR_STATUS;
+   }
    if (l < 0)
-      return l;
-   uint8_t status;
-   l = pn532_rx (p, 1, &status, max, data);
-   if (l < 0)
-      return l;
-   if (l < 1)
-      return -(p->lasterr = PN532_ERR_SHORT);
-   if (status)
-      return -(p->lasterr = PN532_ERR_STATUS - status);
-   l--;                         // Allow for status
+   {
+      if (strerr)
+         *strerr = pn532_err_to_name (p->lasterr = -l);
+   } else
+      l--;                      // Allow for status
    return l;
 }
 
@@ -443,11 +449,32 @@ pn532_Present (pn532_t * p)
       if (l < 0)
          return l;
       if (l < 1)
-         return PN532_ERR_SHORT;
+         return -(p->lasterr = PN532_ERR_SHORT);
       if (!*buf)
          return p->cards;       // Still in field
    }
-   return pn532_Cards (p);      // Look for card - older MIFARE need re-doing to see if present sttill
+   return pn532_Cards (p);      // Look for card - older MIFARE need re-doing to see if present still
+}
+
+int
+pn532_write_P3 (pn532_t * p, uint8_t p3)
+{
+   if (!p)
+      return -PN532_ERR_NULL;
+   uint8_t buf[2];
+   buf[0] = (0x80 | p3);
+   buf[1] = 0;                  // No p7
+   int l = pn532_tx (p, 0x0E, 2, buf, 0, NULL);
+   if (l < 0)
+      return l;
+   return pn532_rx (p, 0, NULL, sizeof (buf), buf);
+}
+
+int
+pn532_read_P3 (pn532_t * p)
+{
+   // TODO
+   return 0;
 }
 
 int
@@ -464,6 +491,8 @@ pn532_Cards (pn532_t * p)
    int l = pn532_rx (p, 0, NULL, sizeof (buf), buf);
    if (l < 0)
       return l;
+   memset (p->nfcid, 0, sizeof (p->nfcid));
+   memset (p->ats, 0, sizeof (p->ats));
    // Extract first card ID
    uint8_t *b = buf,
       *e = buf + l;             // end
@@ -485,21 +514,17 @@ pn532_Cards (pn532_t * p)
       else
          memset (p->nfcid, 0, sizeof (p->nfcid));       // Too big
       b += *b + 1;
-      if (b >= e)
-         return -(p->lasterr = PN532_ERR_SPACE);        // No ATS len
-      if (!*b || b + *b > e)
-         return -(p->lasterr = PN532_ERR_SHORT);        // Zero or missing ATS
-      if (*b <= sizeof (p->ats))
-      {
-         memcpy (p->ats, b, *b);        // OK
-         (*p->ats)--;           // Make len of what follows for consistency
-      } else
-         memset (p->ats, 0, sizeof (p->ats));   // Too big
-      b += *b;                  // ready for second target (which we are not looking at)
-   } else
-   {                            // Gone
-      memset (p->nfcid, 0, sizeof (p->nfcid));
-      memset (p->ats, 0, sizeof (p->ats));
+      if (b < e)
+      {                         // ATS
+         if (!*b || b + *b > e)
+            return -(p->lasterr = PN532_ERR_SHORT);     // Zero or missing ATS
+         if (*b <= sizeof (p->ats))
+         {
+            memcpy (p->ats, b, *b);     // OK
+            (*p->ats)--;        // Make len of what follows for consistency
+         }
+         b += *b;               // ready for second target (which we are not looking at)
+      }
    }
    return p->cards;
 }
