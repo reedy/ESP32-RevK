@@ -121,7 +121,7 @@ pn532_end (pn532_t * p)
 }
 
 pn532_t *
-pn532_init (int uart, int tx, int rx, uint8_t p3)
+pn532_init (int uart, int tx, int rx, uint8_t outputs)
 {                               // Init PN532
    pn532_t *p = malloc (sizeof (*p));
    if (!p)
@@ -151,16 +151,19 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
    uint8_t buf[8];
    // Set up PN532 (SAM first as in vLowBat mode)
    // SAMConfiguration
-   buf[0] = 0x01;               // Normal
-   buf[1] = 20;                 // *50ms timeout
-   buf[2] = 0x01;               // Use IRQ
-   if (pn532_tx (p, 0x14, 0, NULL, 3, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
+   int n;
+   n = 0;
+   buf[n++] = 0x01;             // Normal
+   buf[n++] = 20;               // *50ms timeout
+   buf[n++] = 0x01;             // Use IRQ
+   if (pn532_tx (p, 0x14, 0, NULL, n, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
    {                            // Again
       // SAMConfiguration
-      buf[0] = 0x01;            // Normal
-      buf[1] = 20;              // *50ms timeout
-      buf[2] = 0x01;            // Use IRQ
-      if (pn532_tx (p, 0x14, 0, NULL, 3, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
+      n = 0;
+      buf[n++] = 0x01;          // Normal
+      buf[n++] = 20;            // *50ms timeout
+      buf[n++] = 0x01;          // Use IRQ
+      if (pn532_tx (p, 0x14, 0, NULL, n, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
          return pn532_end (p);
    }
    // GetFirmwareVersion
@@ -168,32 +171,48 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
       return pn532_end (p);
    //uint32_t ver = (buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3];
    // RFConfiguration
-   buf[0] = 5;                  // Config item 5 (MaxRetries)
-   buf[1] = 0xFF;               // MxRtyATR (default = 0xFF)
-   buf[2] = 0x01;               // MxRtyPSL (default = 0x01)
-   buf[3] = 0x01;               // MxRtyPassiveActivation
-   if (pn532_tx (p, 0x32, 0, NULL, 4, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
+   n = 0;
+   buf[n++] = 5;                // Config item 5 (MaxRetries)
+   buf[n++] = 0xFF;             // MxRtyATR (default = 0xFF)
+   buf[n++] = 0x01;             // MxRtyPSL (default = 0x01)
+   buf[n++] = 0x01;             // MxRtyPassiveActivation
+   if (pn532_tx (p, 0x32, 0, NULL, n, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
       return pn532_end (p);
    // WriteRegister
-   buf[0] = 0xFF;               // P3CFGB
-   buf[1] = 0xFD;               // P3CFGB
-   buf[2] = p3;                 // Define output bits
-   buf[3] = 0xFF;               // P3
-   buf[4] = 0xB0;               // P3
-   buf[5] = 0xFF;               // All high
-   if (pn532_tx (p, 0x08, 0, NULL, 6, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
+   n = 0;
+   if (outputs & 0x3F)
+   {
+      buf[n++] = 0xFF;          // P3CFGB
+      buf[n++] = 0xFD;          // P3CFGB
+      buf[n++] = (outputs & 0x3F);      // Define output bits
+      buf[n++] = 0xFF;          // P3
+      buf[n++] = 0xB0;          // P3
+      buf[n++] = 0xFF;          // All high
+   }
+   if (outputs & 0xC0)
+   {
+      buf[n++] = 0xFF;          // P7CFGB
+      buf[n++] = 0xFF;          // P7CFGB
+      buf[n++] = ((outputs >> 5) & 0x06);       // Define output bits
+      buf[n++] = 0xFF;          // P7
+      buf[n++] = 0xF7;          // P7
+      buf[n++] = 0xFF;          // All high
+   }
+   if (n && (pn532_tx (p, 0x08, 0, NULL, n, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0))
       return pn532_end (p);
    // RFConfiguration
-   buf[0] = 0x04;               // MaxRtyCOM
-   buf[1] = 1;                  // Retries (default 0)
-   if (pn532_tx (p, 0x32, 0, NULL, 2, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
+   n = 0;
+   buf[n++] = 0x04;             // MaxRtyCOM
+   buf[n++] = 1;                // Retries (default 0)
+   if (pn532_tx (p, 0x32, 0, NULL, n, buf) < 0 || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
       return pn532_end (p);
    // RFConfiguration
-   buf[0] = 0x02;               // Various timings (100*2^(n-1))us
-   buf[1] = 0x00;               // RFU
-   buf[2] = 0x0B;               // Default (102.4 ms)
-   buf[3] = 0x0A;               // Default is 0x0A (51.2 ms)
-   if (pn532_tx (p, 0x32, 0, NULL, 4, buf) || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
+   n = 0;
+   buf[n++] = 0x02;             // Various timings (100*2^(n-1))us
+   buf[n++] = 0x00;             // RFU
+   buf[n++] = 0x0B;             // Default (102.4 ms)
+   buf[n++] = 0x0A;             // Default is 0x0A (51.2 ms)
+   if (pn532_tx (p, 0x32, 0, NULL, n, buf) || pn532_rx (p, 0, NULL, sizeof (buf), buf) < 0)
       return pn532_end (p);
    return p;
 }
@@ -435,6 +454,18 @@ pn532_Present (pn532_t * p)
 {
    if (!p)
       return -PN532_ERR_NULL;
+#if 0	// Ideally this get status would tell us the card has gone, sadly it does not
+   uint8_t buf[100];
+   int l = pn532_tx (p, 0x04, 0, NULL, 0, NULL);
+   if (l < 0)
+      return l;
+   l = pn532_rx (p, 0, NULL, sizeof (buf), buf);
+   if (l < 0)
+      return l;
+   if (l < 3)
+      return -(p->lasterr = PN532_ERR_SHORT);
+   return buf[2];               // Number of targets
+#else
    uint8_t buf[1];
    if (!p->pending && p->cards && *p->ats && (p->ats[1] == 0x75 // DESFire
                                               || p->ats[1] == 0x78      // ISO
@@ -453,16 +484,17 @@ pn532_Present (pn532_t * p)
          return p->cards;       // Still in field
    }
    return pn532_Cards (p);      // Look for card - older MIFARE need re-doing to see if present still
+#endif
 }
 
 int
-pn532_write_P3 (pn532_t * p, uint8_t p3)
-{
+pn532_write_GPIO (pn532_t * p, uint8_t value)
+{                               // Write P3/P7 (P72/P71 in top bits, P35-30 in rest)
    if (!p)
       return -PN532_ERR_NULL;
    uint8_t buf[2];
-   buf[0] = (0x80 | p3);
-   buf[1] = 0;                  // No p7
+   buf[0] = 0x80 | (value & 0x3F);
+   buf[1] = 0x80 | ((value >> 5) & 0x06);
    int l = pn532_tx (p, 0x0E, 2, buf, 0, NULL);
    if (l < 0)
       return l;
@@ -470,10 +502,20 @@ pn532_write_P3 (pn532_t * p, uint8_t p3)
 }
 
 int
-pn532_read_P3 (pn532_t * p)
-{
-   // TODO
-   return 0;
+pn532_read_GPIO (pn532_t * p)
+{                               // Read P3/P7 (P72/P71 in top bits, P35-30 in rest)
+   if (!p)
+      return -PN532_ERR_NULL;
+   uint8_t buf[3];
+   int l = pn532_tx (p, 0x0C, 0, NULL, 0, NULL);
+   if (l < 0)
+      return l;
+   l = pn532_rx (p, 0, NULL, sizeof (buf), buf);
+   if (l < 0)
+      return l;
+   if (l < 3)
+      return -(p->lasterr = PN532_ERR_SHORT);
+   return (buf[0] & 0x3F) | ((buf[1] & 0x06) << 5);
 }
 
 int

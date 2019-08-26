@@ -84,8 +84,8 @@ uint8_t *pn532_ats (pn532_t *); // Get ATS (first byte is len of following - not
 int pn532_dx (void *, unsigned int len, uint8_t * data, unsigned int max, const char **errstr);
 
 // Higher level useful PN532 functions
-int pn532_write_P3 (pn532_t * p, uint8_t p3);
-int pn532_read_P3 (pn532_t * p);
+int pn532_write_GPIO (pn532_t * p, uint8_t value);  // (P72/P71 in top bits, P35-30 in rest)
+int pn532_read_GPIO (pn532_t * p); // P72/P71 in top bits, P35-30 in rest)
 int pn532_ILPT_Send (pn532_t * p);      // Sets up InListPassiveTarget but does not wait for reply
 int pn532_Cards (pn532_t * p);  // How many cards present
 int pn532_Present (pn532_t * p);        // Check if present still
