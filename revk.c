@@ -555,12 +555,17 @@ ota_task (void *pvParameters)
    else
       config.use_global_ca_store = true;        // Global cert
    esp_http_client_handle_t client = esp_http_client_init (&config);
-   esp_err_t err = REVK_ERR_CHECK (esp_http_client_perform (client));
-   int status = esp_http_client_get_status_code (client);
-   esp_http_client_cleanup (client);
-   free (url);
-   if (!err && status / 100 != 2)
-      revk_error ("upgrade", "HTTP code %d", status);
+   if (!client)
+      revk_error ("upgrade", "HTTP client failed");
+   else
+   {
+      esp_err_t err = REVK_ERR_CHECK (esp_http_client_perform (client));
+      int status = esp_http_client_get_status_code (client);
+      esp_http_client_cleanup (client);
+      free (url);
+      if (!err && status / 100 != 2)
+         revk_error ("upgrade", "HTTP code %d", status);
+   }
    ota_task_id = NULL;
    vTaskDelete (NULL);
 }
