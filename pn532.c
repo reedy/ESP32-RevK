@@ -148,7 +148,7 @@ pn532_init (int uart, int tx, int rx, uint8_t p3)
       return NULL;
    }
    ESP_LOGD (TAG, "PN532 UART %d Tx %d Rx %d", uart, tx, rx);
-   gpio_set_drive_capability(tx,GPIO_DRIVE_CAP_3); // Oomph?
+   gpio_set_drive_capability (tx, GPIO_DRIVE_CAP_3);    // Oomph?
    uint8_t buf[8];
    // Set up PN532 (SAM first as in vLowBat mode)
    // SAMConfiguration
@@ -234,7 +234,7 @@ pn532_tx (pn532_t * p, uint8_t cmd, int len1, uint8_t * data1, int len2, uint8_t
       return -(p->lasterr = PN532_ERR_CMDPENDING);
    uint8_t buf[20],
     *b = buf;
-   *b++ = 0x55;	// Helps ensure no issue talking to PN532
+   *b++ = 0x55;                 // Helps ensure no issue talking to PN532
    *b++ = 0x55;
    *b++ = 0x55;
    *b++ = 0x55;

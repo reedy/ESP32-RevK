@@ -354,9 +354,9 @@ revk_init (app_command_t * app_command_cb)
    wifi_next ();
    ESP_ERROR_CHECK (esp_wifi_start ());
    char *hostname;
-   asprintf(&hostname,"%s-%s",revk_app,revk_id);
-   tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA,hostname);
-   free(hostname);
+   asprintf (&hostname, "%s-%s", revk_app, revk_id);
+   tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, hostname);
+   free (hostname);
    // Start task
    xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
 }
@@ -379,6 +379,18 @@ revk_mqtt_ap (const char *prefix, int retain, const char *tag, const char *fmt, 
    if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
       esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
    free (buf);
+   free (topic);
+}
+
+void
+revk_raw (const char *prefix, const char *tag, int len, uint8_t * data, int retain)
+{
+   char *topic;
+   if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
+      return;
+   ESP_LOGD (TAG, "MQTT publish %s (%d)", topic ? : "-", len);
+   if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
+      esp_mqtt_client_publish (mqtt_client, topic, (const char*)data, len, 1, retain);
    free (topic);
 }
 

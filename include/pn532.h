@@ -71,7 +71,7 @@ typedef struct pn532_s pn532_t;
 pn532_t *pn532_init (int uart, int tx, int rx, uint8_t p3);     // Init PN532 (P3 is port 3 output bits in use)
 void *pn532_end (pn532_t * p);
 
-pn532_err_t pn532_lasterr(pn532_t *);
+pn532_err_t pn532_lasterr (pn532_t *);
 const char *pn532_err_to_name (pn532_err_t);
 
 // Low level access functions
