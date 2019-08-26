@@ -9,7 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <malloc.h>
-#include "desfireaes.h"
 
 #define pn532_errs		\
 	p(OK)			\
