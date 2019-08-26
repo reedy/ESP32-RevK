@@ -60,9 +60,12 @@ struct setting_s
 const char *revk_app = "";
 const char *revk_version = "";  // ISO date version
 char revk_id[7];                // Chip ID as hex (derived from MAC)
-uint32_t revk_binid=0;	// Binary chip ID
+uint32_t revk_binid = 0;        // Binary chip ID
 
 // Local
+static EventGroupHandle_t revk_group;
+const static int GROUP_WIFI = BIT0;
+const static int GROUP_MQTT = BIT1;
 static TaskHandle_t revk_task_id = NULL;
 static TaskHandle_t ota_task_id = NULL;
 static app_command_t *app_command = NULL;
@@ -73,36 +76,32 @@ static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 static int wifi_count = 0;
-static int wifi_index = 0;
+static int wifi_index = -1;
 static int mqtt_count = 0;
-static int mqtt_index = 0;
+static int mqtt_index = -1;
 
 // Local functions
-
-static EventGroupHandle_t revk_group;
-const static int GROUP_WIFI = BIT0;
-const static int GROUP_MQTT = BIT1;
-static esp_err_t
-wifi_event_handler (void *ctx, system_event_t * event)
+static void mqtt_next (void);
+static void
+wifi_next (void)
 {
-   switch (event->event_id)
+   int last = wifi_index;
+   wifi_index++;
+   if (wifi_index >= sizeof (wifissid) / sizeof (*wifissid) || !*wifissid[wifi_index])
+      wifi_index = 0;
+   if (last == wifi_index)
+      return;                   // No change
+   wifi_config_t wifi_config = { };
+   if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
    {
-   case SYSTEM_EVENT_STA_START:
-      esp_wifi_connect ();
-      break;
-   case SYSTEM_EVENT_STA_GOT_IP:
-      xEventGroupSetBits (revk_group, GROUP_WIFI);
-      break;
-   case SYSTEM_EVENT_STA_DISCONNECTED:
-      // TODO cycle wifi config
-      wifi_count++;
-      xEventGroupClearBits (revk_group, GROUP_WIFI);
-      esp_wifi_connect ();
-      break;
-   default:
-      break;
+      memcpy (wifi_config.sta.bssid, wifibssid[wifi_index], sizeof (wifi_config.sta.bssid));
+      wifi_config.sta.bssid_set = 1;
    }
-   return ESP_OK;
+   wifi_config.sta.channel = wifichan[wifi_index];
+   strncpy ((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof (wifi_config.sta.ssid));
+   strncpy ((char *) wifi_config.sta.password, wifipass[wifi_index], sizeof (wifi_config.sta.password));
+   ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
+   ESP_LOGI (TAG, "Start the WIFi SSID:[%s]", wifissid[wifi_index]);
 }
 
 static esp_err_t
@@ -113,6 +112,8 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
    switch (event->event_id)
    {
    case MQTT_EVENT_CONNECTED:
+      if (mqttreset)
+         revk_restart (NULL, -1);
       xEventGroupSetBits (revk_group, GROUP_MQTT);
       void sub (const char *prefix)
       {
@@ -129,7 +130,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       sub (prefixcommand);
       sub (prefixsetting);
       // Version, up
-      revk_state (NULL, "1 ESP32 %s", revk_version);  // Up
+      revk_state (NULL, "1 ESP32 %s", revk_version);    // Up
       // Info
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
@@ -140,10 +141,14 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DISCONNECTED:
+      mqtt_next ();
+      if (mqttreset)
+         revk_restart ("MQTT lost", mqttreset);
       mqtt_count++;
       xEventGroupClearBits (revk_group, GROUP_MQTT);
       if (app_command)
          app_command ("disconnect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
+      esp_mqtt_client_start (mqtt_client);
       break;
    case MQTT_EVENT_DATA:
       {
@@ -171,6 +176,77 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       }
       break;
    case MQTT_EVENT_ERROR:
+      break;
+   default:
+      break;
+   }
+   return ESP_OK;
+}
+
+static void
+mqtt_next (void)
+{
+   int last = mqtt_index;
+   mqtt_index++;
+   if (mqtt_index >= sizeof (mqtthost) / sizeof (*mqtthost) || !*mqtthost[mqtt_index])
+      mqtt_index = 0;
+   if (last == mqtt_index)
+      return;                   // No change
+   char *topic;
+   if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
+      return;
+   char *url;
+   if (asprintf (&url, "%s://%s/", *mqttcert[mqtt_index] ? "mqtts" : "mqtt", mqtthost[mqtt_index]) < 0)
+   {
+      free (topic);
+      return;
+   }
+   esp_mqtt_client_config_t config = {
+      .uri = url,
+      .event_handle = mqtt_event_handler,
+      .lwt_topic = topic,
+      .lwt_qos = 1,
+      .lwt_retain = 1,
+      .lwt_msg_len = 8,
+      .lwt_msg = "0 Failed",
+      .disable_auto_reconnect = true,
+   };
+   if (*mqttcert[mqtt_index])
+      config.cert_pem = mqttcert[mqtt_index];
+   if (*mqttuser[mqtt_index])
+      config.username = mqttuser[mqtt_index];
+   if (*mqttpass[mqtt_index])
+      config.password = mqttpass[mqtt_index];
+   ESP_LOGI (TAG, "Start the MQTT [%s]", mqtthost[mqtt_index]);
+   if (mqtt_client)
+      esp_mqtt_client_destroy (mqtt_client);
+   mqtt_client = esp_mqtt_client_init (&config);
+   free (topic);
+   free (url);
+}
+
+static esp_err_t
+wifi_event_handler (void *ctx, system_event_t * event)
+{
+   switch (event->event_id)
+   {
+   case SYSTEM_EVENT_STA_START:
+      esp_wifi_connect ();
+      break;
+   case SYSTEM_EVENT_STA_GOT_IP:
+      if (wifireset)
+         revk_restart (NULL, -1);
+      xEventGroupSetBits (revk_group, GROUP_WIFI);
+      if (app_command)
+         app_command ("wifi", strlen (wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
+      break;
+   case SYSTEM_EVENT_STA_DISCONNECTED:
+      if (wifireset)
+         revk_restart ("WiFi lost", wifireset);
+      wifi_next ();
+      wifi_count++;
+      xEventGroupClearBits (revk_group, GROUP_WIFI);
+      esp_wifi_connect ();
       break;
    default:
       break;
@@ -215,8 +291,9 @@ revk_task (void *pvParameters)
          esp_wifi_sta_get_ap_info (&ap);
          if (lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6))
          {
-            revk_info (NULL, "WiFi%d(%d) %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d", wifi_index + 1, wifi_count, ap.bssid[0],
-                       ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary);
+            revk_info (NULL, "WiFi%d(%d) %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d%s", wifi_index + 1, wifi_count,
+                       ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary,
+                       ap.country.cc);
             lastch = ap.primary;
             memcpy (lastbssid, ap.bssid, 6);
          }
@@ -262,51 +339,24 @@ revk_init (app_command_t * app_command_cb)
    {                            // Chip ID from MAC
       unsigned char mac[6];
       ESP_ERROR_CHECK (esp_efuse_mac_get_default (mac));
-      revk_binid=((mac[0]<<16)+(mac[1]<<8)+mac[2])^((mac[3]<<16)+(mac[4]<<8)+mac[5]);
-      snprintf (revk_id, sizeof (revk_id), "%06X",revk_binid);
+      revk_binid = ((mac[0] << 16) + (mac[1] << 8) + mac[2]) ^ ((mac[3] << 16) + (mac[4] << 8) + mac[5]);
+      snprintf (revk_id, sizeof (revk_id), "%06X", revk_binid);
    }
    // MQTT
-   char *topic;
-   if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
-      return;
-   char *url;
-   if (asprintf (&url, "%s://%s/", *mqttcert[mqtt_index] ? "mqtts" : "mqtt", mqtthost[mqtt_index]) < 0)
-   {
-      free (topic);
-      return;
-   }
-   esp_mqtt_client_config_t config = {
-      .uri = url,
-      .event_handle = mqtt_event_handler,
-      .lwt_topic = topic,
-      .lwt_qos = 1,
-      .lwt_retain = 1,
-      .lwt_msg_len = 8,
-      .lwt_msg = "0 Failed",
-   };
-   if (*mqttcert[mqtt_index])
-      config.cert_pem = mqttcert[mqtt_index];
-   if (*mqttuser[mqtt_index])
-      config.username = mqttuser[mqtt_index];
-   if (*mqttpass[mqtt_index])
-      config.password = mqttpass[mqtt_index];
-   ESP_LOGI (TAG, "Start the MQTT [%s]", mqtthost[mqtt_index]);
-   mqtt_client = esp_mqtt_client_init (&config);
+   mqtt_next ();
    // WiFi
    revk_group = xEventGroupCreate ();
    ESP_ERROR_CHECK (esp_event_loop_init (wifi_event_handler, NULL));
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
    ESP_ERROR_CHECK (esp_wifi_init (&cfg));
    ESP_ERROR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_RAM));
-   wifi_config_t wifi_config = { };
-   // TODO channel
-   // TODO bssid
-   strncpy ((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof (wifi_config.sta.ssid));
-   strncpy ((char *) wifi_config.sta.password, wifipass[wifi_index], sizeof (wifi_config.sta.password));
    ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_STA));
-   ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
-   ESP_LOGI (TAG, "Start the WIFi SSID:[%s]", wifissid[wifi_index]);
+   wifi_next ();
    ESP_ERROR_CHECK (esp_wifi_start ());
+   char *hostname;
+   asprintf(&hostname,"%s-%s",revk_app,revk_id);
+   tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA,hostname);
+   free(hostname);
    // Start task
    xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
 }
