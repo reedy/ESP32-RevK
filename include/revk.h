@@ -33,7 +33,11 @@ typedef const char *app_command_t (const char *tag, unsigned int len, const unsi
 extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
 extern char revk_id[7];         // Chip ID hex (derived from MAC)
-extern uint32_t revk_binid;	// Chip ID binary
+extern uint32_t revk_binid;     // Chip ID binary
+extern char *prefixstate;
+extern char *prefixevent;
+extern char *prefixinfo;
+extern char *prefixerror;
 
 // Calls
 void revk_init (app_command_t * app_command);
@@ -59,6 +63,7 @@ void revk_state (const char *tag, const char *fmt, ...);        // Send status
 void revk_event (const char *tag, const char *fmt, ...);        // Send event
 void revk_error (const char *tag, const char *fmt, ...);        // Send error
 void revk_info (const char *tag, const char *fmt, ...); // Send info
+void revk_raw (const char *prefix, const char *tag, int len, uint8_t * data, int retain);
 
 // Settings
 const char *revk_setting (const char *tag, unsigned int len, const unsigned char *value);       // Store a setting (same as MQTT, so calls app_setting)

@@ -6,27 +6,29 @@ static const char *TAG = "RevK";
 #include "esp_ota_ops.h"
 #include "esp_tls.h"
 #include "lecert.h"
+#include "esp_sntp.h"
 
 #define	settings	\
-		s(otahost,CONFIG_REVK_OTAHOST);             \
-		s(otacert,NULL);		\
-		u32(wifireset,300);       \
-		sa(wifissid,3,CONFIG_REVK_WIFISSID);            \
-		f(wifibssid,3,6);         \
-		u8(wifichan,3,0);          \
-		sa(wifipass,3,CONFIG_REVK_WIFIPASS);            \
-		u32(mqttreset,0);         \
-		sa(mqtthost,3,CONFIG_REVK_MQTTHOST);            \
-		sa(mqttuser,3,NULL);            \
-		sa(mqttpass,3,NULL);            \
-		u16(mqttport,3,0);            \
-		sa(mqttcert,3,NULL);		\
-		p(command);       \
-		p(setting);       \
-		p(state);         \
-		p(event);         \
-		p(info);          \
-		p(error);         \
+		s(otahost,CONFIG_REVK_OTAHOST);		\
+		s(otacert,NULL);			\
+		s(ntphost,"time.aa.net.uk");		\
+		u32(wifireset,300);			\
+		sa(wifissid,3,CONFIG_REVK_WIFISSID);	\
+		f(wifibssid,3,6);			\
+		u8(wifichan,3,0);			\
+		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
+		u32(mqttreset,0);			\
+		sa(mqtthost,3,CONFIG_REVK_MQTTHOST);	\
+		sa(mqttuser,3,NULL);			\
+		sa(mqttpass,3,NULL);			\
+		u16(mqttport,3,0);			\
+		sa(mqttcert,3,NULL);			\
+		p(command);				\
+		p(setting);				\
+		p(state);				\
+		p(event);				\
+		p(info);				\
+		p(error);				\
 
 #define s(n,d)		char *n;
 #define sa(n,a,d)	char *n[a];
@@ -266,7 +268,7 @@ revk_task (void *pvParameters)
    {
       sleep (1);
       int64_t now = esp_timer_get_time ();
-      if (restart_time && restart_time < now)
+      if (restart_time && restart_time < now && !ota_task_id)
       {                         // Restart
          if (!restart_reason)
             restart_reason = "Unknown";
@@ -335,6 +337,8 @@ revk_init (app_command_t * app_command_cb)
 #undef p
    restart_time = 0;            // If settings change at start up we can ignore.
    tcpip_adapter_init ();
+   sntp_setoperatingmode (SNTP_OPMODE_POLL);
+   sntp_setservername (0, ntphost);
    app_command = app_command_cb;
    {                            // Chip ID from MAC
       unsigned char mac[6];
@@ -354,9 +358,9 @@ revk_init (app_command_t * app_command_cb)
    wifi_next ();
    ESP_ERROR_CHECK (esp_wifi_start ());
    char *hostname;
-   asprintf(&hostname,"%s-%s",revk_app,revk_id);
-   tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA,hostname);
-   free(hostname);
+   asprintf (&hostname, "%s-%s", revk_app, revk_id);
+   tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, hostname);
+   free (hostname);
    // Start task
    xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
 }
@@ -379,6 +383,18 @@ revk_mqtt_ap (const char *prefix, int retain, const char *tag, const char *fmt, 
    if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
       esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
    free (buf);
+   free (topic);
+}
+
+void
+revk_raw (const char *prefix, const char *tag, int len, uint8_t * data, int retain)
+{
+   char *topic;
+   if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
+      return;
+   ESP_LOGD (TAG, "MQTT publish %s (%d)", topic ? : "-", len);
+   if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
+      esp_mqtt_client_publish (mqtt_client, topic, (const char *) data, len, 1, retain);
    free (topic);
 }
 

@@ -9,7 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <malloc.h>
-#include "desfireaes.h"
 
 #define pn532_errs		\
 	p(OK)			\
@@ -71,7 +70,7 @@ typedef struct pn532_s pn532_t;
 pn532_t *pn532_init (int uart, int tx, int rx, uint8_t p3);     // Init PN532 (P3 is port 3 output bits in use)
 void *pn532_end (pn532_t * p);
 
-pn532_err_t pn532_lasterr(pn532_t *);
+pn532_err_t pn532_lasterr (pn532_t *);
 const char *pn532_err_to_name (pn532_err_t);
 
 // Low level access functions
@@ -82,9 +81,11 @@ uint8_t *pn532_nfcid (pn532_t *, char text[21]);        // Get NFCID (first byte
 uint8_t *pn532_ats (pn532_t *); // Get ATS (first byte is len of following - note, not as received were it is len inc the length byte)
 
 // Card access function - sends to card starting CMD byte, and receives reply in to same buffer, starting status byte, returns len
-int pn532_dx (void *, unsigned int len, uint8_t * data, unsigned int max);
+int pn532_dx (void *, unsigned int len, uint8_t * data, unsigned int max, const char **errstr);
 
 // Higher level useful PN532 functions
+int pn532_write_P3 (pn532_t * p, uint8_t p3);
+int pn532_read_P3 (pn532_t * p);
 int pn532_ILPT_Send (pn532_t * p);      // Sets up InListPassiveTarget but does not wait for reply
 int pn532_Cards (pn532_t * p);  // How many cards present
 int pn532_Present (pn532_t * p);        // Check if present still
