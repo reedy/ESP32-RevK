@@ -544,14 +544,7 @@ ota_handler (esp_http_client_event_t * evt)
 static void
 ota_task (void *pvParameters)
 {
-   const char *host = pvParameters;
-   char *url;
-   if (asprintf (&url, "https://%s/%s.bin", host, revk_app) < 0)
-   {                            // Should not happen
-      ota_task_id = NULL;
-      vTaskDelete (NULL);
-      return;
-   }
+   char *url = pvParameters;
    revk_info ("upgrade", "%s", url);
    esp_http_client_config_t config = {
       .url = url,
@@ -573,11 +566,11 @@ ota_task (void *pvParameters)
 }
 
 const char *
-revk_ota (const char *host)
+revk_ota (const char *url)
 {                               // OTA and restart cleanly
    if (ota_task_id)
       return "OTA running";
-   xTaskCreatePinnedToCore (ota_task, "OTA", 16 * 1024, (char *) host, 1, &ota_task_id, tskNO_AFFINITY);        // TODO stack, priority, affinity check?
+   xTaskCreatePinnedToCore (ota_task, "OTA", 16 * 1024, (char *) url, 1, &ota_task_id, tskNO_AFFINITY); // TODO stack, priority, affinity check?
    return "";
 }
 
@@ -1023,10 +1016,12 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
    // My commands
    if (!e && !strcmp (tag, "upgrade"))
    {
-      if (!strncasecmp ((char *) value, "http://", 7) || !strncasecmp ((char *) value, "https://", 8))
-         e = revk_ota (strdup((char*)value));
+      char *url;                // TODO, yeh, not freed, but we are rebooting
+      if (len && !strncmp ((char *) value, "https://", 8))
+         url = strdup ((char *) value);
       else
-         e = revk_ota (otahost);
+         asprintf (&url, "https://%s/%s.bin", len ? (char *) value : otahost, revk_app);
+      e = revk_ota (url);
    }
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart ("Restart command", 0);
