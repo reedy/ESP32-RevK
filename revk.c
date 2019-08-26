@@ -1024,7 +1024,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
    if (!e && !strcmp (tag, "upgrade"))
    {
       if (!strncasecmp ((char *) value, "http://", 7) || !strncasecmp ((char *) value, "https://", 8))
-         e = revk_ota ((char *) value);
+         e = revk_ota (strdup((char*)value));
       else
          e = revk_ota (otahost);
    }
