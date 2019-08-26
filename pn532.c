@@ -436,7 +436,6 @@ pn532_Present (pn532_t * p)
    if (!p)
       return -PN532_ERR_NULL;
    uint8_t buf[1];
-   // TODO MIFARE classic?
    if (!p->pending && p->cards && *p->ats && (p->ats[1] == 0x75 // DESFire
                                               || p->ats[1] == 0x78      // ISO
        ))
