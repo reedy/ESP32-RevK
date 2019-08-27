@@ -273,7 +273,6 @@ static void
 revk_task (void *pvParameters)
 {                               // Main RevK task
    pvParameters = pvParameters;
-   xEventGroupWaitBits (revk_group, GROUP_WIFI, false, true, portMAX_DELAY);
 // Start MQTT
    esp_mqtt_client_start (mqtt_client);
 // Idle
