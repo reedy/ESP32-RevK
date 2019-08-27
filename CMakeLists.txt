@@ -1,4 +1,4 @@
 idf_component_register(
-			SRCS "revk.c" "galaxybus.c" "vl53l0x.c"
+			SRCS "revk.c" "galaxybus.c"
 			INCLUDE_DIRS "include"
 )
