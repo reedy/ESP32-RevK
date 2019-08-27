@@ -75,7 +75,8 @@ static app_command_t *app_command = NULL;
 esp_mqtt_client_handle_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
-static int64_t slow_dhcp = 0;
+static int64_t slow_connect = 0;
+static int64_t slow_mqtt = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
@@ -116,6 +117,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
    switch (event->event_id)
    {
    case MQTT_EVENT_CONNECTED:
+      slow_connect = 0;
       if (mqttreset)
          revk_restart (NULL, -1);
       xEventGroupSetBits (revk_group, GROUP_MQTT);
@@ -196,6 +198,7 @@ mqtt_next (void)
       mqtt_index = 0;
    if (last == mqtt_index)
       return;                   // No change
+   // TODO what if no MQTT?
    char *topic;
    if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
       return;
@@ -238,7 +241,7 @@ wifi_event_handler (void *ctx, system_event_t * event)
       esp_wifi_connect ();
       break;
    case SYSTEM_EVENT_STA_CONNECTED:
-      slow_dhcp = esp_timer_get_time () + 10000000;     // If no DHCP we disconnect WiFi
+      slow_connect = esp_timer_get_time () + 30000000;  // If no DHCP && MQTT we disconnect WiFi
       if (wifireset)
          esp_phy_erase_cal_data_in_nvs ();      // Lets calibrate on boot
       break;
@@ -246,7 +249,7 @@ wifi_event_handler (void *ctx, system_event_t * event)
       esp_wifi_disconnect ();
       break;
    case SYSTEM_EVENT_STA_GOT_IP:
-      slow_dhcp = 0;            // Got IP
+      if(!mqtthost)slow_connect=0;
       if (wifireset)
          revk_restart (NULL, -1);
       xEventGroupSetBits (revk_group, GROUP_WIFI);
@@ -254,6 +257,8 @@ wifi_event_handler (void *ctx, system_event_t * event)
          app_command ("wifi", strlen (wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
       sntp_stop ();
       sntp_init ();
+      esp_mqtt_client_stop (mqtt_client);
+      esp_mqtt_client_start (mqtt_client);
       break;
    case SYSTEM_EVENT_STA_DISCONNECTED:
       if (wifireset)
@@ -280,10 +285,10 @@ revk_task (void *pvParameters)
    {
       sleep (1);
       int64_t now = esp_timer_get_time ();
-      if (slow_dhcp && slow_dhcp < now)
+      if (slow_connect && slow_connect < now)
       {
-         ESP_LOGI (TAG, "Slow DHCP, disconnecting");
-         slow_dhcp = 0;
+         ESP_LOGI (TAG, "Slow connect, disconnecting");
+         slow_connect = 0;
          esp_wifi_disconnect ();
       }
       if (restart_time && restart_time < now && !ota_task_id)
