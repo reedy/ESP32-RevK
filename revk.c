@@ -7,6 +7,7 @@ static const char *TAG = "RevK";
 #include "esp_tls.h"
 #include "lecert.h"
 #include "esp_sntp.h"
+#include "esp_phy_init.h"
 
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
@@ -74,6 +75,7 @@ static app_command_t *app_command = NULL;
 esp_mqtt_client_handle_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
+static int64_t slow_dhcp = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
@@ -235,7 +237,16 @@ wifi_event_handler (void *ctx, system_event_t * event)
    case SYSTEM_EVENT_STA_START:
       esp_wifi_connect ();
       break;
+   case SYSTEM_EVENT_STA_CONNECTED:
+      slow_dhcp = esp_timer_get_time () + 10000000;     // If no DHCP we disconnect WiFi
+      if (wifireset)
+         esp_phy_erase_cal_data_in_nvs ();      // Lets calibrate on boot
+      break;
+   case SYSTEM_EVENT_STA_LOST_IP:
+      esp_wifi_disconnect ();
+      break;
    case SYSTEM_EVENT_STA_GOT_IP:
+      slow_dhcp = 0;            // Got IP
       if (wifireset)
          revk_restart (NULL, -1);
       xEventGroupSetBits (revk_group, GROUP_WIFI);
@@ -263,13 +274,18 @@ revk_task (void *pvParameters)
 {                               // Main RevK task
    pvParameters = pvParameters;
    xEventGroupWaitBits (revk_group, GROUP_WIFI, false, true, portMAX_DELAY);
-   // Start MQTT
+// Start MQTT
    esp_mqtt_client_start (mqtt_client);
-   // Idle
+// Idle
    while (1)
    {
       sleep (1);
       int64_t now = esp_timer_get_time ();
+      if (slow_dhcp && slow_dhcp < now)
+      {
+         slow_dhcp = 0;
+         esp_wifi_disconnect ();
+      }
       if (restart_time && restart_time < now && !ota_task_id)
       {                         // Restart
          if (!restart_reason)
@@ -291,13 +307,14 @@ revk_task (void *pvParameters)
       {                         // No event for channel change, etc
          static int lastch = 0;
          static uint8_t lastbssid[6];
-         wifi_ap_record_t ap = { };
+         wifi_ap_record_t ap = {
+         };
          esp_wifi_sta_get_ap_info (&ap);
          if (lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6))
          {
-            revk_info (NULL, "WiFi%d(%d) %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d%s", wifi_index + 1, wifi_count,
-                       ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary,
-                       ap.country.cc);
+            revk_info (NULL, "WiFi%d(%d) %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d%s", wifi_index + 1,
+                       wifi_count, ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4],
+                       ap.bssid[5], ap.ssid, ap.rssi, ap.primary, ap.country.cc);
             lastch = ap.primary;
             memcpy (lastbssid, ap.bssid, 6);
          }
@@ -547,8 +564,7 @@ ota_task (void *pvParameters)
    char *url = pvParameters;
    revk_info ("upgrade", "%s", url);
    esp_http_client_config_t config = {
-      .url = url,
-      .event_handler = ota_handler,
+      .url = url,.event_handler = ota_handler,
    };
    if (*otacert)
       config.cert_pem = otacert;        // Pinned cert
