@@ -211,7 +211,7 @@ mqtt_next (void)
       .lwt_retain = 1,
       .lwt_msg_len = 8,
       .lwt_msg = "0 Failed",
-      .disable_auto_reconnect = true,
+//      .disable_auto_reconnect = true,
    };
    if (*mqttcert[mqtt_index])
       config.cert_pem = mqttcert[mqtt_index];
