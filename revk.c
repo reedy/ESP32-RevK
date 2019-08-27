@@ -283,6 +283,7 @@ revk_task (void *pvParameters)
       int64_t now = esp_timer_get_time ();
       if (slow_dhcp && slow_dhcp < now)
       {
+         ESP_LOGI (TAG, "Slow DHCP, disconnecting");
          slow_dhcp = 0;
          esp_wifi_disconnect ();
       }
