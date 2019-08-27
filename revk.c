@@ -76,7 +76,6 @@ esp_mqtt_client_handle_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
 static int64_t slow_connect = 0;
-static int64_t slow_mqtt = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
@@ -249,7 +248,8 @@ wifi_event_handler (void *ctx, system_event_t * event)
       esp_wifi_disconnect ();
       break;
    case SYSTEM_EVENT_STA_GOT_IP:
-      if(!mqtthost)slow_connect=0;
+      if (!*mqtthost[mqtt_index])
+         slow_connect = 0;
       if (wifireset)
          revk_restart (NULL, -1);
       xEventGroupSetBits (revk_group, GROUP_WIFI);
