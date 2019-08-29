@@ -234,22 +234,22 @@ mqtt_next (void)
    free (url);
 }
 
-static esp_err_t
-wifi_event_handler (void *ctx, system_event_t * event)
+static void
+wifi_event_handler (void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-   switch (event->event_id)
+   switch (event_id)
    {
    case SYSTEM_EVENT_STA_START:
       esp_wifi_connect ();
       break;
    case SYSTEM_EVENT_STA_CONNECTED:
-      slow_connect = esp_timer_get_time () + 300000000;  // If no DHCP && MQTT we disconnect WiFi
+      slow_connect = esp_timer_get_time () + 300000000; // If no DHCP && MQTT we disconnect WiFi
       if (wifireset)
          esp_phy_erase_cal_data_in_nvs ();      // Lets calibrate on boot
       break;
    case SYSTEM_EVENT_STA_LOST_IP:
       esp_wifi_disconnect ();
-      wifi_next();
+      wifi_next ();
       esp_wifi_connect ();
       break;
    case SYSTEM_EVENT_STA_GOT_IP:
@@ -276,7 +276,6 @@ wifi_event_handler (void *ctx, system_event_t * event)
    default:
       break;
    }
-   return ESP_OK;
 }
 
 static void
@@ -377,8 +376,9 @@ revk_init (app_command_t * app_command_cb)
    mqtt_next ();
    // WiFi
    revk_group = xEventGroupCreate ();
-   ESP_ERROR_CHECK (esp_event_loop_init (wifi_event_handler, NULL));
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
+   ESP_ERROR_CHECK (esp_event_handler_register (WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
+   ESP_ERROR_CHECK (esp_event_handler_register (IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL));
    ESP_ERROR_CHECK (esp_wifi_init (&cfg));
    ESP_ERROR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_RAM));
    ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_STA));
