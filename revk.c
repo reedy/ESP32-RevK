@@ -235,7 +235,7 @@ mqtt_next (void)
 }
 
 static void
-wifi_event_handler (void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
+wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
    switch (event_id)
    {
@@ -377,6 +377,7 @@ revk_init (app_command_t * app_command_cb)
    // WiFi
    revk_group = xEventGroupCreate ();
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
+   ESP_ERROR_CHECK (esp_event_loop_create_default ());
    ESP_ERROR_CHECK (esp_event_handler_register (WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
    ESP_ERROR_CHECK (esp_event_handler_register (IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL));
    ESP_ERROR_CHECK (esp_wifi_init (&cfg));
