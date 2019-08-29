@@ -240,15 +240,15 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
    if (event_base == WIFI_EVENT)
       switch (event_id)
       {
-      case SYSTEM_EVENT_STA_START:
+      case WIFI_EVENT_STA_START:
          esp_wifi_connect ();
          break;
-      case SYSTEM_EVENT_STA_CONNECTED:
+      case WIFI_EVENT_STA_CONNECTED:
          slow_connect = esp_timer_get_time () + 300000000;      // If no DHCP && MQTT we disconnect WiFi
          if (wifireset)
             esp_phy_erase_cal_data_in_nvs ();   // Lets calibrate on boot
          break;
-      case SYSTEM_EVENT_STA_DISCONNECTED:
+      case WIFI_EVENT_STA_DISCONNECTED:
          if (wifireset)
             revk_restart ("WiFi lost", wifireset);
          wifi_next ();
@@ -261,12 +261,12 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
    } else if (event_base == IP_EVENT)
       switch (event_id)
       {
-      case SYSTEM_EVENT_STA_LOST_IP:
+      case IP_EVENT_STA_LOST_IP:
          esp_wifi_disconnect ();
          wifi_next ();
          esp_wifi_connect ();
          break;
-      case SYSTEM_EVENT_STA_GOT_IP:
+      case IP_EVENT_STA_GOT_IP:
          if (!*mqtthost[mqtt_index])
             slow_connect = 0;
          if (wifireset)
