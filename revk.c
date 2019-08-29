@@ -64,6 +64,7 @@ const char *revk_app = "";
 const char *revk_version = "";  // ISO date version
 char revk_id[7];                // Chip ID as hex (derived from MAC)
 uint32_t revk_binid = 0;        // Binary chip ID
+uint8_t revk_online = 0;
 
 // Local
 static EventGroupHandle_t revk_group;
@@ -142,10 +143,12 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       esp_wifi_sta_get_ap_info (&ap);
       revk_info (NULL, "MQTT%d(%d) %s mem=%d %dms L%d", mqtt_index + 1, mqtt_count, p->label,
                  esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
+      revk_online = 1;
       if (app_command)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DISCONNECTED:
+      revk_online = 0;
       mqtt_next ();
       if (mqttreset)
          revk_restart ("MQTT lost", mqttreset);
@@ -1148,4 +1151,16 @@ revk_err_check (esp_err_t e, const char *file, int line)
    if (e != ERR_OK)
       revk_error ("error", "Error at line %s in %s (%s)", line, file, esp_err_to_name (e));
    return e;
+}
+
+const char *
+revk_mqtt (void)
+{
+   return mqtthost[mqtt_index];
+}
+
+const char *
+revk_wifi (void)
+{
+   return wifissid[wifi_index];
 }
