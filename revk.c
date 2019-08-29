@@ -110,9 +110,8 @@ wifi_next (void)
 }
 
 static esp_err_t
-mqtt_event_handler (esp_mqtt_event_handle_t event)
+mqtt_event_handler (esp_mqtt_event_t *event)
 {
-   esp_mqtt_client_handle_t mqtt_client = event->client;
    // your_context_t *context = event->context;
    switch (event->event_id)
    {
@@ -157,6 +156,7 @@ mqtt_event_handler (esp_mqtt_event_handle_t event)
       if (app_command)
          app_command ("disconnect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       esp_mqtt_client_start (mqtt_client);
+      ESP_LOGI(TAG,"MQTT try %s",mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DATA:
       {
@@ -212,12 +212,12 @@ mqtt_next (void)
    }
    esp_mqtt_client_config_t config = {
       .uri = url,
-      .event_handle = mqtt_event_handler,
       .lwt_topic = topic,
       .lwt_qos = 1,
       .lwt_retain = 1,
       .lwt_msg_len = 8,
       .lwt_msg = "0 Failed",
+      .event_handle=mqtt_event_handler,
 //      .disable_auto_reconnect = true,
    };
    if (*mqttcert[mqtt_index])
@@ -264,6 +264,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
       sntp_init ();
       esp_mqtt_client_stop (mqtt_client);
       esp_mqtt_client_start (mqtt_client);
+      ESP_LOGI(TAG,"MQTT try %s",mqtthost[mqtt_index]);
       break;
    case SYSTEM_EVENT_STA_DISCONNECTED:
       if (wifireset)
