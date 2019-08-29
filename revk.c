@@ -283,8 +283,6 @@ static void
 revk_task (void *pvParameters)
 {                               // Main RevK task
    pvParameters = pvParameters;
-// Start MQTT
-   esp_mqtt_client_start (mqtt_client);
 // Idle
    while (1)
    {
