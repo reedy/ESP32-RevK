@@ -148,15 +148,13 @@ mqtt_event_handler (esp_mqtt_event_t * event)
       break;
    case MQTT_EVENT_DISCONNECTED:
       revk_online = 0;
-      mqtt_next ();
       if (mqttreset)
          revk_restart ("MQTT lost", mqttreset);
       mqtt_count++;
       xEventGroupClearBits (revk_group, GROUP_MQTT);
       if (app_command)
          app_command ("disconnect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
-      esp_mqtt_client_start (mqtt_client);
-      ESP_LOGI (TAG, "MQTT try %s", mqtthost[mqtt_index]);
+      mqtt_next ();
       break;
    case MQTT_EVENT_DATA:
       {
@@ -198,8 +196,12 @@ mqtt_next (void)
    mqtt_index++;
    if (mqtt_index >= sizeof (mqtthost) / sizeof (*mqtthost) || !*mqtthost[mqtt_index])
       mqtt_index = 0;
+   ESP_LOGI (TAG, "MQTT [%s]", mqtthost[mqtt_index]);
    if (last == mqtt_index)
+   {
+      esp_mqtt_client_reconnect (mqtt_client);
       return;                   // No change
+   }
    // TODO what if no MQTT?
    char *topic;
    if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
@@ -226,10 +228,10 @@ mqtt_next (void)
       config.username = mqttuser[mqtt_index];
    if (*mqttpass[mqtt_index])
       config.password = mqttpass[mqtt_index];
-   ESP_LOGI (TAG, "Start the MQTT [%s]", mqtthost[mqtt_index]);
    if (mqtt_client)
       esp_mqtt_client_destroy (mqtt_client);
    mqtt_client = esp_mqtt_client_init (&config);
+   esp_mqtt_client_start (mqtt_client);
    free (topic);
    free (url);
 }
@@ -276,9 +278,10 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
             app_command ("wifi", strlen (wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
          sntp_stop ();
          sntp_init ();
-         esp_mqtt_client_stop (mqtt_client);
-         esp_mqtt_client_start (mqtt_client);
-         ESP_LOGI (TAG, "MQTT try %s", mqtthost[mqtt_index]);
+         if (mqtt_index < 0)
+            mqtt_next ();
+         else
+            esp_mqtt_client_reconnect (mqtt_client);
          break;
       }
 }
@@ -377,8 +380,6 @@ revk_init (app_command_t * app_command_cb)
       revk_binid = ((mac[0] << 16) + (mac[1] << 8) + mac[2]) ^ ((mac[3] << 16) + (mac[4] << 8) + mac[5]);
       snprintf (revk_id, sizeof (revk_id), "%06X", revk_binid);
    }
-   // MQTT
-   mqtt_next ();
    // WiFi
    revk_group = xEventGroupCreate ();
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
