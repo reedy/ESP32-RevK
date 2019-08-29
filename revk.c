@@ -24,6 +24,7 @@ static const char *TAG = "RevK";
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
 		sa(mqttcert,3,NULL);			\
+		i16(timezone);				\
 		p(command);				\
 		p(setting);				\
 		p(state);				\
@@ -36,6 +37,7 @@ static const char *TAG = "RevK";
 #define f(n,a,s)	char n[a][s];
 #define	u32(n,d)	uint32_t n;
 #define	u16(n,a,d)	uint16_t n[a];
+#define	i16(n)		int16_t n;
 #define	u8(n,a,d)	uint8_t n[a];
 #define p(n)		char *prefix##n;
 settings
@@ -44,6 +46,7 @@ settings
 #undef f
 #undef u32
 #undef u16
+#undef i16
 #undef u8
 #undef p
 // Local types
@@ -94,8 +97,11 @@ wifi_next (void)
    wifi_index++;
    if (wifi_index >= sizeof (wifissid) / sizeof (*wifissid) || !*wifissid[wifi_index])
       wifi_index = 0;
+   ESP_LOGI (TAG, "WIFi [%s]%s", wifissid[wifi_index], last == wifi_index ? "" : " (new)");
    if (last == wifi_index)
       return;                   // No change
+   if (app_command)
+      app_command ("change", 0, NULL);
    wifi_config_t wifi_config = { };
    if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
    {
@@ -106,7 +112,6 @@ wifi_next (void)
    strncpy ((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof (wifi_config.sta.ssid));
    strncpy ((char *) wifi_config.sta.password, wifipass[wifi_index], sizeof (wifi_config.sta.password));
    ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
-   ESP_LOGI (TAG, "Start the WIFi SSID:[%s]", wifissid[wifi_index]);
 }
 
 static esp_err_t
@@ -196,12 +201,14 @@ mqtt_next (void)
    mqtt_index++;
    if (mqtt_index >= sizeof (mqtthost) / sizeof (*mqtthost) || !*mqtthost[mqtt_index])
       mqtt_index = 0;
-   ESP_LOGI (TAG, "MQTT [%s]", mqtthost[mqtt_index]);
+   ESP_LOGI (TAG, "MQTT [%s]%s", mqtthost[mqtt_index], last == mqtt_index ? "" : " (new)");
    if (last == mqtt_index)
    {
       esp_mqtt_client_reconnect (mqtt_client);
       return;                   // No change
    }
+   if (app_command)
+      app_command ("change", 0, NULL);
    // TODO what if no MQTT?
    char *topic;
    if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
@@ -228,9 +235,13 @@ mqtt_next (void)
       config.username = mqttuser[mqtt_index];
    if (*mqttpass[mqtt_index])
       config.password = mqttpass[mqtt_index];
-   if (mqtt_client)
-      esp_mqtt_client_destroy (mqtt_client);
-   mqtt_client = esp_mqtt_client_init (&config);
+   if (!mqtt_client)
+      mqtt_client = esp_mqtt_client_init (&config);
+   else
+   {
+      esp_mqtt_client_stop (mqtt_client);
+      esp_mqtt_set_config (mqtt_client, &config);
+   }
    esp_mqtt_client_start (mqtt_client);
    free (topic);
    free (url);
@@ -359,14 +370,16 @@ revk_init (app_command_t * app_command_cb)
 #define f(n,a,s)	revk_register(#n,a,s,&n,0,SETTING_BINARY)
 #define	u32(n,d)	revk_register(#n,0,4,&n,#d,0)
 #define	u16(n,a,d)	revk_register(#n,a,2,&n,#d,0)
+#define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED)
 #define	u8(n,a,d)	revk_register(#n,a,1,&n,#d,0)
-#define p(n)	revk_register("prefix"#n,0,0,&prefix##n,#n,0)
+#define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
    settings;
 #undef s
 #undef sa
 #undef f
 #undef u32
 #undef u16
+#undef i16
 #undef u8
 #undef p
    restart_time = 0;            // If settings change at start up we can ignore.
@@ -1163,11 +1176,21 @@ revk_err_check (esp_err_t e, const char *file, int line)
 const char *
 revk_mqtt (void)
 {
+   if (mqtt_index < 0)
+      return "";
    return mqtthost[mqtt_index];
 }
 
 const char *
 revk_wifi (void)
 {
+   if (wifi_index < 0)
+      return "";
    return wifissid[wifi_index];
+}
+
+time_t
+revk_localtime (void)
+{
+   return time (0) + timezone;
 }

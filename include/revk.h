@@ -74,4 +74,6 @@ const char *revk_ota (const char *host);        // OTA and restart cleanly
 const char *revk_mqtt(void);
 const char *revk_wifi(void);
 
+time_t revk_localtime(void);	// Time with timezone
+
 #endif
