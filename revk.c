@@ -243,12 +243,14 @@ wifi_event_handler (void *ctx, system_event_t * event)
       esp_wifi_connect ();
       break;
    case SYSTEM_EVENT_STA_CONNECTED:
-      slow_connect = esp_timer_get_time () + 30000000;  // If no DHCP && MQTT we disconnect WiFi
+      slow_connect = esp_timer_get_time () + 300000000;  // If no DHCP && MQTT we disconnect WiFi
       if (wifireset)
          esp_phy_erase_cal_data_in_nvs ();      // Lets calibrate on boot
       break;
    case SYSTEM_EVENT_STA_LOST_IP:
       esp_wifi_disconnect ();
+      wifi_next();
+      esp_wifi_connect ();
       break;
    case SYSTEM_EVENT_STA_GOT_IP:
       if (!*mqtthost[mqtt_index])
