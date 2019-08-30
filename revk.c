@@ -73,7 +73,6 @@ uint8_t revk_online = 0;
 static EventGroupHandle_t revk_group;
 const static int GROUP_WIFI = BIT0;
 const static int GROUP_MQTT = BIT1;
-static TaskHandle_t revk_task_id = NULL;
 static TaskHandle_t ota_task_id = NULL;
 static app_command_t *app_command = NULL;
 esp_mqtt_client_handle_t mqtt_client = NULL;
@@ -280,11 +279,11 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
          esp_wifi_connect ();
          break;
       case IP_EVENT_STA_GOT_IP:
+         xEventGroupSetBits (revk_group, GROUP_WIFI);
          if (!*mqtthost[mqtt_index])
             slow_connect = 0;
          if (wifireset)
             revk_restart (NULL, -1);
-         xEventGroupSetBits (revk_group, GROUP_WIFI);
          if (app_command)
             app_command ("wifi", strlen (wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
          sntp_stop ();
@@ -298,7 +297,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
 }
 
 static void
-revk_task (void *pvParameters)
+task (void *pvParameters)
 {                               // Main RevK task
    pvParameters = pvParameters;
 // Idle
@@ -409,8 +408,16 @@ revk_init (app_command_t * app_command_cb)
    asprintf (&hostname, "%s-%s", revk_app, revk_id);
    tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, hostname);
    free (hostname);
+   revk_task (TAG, task, NULL);
    // Start task
-   xTaskCreatePinnedToCore (revk_task, "RevK", 16 * 1024, NULL, 1, &revk_task_id, tskNO_AFFINITY);      // TODO stack, priority, affinity check?
+}
+
+TaskHandle_t 
+revk_task (const char *tag, TaskFunction_t t, const void *param)
+{                               // General task make
+   TaskHandle_t task_id = NULL;
+   xTaskCreatePinnedToCore (task, "RevK", 16 * 1024, (void*)param, 1, &task_id, 1);
+   return task_id;
 }
 
 // MQTT reporting
@@ -620,7 +627,7 @@ revk_ota (const char *url)
 {                               // OTA and restart cleanly
    if (ota_task_id)
       return "OTA running";
-   xTaskCreatePinnedToCore (ota_task, "OTA", 16 * 1024, (char *) url, 1, &ota_task_id, tskNO_AFFINITY); // TODO stack, priority, affinity check?
+   ota_task_id = revk_task ("OTA", ota_task, url);
    return "";
 }
 
