@@ -332,14 +332,16 @@ task (void *pvParameters)
          lastonline = esp_timer_get_time () + 3000000;
          static int lastch = 0;
          static uint8_t lastbssid[6];
+         static int lastindex = 0;
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info (&ap);
-         if (lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6))
+         if (lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6) || lastindex != wifi_index)
          {
             revk_info (NULL, "WiFi%d(%d) %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d%s", wifi_index + 1,
                        wifi_count, ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4],
                        ap.bssid[5], ap.ssid, ap.rssi, ap.primary, ap.country.cc);
+            lastindex = wifi_index;
             lastch = ap.primary;
             memcpy (lastbssid, ap.bssid, 6);
          }
@@ -960,7 +962,9 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       return "Bad setting type";
    // See if setting has changed
    int o = nvs_get (s, tag, NULL, 0);
-   if (o != l)
+   if (o < 0 && erase)
+      o = 0;
+   else if (o != l)
       o = -1;                   // Different size
    if (o > 0)
    {
