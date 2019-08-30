@@ -415,7 +415,7 @@ TaskHandle_t
 revk_task (const char *tag, TaskFunction_t t, const void *param)
 {                               // General task make
    TaskHandle_t task_id = NULL;
-   ESP_ERROR_CHECK (xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id));
+   xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id);
    return task_id;
 }
 
