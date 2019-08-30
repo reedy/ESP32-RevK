@@ -67,7 +67,6 @@ const char *revk_app = "";
 const char *revk_version = "";  // ISO date version
 char revk_id[7];                // Chip ID as hex (derived from MAC)
 uint32_t revk_binid = 0;        // Binary chip ID
-uint8_t revk_online = 0;
 
 // Local
 static EventGroupHandle_t revk_group;
@@ -86,6 +85,7 @@ static int wifi_count = 0;
 static int wifi_index = -1;
 static int mqtt_count = 0;
 static int mqtt_index = -1;
+static int64_t lastonline = 1;
 
 // Local functions
 static void mqtt_next (void);
@@ -146,12 +146,10 @@ mqtt_event_handler (esp_mqtt_event_t * event)
       esp_wifi_sta_get_ap_info (&ap);
       revk_info (NULL, "MQTT%d(%d) %s mem=%d %dms L%d", mqtt_index + 1, mqtt_count, p->label,
                  esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
-      revk_online = 1;
       if (app_command)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DISCONNECTED:
-      revk_online = 0;
       if (mqttreset)
          revk_restart ("MQTT lost", mqttreset);
       mqtt_count++;
@@ -329,7 +327,9 @@ task (void *pvParameters)
          ESP_ERROR_CHECK (nvs_commit (nvs));
          nvs_time = 0;
       }
-      {                         // No event for channel change, etc
+      if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
+      {                         // on line
+         lastonline = esp_timer_get_time () + 3000000;
          static int lastch = 0;
          static uint8_t lastbssid[6];
          wifi_ap_record_t ap = {
@@ -1199,4 +1199,15 @@ time_t
 revk_localtime (void)
 {
    return time (0) + timezone;
+}
+
+uint32_t
+revk_offline (void)
+{                               // How long off line
+   if (!lastonline)
+      return 0;
+   int64_t now = esp_timer_get_time ();
+   if (now < lastonline)
+      return 0;
+   return (now - lastonline) / 1000000;
 }

@@ -34,7 +34,6 @@ extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
 extern char revk_id[7];         // Chip ID hex (derived from MAC)
 extern uint32_t revk_binid;     // Chip ID binary
-extern uint8_t revk_online; // We are online
 extern char *prefixstate;
 extern char *prefixevent;
 extern char *prefixinfo;
@@ -76,6 +75,7 @@ const char *revk_ota (const char *host);        // OTA and restart cleanly
 
 const char *revk_mqtt(void);
 const char *revk_wifi(void);
+uint32_t revk_offline(void); // How long we have been offline (seconds), or 0 if online
 
 time_t revk_localtime(void);	// Time with timezone
 
