@@ -409,14 +409,13 @@ revk_init (app_command_t * app_command_cb)
    tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, hostname);
    free (hostname);
    revk_task (TAG, task, NULL);
-   // Start task
 }
 
-TaskHandle_t 
+TaskHandle_t
 revk_task (const char *tag, TaskFunction_t t, const void *param)
 {                               // General task make
    TaskHandle_t task_id = NULL;
-   xTaskCreatePinnedToCore (task, "RevK", 16 * 1024, (void*)param, 1, &task_id, 1);
+   ESP_ERROR_CHECK (xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id));
    return task_id;
 }
 
