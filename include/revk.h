@@ -59,7 +59,7 @@ esp_err_t revk_err_check (esp_err_t, const char *file, int line);       // Log i
 #define	REVK_ERR_CHECK(x) revk_err_check(x,__FILE__,__LINE__)
 
 // Make a task
-TaskHandle_t revk_task(const char * tag,TaskFunction_t t,const void *param);
+TaskHandle_t revk_task (const char *tag, TaskFunction_t t, const void *param);
 
 // MQTT reporting
 void revk_state (const char *tag, const char *fmt, ...);        // Send status
@@ -73,10 +73,10 @@ const char *revk_command (const char *tag, unsigned int len, const unsigned char
 const char *revk_restart (const char *reason, int delay);       // Restart cleanly
 const char *revk_ota (const char *host);        // OTA and restart cleanly
 
-const char *revk_mqtt(void);
-const char *revk_wifi(void);
-uint32_t revk_offline(void); // How long we have been offline (seconds), or 0 if online
+const char *revk_mqtt (void);
+const char *revk_wifi (void);
+uint32_t revk_offline (void);   // How long we have been offline (seconds), or 0 if online
 
-time_t revk_localtime(void);	// Time with timezone
+time_t revk_localtime (void);   // Time with timezone
 
 #endif

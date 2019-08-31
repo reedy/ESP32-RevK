@@ -366,14 +366,14 @@ revk_init (app_command_t * app_command_cb)
    // TODO secure NVS option
    nvs_flash_init ();
    ESP_ERROR_CHECK (nvs_open (revk_app, NVS_READWRITE, &nvs));  // TODO should we open/close on use?
-#define s(n,d)		revk_register(#n,0,0,&n,d,0)
-#define sa(n,a,d)	revk_register(#n,a,0,&n,d,0)
-#define f(n,a,s)	revk_register(#n,a,s,&n,0,SETTING_BINARY)
-#define	u32(n,d)	revk_register(#n,0,4,&n,#d,0)
-#define	u16(n,a,d)	revk_register(#n,a,2,&n,#d,0)
-#define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED)
-#define	u8(n,a,d)	revk_register(#n,a,1,&n,#d,0)
-#define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
+#define s(n,d)		revk_register(#n,0,0,&n,d,SETTING_LIVE|SETTING_LIVE)
+#define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE|SETTING_LIVE)
+#define f(n,a,s)	revk_register(#n,a,s,&n,0,SETTING_BINARY|SETTING_LIVE)
+#define	u32(n,d)	revk_register(#n,0,4,&n,#d,SETTING_LIVE|SETTING_LIVE)
+#define	u16(n,a,d)	revk_register(#n,a,2,&n,#d,SETTING_LIVE|SETTING_LIVE)
+#define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED|SETTING_LIVE)
+#define	u8(n,a,d)	revk_register(#n,a,1,&n,#d,SETTING_LIVE)
+#define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
    settings;
 #undef s
 #undef sa
