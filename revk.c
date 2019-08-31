@@ -417,13 +417,14 @@ TaskHandle_t
 revk_task (const char *tag, TaskFunction_t t, const void *param)
 {                               // General task make
    TaskHandle_t task_id = NULL;
-   xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id);
+   //xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id);
+   xTaskCreatePinnedToCore (t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
    return task_id;
 }
 
 // MQTT reporting
 void
-revk_mqtt_ap (const char *prefix, int retain, const char *tag, const char *fmt, va_list ap)
+revk_mqtt_ap (const char *prefix, int qos, int retain, const char *tag, const char *fmt, va_list ap)
 {                               // Send status
    char *topic;
    if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
@@ -437,7 +438,7 @@ revk_mqtt_ap (const char *prefix, int retain, const char *tag, const char *fmt, 
    }
    ESP_LOGD (TAG, "MQTT publish %s %s", topic ? : "-", buf);
    if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
-      esp_mqtt_client_publish (mqtt_client, topic, buf, l, 1, retain);
+      esp_mqtt_client_publish (mqtt_client, topic, buf, l, qos, retain);
    free (buf);
    free (topic);
 }
@@ -450,7 +451,7 @@ revk_raw (const char *prefix, const char *tag, int len, uint8_t * data, int reta
       return;
    ESP_LOGD (TAG, "MQTT publish %s (%d)", topic ? : "-", len);
    if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
-      esp_mqtt_client_publish (mqtt_client, topic, (const char *) data, len, 1, retain);
+      esp_mqtt_client_publish (mqtt_client, topic, (const char *) data, len, 2, retain);
    free (topic);
 }
 
@@ -459,7 +460,7 @@ revk_state (const char *tag, const char *fmt, ...)
 {                               // Send status
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt_ap (prefixstate, 1, tag, fmt, ap); // TODo configurable
+   revk_mqtt_ap (prefixstate, 1, 1, tag, fmt, ap);      // TODo configurable
    va_end (ap);
 }
 
@@ -468,7 +469,7 @@ revk_event (const char *tag, const char *fmt, ...)
 {                               // Send event
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt_ap (prefixevent, 0, tag, fmt, ap); // TODo configurable
+   revk_mqtt_ap (prefixevent, 0, 0, tag, fmt, ap);      // TODo configurable
    va_end (ap);
 }
 
@@ -478,7 +479,7 @@ revk_error (const char *tag, const char *fmt, ...)
    xEventGroupWaitBits (revk_group, GROUP_WIFI | GROUP_MQTT, false, true, 10000 / portTICK_PERIOD_MS);  // Chance of reporting issues
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt_ap (prefixerror, 0, tag, fmt, ap); // TODo configurable
+   revk_mqtt_ap (prefixerror, 0, 0, tag, fmt, ap);      // TODo configurable
    va_end (ap);
 }
 
@@ -487,7 +488,7 @@ revk_info (const char *tag, const char *fmt, ...)
 {                               // Send info
    va_list ap;
    va_start (ap, fmt);
-   revk_mqtt_ap (prefixinfo, 0, tag, fmt, ap);  // TODo configurable
+   revk_mqtt_ap (prefixinfo, 0, 0, tag, fmt, ap);       // TODo configurable
    va_end (ap);
 }
 
