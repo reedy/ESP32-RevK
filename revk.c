@@ -254,7 +254,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
          esp_wifi_connect ();
          break;
       case WIFI_EVENT_STA_CONNECTED:
-         slow_connect = esp_timer_get_time () + 300000000;      // If no DHCP && MQTT we disconnect WiFi
+         slow_connect = esp_timer_get_time () + 300000000LL;    // If no DHCP && MQTT we disconnect WiFi
          if (wifireset)
             esp_phy_erase_cal_data_in_nvs ();   // Lets calibrate on boot
          break;
@@ -329,7 +329,7 @@ task (void *pvParameters)
       }
       if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
       {                         // on line
-         lastonline = esp_timer_get_time () + 3000000;
+         lastonline = esp_timer_get_time () + 3000000LL;
          static int lastch = 0;
          static uint8_t lastbssid[6];
          static int lastindex = 0;
@@ -499,7 +499,7 @@ revk_restart (const char *reason, int delay)
    if (delay < 0)
       restart_time = 0;         // Cancelled
    else
-      restart_time = esp_timer_get_time () + 1000000LL * delay; // Reboot now
+      restart_time = esp_timer_get_time () + 1000000LL * (int64_t) delay;       // Reboot now
    return "";                   // Done
 }
 
@@ -554,7 +554,7 @@ ota_handler (esp_http_client_event_t * evt)
                {
                   revk_info ("upgrade", "Loading %d", ota_size);
                   ota_running = 1;
-                  next = now + 5000000;
+                  next = now + 5000000LL;
                }
             }
          }
@@ -570,7 +570,7 @@ ota_handler (esp_http_client_event_t * evt)
                if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                {
                   revk_info ("upgrade", "%3d%%", ota_progress = percent);
-                  next = now + 5000000;
+                  next = now + 5000000LL;
                }
             }
          }
@@ -993,7 +993,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          ESP_LOGD (TAG, "Setting %s changed (%d)", tag, len);
       else
          ESP_LOGD (TAG, "Setting %s changed %.*s", tag, len, value);
-      nvs_time = esp_timer_get_time () + 60000000;
+      nvs_time = esp_timer_get_time () + 60000000LL;
    }
    if (flags & SETTING_LIVE)
    {                            // Store changed value in memory live
@@ -1214,5 +1214,5 @@ revk_offline (void)
    int64_t now = esp_timer_get_time ();
    if (now < lastonline)
       return 0;
-   return (now - lastonline) / 1000000;
+   return (now - lastonline) / 1000000LL;
 }
