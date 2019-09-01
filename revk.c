@@ -417,8 +417,8 @@ TaskHandle_t
 revk_task (const char *tag, TaskFunction_t t, const void *param)
 {                               // General task make
    TaskHandle_t task_id = NULL;
-   //xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id);
-   xTaskCreatePinnedToCore (t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
+   xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id);
+   //xTaskCreatePinnedToCore (t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
    return task_id;
 }
 
