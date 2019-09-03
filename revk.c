@@ -629,7 +629,8 @@ revk_ota (const char *url)
 {                               // OTA and restart cleanly
    if (ota_task_id)
       return "OTA running";
-   ota_task_id = revk_task ("OTA", ota_task, url);
+   //ota_task_id = revk_task ("OTA", ota_task, url);
+   xTaskCreate (ota_task, "OTA", 8 * 1024, (void *) url, 3, &ota_task_id);
    return "";
 }
 
