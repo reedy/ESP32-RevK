@@ -13,6 +13,7 @@ static const char *TAG = "RevK";
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		s(otacert,NULL);			\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
+		s(tz,CONFIG_REVK_TZ);			\
 		u32(wifireset,300);			\
 		sa(wifissid,3,CONFIG_REVK_WIFISSID);	\
 		f(wifibssid,3,6);			\
@@ -24,7 +25,6 @@ static const char *TAG = "RevK";
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
 		sa(mqttcert,3,NULL);			\
-		i16(timezone);				\
 		p(command);				\
 		p(setting);				\
 		p(state);				\
@@ -387,6 +387,8 @@ revk_init (app_command_t * app_command_cb)
    tcpip_adapter_init ();
    sntp_setoperatingmode (SNTP_OPMODE_POLL);
    sntp_setservername (0, ntphost);
+   setenv("TZ",tz,1);
+   tzset();
    app_command = app_command_cb;
    {                            // Chip ID from MAC
       unsigned char mac[6];
@@ -1199,12 +1201,6 @@ revk_wifi (void)
    if (wifi_index < 0)
       return "";
    return wifissid[wifi_index];
-}
-
-time_t
-revk_localtime (void)
-{
-   return time (0) + timezone;
 }
 
 uint32_t

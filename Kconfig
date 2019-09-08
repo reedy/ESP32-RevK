@@ -30,4 +30,10 @@ menu "RevK"
 	help
 		This defines the factory reset default NTP host
 
+	config REVK_TZ
+	string "Default TZ (timezone)"
+	default "GMT+0BST,M3.5.0,M10.5.0"
+	help
+		This defines the TZ (timezone) control
+
 endmenu

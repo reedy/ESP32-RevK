@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include "esp_wifi.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
@@ -76,7 +77,5 @@ const char *revk_ota (const char *host);        // OTA and restart cleanly
 const char *revk_mqtt (void);
 const char *revk_wifi (void);
 uint32_t revk_offline (void);   // How long we have been offline (seconds), or 0 if online
-
-time_t revk_localtime (void);   // Time with timezone
 
 #endif
