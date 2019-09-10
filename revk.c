@@ -387,8 +387,8 @@ revk_init (app_command_t * app_command_cb)
    tcpip_adapter_init ();
    sntp_setoperatingmode (SNTP_OPMODE_POLL);
    sntp_setservername (0, ntphost);
-   setenv("TZ",tz,1);
-   tzset();
+   setenv ("TZ", tz, 1);
+   tzset ();
    app_command = app_command_cb;
    {                            // Chip ID from MAC
       unsigned char mac[6];
@@ -446,15 +446,20 @@ revk_mqtt_ap (const char *prefix, int qos, int retain, const char *tag, const ch
 }
 
 void
-revk_raw (const char *prefix, const char *tag, int len, void * data, int retain)
+revk_raw (const char *prefix, const char *tag, int len, void *data, int retain)
 {
    char *topic;
-   if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
+   if (!prefix)
+      topic = tag;              // Really raw
+   else if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
+      return;
+   if (!topic)
       return;
    ESP_LOGD (TAG, "MQTT publish %s (%d)", topic ? : "-", len);
    if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
       esp_mqtt_client_publish (mqtt_client, topic, data, len, 2, retain);
-   free (topic);
+   if (topic != tag)
+      free (topic);
 }
 
 void
