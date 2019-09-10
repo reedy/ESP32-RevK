@@ -446,14 +446,14 @@ revk_mqtt_ap (const char *prefix, int qos, int retain, const char *tag, const ch
 }
 
 void
-revk_raw (const char *prefix, const char *tag, int len, uint8_t * data, int retain)
+revk_raw (const char *prefix, const char *tag, int len, void * data, int retain)
 {
    char *topic;
    if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
       return;
    ESP_LOGD (TAG, "MQTT publish %s (%d)", topic ? : "-", len);
    if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
-      esp_mqtt_client_publish (mqtt_client, topic, (const char *) data, len, 2, retain);
+      esp_mqtt_client_publish (mqtt_client, topic, data, len, 2, retain);
    free (topic);
 }
 
