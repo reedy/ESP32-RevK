@@ -450,7 +450,7 @@ revk_raw (const char *prefix, const char *tag, int len, void *data, int retain)
 {
    char *topic;
    if (!prefix)
-      topic = tag;              // Really raw
+      topic = (char *) tag;     // Really raw
    else if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
       return;
    if (!topic)
