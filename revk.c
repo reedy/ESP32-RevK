@@ -206,7 +206,8 @@ mqtt_next (void)
    }
    if (app_command)
       app_command ("change", 0, NULL);
-   // TODO what if no MQTT?
+   if (!*mqtthost[mqtt_index])  // No MQTT
+      return;
    char *topic;
    if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
       return;
@@ -316,7 +317,8 @@ task (void *pvParameters)
          revk_state (NULL, "0 %s", restart_reason);
          if (app_command)
             app_command ("restart", strlen (restart_reason), (unsigned char *) restart_reason);
-         esp_mqtt_client_stop (mqtt_client);
+         if (mqtt_client)
+            esp_mqtt_client_stop (mqtt_client);
          ESP_ERROR_CHECK (nvs_commit (nvs));
          sleep (2);             // Wait for MQTT to close cleanly
          esp_restart ();
@@ -427,8 +429,12 @@ revk_task (const char *tag, TaskFunction_t t, const void *param)
 // MQTT reporting
 void
 revk_mqtt_ap (const char *prefix, int qos, int retain, const char *tag, const char *fmt, va_list ap)
-{                               // Send status
+{                               // Send formatted mqtt message
+   if (!mqtt_client)
+      return;
    char *topic;
+   if (!prefix)
+      topic = (char *) tag;     // Set fixed topic
    if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
       return;
    char *buf;
@@ -442,15 +448,18 @@ revk_mqtt_ap (const char *prefix, int qos, int retain, const char *tag, const ch
    if (xEventGroupGetBits (revk_group) & GROUP_MQTT)
       esp_mqtt_client_publish (mqtt_client, topic, buf, l, qos, retain);
    free (buf);
-   free (topic);
+   if (topic != tag)
+      free (topic);
 }
 
 void
 revk_raw (const char *prefix, const char *tag, int len, void *data, int retain)
-{
+{                               // Send raw MQTT message
+   if (!mqtt_client)
+      return;
    char *topic;
    if (!prefix)
-      topic = (char *) tag;     // Really raw
+      topic = (char *) tag;     // Set fixed topic
    else if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
       return;
    if (!topic)
