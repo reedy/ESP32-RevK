@@ -25,6 +25,7 @@ static const char *TAG = "RevK";
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
 		sa(mqttcert,3,NULL);			\
+		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
 		p(state);				\
@@ -134,12 +135,18 @@ mqtt_event_handler (esp_mqtt_event_t * event)
          if (asprintf (&topic, "%s/%s/*/#", prefix, revk_app) < 0)
             return;
          esp_mqtt_client_subscribe (mqtt_client, topic, 0);
+         if (*hostname)
+         {
+            if (asprintf (&topic, "%s/%s/%s/#", prefix, revk_app, hostname) < 0)
+               return;
+            esp_mqtt_client_subscribe (mqtt_client, topic, 0);
+         }
          free (topic);
       }
       sub (prefixcommand);
       sub (prefixsetting);
       // Version, up
-      revk_state (NULL, "1 ESP32 %s", revk_version);    // Up
+      revk_state (NULL, "1 ESP32 %s %s", revk_version, revk_id);        // Up
       // Info
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
@@ -209,7 +216,7 @@ mqtt_next (void)
    if (!*mqtthost[mqtt_index])  // No MQTT
       return;
    char *topic;
-   if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, revk_id) < 0)
+   if (asprintf (&topic, "%s/%s/%s", prefixstate, revk_app, *hostname ? hostname : revk_id) < 0)
       return;
    char *url;
    if (asprintf (&url, "%s://%s/", *mqttcert[mqtt_index] ? "mqtts" : "mqtt", mqtthost[mqtt_index]) < 0)
@@ -410,10 +417,10 @@ revk_init (app_command_t * app_command_cb)
    ESP_ERROR_CHECK (esp_wifi_set_ps (WIFI_PS_NONE));
    wifi_next ();
    ESP_ERROR_CHECK (esp_wifi_start ());
-   char *hostname;
-   asprintf (&hostname, "%s-%s", revk_app, revk_id);
-   tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, hostname);
-   free (hostname);
+   char *id;                    // For DHCP
+   asprintf (&id, "%s-%s", revk_app, *hostname ? hostname : revk_id);
+   tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, id);
+   free (id);
    revk_task (TAG, task, NULL);
 }
 
@@ -435,7 +442,7 @@ revk_mqtt_ap (const char *prefix, int qos, int retain, const char *tag, const ch
    char *topic;
    if (!prefix)
       topic = (char *) tag;     // Set fixed topic
-   if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
+   if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, *hostname ? hostname : revk_id, tag) < 0)
       return;
    char *buf;
    int l;
@@ -460,7 +467,7 @@ revk_raw (const char *prefix, const char *tag, int len, void *data, int retain)
    char *topic;
    if (!prefix)
       topic = (char *) tag;     // Set fixed topic
-   else if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, revk_id, tag) < 0)
+   else if (asprintf (&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, revk_app, *hostname ? hostname : revk_id, tag) < 0)
       return;
    if (!topic)
       return;
