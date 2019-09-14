@@ -109,7 +109,7 @@ wifi_next (void)
       wifi_config.sta.bssid_set = 1;
    }
    wifi_config.sta.channel = wifichan[wifi_index];
-   wifi_config.scan_method = WIFI_ALL_CHANNEL_SCAN; // Slower but strongest signal
+   wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN; // Slower but strongest signal
    strncpy ((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof (wifi_config.sta.ssid));
    strncpy ((char *) wifi_config.sta.password, wifipass[wifi_index], sizeof (wifi_config.sta.password));
    ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &wifi_config));
