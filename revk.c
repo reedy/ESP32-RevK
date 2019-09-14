@@ -14,7 +14,7 @@ static const char *TAG = "RevK";
 		s(otacert,NULL);			\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
-		u32(wifireset,300);			\
+		u32(wifireset,0);			\
 		sa(wifissid,3,CONFIG_REVK_WIFISSID);	\
 		f(wifibssid,3,6);			\
 		u8(wifichan,3,0);			\
@@ -73,6 +73,8 @@ uint32_t revk_binid = 0;        // Binary chip ID
 static EventGroupHandle_t revk_group;
 const static int GROUP_WIFI = BIT0;
 const static int GROUP_MQTT = BIT1;
+const static int GROUP_WIFI_TRY = BIT2;
+const static int GROUP_MQTT_TRY = BIT3;
 static TaskHandle_t ota_task_id = NULL;
 static app_command_t *app_command = NULL;
 esp_mqtt_client_handle_t mqtt_client = NULL;
@@ -108,6 +110,7 @@ wifi_next (void)
       memcpy (wifi_config.sta.bssid, wifibssid[wifi_index], sizeof (wifi_config.sta.bssid));
       wifi_config.sta.bssid_set = 1;
    }
+   xEventGroupSetBits (revk_group, GROUP_WIFI_TRY);
    wifi_config.sta.channel = wifichan[wifi_index];
    wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN; // Slower but strongest signal
    strncpy ((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof (wifi_config.sta.ssid));
@@ -161,10 +164,9 @@ mqtt_event_handler (esp_mqtt_event_t * event)
       if (mqttreset)
          revk_restart ("MQTT lost", mqttreset);
       mqtt_count++;
-      xEventGroupClearBits (revk_group, GROUP_MQTT);
+      xEventGroupClearBits (revk_group, GROUP_MQTT + GROUP_MQTT_TRY);
       if (app_command)
          app_command ("disconnect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
-      mqtt_next ();
       break;
    case MQTT_EVENT_DATA:
       {
@@ -248,6 +250,7 @@ mqtt_next (void)
       esp_mqtt_client_stop (mqtt_client);
       esp_mqtt_set_config (mqtt_client, &config);
    }
+   xEventGroupSetBits (revk_group, GROUP_MQTT_TRY);
    esp_mqtt_client_start (mqtt_client);
    free (topic);
    free (url);
@@ -272,7 +275,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
             revk_restart ("WiFi lost", wifireset);
          wifi_next ();
          wifi_count++;
-         xEventGroupClearBits (revk_group, GROUP_WIFI);
+         xEventGroupClearBits (revk_group, GROUP_WIFI | GROUP_WIFI_TRY);
          esp_wifi_connect ();
          break;
       default:
@@ -356,6 +359,8 @@ task (void *pvParameters)
             memcpy (lastbssid, ap.bssid, 6);
          }
       }
+      if (!(xEventGroupGetBits (revk_group) & GROUP_MQTT_TRY))
+         mqtt_next ();          // reconnect
    }
 }
 
