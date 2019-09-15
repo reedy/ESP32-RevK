@@ -107,7 +107,7 @@ wifi_next (int start)
    if (wifi_index >= sizeof (wifissid) / sizeof (*wifissid) || !*wifissid[wifi_index])
       wifi_index = 0;
    ESP_LOGI (TAG, "WIFi [%s]%s", wifissid[wifi_index], last == wifi_index ? "" : " (new)");
-   if (last == wifi_index)
+   if (last == wifi_index && (xEventGroupGetBits (revk_group) & GROUP_WIFI_TRY))
       return;                   // No change
    if (app_command)
       app_command ("change", 0, NULL);
@@ -245,7 +245,7 @@ mqtt_next (void)
       .lwt_msg_len = 8,
       .lwt_msg = "0 Failed",
       .event_handle = mqtt_event_handler,
-//      .disable_auto_reconnect = true,
+      .disable_auto_reconnect = true,
    };
    if (*mqttcert[mqtt_index])
       config.cert_pem = mqttcert[mqtt_index];
@@ -296,19 +296,19 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
          wifi_next (1);
          break;
       case IP_EVENT_STA_GOT_IP:
-         xEventGroupSetBits (revk_group, GROUP_WIFI);
          if (!*mqtthost[mqtt_index])
             slow_connect = 0;
          if (wifireset)
             revk_restart (NULL, -1);
-         if (app_command)
-            app_command ("wifi", strlen (wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
          sntp_stop ();
          sntp_init ();
          if (mqtt_index < 0)
             mqtt_next ();
          else
             esp_mqtt_client_reconnect (mqtt_client);
+         xEventGroupSetBits (revk_group, GROUP_WIFI);
+         if (app_command)
+            app_command ("wifi", strlen (wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
          break;
       }
 }
@@ -673,7 +673,7 @@ ap_task (void *pvParameters)
    httpd_stop (server);
    xEventGroupClearBits (revk_group, GROUP_APMODE);
    esp_wifi_disconnect ();
-   wifi_next(1);
+   wifi_next (1);
    vTaskDelete (NULL);
 }
 
