@@ -1,5 +1,11 @@
 menu "RevK"
 
+	config REVK_APPNAME
+	string "Override app name"
+	default ""
+	help
+		Default app name to use
+
 	config REVK_WIFISSID
 	string "Default WiFi SSID"
 	default "IoT"

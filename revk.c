@@ -29,7 +29,7 @@ static const char *TAG = "RevK";
 		sa(mqttcert,3,NULL);			\
 		u32(aptime,300);			\
 		s8(apgpio,0);				\
-		s(appname,NULL);			\
+		s(appname,CONFIG_REVK_APPNAME);			\
 		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
