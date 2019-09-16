@@ -408,6 +408,7 @@ revk_init (app_command_t * app_command_cb)
 #undef u8
 #undef s8
 #undef p
+   restart_time = 0;            // If settings change at start up we can ignore.
    ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
    {
       const esp_app_desc_t *app = esp_ota_get_app_description ();
@@ -419,7 +420,6 @@ revk_init (app_command_t * app_command_cb)
             asprintf ((char **) &revk_version, "%.*s%s", d - revk_version, app->version, app->time);
       }
    }
-   restart_time = 0;            // If settings change at start up we can ignore.
    tcpip_adapter_init ();
    sntp_setoperatingmode (SNTP_OPMODE_POLL);
    sntp_setservername (0, ntphost);
