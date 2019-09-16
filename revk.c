@@ -27,8 +27,10 @@ static const char *TAG = "RevK";
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
 		sa(mqttcert,3,NULL);			\
+		u32(apport,CONFIG_REVK_APPORT);			\
 		u32(aptime,300);			\
-		s8(apgpio,0);				\
+		u32(apwait,CONFIG_REVK_APWAIT);			\
+		s8(apgpio,CONFIG_REVK_APGPIO);				\
 		s(appname,CONFIG_REVK_APPNAME);			\
 		s(hostname,NULL);			\
 		p(command);				\
@@ -373,7 +375,7 @@ task (void *pvParameters)
          mqtt_next ();          // reconnect
       if (!(xEventGroupGetBits (revk_group) & GROUP_WIFI_TRY))
          wifi_next (1);
-      if (apgpio >= 0 && !gpio_get_level (apgpio) && !ap_task_id)
+      if ((apgpio >= 0 && !gpio_get_level (apgpio) && !ap_task_id) || (apwait && revk_offline () > apwait))
          ap_task_id = revk_task ("AP", ap_task, NULL);  // Start AP mode
    }
 }
@@ -408,7 +410,7 @@ revk_init (app_command_t * app_command_cb)
 #undef s8
 #undef p
    if (!*appname)
-      appname = strdup (app->project_name); // Default is from build
+      appname = strdup (app->project_name);     // Default is from build
    restart_time = 0;            // If settings change at start up we can ignore.
    ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
    revk_version = app->version;
@@ -643,9 +645,40 @@ ota_handler (esp_http_client_event_t * evt)
 static esp_err_t
 ap_get (httpd_req_t * req)
 {
-   const char resp[] = "URI GET Response";
+   if (httpd_req_get_url_query_len (req))
+   {
+      char query[200];
+      if (!httpd_req_get_url_query_str (req, query, sizeof (query)))
+      {
+         {
+            char ssid[33],
+              pass[33];
+            if (!httpd_query_key_value (query, "ssid", ssid, sizeof (ssid)) && *ssid &&
+                !httpd_query_key_value (query, "pass", pass, sizeof (pass)))
+            {
+               revk_setting ("wifissid", strlen (ssid), (void *) ssid);
+               revk_setting ("wifipass", strlen (pass), (void *) pass);
+            }
+         }
+         {
+            char host[129];
+            if (!httpd_query_key_value (query, "host", host, sizeof (host)) && *host)
+            {
+               revk_setting ("mqtthost", strlen (host), (void *) host);
+               revk_setting ("mqttuser", 0, NULL);
+               revk_setting ("mqttpass", 0, NULL);
+               revk_setting ("mqttcert", 0, NULL);
+            }
+         }
+         const char resp[] = "Done";
+         httpd_resp_send (req, resp, strlen (resp));
+         xEventGroupSetBits (revk_group, GROUP_APMODE_DONE);
+         return ESP_OK;
+      }
+   }
+   const char resp[] =
+      "<form><input name=ssid>SSID<br/><input name=pass>Pass</br><input name=host>MQTT host</br><input type=submit></form>";
    httpd_resp_send (req, resp, strlen (resp));
-   xEventGroupSetBits (revk_group, GROUP_APMODE_DONE);
    return ESP_OK;
 }
 
@@ -657,10 +690,14 @@ ap_task (void *pvParameters)
    snprintf ((char *) wifi_config.ap.ssid, sizeof (wifi_config.ap.ssid), "%s-%s", appname, *hostname ? hostname : revk_id);
    wifi_config.ap.max_connection = 255;
    revk_info (NULL, "AP mode started %s", wifi_config.ap.ssid);
-   sleep (1);
    if (xEventGroupGetBits (revk_group) & GROUP_WIFI_TRY)
+   {
       esp_wifi_disconnect ();
+      sleep (1);
+   }
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   if (apport)
+      config.server_port = apport;
    /* Empty handle to esp_http_server */
    httpd_handle_t server = NULL;
    ESP_ERROR_CHECK (httpd_start (&server, &config));
@@ -674,12 +711,13 @@ ap_task (void *pvParameters)
    ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_AP));
    ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_AP, &wifi_config));
    if (aptime)
-      xEventGroupWaitBits (revk_group, GROUP_APMODE_DONE, true, true, aptime * 1000LL / portTICK_PERIOD_MS);    // Chance of reporting issues
+      xEventGroupWaitBits (revk_group, GROUP_APMODE_DONE, true, true, aptime * 1000LL / portTICK_PERIOD_MS);
    else
       sleep (86400);
    httpd_stop (server);
    xEventGroupClearBits (revk_group, GROUP_APMODE);
    esp_wifi_disconnect ();
+   sleep (1);
    wifi_next (1);
    ap_task_id = NULL;
    vTaskDelete (NULL);
