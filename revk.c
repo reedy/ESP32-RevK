@@ -9,6 +9,7 @@ static const char *TAG = "RevK";
 #include "esp_sntp.h"
 #include "esp_phy_init.h"
 #include "esp_http_server.h"
+#include <driver/gpio.h>
 
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
@@ -26,7 +27,9 @@ static const char *TAG = "RevK";
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
 		sa(mqttcert,3,NULL);			\
-		u32(aptimeout,300);			\
+		u32(aptime,300);			\
+		s8(apgpio,0);				\
+		s(appname,NULL);			\
 		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
@@ -42,6 +45,7 @@ static const char *TAG = "RevK";
 #define	u16(n,a,d)	uint16_t n[a];
 #define	i16(n)		int16_t n;
 #define	u8(n,a,d)	uint8_t n[a];
+#define	s8(n,d)		int8_t n;
 #define p(n)		char *prefix##n;
 settings
 #undef s
@@ -51,6 +55,7 @@ settings
 #undef u16
 #undef i16
 #undef u8
+#undef s8
 #undef p
 // Local types
 typedef struct setting_s setting_t;
@@ -96,6 +101,7 @@ static int mqtt_index = -1;
 static int64_t lastonline = 1;
 
 // Local functions
+static void ap_task (void *pvParameters);
 static void mqtt_next (void);
 static void
 wifi_next (int start)
@@ -370,6 +376,8 @@ task (void *pvParameters)
          mqtt_next ();          // reconnect
       if (!(xEventGroupGetBits (revk_group) & GROUP_WIFI_TRY))
          wifi_next (1);
+      if (apgpio >= 0 && !gpio_get_level (apgpio) && !ap_task_id)
+         ap_task_id = revk_task ("AP", ap_task, NULL);  // Start AP mode
    }
 }
 
@@ -380,7 +388,7 @@ revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
    ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
    const esp_app_desc_t *app = esp_ota_get_app_description ();
-   revk_app = app->project_name;
+   revk_app = (*appname?:app->project_name);
    {
       revk_version = app->version;
       char *d = strstr (revk_version, "dirty");
@@ -397,6 +405,7 @@ revk_init (app_command_t * app_command_cb)
 #define	u16(n,a,d)	revk_register(#n,a,2,&n,#d,SETTING_LIVE|SETTING_LIVE)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED|SETTING_LIVE)
 #define	u8(n,a,d)	revk_register(#n,a,1,&n,#d,SETTING_LIVE)
+#define	s8(n,d)		revk_register(#n,0,1,&n,#d,SETTING_LIVE|SETTING_SIGNED)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
    settings;
 #undef s
@@ -406,6 +415,7 @@ revk_init (app_command_t * app_command_cb)
 #undef u16
 #undef i16
 #undef u8
+#undef s8
 #undef p
    restart_time = 0;            // If settings change at start up we can ignore.
    tcpip_adapter_init ();
@@ -666,8 +676,8 @@ ap_task (void *pvParameters)
    ESP_ERROR_CHECK (httpd_register_uri_handler (server, &uri));
    ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_AP));
    ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_AP, &wifi_config));
-   if (aptimeout)
-      xEventGroupWaitBits (revk_group, GROUP_APMODE_DONE, true, true, aptimeout * 1000LL / portTICK_PERIOD_MS); // Chance of reporting issues
+   if (aptime)
+      xEventGroupWaitBits (revk_group, GROUP_APMODE_DONE, true, true, aptime * 1000LL / portTICK_PERIOD_MS);    // Chance of reporting issues
    else
       sleep (86400);
    httpd_stop (server);
