@@ -308,7 +308,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
 	  revk_restart (NULL, -1);
 	sntp_stop ();
 	sntp_init ();
-	if (msqtt_index >= 0)
+	if (mqtt_index >= 0)
 	  esp_mqtt_client_reconnect (mqtt_client);
 	xEventGroupSetBits (revk_group, GROUP_WIFI);
 	if (app_command)
