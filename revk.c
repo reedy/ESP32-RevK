@@ -388,7 +388,7 @@ revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
    ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
    const esp_app_desc_t *app = esp_ota_get_app_description ();
-   revk_app = (*appname?:app->project_name);
+   revk_app = (*appname ? appname : app->project_name);
    {
       revk_version = app->version;
       char *d = strstr (revk_version, "dirty");
