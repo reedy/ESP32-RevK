@@ -386,15 +386,6 @@ task (void *pvParameters)
 void
 revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
-   ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
-   const esp_app_desc_t *app = esp_ota_get_app_description ();
-   revk_app = (*appname ? appname : app->project_name);
-   {
-      revk_version = app->version;
-      char *d = strstr (revk_version, "dirty");
-      if (d)
-         asprintf ((char **) &revk_version, "%.*s%s", d - revk_version, app->version, app->time);
-   }
    // TODO secure NVS option
    nvs_flash_init ();
    ESP_ERROR_CHECK (nvs_open (revk_app, NVS_READWRITE, &nvs));  // TODO should we open/close on use?
@@ -417,6 +408,17 @@ revk_init (app_command_t * app_command_cb)
 #undef u8
 #undef s8
 #undef p
+   ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
+   {
+      const esp_app_desc_t *app = esp_ota_get_app_description ();
+      revk_app = (*appname ? appname : app->project_name);
+      {
+         revk_version = app->version;
+         char *d = strstr (revk_version, "dirty");
+         if (d)
+            asprintf ((char **) &revk_version, "%.*s%s", d - revk_version, app->version, app->time);
+      }
+   }
    restart_time = 0;            // If settings change at start up we can ignore.
    tcpip_adapter_init ();
    sntp_setoperatingmode (SNTP_OPMODE_POLL);
