@@ -302,7 +302,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
          wifi_next (1);
          break;
       case IP_EVENT_STA_GOT_IP:
-         if (!*mqtthost[mqtt_index])
+         if (mqtt_index >= 0 && !*mqtthost[mqtt_index])
             slow_connect = 0;
          if (wifireset)
             revk_restart (NULL, -1);
