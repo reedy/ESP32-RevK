@@ -8,7 +8,9 @@ static const char *TAG = "RevK";
 #include "lecert.h"
 #include "esp_sntp.h"
 #include "esp_phy_init.h"
+#if	CONFIG_REVK_APMODE == y
 #include "esp_http_server.h"
+#endif
 #include <driver/gpio.h>
 
 #define	settings	\
@@ -27,10 +29,6 @@ static const char *TAG = "RevK";
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
 		sa(mqttcert,3,NULL);			\
-		u32(apport,CONFIG_REVK_APPORT);			\
-		u32(aptime,300);			\
-		u32(apwait,CONFIG_REVK_APWAIT);			\
-		s8(apgpio,CONFIG_REVK_APGPIO);				\
 		s(appname,CONFIG_REVK_APPNAME);			\
 		s(hostname,NULL);			\
 		p(command);				\
@@ -39,6 +37,12 @@ static const char *TAG = "RevK";
 		p(event);				\
 		p(info);				\
 		p(error);				\
+
+#define	apsettings	\
+		u32(apport,CONFIG_REVK_APPORT);		\
+		u32(aptime,CONFIG_REVK_APTIME);		\
+		u32(apwait,CONFIG_REVK_APWAIT);		\
+		s8(apgpio,CONFIG_REVK_APGPIO);		\
 
 #define s(n,d)		char *n;
 #define sa(n,a,d)	char *n[a];
@@ -50,6 +54,9 @@ static const char *TAG = "RevK";
 #define	s8(n,d)		int8_t n;
 #define p(n)		char *prefix##n;
 settings
+#if	CONFIG_REVK_APMODE == y
+apsettings
+#endif
 #undef s
 #undef sa
 #undef f
@@ -86,7 +93,9 @@ const static int GROUP_MQTT_TRY = BIT3;
 const static int GROUP_APMODE = BIT4;
 const static int GROUP_APMODE_DONE = BIT5;
 static TaskHandle_t ota_task_id = NULL;
+#if	CONFIG_REVK_APMODE == y
 static TaskHandle_t ap_task_id = NULL;
+#endif
 static app_command_t *app_command = NULL;
 esp_mqtt_client_handle_t mqtt_client = NULL;
 static int64_t restart_time = 0;
@@ -102,7 +111,9 @@ static int mqtt_index = -1;
 static int64_t lastonline = 1;
 
 // Local functions
+#if	CONFIG_REVK_APMODE == y
 static void ap_task (void *pvParameters);
+#endif
 static void mqtt_next (void);
 static void
 wifi_next (int start)
@@ -375,8 +386,11 @@ task (void *pvParameters)
          mqtt_next ();          // reconnect
       if (!(xEventGroupGetBits (revk_group) & GROUP_WIFI_TRY))
          wifi_next (1);
-      if ((apgpio >= 0 && !gpio_get_level (apgpio) && !ap_task_id) || (apwait && revk_offline () > apwait))
+#if	CONFIG_REVK_APMODE == y
+      if ((apgpio >= 0 && !gpio_get_level (apgpio) && !ap_task_id) || (apwait && revk_offline () > apwait)
+          || (!*mqtthost[0] || !*wifissid[0]))
          ap_task_id = revk_task ("AP", ap_task, NULL);  // Start AP mode
+#endif
    }
 }
 
@@ -400,6 +414,9 @@ revk_init (app_command_t * app_command_cb)
 #define	s8(n,d)		revk_register(#n,0,1,&n,#d,SETTING_LIVE|SETTING_SIGNED)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
    settings;
+#if	CONFIG_REVK_APMODE == y
+apsettings
+#endif
 #undef s
 #undef sa
 #undef f
@@ -682,6 +699,7 @@ ap_get (httpd_req_t * req)
    return ESP_OK;
 }
 
+#if	CONFIG_REVK_APMODE == y
 static void
 ap_task (void *pvParameters)
 {
@@ -722,6 +740,7 @@ ap_task (void *pvParameters)
    ap_task_id = NULL;
    vTaskDelete (NULL);
 }
+#endif
 
 static void
 ota_task (void *pvParameters)
@@ -1222,11 +1241,13 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
          nvs_erase_key (nvs, s->name);
       revk_restart ("Factory reset", 0);
    }
+#if	CONFIG_REVK_APMODE == y
    if (!strcmp (tag, "apmode") && !ap_task_id)
    {
       ap_task_id = revk_task ("AP", ap_task, NULL);
       return "";
    }
+#endif
    // App commands
    if (!e && app_command)
       e = app_command (tag, len, value);
