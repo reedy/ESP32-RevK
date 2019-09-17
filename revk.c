@@ -8,7 +8,7 @@ static const char *TAG = "RevK";
 #include "lecert.h"
 #include "esp_sntp.h"
 #include "esp_phy_init.h"
-#if	CONFIG_REVK_APMODE == y
+#ifdef	CONFIG_REVK_APMODE
 #include "esp_http_server.h"
 #endif
 #include <driver/gpio.h>
@@ -54,7 +54,7 @@ static const char *TAG = "RevK";
 #define	s8(n,d)		int8_t n;
 #define p(n)		char *prefix##n;
 settings
-#if	CONFIG_REVK_APMODE == y
+#ifdef	CONFIG_REVK_APMODE
 apsettings
 #endif
 #undef s
@@ -93,7 +93,7 @@ const static int GROUP_MQTT_TRY = BIT3;
 const static int GROUP_APMODE = BIT4;
 const static int GROUP_APMODE_DONE = BIT5;
 static TaskHandle_t ota_task_id = NULL;
-#if	CONFIG_REVK_APMODE == y
+#ifdef	CONFIG_REVK_APMODE
 static TaskHandle_t ap_task_id = NULL;
 #endif
 static app_command_t *app_command = NULL;
@@ -111,7 +111,7 @@ static int mqtt_index = -1;
 static int64_t lastonline = 1;
 
 // Local functions
-#if	CONFIG_REVK_APMODE == y
+#ifdef	CONFIG_REVK_APMODE
 static void ap_task (void *pvParameters);
 #endif
 static void mqtt_next (void);
@@ -386,7 +386,7 @@ task (void *pvParameters)
          mqtt_next ();          // reconnect
       if (!(xEventGroupGetBits (revk_group) & GROUP_WIFI_TRY))
          wifi_next (1);
-#if	CONFIG_REVK_APMODE == y
+#ifdef	CONFIG_REVK_APMODE
       if ((apgpio >= 0 && !gpio_get_level (apgpio) && !ap_task_id) || (apwait && revk_offline () > apwait)
           || (!*mqtthost[0] || !*wifissid[0]))
          ap_task_id = revk_task ("AP", ap_task, NULL);  // Start AP mode
@@ -414,7 +414,7 @@ revk_init (app_command_t * app_command_cb)
 #define	s8(n,d)		revk_register(#n,0,1,&n,#d,SETTING_LIVE|SETTING_SIGNED)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
    settings;
-#if	CONFIG_REVK_APMODE == y
+#ifdef	CONFIG_REVK_APMODE
 apsettings
 #endif
 #undef s
@@ -659,6 +659,7 @@ ota_handler (esp_http_client_event_t * evt)
    return ESP_OK;
 }
 
+#ifdef	CONFIG_REVK_APMODE
 static esp_err_t
 ap_get (httpd_req_t * req)
 {
@@ -698,8 +699,9 @@ ap_get (httpd_req_t * req)
    httpd_resp_send (req, resp, strlen (resp));
    return ESP_OK;
 }
+#endif
 
-#if	CONFIG_REVK_APMODE == y
+#ifdef	CONFIG_REVK_APMODE
 static void
 ap_task (void *pvParameters)
 {
@@ -1241,7 +1243,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
          nvs_erase_key (nvs, s->name);
       revk_restart ("Factory reset", 0);
    }
-#if	CONFIG_REVK_APMODE == y
+#ifdef	CONFIG_REVK_APMODE
    if (!strcmp (tag, "apmode") && !ap_task_id)
    {
       ap_task_id = revk_task ("AP", ap_task, NULL);
