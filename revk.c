@@ -74,9 +74,9 @@ struct setting_s
    const char *name;
    const char *defval;
    void *data;
-   unsigned char size;
-   unsigned char array;
-   unsigned char flags;
+   uint16_t size;
+   uint8_t array;
+   uint8_t flags;
 };
 
 // Public
@@ -1257,7 +1257,7 @@ revk_command (const char *tag, unsigned int len, const unsigned char *value)
 }
 
 void
-revk_register (const char *name, unsigned char array, unsigned char size, void *data, const char *defval, unsigned char flags)
+revk_register (const char *name, uint8_t array, uint16_t size, void *data, const char *defval, uint8_t flags)
 {                               // Register setting (not expected to be thread safe, should be called from init)
    if (flags & SETTING_BITFIELD && !defval)
       ESP_LOGE (TAG, "%s missing defval on bitfield", name);

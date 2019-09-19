@@ -44,11 +44,11 @@ extern char *prefixerror;
 void revk_init (app_command_t * app_command);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
 void revk_register (const char *name,   // Setting name (note max 15 characters inc any number suffix)
-                    unsigned char array,        // If non zero then settings are suffixed numerically 1 to array
-                    unsigned char size, // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
+                    uint8_t array,        // If non zero then settings are suffixed numerically 1 to array
+                    uint16_t size, // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
                     void *data, // The setting itself (for string this points to a char* pointer)
                     const char *defval, // default value (default for each byte for BINARY fixed size)
-                    unsigned char flags);       // Setting flags
+                    uint8_t flags);       // Setting flags
 #define	SETTING_LIVE		1       // Setting update live (else reboots shortly after any change)
 #define	SETTING_BINARY		2       // Binary block rather than numeric
 #define	SETTING_SIGNED		4       // Numeric is signed
