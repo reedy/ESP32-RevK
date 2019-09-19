@@ -55,7 +55,7 @@ static const char *TAG = "RevK";
 #define p(n)		char *prefix##n;
 settings
 #ifdef	CONFIG_REVK_APMODE
-apsettings
+   apsettings
 #endif
 #undef s
 #undef sa
@@ -415,7 +415,7 @@ revk_init (app_command_t * app_command_cb)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
    settings;
 #ifdef	CONFIG_REVK_APMODE
-apsettings
+   apsettings
 #endif
 #undef s
 #undef sa
@@ -426,7 +426,7 @@ apsettings
 #undef u8
 #undef s8
 #undef p
-   if (!*appname)
+      if (!*appname)
       appname = strdup (app->project_name);     // Default is from build
    restart_time = 0;            // If settings change at start up we can ignore.
    ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
@@ -928,6 +928,8 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    if (flags & SETTING_HEX)
    {                            // Count length
       int p = 0;
+      while (p < len && !isalnum (value[p]))
+         p++;                   // Separator
       while (p < len)
       {                         // get hex length
          if (!isxdigit (value[p]))
@@ -935,7 +937,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          p++;
          if (p < len && isxdigit (value[p]))
             p++;                // Second hex digit in byte
-         if (p < len && !isalnum (value[p]))
+         while (p < len && !isalnum (value[p]))
             p++;                // Separator
          l++;
       }
@@ -964,6 +966,8 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          if (flags & SETTING_HEX)
          {                      // hex
             int p = 0;
+            while (p < len && !isalnum (value[p]))
+               p++;             // Separator
             while (p < len)
             {                   // store hex length
                int v = (isalpha (value[p]) ? 9 : 0) + (value[p] & 15);
@@ -974,7 +978,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
                   p++;          // Second hex digit in byte
                }
                *o++ = v;
-               if (p < len && !isalnum (value[p]))
+               while (p < len && !isalnum (value[p]))
                   p++;          // Separator
             }
          } else
