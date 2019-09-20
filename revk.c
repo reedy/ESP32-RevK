@@ -40,19 +40,21 @@ static const char *TAG = "RevK";
 		p(error);				\
 
 #define	apsettings	\
-		u32(apport,CONFIG_REVK_APPORT);		\
-		u32(aptime,CONFIG_REVK_APTIME);		\
-		u32(apwait,CONFIG_REVK_APWAIT);		\
-		s8(apgpio,CONFIG_REVK_APGPIO);		\
+		u32s(apport,CONFIG_REVK_APPORT);		\
+		u32s(aptime,CONFIG_REVK_APTIME);		\
+		u32s(apwait,CONFIG_REVK_APWAIT);		\
+		s8s(apgpio,CONFIG_REVK_APGPIO);		\
 
 #define s(n,d)		char *n;
 #define sa(n,a,d)	char *n[a];
 #define f(n,a,s)	char n[a][s];
 #define	u32(n,d)	uint32_t n;
+#define	u32s(n,d)	uint32_t n;
 #define	u16(n,a,d)	uint16_t n[a];
 #define	i16(n)		int16_t n;
 #define	u8(n,a,d)	uint8_t n[a];
 #define	s8(n,d)		int8_t n;
+#define	s8s(n,d)		int8_t n;
 #define p(n)		char *prefix##n;
 settings
 #ifdef	CONFIG_REVK_APMODE
@@ -62,10 +64,12 @@ settings
 #undef sa
 #undef f
 #undef u32
+#undef u32s
 #undef u16
 #undef i16
 #undef u8
 #undef s8
+#undef s8s
 #undef p
 // Local types
 typedef struct setting_s setting_t;
@@ -409,10 +413,12 @@ revk_init (app_command_t * app_command_cb)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE|SETTING_LIVE)
 #define f(n,a,s)	revk_register(#n,a,s,&n,0,SETTING_BINARY|SETTING_LIVE)
 #define	u32(n,d)	revk_register(#n,0,4,&n,#d,SETTING_LIVE|SETTING_LIVE)
+#define	u32s(n,d)	revk_register(#n,0,4,&n,d,SETTING_LIVE|SETTING_LIVE)
 #define	u16(n,a,d)	revk_register(#n,a,2,&n,#d,SETTING_LIVE|SETTING_LIVE)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED|SETTING_LIVE)
 #define	u8(n,a,d)	revk_register(#n,a,1,&n,#d,SETTING_LIVE)
 #define	s8(n,d)		revk_register(#n,0,1,&n,#d,SETTING_LIVE|SETTING_SIGNED)
+#define	s8s(n,d)		revk_register(#n,0,1,&n,d,SETTING_LIVE|SETTING_SIGNED)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
    settings;
 #ifdef	CONFIG_REVK_APMODE
@@ -422,10 +428,12 @@ revk_init (app_command_t * app_command_cb)
 #undef sa
 #undef f
 #undef u32
+#undef u32s
 #undef u16
 #undef i16
 #undef u8
 #undef s8
+#undef s8s
 #undef p
       if (!*appname)
       appname = strdup (app->project_name);     // Default is from build
