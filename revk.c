@@ -428,6 +428,7 @@ revk_init (app_command_t * app_command_cb)
 #undef u8
 #undef s8
 #undef p
+#undef str
       if (!*appname)
       appname = strdup (app->project_name);     // Default is from build
    restart_time = 0;            // If settings change at start up we can ignore.
