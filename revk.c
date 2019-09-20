@@ -1,4 +1,5 @@
 // Main control code, working with WiFi, MQTT, and managing settings and OTA
+// Copyright © 2019 Adrian Kennard Andrews & Arnold Ltd
 static const char *TAG = "RevK";
 
 #include "revk.h"

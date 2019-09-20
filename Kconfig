@@ -49,30 +49,30 @@ menu "RevK"
 		Enable AP (Access point) mode for base settings
 
 	config REVK_APPORT
-	string "Default AP mode port"
+	int "Default AP mode port"
 	depends on REVK_APMODE
-	default "81"
+	default 81
 	help
 		The TCP port for web setup page in AP mode
 
 	config REVK_APWAIT
-	string "Default AP mode delay"
+	int "Default AP mode delay"
 	depends on REVK_APMODE
-	default "60"
+	default 60
 	help
 		Default time for starting AP mode
 
 	config REVK_APTIME
-	string "Default AP active time"
+	int "Default AP active time"
 	depends on REVK_APMODE
-	default "300"
+	default 300
 	help
 		Default time for AP mode
 
 	config REVK_APGPIO
-	string "Default AP mode GPIO port"
+	int "Default AP mode GPIO port"
 	depends on REVK_APMODE
-	default "0"
+	default 0
 	help
 		Default GPIO port monitored to start AP mode
 
