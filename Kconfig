@@ -76,4 +76,16 @@ menu "RevK"
 	help
 		Default GPIO port monitored to start AP mode
 
+	config REVK_WIFIREST
+	int "Reset if WiFi goes off"
+	default 0
+	help
+		Time (seconds) before reset after WiFi goes off line
+
+	config REVK_MQTTRESET
+	int "Reset if off line from MQTT for a time"
+	default 3600
+	help
+		Time (seconds) before reset if offline
+
 endmenu

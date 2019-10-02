@@ -19,18 +19,18 @@ static const char *TAG = "RevK";
 		s(otacert,NULL);			\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
-		u32(wifireset,0);			\
+		u32(wifireset,CONFIG_REVK_WIFIRESET);	\
 		sa(wifissid,3,CONFIG_REVK_WIFISSID);	\
 		f(wifibssid,3,6);			\
 		u8(wifichan,3,0);			\
 		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
-		u32(mqttreset,0);			\
+		u32(mqttreset,CONFIG_REVK_MQTTRESET);	\
 		sa(mqtthost,3,CONFIG_REVK_MQTTHOST);	\
 		sa(mqttuser,3,NULL);			\
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
 		sa(mqttcert,3,NULL);			\
-		s(appname,CONFIG_REVK_APPNAME);			\
+		s(appname,CONFIG_REVK_APPNAME);		\
 		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
@@ -155,8 +155,6 @@ mqtt_event_handler (esp_mqtt_event_t * event)
    {
    case MQTT_EVENT_CONNECTED:
       slow_connect = 0;
-      if (mqttreset)
-         revk_restart (NULL, -1);
       xEventGroupSetBits (revk_group, GROUP_MQTT);
       void sub (const char *prefix)
       {
@@ -190,8 +188,6 @@ mqtt_event_handler (esp_mqtt_event_t * event)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DISCONNECTED:
-      if (mqttreset)
-         revk_restart ("MQTT lost", mqttreset);
       mqtt_count++;
       xEventGroupClearBits (revk_group, GROUP_MQTT + GROUP_MQTT_TRY);
       if (app_command)
@@ -392,6 +388,8 @@ task (void *pvParameters)
           || (!*mqtthost[0] || !*wifissid[0]))
          ap_task_id = revk_task ("AP", ap_task, NULL);  // Start AP mode
 #endif
+      if (mqttreset && revk_offline () > mqttreset)
+         revk_restart ("MQTT lost", 0);
    }
 }
 
