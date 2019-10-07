@@ -76,7 +76,7 @@ menu "RevK"
 	help
 		Default GPIO port monitored to start AP mode
 
-	config REVK_WIFIREST
+	config REVK_WIFIRESET
 	int "Reset if WiFi goes off"
 	default 0
 	help
