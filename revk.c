@@ -275,6 +275,8 @@ mqtt_next (void)
       config.username = mqttuser[mqtt_index];
    if (*mqttpass[mqtt_index])
       config.password = mqttpass[mqtt_index];
+   if (mqttport[mqtt_index])
+      config.port = mqtt_port[mqtt_index];
    if (!mqtt_client)
       mqtt_client = esp_mqtt_client_init (&config);
    else
@@ -694,6 +696,7 @@ ap_get (httpd_req_t * req)
                revk_setting ("mqttuser", 0, NULL);
                revk_setting ("mqttpass", 0, NULL);
                revk_setting ("mqttcert", 0, NULL);
+               revk_setting ("mqttport", 0, NULL);
             }
          }
          const char resp[] = "Done";
