@@ -19,18 +19,18 @@ static const char *TAG = "RevK";
 		s(otacert,NULL);			\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
-		u32(wifireset,CONFIG_REVK_WIFIRESET);	\
+		u32(wifireset,0);			\
 		sa(wifissid,3,CONFIG_REVK_WIFISSID);	\
 		f(wifibssid,3,6);			\
 		u8(wifichan,3,0);			\
 		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
-		u32(mqttreset,CONFIG_REVK_MQTTRESET);	\
+		u32(mqttreset,0);			\
 		sa(mqtthost,3,CONFIG_REVK_MQTTHOST);	\
 		sa(mqttuser,3,NULL);			\
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
 		sa(mqttcert,3,NULL);			\
-		s(appname,CONFIG_REVK_APPNAME);		\
+		s(appname,CONFIG_REVK_APPNAME);			\
 		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
@@ -154,8 +154,12 @@ mqtt_event_handler (esp_mqtt_event_t * event)
    switch (event->event_id)
    {
    case MQTT_EVENT_CONNECTED:
+      ESP_LOGI (TAG, "MQTT connect");
       slow_connect = 0;
+      if (mqttreset)
+         revk_restart (NULL, -1);
       xEventGroupSetBits (revk_group, GROUP_MQTT);
+      xEventGroupClearBits (revk_group, GROUP_MQTT_TRY);
       void sub (const char *prefix)
       {
          char *topic;
@@ -188,6 +192,9 @@ mqtt_event_handler (esp_mqtt_event_t * event)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DISCONNECTED:
+      ESP_LOGI (TAG, "MQTT disconnect");
+      if (mqttreset)
+         revk_restart ("MQTT lost", mqttreset);
       mqtt_count++;
       xEventGroupClearBits (revk_group, GROUP_MQTT + GROUP_MQTT_TRY);
       if (app_command)
@@ -320,6 +327,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
          if (mqtt_index >= 0)
             esp_mqtt_client_reconnect (mqtt_client);
          xEventGroupSetBits (revk_group, GROUP_WIFI);
+         xEventGroupClearBits (revk_group, GROUP_WIFI_TRY);
          if (app_command)
             app_command ("wifi", strlen (wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
          break;
@@ -379,17 +387,15 @@ task (void *pvParameters)
             memcpy (lastbssid, ap.bssid, 6);
          }
       }
-      if ((xEventGroupGetBits (revk_group) & (GROUP_MQTT_TRY | GROUP_WIFI)) == (GROUP_WIFI))
+      if ((xEventGroupGetBits (revk_group) & (GROUP_MQTT | GROUP_MQTT_TRY | GROUP_WIFI | GROUP_APMODE)) == (GROUP_WIFI))
          mqtt_next ();          // reconnect
-      if (!(xEventGroupGetBits (revk_group) & GROUP_WIFI_TRY))
+      if (!(xEventGroupGetBits (revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
          wifi_next (1);
 #ifdef	CONFIG_REVK_APMODE
-      if ((apgpio >= 0 && !gpio_get_level (apgpio) && !ap_task_id) || (apwait && revk_offline () > apwait)
-          || (!*mqtthost[0] || !*wifissid[0]))
+      if (!ap_task_id && ((apgpio >= 0 && !gpio_get_level (apgpio)) || (apwait && revk_offline () > apwait)
+                          || (!*mqtthost[0] || !*wifissid[0])))
          ap_task_id = revk_task ("AP", ap_task, NULL);  // Start AP mode
 #endif
-      if (mqttreset && revk_offline () > mqttreset)
-         revk_restart ("MQTT lost", 0);
    }
 }
 
@@ -461,6 +467,7 @@ revk_init (app_command_t * app_command_cb)
    char *id;                    // For DHCP
    asprintf (&id, "%s-%s", appname, *hostname ? hostname : revk_id);
    tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, id);
+   tcpip_adapter_create_ip6_linklocal (TCPIP_ADAPTER_IF_STA);
    free (id);
    revk_task (TAG, task, NULL);
 }
@@ -695,6 +702,7 @@ ap_get (httpd_req_t * req)
          return ESP_OK;
       }
    }
+   // httpd_resp_sendstr_chunk
    const char resp[] =
       "<form><input name=ssid>SSID<br/><input name=pass>Pass</br><input name=host>MQTT host</br><input type=submit></form>";
    httpd_resp_send (req, resp, strlen (resp));
@@ -706,40 +714,52 @@ ap_get (httpd_req_t * req)
 static void
 ap_task (void *pvParameters)
 {
+   ESP_LOGI (TAG, "AP mode start");
    xEventGroupSetBits (revk_group, GROUP_APMODE);
-   wifi_config_t wifi_config = { };
-   snprintf ((char *) wifi_config.ap.ssid, sizeof (wifi_config.ap.ssid), "%s-%s", appname, *hostname ? hostname : revk_id);
-   wifi_config.ap.max_connection = 255;
-   revk_info (NULL, "AP mode started %s", wifi_config.ap.ssid);
-   if (xEventGroupGetBits (revk_group) & GROUP_WIFI_TRY)
-   {
-      esp_wifi_disconnect ();
-      sleep (1);
+   {                            // IP
+      tcpip_adapter_ip_info_t info = { 0, };
+      IP4_ADDR (&info.ip, 10, revk_binid >> 8, revk_binid, 1);
+      info.gw = info.ip;        // We are the gateway
+      IP4_ADDR (&info.netmask, 255, 255, 255, 0);
+      tcpip_adapter_dhcps_stop (TCPIP_ADAPTER_IF_AP);
+      tcpip_adapter_set_ip_info (TCPIP_ADAPTER_IF_AP, &info);
+      tcpip_adapter_dhcps_start (TCPIP_ADAPTER_IF_AP);
    }
+   wifi_config_t wifi_config = { };
+   snprintf ((char *) wifi_config.ap.ssid, sizeof (wifi_config.ap.ssid), "%s-10.%d.%d.1", appname, (revk_binid >> 8) & 255,
+             revk_binid & 255);
+   wifi_config.ap.max_connection = 255;
+   revk_state (NULL, "0 AP mode started %s", wifi_config.ap.ssid);
+   sleep (2);                   // MQTT close cleanly
+   if (xEventGroupGetBits (revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY))
+      esp_wifi_disconnect ();
+   ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_AP));
+   ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_AP, &wifi_config));
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
    if (apport)
       config.server_port = apport;
    /* Empty handle to esp_http_server */
    httpd_handle_t server = NULL;
-   ESP_ERROR_CHECK (httpd_start (&server, &config));
-   httpd_uri_t uri = {
-      .uri = "/",
-      .method = HTTP_GET,
-      .handler = ap_get,
-      .user_ctx = NULL
-   };
-   ESP_ERROR_CHECK (httpd_register_uri_handler (server, &uri));
-   ESP_ERROR_CHECK (esp_wifi_set_mode (WIFI_MODE_AP));
-   ESP_ERROR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_AP, &wifi_config));
-   if (aptime)
-      xEventGroupWaitBits (revk_group, GROUP_APMODE_DONE, true, true, aptime * 1000LL / portTICK_PERIOD_MS);
-   else
-      sleep (86400);
-   httpd_stop (server);
-   xEventGroupClearBits (revk_group, GROUP_APMODE);
+   if (!httpd_start (&server, &config))
+   {
+      httpd_uri_t uri = {
+         .uri = "/",
+         .method = HTTP_GET,
+         .handler = ap_get,
+         .user_ctx = NULL
+      };
+      ESP_ERROR_CHECK (httpd_register_uri_handler (server, &uri));
+      if (aptime)
+         xEventGroupWaitBits (revk_group, GROUP_APMODE_DONE, true, true, aptime * 1000LL / portTICK_PERIOD_MS);
+      else
+         sleep (86400);
+      httpd_stop (server);
+      lastonline = esp_timer_get_time () + 3000000LL;
+   }
+   xEventGroupClearBits (revk_group, GROUP_APMODE | GROUP_APMODE_DONE);
    esp_wifi_disconnect ();
-   sleep (1);
    wifi_next (1);
+   ESP_LOGI (TAG, "AP mode end");
    ap_task_id = NULL;
    vTaskDelete (NULL);
 }
