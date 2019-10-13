@@ -276,7 +276,7 @@ mqtt_next (void)
    if (*mqttpass[mqtt_index])
       config.password = mqttpass[mqtt_index];
    if (mqttport[mqtt_index])
-      config.port = mqtt_port[mqtt_index];
+      config.port = mqttport[mqtt_index];
    if (!mqtt_client)
       mqtt_client = esp_mqtt_client_init (&config);
    else
