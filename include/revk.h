@@ -69,8 +69,8 @@ void revk_error (const char *tag, const char *fmt, ...);        // Send error
 void revk_info (const char *tag, const char *fmt, ...); // Send info
 void revk_raw (const char *prefix, const char *tag, int len, void * data, int retain);
 
-const char *revk_setting (const char *tag, unsigned int len, const unsigned char *value);       // Store a setting (same as MQTT, so calls app_setting)
-const char *revk_command (const char *tag, unsigned int len, const unsigned char *value);       // Do a command (same as MQTT, so calls app_command)
+const char *revk_setting (const char *tag, unsigned int len, const void *value);       // Store a setting (same as MQTT, so calls app_setting)
+const char *revk_command (const char *tag, unsigned int len, const void *value);       // Do a command (same as MQTT, so calls app_command)
 const char *revk_restart (const char *reason, int delay);       // Restart cleanly
 const char *revk_ota (const char *host);        // OTA and restart cleanly
 

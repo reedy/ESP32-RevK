@@ -684,15 +684,15 @@ ap_get (httpd_req_t * req)
             if (!httpd_query_key_value (query, "ssid", ssid, sizeof (ssid)) && *ssid &&
                 !httpd_query_key_value (query, "pass", pass, sizeof (pass)))
             {
-               revk_setting ("wifissid", strlen (ssid), (void *) ssid);
-               revk_setting ("wifipass", strlen (pass), (void *) pass);
+               revk_setting ("wifissid", strlen (ssid), ssid);
+               revk_setting ("wifipass", strlen (pass), pass);
             }
          }
          {
             char host[129];
             if (!httpd_query_key_value (query, "host", host, sizeof (host)) && *host)
             {
-               revk_setting ("mqtthost", strlen (host), (void *) host);
+               revk_setting ("mqtthost", strlen (host), host);
                revk_setting ("mqttuser", 0, NULL);
                revk_setting ("mqttpass", 0, NULL);
                revk_setting ("mqttcert", 0, NULL);
@@ -1205,7 +1205,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
 }
 
 const char *
-revk_setting (const char *tag, unsigned int len, const unsigned char *value)
+revk_setting (const char *tag, unsigned int len, const void *value)
 {
    unsigned char flags = 0;
    if (*tag == '0' && tag[1] == 'x')
@@ -1247,7 +1247,7 @@ revk_setting (const char *tag, unsigned int len, const unsigned char *value)
 }
 
 const char *
-revk_command (const char *tag, unsigned int len, const unsigned char *value)
+revk_command (const char *tag, unsigned int len, const void *value)
 {
    ESP_LOGD (TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
