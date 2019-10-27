@@ -187,8 +187,8 @@ mqtt_event_handler (esp_mqtt_event_t * event)
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info (&ap);
-      revk_info (NULL, "MQTT%d(%d) %s mem=%d %dms L%d", mqtt_index + 1, mqtt_count, p->label, esp_get_free_heap_size (),
-                 portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
+      revk_info (NULL, "MQTT%d(%d) %s flash=%u mem=%u %ums log=%u", mqtt_index + 1, mqtt_count, p->label, p->size,
+                 esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
       if (app_command)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
