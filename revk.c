@@ -1266,6 +1266,8 @@ revk_command (const char *tag, unsigned int len, const void *value)
       esp_err_t e = nvs_flash_erase ();
       if (e)
          return "Erase failed";
+      else
+         revk_restart ("NVS erase", 5);
       return "";
    }
    if (!e && !strcmp (tag, "restart"))
