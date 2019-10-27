@@ -71,7 +71,7 @@ settings
 typedef struct setting_s setting_t;
 struct setting_s
 {
-	nvs_handle nvs;
+   nvs_handle nvs;
    setting_t *next;
    const char *name;
    const char *defval;
@@ -409,7 +409,7 @@ revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
    nvs_flash_init ();
    const esp_app_desc_t *app = esp_ota_get_app_description ();
-   ESP_ERROR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs)); // RevK settings
+   ESP_ERROR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs));       // RevK settings
 #define str(x) #x
 #define s(n,d)		revk_register(#n,0,0,&n,d,SETTING_LIVE|SETTING_LIVE)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE|SETTING_LIVE)
@@ -434,8 +434,8 @@ revk_init (app_command_t * app_command_cb)
 #undef s8
 #undef p
 #undef str
-   ESP_ERROR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs)); // Application specific settings
-      if (!*appname)
+      ESP_ERROR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs));      // Application specific settings
+   if (!*appname)
       appname = strdup (app->project_name);     // Default is from build
    restart_time = 0;            // If settings change at start up we can ignore.
    ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
@@ -887,8 +887,8 @@ nvs_set (setting_t * s, const char *tag, void *data)
    if (s->flags & SETTING_BINARY)
    {
       if (s->size)
-         return nvs_set_blob (s->nvs, tag, data, s->size); // Fixed
-      return nvs_set_blob (s->nvs, tag, data, 1 + *((unsigned char *) data));      // Variable
+         return nvs_set_blob (s->nvs, tag, data, s->size);      // Fixed
+      return nvs_set_blob (s->nvs, tag, data, 1 + *((unsigned char *) data));   // Variable
    }
    if (s->size == 0)
    {
@@ -1261,6 +1261,13 @@ revk_command (const char *tag, unsigned int len, const void *value)
          asprintf (&url, "https://%s/%s.bin", len ? (char *) value : otahost, appname);
       e = revk_ota (url);
    }
+   if (!e && !strcmp (tag, "nvserase"))
+   {
+      esp_err_t e = nvs_flash_erase ();
+      if (e)
+         return "Erase failed";
+      return "";
+   }
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart ("Restart command", 0);
    if (!e && !strcmp (tag, "factory") && len == strlen (revk_id) + strlen (appname)
@@ -1299,7 +1306,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
    if (s)
       ESP_LOGE (TAG, "%s duplicate", name);
    s = malloc (sizeof (*s));
-   s->nvs=nvs;
+   s->nvs = nvs;
    s->name = name;
    s->array = array;
    s->size = size;
