@@ -71,6 +71,7 @@ settings
 typedef struct setting_s setting_t;
 struct setting_s
 {
+	nvs_handle nvs;
    setting_t *next;
    const char *name;
    const char *defval;
@@ -406,11 +407,9 @@ task (void *pvParameters)
 void
 revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
-   // TODO secure NVS option
    nvs_flash_init ();
    const esp_app_desc_t *app = esp_ota_get_app_description ();
-   // NVS namespace is project app name regardless of configured appname
-   ESP_ERROR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs)); // TODO should we open/close on use?
+   ESP_ERROR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs)); // RevK settings
 #define str(x) #x
 #define s(n,d)		revk_register(#n,0,0,&n,d,SETTING_LIVE|SETTING_LIVE)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE|SETTING_LIVE)
@@ -435,6 +434,7 @@ revk_init (app_command_t * app_command_cb)
 #undef s8
 #undef p
 #undef str
+   ESP_ERROR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs)); // Application specific settings
       if (!*appname)
       appname = strdup (app->project_name);     // Default is from build
    restart_time = 0;            // If settings change at start up we can ignore.
@@ -812,13 +812,13 @@ nvs_get (setting_t * s, const char *tag, void *data, size_t len)
    esp_err_t err;
    if (s->flags & SETTING_BINARY)
    {
-      if ((err = nvs_get_blob (nvs, tag, data, &len)) != ERR_OK)
+      if ((err = nvs_get_blob (s->nvs, tag, data, &len)) != ERR_OK)
          return -err;
       return len;
    }
    if (s->size == 0)
    {                            // String
-      if ((err = nvs_get_str (nvs, tag, data, &len)) != ERR_OK)
+      if ((err = nvs_get_str (s->nvs, tag, data, &len)) != ERR_OK)
          return -err;
       return len;
    }
@@ -829,25 +829,25 @@ nvs_get (setting_t * s, const char *tag, void *data, size_t len)
    {
       if (s->size == 8)
       {                         // int64
-         if ((err = nvs_get_i64 (nvs, tag, data)) != ERR_OK)
+         if ((err = nvs_get_i64 (s->nvs, tag, data)) != ERR_OK)
             return -err;
          return 8;
       }
       if (s->size == 4)
       {                         // int32
-         if ((err = nvs_get_i32 (nvs, tag, data)) != ERR_OK)
+         if ((err = nvs_get_i32 (s->nvs, tag, data)) != ERR_OK)
             return -err;
          return 4;
       }
       if (s->size == 2)
       {                         // int32
-         if ((err = nvs_get_i16 (nvs, tag, data)) != ERR_OK)
+         if ((err = nvs_get_i16 (s->nvs, tag, data)) != ERR_OK)
             return -err;
          return 2;
       }
       if (s->size == 1)
       {                         // int8
-         if ((err = nvs_get_i8 (nvs, tag, data)) != ERR_OK)
+         if ((err = nvs_get_i8 (s->nvs, tag, data)) != ERR_OK)
             return -err;
          return 1;
       }
@@ -855,25 +855,25 @@ nvs_get (setting_t * s, const char *tag, void *data, size_t len)
    {
       if (s->size == 8)
       {                         // uint64
-         if ((err = nvs_get_u64 (nvs, tag, data)) != ERR_OK)
+         if ((err = nvs_get_u64 (s->nvs, tag, data)) != ERR_OK)
             return -err;
          return 8;
       }
       if (s->size == 4)
       {                         // uint32
-         if ((err = nvs_get_u32 (nvs, tag, data)) != ERR_OK)
+         if ((err = nvs_get_u32 (s->nvs, tag, data)) != ERR_OK)
             return -err;
          return 4;
       }
       if (s->size == 2)
       {                         // uint32
-         if ((err = nvs_get_u16 (nvs, tag, data)) != ERR_OK)
+         if ((err = nvs_get_u16 (s->nvs, tag, data)) != ERR_OK)
             return -err;
          return 2;
       }
       if (s->size == 1)
       {                         // uint8
-         if ((err = nvs_get_u8 (nvs, tag, data)) != ERR_OK)
+         if ((err = nvs_get_u8 (s->nvs, tag, data)) != ERR_OK)
             return -err;
          return 1;
       }
@@ -887,34 +887,34 @@ nvs_set (setting_t * s, const char *tag, void *data)
    if (s->flags & SETTING_BINARY)
    {
       if (s->size)
-         return nvs_set_blob (nvs, tag, data, s->size); // Fixed
-      return nvs_set_blob (nvs, tag, data, 1 + *((unsigned char *) data));      // Variable
+         return nvs_set_blob (s->nvs, tag, data, s->size); // Fixed
+      return nvs_set_blob (s->nvs, tag, data, 1 + *((unsigned char *) data));      // Variable
    }
    if (s->size == 0)
    {
       ESP_LOGD (TAG, "Written %s=%s", tag, (char *) data);
-      return nvs_set_str (nvs, tag, data);
+      return nvs_set_str (s->nvs, tag, data);
    }
    if (s->flags & SETTING_SIGNED)
    {
       if (s->size == 8)
-         return nvs_set_i64 (nvs, tag, *((int64_t *) data));
+         return nvs_set_i64 (s->nvs, tag, *((int64_t *) data));
       if (s->size == 4)
-         return nvs_set_i32 (nvs, tag, *((int32_t *) data));
+         return nvs_set_i32 (s->nvs, tag, *((int32_t *) data));
       if (s->size == 2)
-         return nvs_set_i16 (nvs, tag, *((int16_t *) data));
+         return nvs_set_i16 (s->nvs, tag, *((int16_t *) data));
       if (s->size == 1)
-         return nvs_set_i8 (nvs, tag, *((int8_t *) data));
+         return nvs_set_i8 (s->nvs, tag, *((int8_t *) data));
    } else
    {
       if (s->size == 8)
-         return nvs_set_u64 (nvs, tag, *((uint64_t *) data));
+         return nvs_set_u64 (s->nvs, tag, *((uint64_t *) data));
       if (s->size == 4)
-         return nvs_set_u32 (nvs, tag, *((uint32_t *) data));
+         return nvs_set_u32 (s->nvs, tag, *((uint32_t *) data));
       if (s->size == 2)
-         return nvs_set_u16 (nvs, tag, *((uint16_t *) data));
+         return nvs_set_u16 (s->nvs, tag, *((uint16_t *) data));
       if (s->size == 1)
-         return nvs_set_u8 (nvs, tag, *((uint8_t *) data));
+         return nvs_set_u8 (s->nvs, tag, *((uint8_t *) data));
    }
    return -1;
 }
@@ -1160,8 +1160,8 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    if (o < 0)
    {                            // Flash changed
       if (erase)
-         nvs_erase_key (nvs, tag);
-      else if (nvs_set (s, tag, n) != ERR_OK && (nvs_erase_key (nvs, tag) != ERR_OK || nvs_set (s, tag, n) != ERR_OK))
+         nvs_erase_key (s->nvs, tag);
+      else if (nvs_set (s, tag, n) != ERR_OK && (nvs_erase_key (s->nvs, tag) != ERR_OK || nvs_set (s, tag, n) != ERR_OK))
       {
          free (n);
          return "Unable to store";
@@ -1268,7 +1268,7 @@ revk_command (const char *tag, unsigned int len, const void *value)
    {
       setting_t *s;
       for (s = setting; s; s = s->next)
-         nvs_erase_key (nvs, s->name);
+         nvs_erase_key (s->nvs, s->name);
       revk_restart ("Factory reset", 0);
    }
 #ifdef	CONFIG_REVK_APMODE
@@ -1299,6 +1299,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
    if (s)
       ESP_LOGE (TAG, "%s duplicate", name);
    s = malloc (sizeof (*s));
+   s->nvs=nvs;
    s->name = name;
    s->array = array;
    s->size = size;
