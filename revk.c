@@ -441,7 +441,8 @@ revk_init (app_command_t * app_command_cb)
    nvs_flash_init ();
    nvs_flash_init_partition (TAG);
    const esp_app_desc_t *app = esp_ota_get_app_description ();
-   ESP_ERROR_CHECK (nvs_open_from_partition (TAG, TAG, NVS_READWRITE, &nvs));   // RevK settings
+   if (nvs_open_from_partition (TAG, TAG, NVS_READWRITE, &nvs))
+      ESP_ERROR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs));    // Fallback if no dedicated partition
 #define str(x) #x
 #define s(n,d)		revk_register(#n,0,0,&n,d,SETTING_LIVE|SETTING_LIVE)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE|SETTING_LIVE)
