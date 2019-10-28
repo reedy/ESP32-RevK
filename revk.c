@@ -1261,24 +1261,16 @@ revk_command (const char *tag, unsigned int len, const void *value)
          asprintf (&url, "https://%s/%s.bin", len ? (char *) value : otahost, appname);
       e = revk_ota (url);
    }
-   if (!e && !strcmp (tag, "nvserase"))
-   {
-      esp_err_t e = nvs_flash_erase ();
-      if (e)
-         return "Erase failed";
-      else
-         revk_restart ("NVS erase", 5);
-      return "";
-   }
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart ("Restart command", 0);
    if (!e && !strcmp (tag, "factory") && len == strlen (revk_id) + strlen (appname)
        && !strncmp ((char *) value, revk_id, strlen (revk_id)) && !strcmp ((char *) value + strlen (revk_id), appname))
    {
-      setting_t *s;
-      for (s = setting; s; s = s->next)
-         nvs_erase_key (s->nvs, s->name);
+      esp_err_t e = nvs_flash_erase ();
+      if (e)
+         return "Erase failed";
       revk_restart ("Factory reset", 0);
+      return "";
    }
 #ifdef	CONFIG_REVK_APMODE
    if (!strcmp (tag, "apmode") && !ap_task_id)
