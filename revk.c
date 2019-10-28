@@ -425,6 +425,9 @@ revk_init (app_command_t * app_command_cb)
    ESP_ERROR_CHECK (spi_flash_read (CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
    if (memcmp (mem, part_start, part_end - part_start))
    {
+#ifndef CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
+#error Set CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
+#endif
       ESP_LOGI (TAG, "Updating partition table");
       memset (mem, 0, SPI_FLASH_SEC_SIZE);
       memcpy (mem, part_start, part_end - part_start);
