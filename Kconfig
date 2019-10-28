@@ -1,5 +1,11 @@
 menu "RevK"
 
+	config REVK_PARTITION_CHECK
+        bool "Check and update partition table"
+        default y
+        help
+		Enable automatic checking of partition table, and update if necessary
+
 	config REVK_APPNAME
 	string "Override app name"
 	default ""

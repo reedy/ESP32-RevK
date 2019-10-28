@@ -407,6 +407,33 @@ task (void *pvParameters)
 void
 revk_init (app_command_t * app_command_cb)
 {                               // Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID
+#ifdef	CONFIG_REVK_PARTITION_CHECK
+   extern const uint8_t part_start[] asm ("_binary_partitions_4m_bin_start");
+   extern const uint8_t part_end[] asm ("_binary_partitions_4m_bin_end");
+   // Check and update partition table - expects some code to stay where it can run, i.e. 0x10000, but may clear all settings
+   if ((part_end - part_start) > SPI_FLASH_SEC_SIZE)
+   {
+      ESP_LOGE (TAG, "Block size error (%d>%d)", part_end - part_start, SPI_FLASH_SEC_SIZE);
+      return;
+   }
+   esp_err_t e;
+   uint8_t *mem = malloc (SPI_FLASH_SEC_SIZE);
+   if (!mem)
+   {
+      ESP_LOGE (TAG, "Malloc fail: %d", SPI_FLASH_SEC_SIZE);
+      return;
+   }
+   ESP_ERROR_CHECK (spi_flash_read (CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+   if (memcmp (mem, part_start, part_end - part_start))
+   {
+      memset (mem, 0, SPI_FLASH_SEC_SIZE);
+      memcpy (mem, part_start, part_end - part_start);
+      ESP_ERROR_CHECK (spi_flash_erase_range (CONFIG_PARTITION_TABLE_OFFSET, SPI_FLASH_SEC_SIZE));
+      ESP_ERROR_CHECK (spi_flash_write (CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+      esp_restart ();
+   }
+   free (mem);
+#endif
    nvs_flash_init ();
    const esp_app_desc_t *app = esp_ota_get_app_description ();
    ESP_ERROR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs));       // RevK settings
