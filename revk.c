@@ -416,7 +416,6 @@ revk_init (app_command_t * app_command_cb)
       ESP_LOGE (TAG, "Block size error (%d>%d)", part_end - part_start, SPI_FLASH_SEC_SIZE);
       return;
    }
-   esp_err_t e;
    uint8_t *mem = malloc (SPI_FLASH_SEC_SIZE);
    if (!mem)
    {
