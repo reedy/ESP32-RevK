@@ -809,10 +809,13 @@ ota_task (void *pvParameters)
    esp_http_client_config_t config = {
       .url = url,.event_handler = ota_handler,
    };
-   if (*otacert)
-      config.cert_pem = otacert;        // Pinned cert
-   else
-      config.use_global_ca_store = true;        // Global cert
+   if (!strncmp (url, "https://", 8))
+   {                            // HTTPS
+      if (*otacert)
+         config.cert_pem = otacert;     // Pinned cert
+      else
+         config.use_global_ca_store = true;     // Global cert
+   }
    esp_http_client_handle_t client = esp_http_client_init (&config);
    if (!client)
       revk_error ("upgrade", "HTTP client failed");
