@@ -1292,7 +1292,13 @@ revk_command (const char *tag, unsigned int len, const void *value)
       if (len && (!strncmp ((char *) value, "https://", 8) || !strncmp ((char *) value, "http://", 7))) // Yeh allowing http as code is signed anyway
          url = strdup ((char *) value);
       else
-         asprintf (&url, "%s://%s/%s.bin", *otacert ? "https" : "http", len ? (char *) value : otahost, appname);
+         asprintf (&url, "%s://%s/%s.bin",
+#ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
+                   *otacert ? "https" : "http",
+#else
+                   "https",     // If not signed, use https even if no cert pinned
+#endif
+                   len ? (char *) value : otahost, appname);
       e = revk_ota (url);
    }
    if (!e && !strcmp (tag, "restart"))
