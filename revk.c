@@ -1288,7 +1288,7 @@ revk_command (const char *tag, unsigned int len, const void *value)
    if (!e && !strcmp (tag, "upgrade"))
    {
       char *url;                // TODO, yeh, not freed, but we are rebooting
-      if (len && (!strncmp ((char *) value, "https://", 8)||!strncmp ((char *) value, "http://", 7)) // Yeh allowing http as code is signed anyway
+      if (len && (!strncmp ((char *) value, "https://", 8) || !strncmp ((char *) value, "http://", 7))) // Yeh allowing http as code is signed anyway
          url = strdup ((char *) value);
       else
          asprintf (&url, "https://%s/%s.bin", len ? (char *) value : otahost, appname);
