@@ -608,7 +608,7 @@ revk_restart (const char *reason, int delay)
    {
       restart_time = esp_timer_get_time () + 1000000LL * (int64_t) delay;       // Reboot now
       if (app_command)
-         app_command ("reset", strlen (reason ? : ""), reason); // Warn of reset
+         app_command ("reset", strlen (reason ? : ""), (void *) reason);        // Warn of reset
    }
    return "";                   // Done
 }
@@ -695,7 +695,7 @@ ota_handler (esp_http_client_event_t * evt)
          {
             revk_info ("upgrade", "Updated %s %d", ota_partition->label, ota_running - 1);
             esp_ota_set_boot_partition (ota_partition);
-            revk_restart ("OTA", 0);
+            revk_restart ("OTA", 5);
          }
       }
       ota_running = 0;
@@ -1306,7 +1306,7 @@ revk_command (const char *tag, unsigned int len, const void *value)
       e = revk_ota (url);
    }
    if (!e && !strcmp (tag, "restart"))
-      e = revk_restart ("Restart command", 0);
+      e = revk_restart ("Restart command", 5);
    if (!e && !strcmp (tag, "factory") && len == strlen (revk_id) + strlen (appname)
        && !strncmp ((char *) value, revk_id, strlen (revk_id)) && !strcmp ((char *) value + strlen (revk_id), appname))
    {
@@ -1315,7 +1315,7 @@ revk_command (const char *tag, unsigned int len, const void *value)
          e = nvs_flash_erase_partition (TAG);
       if (e)
          return "Erase failed";
-      revk_restart ("Factory reset", 0);
+      revk_restart ("Factory reset", 5);
       return "";
    }
 #ifdef	CONFIG_REVK_APMODE
