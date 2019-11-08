@@ -608,7 +608,7 @@ revk_restart (const char *reason, int delay)
    {
       restart_time = esp_timer_get_time () + 1000000LL * (int64_t) delay;       // Reboot now
       if (app_command)
-         app_command ("reset", strlen (reason ? : ""), (void *) reason);        // Warn of reset
+         app_command ("restart", strlen (reason ? : ""), (void *) reason);        // Warn of reset
    }
    return "";                   // Done
 }
