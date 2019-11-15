@@ -189,6 +189,8 @@ mqtt_event_handler (esp_mqtt_event_t * event)
       esp_wifi_sta_get_ap_info (&ap);
       revk_info (NULL, "MQTT%d(%d) %s ota=%u mem=%u %ums log=%u", mqtt_index + 1, mqtt_count, p->label, p->size,
                  esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
+      if (esp_get_free_heap_size < 12 * 1024)
+         revk_error (TAG, "WARNING LOW MEMORY");
       if (app_command)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
@@ -608,7 +610,7 @@ revk_restart (const char *reason, int delay)
    {
       restart_time = esp_timer_get_time () + 1000000LL * (int64_t) delay;       // Reboot now
       if (app_command)
-         app_command ("restart", strlen (reason ? : ""), (void *) reason);        // Warn of reset
+         app_command ("restart", strlen (reason ? : ""), (void *) reason);      // Warn of reset
    }
    return "";                   // Done
 }
