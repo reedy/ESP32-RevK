@@ -189,7 +189,7 @@ mqtt_event_handler (esp_mqtt_event_t * event)
       esp_wifi_sta_get_ap_info (&ap);
       revk_info (NULL, "MQTT%d(%d) %s ota=%u mem=%u %ums log=%u", mqtt_index + 1, mqtt_count, p->label, p->size,
                  esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
-      if (esp_get_free_heap_size() < 12 * 1024)
+      if (esp_get_free_heap_size () < 10 * 1024)
          revk_error (TAG, "WARNING LOW MEMORY");
       if (app_command)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
@@ -842,7 +842,10 @@ revk_ota (const char *url)
    if (ota_task_id)
       return "OTA running";
    //ota_task_id = revk_task ("OTA", ota_task, url);
-   xTaskCreate (ota_task, "OTA", 8 * 1024, (void *) url, 3, &ota_task_id);
+   //xTaskCreate (ota_task, "OTA", 8 * 1024, (void *) url, 3, &ota_task_id);
+   static StackType_t ota_stack[8 * 1024];
+   static StaticTask_t ota_buffer;;
+   ota_task_id = xTaskCreateStatic (ota_task, "OTA", sizeof (ota_stack), (void *) url, 3, ota_stack, &ota_buffer);
    return "";
 }
 
