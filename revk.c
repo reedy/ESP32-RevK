@@ -329,7 +329,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
             revk_restart (NULL, -1);
          sntp_stop ();
          sntp_init ();
-         if (mqtt_index >= 0)
+         if (mqtt_client)
             esp_mqtt_client_reconnect (mqtt_client);
          xEventGroupSetBits (revk_group, GROUP_WIFI);
          xEventGroupClearBits (revk_group, GROUP_WIFI_TRY);
@@ -842,7 +842,6 @@ revk_ota (const char *url)
       return "OTA running";
 #if 1
    ota_task_id = revk_task ("OTA", ota_task, url);
-   xTaskCreate (ota_task, "OTA", 8 * 1024, (void *) url, 3, &ota_task_id);
 #else
    static StackType_t ota_stack[8 * 1024];
    static StaticTask_t ota_buffer;;
