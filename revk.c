@@ -244,7 +244,7 @@ mqtt_next (void)
    if (mqtt_index >= sizeof (mqtthost) / sizeof (*mqtthost) || !*mqtthost[mqtt_index])
       mqtt_index = 0;
    ESP_LOGI (TAG, "MQTT [%s]%s", mqtthost[mqtt_index], last == mqtt_index ? "" : " (new)");
-   if (last == mqtt_index)
+   if (last == mqtt_index && mqtt_client)
    {
       esp_mqtt_client_reconnect (mqtt_client);
       return;                   // No change
