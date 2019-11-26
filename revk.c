@@ -840,11 +840,14 @@ revk_ota (const char *url)
 {                               // OTA and restart cleanly
    if (ota_task_id)
       return "OTA running";
-   //ota_task_id = revk_task ("OTA", ota_task, url);
-   //xTaskCreate (ota_task, "OTA", 8 * 1024, (void *) url, 3, &ota_task_id);
+#if 1
+   ota_task_id = revk_task ("OTA", ota_task, url);
+   xTaskCreate (ota_task, "OTA", 8 * 1024, (void *) url, 3, &ota_task_id);
+#else
    static StackType_t ota_stack[8 * 1024];
    static StaticTask_t ota_buffer;;
    ota_task_id = xTaskCreateStatic (ota_task, "OTA", sizeof (ota_stack), (void *) url, 3, ota_stack, &ota_buffer);
+#endif
    return "";
 }
 
