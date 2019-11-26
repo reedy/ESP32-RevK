@@ -251,7 +251,7 @@ mqtt_next (void)
    }
    if (app_command)
       app_command ("change", 0, NULL);
-   if (!*mqtthost[mqtt_index])  // No MQTT
+   if (!*mqtthost[mqtt_index]||*mqtthost[mqtt_index]=='-')  // No MQTT
       return;
    char *topic;
    if (asprintf (&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
@@ -323,7 +323,7 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
          wifi_next (1);
          break;
       case IP_EVENT_STA_GOT_IP:
-         if (mqtt_index >= 0 && !*mqtthost[mqtt_index])
+         if (mqtt_index >= 0 && (!*mqtthost[mqtt_index])||*mqtthost[mqtt_index]=='-')
             slow_connect = 0;
          if (wifireset)
             revk_restart (NULL, -1);
@@ -398,7 +398,7 @@ task (void *pvParameters)
          wifi_next (1);
 #ifdef	CONFIG_REVK_APMODE
       if (!ap_task_id && ((apgpio >= 0 && !gpio_get_level (apgpio)) || (apwait && revk_offline () > apwait)
-                          || (!*mqtthost[0] || !*wifissid[0])))
+                          || !*wifissid[0]))
          ap_task_id = revk_task ("AP", ap_task, NULL);  // Start AP mode
 #endif
    }
