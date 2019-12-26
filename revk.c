@@ -348,7 +348,7 @@ task (void *pvParameters)
 // Idle
    while (1)
    {
-	   esp_task_wdt_reset();
+      esp_task_wdt_reset ();
       sleep (1);
       int64_t now = esp_timer_get_time ();
       if (slow_connect && slow_connect < now)
@@ -508,8 +508,8 @@ revk_init (app_command_t * app_command_cb)
    tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, id);
    tcpip_adapter_create_ip6_linklocal (TCPIP_ADAPTER_IF_STA);
    free (id);
-   esp_task_wdt_init(watchdogtime,true);
-   esp_task_wdt_add(revk_task (TAG, task, NULL));
+   esp_task_wdt_init (watchdogtime, true);
+   esp_task_wdt_add (revk_task (TAG, task, NULL));
 }
 
 TaskHandle_t
@@ -1328,8 +1328,13 @@ revk_command (const char *tag, unsigned int len, const void *value)
       revk_restart ("Factory reset", 5);
       return "";
    }
+   if (!e && !strcmp (tag, "uptime"))
+   {
+      revk_info (tag, "%lld", esp_timer_get_time ());
+      return "";
+   }
 #ifdef	CONFIG_REVK_APMODE
-   if (!strcmp (tag, "apmode") && !ap_task_id)
+   if (!e && !strcmp (tag, "apmode") && !ap_task_id)
    {
       ap_task_id = revk_task ("AP", ap_task, NULL);
       return "";
