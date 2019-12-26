@@ -118,6 +118,7 @@ static int wifi_index = -1;
 static int mqtt_count = 0;
 static int mqtt_index = -1;
 static int64_t lastonline = 1;
+static char wdtt_test = 0;
 
 // Local functions
 #ifdef	CONFIG_REVK_APMODE
@@ -354,7 +355,8 @@ task (void *pvParameters)
 // Idle
    while (1)
    {
-      esp_task_wdt_reset ();
+      if (!wdt_test)
+         esp_task_wdt_reset ();
       sleep (1);
       int64_t now = esp_timer_get_time ();
       if (slow_connect && slow_connect < now)
@@ -1320,6 +1322,11 @@ revk_command (const char *tag, unsigned int len, const void *value)
 #endif
                    len ? (char *) value : otahost, appname);
       e = revk_ota (url);
+   }
+   if (!e && !strcmp (tag, "watchdog"))
+   {                            // Test watchdog
+      wdt_test = 1;
+      return "";
    }
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart ("Restart command", 5);
