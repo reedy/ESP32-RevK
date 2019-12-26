@@ -481,7 +481,7 @@ revk_init (app_command_t * app_command_cb)
    char *d = strstr (revk_version, "dirty");
    if (d)
       asprintf ((char **) &revk_version, "%.*s%s", d - revk_version, app->version, app->time);
-   tcpip_adapter_init ();
+   //tcpip_adapter_init ();
    sntp_setoperatingmode (SNTP_OPMODE_POLL);
    sntp_setservername (0, ntphost);
    setenv ("TZ", tz, 1);
