@@ -16,6 +16,10 @@ static const char *TAG = "RevK";
 #endif
 #include <driver/gpio.h>
 
+#ifndef CONFIG_TASK_WDT_PANIC
+#warning Note that WDT is not set to panic
+#endif
+
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		s(otacert,NULL);			\
