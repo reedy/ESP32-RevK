@@ -350,6 +350,7 @@ static void
 task (void *pvParameters)
 {                               // Main RevK task
    pvParameters = pvParameters;
+   esp_task_wdt_add (NULL);
 // Idle
    while (1)
    {
@@ -514,7 +515,7 @@ revk_init (app_command_t * app_command_cb)
    tcpip_adapter_create_ip6_linklocal (TCPIP_ADAPTER_IF_STA);
    free (id);
    esp_task_wdt_init (watchdogtime, true);
-   esp_task_wdt_add (revk_task (TAG, task, NULL));
+   revk_task (TAG, task, NULL);
 }
 
 TaskHandle_t
