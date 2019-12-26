@@ -118,7 +118,9 @@ static int wifi_index = -1;
 static int mqtt_count = 0;
 static int mqtt_index = -1;
 static int64_t lastonline = 1;
-static char wdtt_test = 0;
+static char wdt_test = 0;
+static esp_netif_t *sta_netif = NULL;
+static esp_netif_t *ap_netif = NULL;
 
 // Local functions
 #ifdef	CONFIG_REVK_APMODE
@@ -483,12 +485,12 @@ revk_init (app_command_t * app_command_cb)
    if (!*appname)
       appname = strdup (app->project_name);     // Default is from build
    restart_time = 0;            // If settings change at start up we can ignore.
+   esp_netif_init ();
    ESP_ERROR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
    revk_version = app->version;
    char *d = strstr (revk_version, "dirty");
    if (d)
       asprintf ((char **) &revk_version, "%.*s%s", d - revk_version, app->version, app->time);
-   tcpip_adapter_init ();
    sntp_setoperatingmode (SNTP_OPMODE_POLL);
    sntp_setservername (0, ntphost);
    setenv ("TZ", tz, 1);
@@ -509,12 +511,15 @@ revk_init (app_command_t * app_command_cb)
    ESP_ERROR_CHECK (esp_wifi_init (&cfg));
    ESP_ERROR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_RAM));
    ESP_ERROR_CHECK (esp_wifi_set_ps (WIFI_PS_NONE));
+   sta_netif = esp_netif_create_default_wifi_sta ();
+   ap_netif = esp_netif_create_default_wifi_ap ();
    wifi_next (0);
    ESP_ERROR_CHECK (esp_wifi_start ());
+   ESP_ERROR_CHECK (esp_wifi_connect ());
    char *id;                    // For DHCP
    asprintf (&id, "%s-%s", appname, *hostname ? hostname : revk_id);
-   tcpip_adapter_set_hostname (TCPIP_ADAPTER_IF_STA, id);
-   tcpip_adapter_create_ip6_linklocal (TCPIP_ADAPTER_IF_STA);
+   esp_netif_set_hostname (sta_netif, id);
+   esp_netif_create_ip6_linklocal (sta_netif);
    free (id);
    esp_task_wdt_init (watchdogtime, true);
    revk_task (TAG, task, NULL);
@@ -770,13 +775,13 @@ ap_task (void *pvParameters)
    ESP_LOGI (TAG, "AP mode start");
    xEventGroupSetBits (revk_group, GROUP_APMODE);
    {                            // IP
-      tcpip_adapter_ip_info_t info = { 0, };
+      esp_netif_ip_info_t info = { 0, };
       IP4_ADDR (&info.ip, 10, revk_binid >> 8, revk_binid, 1);
       info.gw = info.ip;        // We are the gateway
       IP4_ADDR (&info.netmask, 255, 255, 255, 0);
-      tcpip_adapter_dhcps_stop (TCPIP_ADAPTER_IF_AP);
-      tcpip_adapter_set_ip_info (TCPIP_ADAPTER_IF_AP, &info);
-      tcpip_adapter_dhcps_start (TCPIP_ADAPTER_IF_AP);
+      esp_netif_dhcps_stop (ap_netif);
+      esp_netif_set_ip_info (ap_netif, &info);
+      esp_netif_dhcps_start (ap_netif);
    }
    wifi_config_t wifi_config = { };
    snprintf ((char *) wifi_config.ap.ssid, sizeof (wifi_config.ap.ssid), "%s-10.%d.%d.1", appname, (revk_binid >> 8) & 255,
