@@ -8,6 +8,7 @@ static const char *TAG = "RevK";
 #include "esp_tls.h"
 #include "lecert.h"
 #include "esp_int_wdt.h"
+#include "esp_task_wdt.h"
 #include "esp_sntp.h"
 #include "esp_phy_init.h"
 #ifdef	CONFIG_REVK_APMODE
