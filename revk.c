@@ -1348,7 +1348,8 @@ revk_command (const char *tag, unsigned int len, const void *value)
    }
    if (!e && !strcmp (tag, "uptime"))
    {
-      revk_info (tag, "%lld", esp_timer_get_time ());
+      uint64_t t = esp_timer_get_time ();
+      revk_info (tag, "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
       return "";
    }
 #ifdef	CONFIG_REVK_APMODE
