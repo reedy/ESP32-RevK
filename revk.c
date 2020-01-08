@@ -1,6 +1,6 @@
 // Main control code, working with WiFi, MQTT, and managing settings and OTA
 // Copyright © 2019 Adrian Kennard Andrews & Arnold Ltd
-static const char *TAG = "RevK";
+static const char __attribute__((unused)) *TAG = "RevK";
 
 #include "revk.h"
 #include "esp_http_client.h"
