@@ -100,7 +100,9 @@ const static int GROUP_MQTT = BIT1;
 const static int GROUP_WIFI_TRY = BIT2;
 const static int GROUP_MQTT_TRY = BIT3;
 const static int GROUP_APMODE = BIT4;
+#ifdef	CONFIG_REVK_APMODE
 const static int GROUP_APMODE_DONE = BIT5;
+#endif
 static TaskHandle_t ota_task_id = NULL;
 #ifdef	CONFIG_REVK_APMODE
 static TaskHandle_t ap_task_id = NULL;
