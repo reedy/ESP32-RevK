@@ -1,6 +1,6 @@
 // Main control code, working with WiFi, MQTT, and managing settings and OTA
 // Copyright © 2019 Adrian Kennard Andrews & Arnold Ltd
-static const char __attribute__((unused)) *TAG = "RevK";
+static const char __attribute__((unused)) * TAG = "RevK";
 
 #include "revk.h"
 #include "esp_http_client.h"
@@ -202,7 +202,7 @@ mqtt_event_handler (esp_mqtt_event_t * event)
       revk_info (NULL, "MQTT%d(%d) %s ota=%u mem=%u %ums log=%u", mqtt_index + 1, mqtt_count, p->label, p->size,
                  esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
       if (esp_get_free_heap_size () < 20 * 1024)
-         revk_error (TAG, "WARNING LOW MEMORY - MAY FAIL OTA");
+         revk_error (TAG, "WARNING LOW MEMORY - OTA MAY FAIL");
       if (app_command)
          app_command ("connect", strlen (mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
@@ -359,6 +359,10 @@ task (void *pvParameters)
 // Idle
    while (1)
    {
+      {
+         uint64_t t = esp_timer_get_time ();
+         ESP_LOGD (TAG, "Idle %d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
+      }
       if (!wdt_test)
          esp_task_wdt_reset ();
       sleep (1);
