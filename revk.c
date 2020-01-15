@@ -199,8 +199,8 @@ mqtt_event_handler (esp_mqtt_event_t * event)
       const esp_partition_t *p = esp_ota_get_running_partition ();
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info (&ap);
-      revk_info (NULL, "MQTT%d(%d) %s ota=%u mem=%u %ums log=%u", mqtt_index + 1, mqtt_count, p->label, p->size,
-                 esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL);
+      revk_info (NULL, "MQTT%d(%d) %s ota=%u mem=%u %ums log=%u rst=%u", mqtt_index + 1, mqtt_count, p->label, p->size,
+                 esp_get_free_heap_size (), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL, esp_reset_reason ());
       if (esp_get_free_heap_size () < 20 * 1024)
          revk_error (TAG, "WARNING LOW MEMORY - OTA MAY FAIL");
       if (app_command)
@@ -354,22 +354,11 @@ wifi_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, vo
 static void
 task (void *pvParameters)
 {                               // Main RevK task
+   esp_task_wdt_add (NULL);
    pvParameters = pvParameters;
    // Log if unexpected restart
-   esp_reset_reason_t reason = esp_reset_reason ();
-   if (reason == ESP_RST_PANIC)
-      revk_error (TAG, "RESTART PANIC");
-   else if (reason == ESP_RST_INT_WDT)
-      revk_error (TAG, "RESTART WATCHDOG (INT)");
-   else if (reason == ESP_RST_TASK_WDT)
-      revk_error (TAG, "RESTART WATCHDOG (TASK)");
-   else if (reason == ESP_RST_WDT)
-      revk_error (TAG, "RESTART WATCHDOG (OTHER)");
-   else if (reason == ESP_RST_BROWNOUT)
-      revk_error (TAG, "RESTART BROWNOUT");
-   esp_task_wdt_add (NULL);
    while (1)
-   { // Idle - some basic checks that all is well...
+   {                            // Idle - some basic checks that all is well...
       {
          uint64_t t = esp_timer_get_time ();
          ESP_LOGD (TAG, "Idle %d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
