@@ -25,7 +25,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 		s(otacert,NULL);			\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
-		u32(watchdogtime,30);			\
+		u32(watchdogtime,10);			\
 		u32(wifireset,0);			\
 		sa(wifissid,3,CONFIG_REVK_WIFISSID);	\
 		f(wifibssid,3,6);			\
@@ -355,10 +355,21 @@ static void
 task (void *pvParameters)
 {                               // Main RevK task
    pvParameters = pvParameters;
+   // Log if unexpected restart
+   esp_reset_reason_t reason = esp_reset_reason ();
+   if (reason == ESP_RST_PANIC)
+      revk_error (TAG, "RESTART PANIC");
+   else if (reason == ESP_RST_INT_WDT)
+      revk_error (TAG, "RESTART WATCHDOG (INT)");
+   else if (reason == ESP_RST_TASK_WDT)
+      revk_error (TAG, "RESTART WATCHDOG (TASK)");
+   else if (reason == ESP_RST_WDT)
+      revk_error (TAG, "RESTART WATCHDOG (OTHER)");
+   else if (reason == ESP_RST_BROWNOUT)
+      revk_error (TAG, "RESTART BROWNOUT");
    esp_task_wdt_add (NULL);
-// Idle
    while (1)
-   {
+   { // Idle - some basic checks that all is well...
       {
          uint64_t t = esp_timer_get_time ();
          ESP_LOGD (TAG, "Idle %d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
@@ -606,7 +617,7 @@ revk_event (const char *tag, const char *fmt, ...)
 void
 revk_error (const char *tag, const char *fmt, ...)
 {                               // Send error
-   xEventGroupWaitBits (revk_group, GROUP_WIFI | GROUP_MQTT, false, true, 10000 / portTICK_PERIOD_MS);  // Chance of reporting issues
+   xEventGroupWaitBits (revk_group, GROUP_WIFI | GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);  // Chance of reporting issues
    va_list ap;
    va_start (ap, fmt);
    revk_mqtt_ap (prefixerror, 0, 0, tag, fmt, ap);      // TODO configurable
