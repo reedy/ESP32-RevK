@@ -533,10 +533,13 @@ revk_init (app_command_t * app_command_cb)
 
 TaskHandle_t
 revk_task (const char *tag, TaskFunction_t t, const void *param)
-{                               // General task make
+{                               // General user task make
    TaskHandle_t task_id = NULL;
+#ifdef REVK_LOCK_CPU1
+   xTaskCreatePinnedToCore (t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
+#else
    xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id);
-   //xTaskCreatePinnedToCore (t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
+#endif
    return task_id;
 }
 
@@ -863,13 +866,7 @@ revk_ota (const char *url)
 {                               // OTA and restart cleanly
    if (ota_task_id)
       return "OTA running";
-#if 1
    ota_task_id = revk_task ("OTA", ota_task, url);
-#else
-   static StackType_t ota_stack[8 * 1024];
-   static StaticTask_t ota_buffer;;
-   ota_task_id = xTaskCreateStatic (ota_task, "OTA", sizeof (ota_stack), (void *) url, 3, ota_stack, &ota_buffer);
-#endif
    return "";
 }
 

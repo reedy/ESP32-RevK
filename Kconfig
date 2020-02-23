@@ -1,11 +1,5 @@
 menu "RevK"
 
-	config REVK_PARTITION_CHECK
-        bool "Check and update partition table"
-        default y
-        help
-		Enable automatic checking of partition table, and update if necessary
-
 	config REVK_APPNAME
 	string "Override app name"
 	default ""
@@ -81,5 +75,17 @@ menu "RevK"
 	default 0
 	help
 		Default GPIO port monitored to start AP mode
+
+	config REVK_PARTITION_CHECK
+        bool "Check and update partition table"
+        default y
+        help
+		Enable automatic checking of partition table, and update if necessary
+
+	config REVK_LOCK_CPU1
+        bool "Lock tasks to CPU1"
+        default y
+        help
+		Lock user tasks to CPU 1
 
 endmenu
