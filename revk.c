@@ -36,8 +36,9 @@ static const char __attribute__((unused)) * TAG = "RevK";
 		sa(mqttuser,3,NULL);			\
 		sa(mqttpass,3,NULL);			\
 		u16(mqttport,3,0);			\
+		u32(mqttsize,2048);			\
 		sa(mqttcert,3,NULL);			\
-		s(appname,CONFIG_REVK_APPNAME);			\
+		s(appname,CONFIG_REVK_APPNAME);		\
 		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
@@ -277,7 +278,7 @@ static void mqtt_next(void)
       .lwt_msg_len = 8,
       .lwt_msg = "0 Failed",
       .event_handle = mqtt_event_handler,
-      .buffer_size = 2048,
+      .buffer_size = mqttsize,
       //.disable_auto_reconnect = true,
    };
    if (*mqttcert[mqtt_index])
