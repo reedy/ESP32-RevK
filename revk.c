@@ -277,6 +277,7 @@ static void mqtt_next(void)
       .lwt_msg_len = 8,
       .lwt_msg = "0 Failed",
       .event_handle = mqtt_event_handler,
+      .buffer_size = 2048,
       //.disable_auto_reconnect = true,
    };
    if (*mqttcert[mqtt_index])
