@@ -514,7 +514,7 @@ void revk_init(app_command_t * app_command_cb)
    ap_netif = esp_netif_create_default_wifi_ap();
    wifi_next(0);
    ESP_ERROR_CHECK(esp_wifi_start());
-   ESP_ERROR_CHECK(esp_wifi_connect());
+   esp_wifi_connect();
    char *id;                    // For DHCP
    asprintf(&id, "%s-%s", appname, *hostname ? hostname : revk_id);
    esp_netif_set_hostname(sta_netif, id);
