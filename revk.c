@@ -745,15 +745,14 @@ static esp_err_t ap_get(httpd_req_t * req)
                revk_setting("mqttport", 0, NULL);
             }
          }
-         const char resp[] = "Rebooting";
+         const char resp[] = "Done";
          httpd_resp_send(req, resp, strlen(resp));
          xEventGroupSetBits(revk_group, GROUP_APMODE_DONE);
-	 revk_restart("AP mode done", 5);
          return ESP_OK;
       }
    }
    // httpd_resp_sendstr_chunk
-   const char resp[] = "<form><input name=ssid placeholder='SSID'><br/><input name=pass placeholder='Password'></br><input name=host placeholder='MQTT host'></br><input type=submit value='Set and reboot'></form>";
+   const char resp[] = "<form><input name=ssid placeholder='SSID'><br/><input name=pass placeholder='Password'></br><input name=host placeholder='MQTT host'></br><input type=submit value='Set'></form>";
    httpd_resp_send(req, resp, strlen(resp));
    return ESP_OK;
 }
