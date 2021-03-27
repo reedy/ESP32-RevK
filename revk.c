@@ -745,14 +745,15 @@ static esp_err_t ap_get(httpd_req_t * req)
                revk_setting("mqttport", 0, NULL);
             }
          }
-         const char resp[] = "Done";
+         const char resp[] = "Rebooting";
          httpd_resp_send(req, resp, strlen(resp));
          xEventGroupSetBits(revk_group, GROUP_APMODE_DONE);
+	 revk_restart("AP mode done", 5);
          return ESP_OK;
       }
    }
    // httpd_resp_sendstr_chunk
-   const char resp[] = "<form><input name=ssid>SSID<br/><input name=pass>Pass</br><input name=host>MQTT host</br><input type=submit></form>";
+   const char resp[] = "<form><input name=ssid placeholder='SSID'><br/><input name=pass placeholder='Password'></br><input name=host placehodler='MQTT host'></br><input type=submit value='Set and reboot'></form>";
    httpd_resp_send(req, resp, strlen(resp));
    return ESP_OK;
 }
@@ -795,10 +796,7 @@ static void ap_task(void *pvParameters)
          .user_ctx = NULL
       };
       ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri));
-      if (aptime)
-         xEventGroupWaitBits(revk_group, GROUP_APMODE_DONE, true, true, aptime * 1000LL / portTICK_PERIOD_MS);
-      else
-         sleep(86400);
+      xEventGroupWaitBits(revk_group, GROUP_APMODE_DONE, true, true, (aptime?:3600) * 1000LL / portTICK_PERIOD_MS);
       httpd_stop(server);
       lastonline = esp_timer_get_time() + 3000000LL;
    }
