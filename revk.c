@@ -753,7 +753,7 @@ static esp_err_t ap_get(httpd_req_t * req)
       }
    }
    // httpd_resp_sendstr_chunk
-   const char resp[] = "<form><input name=ssid placeholder='SSID'><br/><input name=pass placeholder='Password'></br><input name=host placehodler='MQTT host'></br><input type=submit value='Set and reboot'></form>";
+   const char resp[] = "<form><input name=ssid placeholder='SSID'><br/><input name=pass placeholder='Password'></br><input name=host placeholder='MQTT host'></br><input type=submit value='Set and reboot'></form>";
    httpd_resp_send(req, resp, strlen(resp));
    return ESP_OK;
 }
