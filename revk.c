@@ -39,7 +39,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 		u32(mqttsize,2048);			\
 		sa(mqttcert,3,NULL);			\
 		s(appname,CONFIG_REVK_APPNAME);		\
-		s(hostname,NULL);			\
+		snl(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
 		p(state);				\
@@ -54,6 +54,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 		s8(apgpio,CONFIG_REVK_APGPIO);		\
 
 #define s(n,d)		char *n;
+#define snl(n,d)		char *n;
 #define sa(n,a,d)	char *n[a];
 #define f(n,a,s)	char n[a][s];
 #define	u32(n,d)	uint32_t n;
@@ -456,8 +457,9 @@ void revk_init(app_command_t * app_command_cb)
    if (nvs_open_from_partition(TAG, TAG, NVS_READWRITE, &nvs))
       ESP_ERROR_CHECK(nvs_open(TAG, NVS_READWRITE, &nvs));      // Fallback if no dedicated partition
 #define str(x) #x
-#define s(n,d)		revk_register(#n,0,0,&n,d,SETTING_LIVE|SETTING_LIVE)
-#define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE|SETTING_LIVE)
+#define snl(n,d)	revk_register(#n,0,0,&n,d,0)
+#define s(n,d)		revk_register(#n,0,0,&n,d,SETTING_LIVE)
+#define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE)
 #define f(n,a,s)	revk_register(#n,a,s,&n,0,SETTING_BINARY|SETTING_LIVE)
 #define	u32(n,d)	revk_register(#n,0,4,&n,str(d),SETTING_LIVE|SETTING_LIVE)
 #define	u16(n,a,d)	revk_register(#n,a,2,&n,str(d),SETTING_LIVE|SETTING_LIVE)
