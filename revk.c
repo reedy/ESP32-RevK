@@ -68,6 +68,7 @@ settings
     apsettings
 #endif
 #undef s
+#undef snl
 #undef sa
 #undef f
 #undef u32
@@ -472,6 +473,7 @@ void revk_init(app_command_t * app_command_cb)
    apsettings
 #endif
 #undef s
+#undef snl
 #undef sa
 #undef f
 #undef u32
