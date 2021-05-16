@@ -1496,6 +1496,8 @@ uint32_t revk_offline(void)
 
 void revk_mqtt_close(const char *reason)
 {
+   if (!mqtt_client)
+      return;
    revk_state(NULL, "0 %s", reason);
    esp_mqtt_client_disconnect(mqtt_client);
    esp_mqtt_client_stop(mqtt_client);
