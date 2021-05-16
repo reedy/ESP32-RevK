@@ -125,7 +125,7 @@ static int wifi_count = 0;
 static int wifi_index = -1;
 static int mqtt_count = 0;
 static int mqtt_index = -1;
-static int64_t lastonline = 1;
+static int64_t lastonline = 0;
 static char wdt_test = 0;
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
@@ -1487,7 +1487,7 @@ void revk_blink(uint8_t on, uint8_t off)
 uint32_t revk_offline(void)
 {                               // How long off line
    if (!lastonline)
-      return 0;	// Should not happen
+      return 1; // Not online yet
    int64_t now = esp_timer_get_time();
    if (now < lastonline)
       return 0;
