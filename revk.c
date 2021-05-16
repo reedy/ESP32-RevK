@@ -1493,3 +1493,9 @@ uint32_t revk_offline(void)
       return 0;
    return (now - lastonline) / 1000000LL;
 }
+
+void revk_mqtt_close(void)
+{
+   esp_mqtt_client_stop(mqtt_client);
+
+}
