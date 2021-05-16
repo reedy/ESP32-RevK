@@ -74,7 +74,7 @@ const char *revk_setting (const char *tag, unsigned int len, const void *value);
 const char *revk_command (const char *tag, unsigned int len, const void *value);       // Do a command (same as MQTT, so calls app_command)
 const char *revk_restart (const char *reason, int delay);       // Restart cleanly
 const char *revk_ota (const char *host);        // OTA and restart cleanly
-void revk_mqtt_close(); // Clean close MQTT
+void revk_mqtt_close(const char *reason); // Clean close MQTT
 
 const char *revk_mqtt (void);
 const char *revk_wifi (void);
