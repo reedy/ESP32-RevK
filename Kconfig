@@ -69,13 +69,6 @@ menu "RevK"
 	help
 		Default time for AP mode
 
-	config REVK_APGPIO
-	int "Default AP mode GPIO port"
-	depends on REVK_APMODE
-	default 0
-	help
-		Default GPIO port monitored to start AP mode
-
 	config REVK_PARTITION_CHECK
         bool "Check and update partition table"
         default y

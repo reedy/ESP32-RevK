@@ -52,7 +52,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 		u32(apport,CONFIG_REVK_APPORT);		\
 		u32(aptime,CONFIG_REVK_APTIME);		\
 		u32(apwait,CONFIG_REVK_APWAIT);		\
-		io(apgpio,CONFIG_REVK_APGPIO);		\
+		io(apgpio);		\
 
 #define s(n,d)		char *n;
 #define snl(n,d)	char *n;
