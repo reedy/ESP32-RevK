@@ -148,7 +148,7 @@ static void wifi_next(int start)
    ESP_LOGI(TAG, "WIFi [%s]%s", wifissid[wifi_index], last == wifi_index ? "" : " (new)");
    if (last == wifi_index && (xEventGroupGetBits(revk_group) & GROUP_WIFI_TRY))
       return;                   // No change
-   if (app_command)
+   if (last != wifi_index && app_command)
       app_command("change", 0, NULL);
    wifi_config_t wifi_config = { };
    if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
@@ -1487,7 +1487,7 @@ void revk_blink(uint8_t on, uint8_t off)
 uint32_t revk_offline(void)
 {                               // How long off line
    if (!lastonline)
-      return 1; // Not online yet
+      return 1;                 // Not online yet
    int64_t now = esp_timer_get_time();
    if (now < lastonline)
       return 0;
