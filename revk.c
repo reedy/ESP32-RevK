@@ -46,15 +46,16 @@ static const char __attribute__((unused)) * TAG = "RevK";
 		p(event);				\
 		p(info);				\
 		p(error);				\
+		io(blink);				\
 
 #define	apsettings	\
 		u32(apport,CONFIG_REVK_APPORT);		\
 		u32(aptime,CONFIG_REVK_APTIME);		\
 		u32(apwait,CONFIG_REVK_APWAIT);		\
-		s8(apgpio,CONFIG_REVK_APGPIO);		\
+		io(apgpio,CONFIG_REVK_APGPIO);		\
 
 #define s(n,d)		char *n;
-#define snl(n,d)		char *n;
+#define snl(n,d)	char *n;
 #define sa(n,a,d)	char *n[a];
 #define f(n,a,s)	char n[a][s];
 #define	u32(n,d)	uint32_t n;
@@ -62,6 +63,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #define	i16(n)		int16_t n;
 #define	u8(n,a,d)	uint8_t n[a];
 #define	s8(n,d)		int8_t n;
+#define	io(n)		uint8_t n;
 #define p(n)		char *prefix##n;
 settings
 #ifdef	CONFIG_REVK_APMODE
@@ -76,6 +78,7 @@ settings
 #undef i16
 #undef u8
 #undef s8
+#undef io
 #undef p
 // Local types
 typedef struct setting_s setting_t;
@@ -126,6 +129,8 @@ static int64_t lastonline = 1;
 static char wdt_test = 0;
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
+static uint8_t blink_on = 0,
+    blink_off = 0;
 
 // Local functions
 #ifdef	CONFIG_REVK_APMODE
@@ -354,16 +359,37 @@ static void task(void *pvParameters)
    esp_task_wdt_add(NULL);
    pvParameters = pvParameters;
    // Log if unexpected restart
+   int64_t tick = 0,
+       blinker = 0;
    while (1)
    {                            // Idle - some basic checks that all is well...
-      {
-         uint64_t t = esp_timer_get_time();
-         ESP_LOGD(TAG, "Idle %d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
-      }
-      if (!wdt_test)
-         esp_task_wdt_reset();
-      sleep(1);
       int64_t now = esp_timer_get_time();
+      if (tick < now)
+      {                         // Every second
+         tick += 1000000ULL;
+         ESP_LOGD(TAG, "Idle %d.%06d", (uint32_t) (now / 1000000LL), (uint32_t) (now % 1000000LL));
+         if (!wdt_test)
+            esp_task_wdt_reset();
+      }
+      if (blink && blinker < now)
+      {                         // Every 1/10th second
+         blinker += 100000ULL;
+         static uint8_t lit = 0,
+             count = 0;
+         if (count)
+            count--;
+         else
+         {
+            uint8_t on = blink_on,
+                off = blink_off;
+            if (!on && !off)
+               on = off = (revk_offline()? 6 : 3);
+            lit = 1 - lit;
+            count = (lit ? on : off);
+            if (count)
+               gpio_set_level(blink & 0x3F, lit ^ ((blink & 0x40) ? 1 : 0));
+         }
+      }
       if (slow_connect && slow_connect < now)
       {
          ESP_LOGI(TAG, "Slow connect, disconnecting");
@@ -411,12 +437,11 @@ static void task(void *pvParameters)
       if (!(xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
          wifi_next(1);
 #ifdef	CONFIG_REVK_APMODE
-      if (!ap_task_id && ((apgpio >= 0 && !gpio_get_level(apgpio)) || (apwait && revk_offline() > apwait) || !*wifissid[0]))
+      if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0))) || (apwait && revk_offline() > apwait) || !*wifissid[0]))
          ap_task_id = revk_task("AP", ap_task, NULL);   // Start AP mode
 #endif
    }
 }
-
 
 // External functions
 void revk_init(app_command_t * app_command_cb)
@@ -467,6 +492,7 @@ void revk_init(app_command_t * app_command_cb)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED|SETTING_LIVE)
 #define	u8(n,a,d)	revk_register(#n,a,1,&n,str(d),SETTING_LIVE)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_LIVE|SETTING_SIGNED)
+#define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD);
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
    settings;
 #ifdef	CONFIG_REVK_APMODE
@@ -481,11 +507,24 @@ void revk_init(app_command_t * app_command_cb)
 #undef i16
 #undef u8
 #undef s8
+#undef io
 #undef p
 #undef str
        ESP_ERROR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));       // Application specific settings
    if (!*appname)
       appname = strdup(app->project_name);      // Default is from build
+   if (blink)
+   {
+      gpio_reset_pin(blink & 0x3F);
+      gpio_set_direction(blink & 0x3F, GPIO_MODE_OUTPUT);       // Blinky LED
+   }
+#ifdef	CONFIG_REVK_APMODE
+   if (apgpio)
+   {
+      gpio_reset_pin(apgpio & 0x3F);
+      gpio_set_direction(apgpio & 0x3F, GPIO_MODE_INPUT);       // AP mode button
+   }
+#endif
    restart_time = 0;            // If settings change at start up we can ignore.
    esp_netif_init();
    ESP_ERROR_CHECK(esp_tls_set_global_ca_store(LECert, sizeof(LECert)));
@@ -799,7 +838,7 @@ static void ap_task(void *pvParameters)
          .user_ctx = NULL
       };
       ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri));
-      xEventGroupWaitBits(revk_group, GROUP_APMODE_DONE, true, true, (aptime?:3600) * 1000LL / portTICK_PERIOD_MS);
+      xEventGroupWaitBits(revk_group, GROUP_APMODE_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS);
       httpd_stop(server);
       lastonline = esp_timer_get_time() + 3000000LL;
    }
@@ -1433,6 +1472,12 @@ const char *revk_wifi(void)
    if (wifi_index < 0)
       return "";
    return wifissid[wifi_index];
+}
+
+void revk_blink(uint8_t on, uint8_t off)
+{
+   blink_on = on;
+   blink_off = off;
 }
 
 uint32_t revk_offline(void)

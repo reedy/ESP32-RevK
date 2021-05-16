@@ -78,5 +78,6 @@ const char *revk_ota (const char *host);        // OTA and restart cleanly
 const char *revk_mqtt (void);
 const char *revk_wifi (void);
 uint32_t revk_offline (void);   // How long we have been offline (seconds), or 0 if online
+void revk_blink(uint8_t on,uint8_t off); // Set LED blink rate (0,0) for default
 
 #endif
