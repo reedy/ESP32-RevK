@@ -1373,8 +1373,12 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    }
 #endif
    // App commands
-   if ((!e || !*e) && app_command)
-      e = app_command(tag, len, value);
+   if ((!e || !*e) app_command)
+   {                            // Pass to app, even if we handled with no error
+      const char *e2 = app_command(tag, len, value);
+      if (e2 && (*e2 || !e))
+         e = e2;                // Overwrite error if we did not have one
+   }
    return e;
 }
 
