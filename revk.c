@@ -17,7 +17,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include <driver/gpio.h>
 
 #ifndef CONFIG_TASK_WDT_PANIC
-#warning Note that WDT is not set to panic
+#warning Set CONFIG_TASK_WDT_PANIC
 #endif
 
 #define	settings	\
@@ -1373,7 +1373,7 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    }
 #endif
    // App commands
-   if (!e && app_command)
+   if ((!e || !*e) && app_command)
       e = app_command(tag, len, value);
    return e;
 }
