@@ -24,6 +24,24 @@ menu "RevK"
 	help
 		This defines the factory reset default MQTT host (insecure)
 
+	config REVK_WIFIIP
+	string "Default WiFi Static IP"
+	default ""
+	help
+		This defines the factory reset default WiFi client static IP / CIDR
+
+	config REVK_WIFIGW
+	string "Default WiFi Static gateway"
+	default ""
+	help
+		This defines the factory reset default WiFi client static gateway
+
+	config REVK_WIFIDNS
+	string "Default WiFi DNS"
+	default ""
+	help
+		This defines the factory reset default WiFi client DNS
+
 	config REVK_OTAHOST
 	string "Default OTA host"
 	default "ota.iot"

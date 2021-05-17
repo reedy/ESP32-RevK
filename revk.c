@@ -28,6 +28,9 @@ static const char __attribute__((unused)) * TAG = "RevK";
 		u32(watchdogtime,10);			\
 		u32(wifireset,0);			\
 		sa(wifissid,3,CONFIG_REVK_WIFISSID);	\
+		sa(wifiip,3,CONFIG_REVK_WIFIIP);	\
+		sa(wifigw,3,CONFIG_REVK_WIFIGW);	\
+		sa(wifidns,3,CONFIG_REVK_WIFIDNS);	\
 		f(wifibssid,3,6);			\
 		u8(wifichan,3,0);			\
 		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
@@ -168,6 +171,48 @@ static void wifi_next(int start)
       if (start)
          esp_wifi_connect();
    }
+   // Static IP (per wifi_index)
+   if (*wifiip[wifi_index])
+   {
+      char *ip = strdup(wifiip[wifi_index]);
+      esp_netif_dhcpc_stop(sta_netif);
+      esp_netif_ip_info_t info = { 0, };
+      int cidr = 24;
+      char *n = strrchr(ip, '/');
+      if (n)
+      {
+         *n++ = 0;
+         cidr = atoi(n);
+      }
+      esp_netif_set_ip4_addr(&info.netmask, (0xFFFFFFFF << (cidr - 24)), (0xFFFFFFFF << (cidr - 16)), (0xFFFFFFFF << (cidr - 8)), (0xFFFFFFFF << cidr));
+      if (esp_netif_str_to_ip4(ip, &info.ip))
+         ESP_LOGE(TAG, "Bad IPv4 %s", ip);
+      esp_netif_str_to_ip4(wifigw[wifi_index], &info.gw);
+      esp_netif_set_ip_info(ap_netif, &info);
+      ESP_LOGI(TAG, "Fixed IP %s/%d GW %s", ip, cidr, wifigw[wifi_index]);
+      free(ip);
+   } else
+      esp_netif_dhcpc_start(sta_netif); // Dynamic IP
+   // DNS (not per wifi_index, but main, backup and fallback)
+   void dns(const char *ip, esp_netif_dns_type_t type) {
+      if (!*ip)
+         return;
+      esp_netif_dns_info_t dns = { };
+      if (!esp_netif_str_to_ip4(ip, &dns.ip.u_addr.ip4))
+         dns.ip.type = AF_INET;
+      else if (!esp_netif_str_to_ip6(ip, &dns.ip.u_addr.ip6))
+         dns.ip.type = AF_INET6;
+      else
+      {
+         ESP_LOGE(TAG, "Bad DNS IP %s", ip);
+         return;
+      }
+      ESP_LOGI(TAG, "Set DNS IP %s", ip);
+      esp_netif_set_dns_info(sta_netif, type, &dns);
+   }
+   dns(wifidns[0], ESP_NETIF_DNS_MAIN);
+   dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
+   dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
 }
 
 static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
@@ -360,8 +405,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
             app_command("wifi", strlen(wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
          break;
       case IP_EVENT_GOT_IP6:
-	 ESP_LOGI(TAG,"Got IPv6");
-	 break;
+         ESP_LOGI(TAG, "Got IPv6");
+         break;
       }
 }
 
@@ -573,6 +618,7 @@ void revk_init(app_command_t * app_command_cb)
    wifi_next(0);
    ESP_ERROR_CHECK(esp_wifi_start());
    esp_wifi_connect();
+   //esp_netif_create_ip6_linklocal(sta_netif);
    // DHCP
    char *id;
    asprintf(&id, "%s-%s", appname, *hostname ? hostname : revk_id);
