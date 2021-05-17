@@ -189,17 +189,8 @@ static void wifi_next(int start)
          ESP_LOGE(TAG, "Bad IPv4 %s", ip);
       if (esp_netif_str_to_ip4(wifigw[wifi_index], &info.gw))
          ESP_LOGE(TAG, "Bad IPv4 GW %s", wifigw[wifi_index]);
-      esp_netif_set_ip_info(ap_netif, &info);
+      esp_netif_set_ip_info(sta_netif, &info);
       ESP_LOGI(TAG, "Fixed IP %s/%d GW %s", ip, cidr, wifigw[wifi_index]);
-
-      char temp[40];
-      esp_ip4addr_ntoa(&info.ip, temp, sizeof(temp));
-      ESP_LOGI(TAG, "IP   %s", temp);
-      esp_ip4addr_ntoa(&info.netmask, temp, sizeof(temp));
-      ESP_LOGI(TAG, "Mask %s", temp);
-      esp_ip4addr_ntoa(&info.gw, temp, sizeof(temp));
-      ESP_LOGI(TAG, "GW   %s", temp);
-
       free(ip);
    } else
       esp_netif_dhcpc_start(sta_netif); // Dynamic IP
