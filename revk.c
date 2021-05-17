@@ -184,21 +184,21 @@ static void wifi_next(int start)
          *n++ = 0;
          cidr = atoi(n);
       }
-      esp_netif_set_ip4_addr(&info.netmask, (0xFFFFFFFF << (cidr - 24)), (0xFFFFFFFF << (cidr - 16)), (0xFFFFFFFF << (cidr - 8)), (0xFFFFFFFF << cidr));
+      esp_netif_set_ip4_addr(&info.netmask, (0xFFFFFFFF << (32 - cidr)) >> 24, (0xFFFFFFFF << (32 - cidr)) >> 16, (0xFFFFFFFF << (32 - cidr)) >> 8, (0xFFFFFFFF << (32 - cidr)));
       if (esp_netif_str_to_ip4(ip, &info.ip))
          ESP_LOGE(TAG, "Bad IPv4 %s", ip);
-      if(esp_netif_str_to_ip4(wifigw[wifi_index], &info.gw))
+      if (esp_netif_str_to_ip4(wifigw[wifi_index], &info.gw))
          ESP_LOGE(TAG, "Bad IPv4 GW %s", wifigw[wifi_index]);
       esp_netif_set_ip_info(ap_netif, &info);
       ESP_LOGI(TAG, "Fixed IP %s/%d GW %s", ip, cidr, wifigw[wifi_index]);
 
       char temp[40];
-      esp_ip4addr_ntoa(&info.ip,temp,sizeof(temp));
-      ESP_LOGI(TAG,"IP   %s",temp);
-      esp_ip4addr_ntoa(&info.netmask,temp,sizeof(temp));
-      ESP_LOGI(TAG,"Mask %s",temp);
-      esp_ip4addr_ntoa(&info.gw,temp,sizeof(temp));
-      ESP_LOGI(TAG,"GW   %s",temp);
+      esp_ip4addr_ntoa(&info.ip, temp, sizeof(temp));
+      ESP_LOGI(TAG, "IP   %s", temp);
+      esp_ip4addr_ntoa(&info.netmask, temp, sizeof(temp));
+      ESP_LOGI(TAG, "Mask %s", temp);
+      esp_ip4addr_ntoa(&info.gw, temp, sizeof(temp));
+      ESP_LOGI(TAG, "GW   %s", temp);
 
       free(ip);
    } else
