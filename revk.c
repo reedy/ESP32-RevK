@@ -148,23 +148,26 @@ static void wifi_next(int start)
    ESP_LOGI(TAG, "WIFi [%s]%s", wifissid[wifi_index], last == wifi_index ? "" : " (new)");
    if (last == wifi_index && (xEventGroupGetBits(revk_group) & GROUP_WIFI_TRY))
       return;                   // No change
-   if (last != wifi_index && app_command)
+   if (last != wifi_index && last >= 0 && app_command)
       app_command("change", 0, NULL);
-   wifi_config_t wifi_config = { };
-   if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
+   if (last >= 0 || wifi_index || esp_reset_reason() != ESP_RST_DEEPSLEEP)
    {
-      memcpy(wifi_config.sta.bssid, wifibssid[wifi_index], sizeof(wifi_config.sta.bssid));
-      wifi_config.sta.bssid_set = 1;
+      wifi_config_t wifi_config = { };
+      if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
+      {
+         memcpy(wifi_config.sta.bssid, wifibssid[wifi_index], sizeof(wifi_config.sta.bssid));
+         wifi_config.sta.bssid_set = 1;
+      }
+      xEventGroupSetBits(revk_group, GROUP_WIFI_TRY);
+      wifi_config.sta.channel = wifichan[wifi_index];
+      wifi_config.sta.scan_method = ((esp_reset_reason() == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
+      strncpy((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof(wifi_config.sta.ssid));
+      strncpy((char *) wifi_config.sta.password, wifipass[wifi_index], sizeof(wifi_config.sta.password));
+      ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+      ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
+      if (start)
+         esp_wifi_connect();
    }
-   xEventGroupSetBits(revk_group, GROUP_WIFI_TRY);
-   wifi_config.sta.channel = wifichan[wifi_index];
-   wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN; // Slower but strongest signal
-   strncpy((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof(wifi_config.sta.ssid));
-   strncpy((char *) wifi_config.sta.password, wifipass[wifi_index], sizeof(wifi_config.sta.password));
-   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-   ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-   if (start)
-      esp_wifi_connect();
 }
 
 static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
@@ -264,7 +267,7 @@ static void mqtt_next(void)
       esp_mqtt_client_reconnect(mqtt_client);
       return;                   // No change
    }
-   if (app_command)
+   if (last != mqtt_index && last >= 0 && app_command)
       app_command("change", 0, NULL);
    if (!*mqtthost[mqtt_index] || *mqtthost[mqtt_index] == '-')  // No MQTT
       return;
@@ -315,14 +318,17 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
       switch (event_id)
       {
       case WIFI_EVENT_STA_START:
+         ESP_LOGI(TAG, "STA Start");
          esp_wifi_connect();
          break;
       case WIFI_EVENT_STA_CONNECTED:
+         ESP_LOGI(TAG, "STA Connect");
          slow_connect = esp_timer_get_time() + 300000000LL;     // If no DHCP && MQTT we disconnect WiFi
          if (wifireset)
             esp_phy_erase_cal_data_in_nvs();    // Lets calibrate on boot
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
+         ESP_LOGI(TAG, "STA Disconnect");
          if (wifireset)
             revk_restart("WiFi lost", wifireset);
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_WIFI_TRY);
@@ -334,10 +340,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
       switch (event_id)
       {
       case IP_EVENT_STA_LOST_IP:
+         ESP_LOGI(TAG, "Lost IP");
          esp_wifi_disconnect();
          wifi_next(1);
          break;
       case IP_EVENT_STA_GOT_IP:
+         ESP_LOGI(TAG, "Got IP");
          if (mqtt_index >= 0 && (!*mqtthost[mqtt_index] || *mqtthost[mqtt_index] == '-'))
             slow_connect = 0;
          if (wifireset)
@@ -351,6 +359,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
          if (app_command)
             app_command("wifi", strlen(wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
          break;
+      case IP_EVENT_GOT_IP6:
+	 ESP_LOGI(TAG,"Got IPv6");
+	 break;
       }
 }
 
@@ -402,11 +413,13 @@ static void task(void *pvParameters)
             restart_reason = "Unknown";
          revk_state(NULL, "0 %s", restart_reason);
          if (app_command)
-            app_command("restart", strlen(restart_reason), (unsigned char *) restart_reason);
+            app_command("shutdown", strlen(restart_reason), (unsigned char *) restart_reason);
          if (mqtt_client)
+         {
+            esp_mqtt_client_disconnect(mqtt_client);
             esp_mqtt_client_stop(mqtt_client);
+         }
          ESP_ERROR_CHECK(nvs_commit(nvs));
-         sleep(2);              // Wait for MQTT to close cleanly
          esp_restart();
          restart_time = 0;
       }
@@ -550,6 +563,8 @@ void revk_init(app_command_t * app_command_cb)
    ESP_ERROR_CHECK(esp_event_loop_create_default());
    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL));
+   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &wifi_event_handler, NULL));
+   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &wifi_event_handler, NULL));
    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
@@ -558,11 +573,13 @@ void revk_init(app_command_t * app_command_cb)
    wifi_next(0);
    ESP_ERROR_CHECK(esp_wifi_start());
    esp_wifi_connect();
-   char *id;                    // For DHCP
+   // DHCP
+   char *id;
    asprintf(&id, "%s-%s", appname, *hostname ? hostname : revk_id);
    esp_netif_set_hostname(sta_netif, id);
    esp_netif_create_ip6_linklocal(sta_netif);
    free(id);
+   // Watchdog
    esp_task_wdt_init(watchdogtime, true);
    revk_task(TAG, task, NULL);
 }
