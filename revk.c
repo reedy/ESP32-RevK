@@ -198,38 +198,6 @@ static void wifi_next(int start)
       if (start)
          esp_wifi_connect();
    }
-   // Static IP (per wifi_index)
-   if (*wifiip[wifi_index])
-   {
-      char *ip = strdup(wifiip[wifi_index]);
-      esp_netif_dhcpc_stop(sta_netif);
-      esp_netif_ip_info_t info = { 0, };
-      int cidr = 24;
-      char *n = strrchr(ip, '/');
-      if (n)
-      {
-         *n++ = 0;
-         cidr = atoi(n);
-      }
-      esp_netif_set_ip4_addr(&info.netmask, (0xFFFFFFFF << (cidr - 24)), (0xFFFFFFFF << (cidr - 16)), (0xFFFFFFFF << (cidr - 8)), (0xFFFFFFFF << cidr));
-      if (esp_netif_str_to_ip4(ip, &info.ip))
-         ESP_LOGE(TAG, "Bad IPv4 %s", ip);
-      if(esp_netif_str_to_ip4(wifigw[wifi_index], &info.gw))
-         ESP_LOGE(TAG, "Bad IPv4 GW %s", wifigw[wifi_index]);
-      esp_netif_set_ip_info(ap_netif, &info);
-      ESP_LOGI(TAG, "Fixed IP %s/%d GW %s", ip, cidr, wifigw[wifi_index]);
-
-      char temp[40];
-      esp_ip4addr_ntoa(&info.ip,temp,sizeof(temp));
-      ESP_LOGI(TAG,"IP   %s",temp);
-      esp_ip4addr_ntoa(&info.netmask,temp,sizeof(temp));
-      ESP_LOGI(TAG,"Mask %s",temp);
-      esp_ip4addr_ntoa(&info.gw,temp,sizeof(temp));
-      ESP_LOGI(TAG,"GW   %s",temp);
-
-      free(ip);
-   } else
-      esp_netif_dhcpc_start(sta_netif); // Dynamic IP
    // DNS (not per wifi_index, but main, backup and fallback)
    void dns(const char *ip, esp_netif_dns_type_t type) {
       if (!*ip)
@@ -244,9 +212,36 @@ static void wifi_next(int start)
          ESP_LOGE(TAG, "Bad DNS IP %s", ip);
          return;
       }
-      ESP_LOGI(TAG, "Set DNS IP %s", ip);
-      esp_netif_set_dns_info(sta_netif, type, &dns);
+      if (esp_netif_set_dns_info(sta_netif, type, &dns))
+         ESP_LOGE(TAG, "Bad DNS %s", ip);
+      else
+         ESP_LOGI(TAG, "Set DNS IP %s", ip);
    }
+   // Static IP (per wifi_index)
+   if (*wifiip[wifi_index])
+   {
+      char *ip = strdup(wifiip[wifi_index]);
+      esp_netif_dhcpc_stop(sta_netif);
+      esp_netif_ip_info_t info = { 0, };
+      int cidr = 24;
+      char *n = strrchr(ip, '/');
+      if (n)
+      {
+         *n++ = 0;
+         cidr = atoi(n);
+      }
+      esp_netif_set_ip4_addr(&info.netmask, (0xFFFFFFFF << (32 - cidr)) >> 24, (0xFFFFFFFF << (32 - cidr)) >> 16, (0xFFFFFFFF << (32 - cidr)) >> 8, (0xFFFFFFFF << (32 - cidr)));
+      if (esp_netif_str_to_ip4(ip, &info.ip))
+         ESP_LOGE(TAG, "Bad IPv4 %s", ip);
+      if (esp_netif_str_to_ip4(wifigw[wifi_index], &info.gw))
+         ESP_LOGE(TAG, "Bad IPv4 GW %s", wifigw[wifi_index]);
+      esp_netif_set_ip_info(sta_netif, &info);
+      ESP_LOGI(TAG, "Fixed IP %s/%d GW %s", ip, cidr, wifigw[wifi_index]);
+      if (!*wifidns[0])
+         dns(ip, ESP_NETIF_DNS_MAIN);   // Fallback to using gateway for DNS
+      free(ip);
+   } else
+      esp_netif_dhcpc_start(sta_netif); // Dynamic IP
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
    dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
    dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
