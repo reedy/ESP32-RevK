@@ -6,47 +6,106 @@ menu "RevK"
 	help
 		Default app name to use
 
+	config REVK_WIFI
+	bool "Manage WiFi client"
+	default y
+        help
+		Manage client WiFi
+
 	config REVK_WIFISSID
 	string "Default WiFi SSID"
 	default "IoT"
+	depends on REVK_WIFI
 	help
 		This defines the factory reset default WiFi SSID
 
 	config REVK_WIFIPASS
 	string "Default WiFi passphrase"
 	default "security"
+	depends on REVK_WIFI
 	help
 		This defines the factory reset default WiFi passphrase
-
-	config REVK_MQTTHOST
-	string "Default MQTT host"
-	default "mqtt.iot"
-	help
-		This defines the factory reset default MQTT host (insecure)
 
 	config REVK_WIFIIP
 	string "Default WiFi Static IP"
 	default ""
+	depends on REVK_WIFI
 	help
 		This defines the factory reset default WiFi client static IP / CIDR
 
 	config REVK_WIFIGW
 	string "Default WiFi Static gateway"
 	default ""
+	depends on REVK_WIFI
 	help
 		This defines the factory reset default WiFi client static gateway
 
 	config REVK_WIFIDNS
 	string "Default WiFi DNS"
 	default ""
+	depends on REVK_WIFI
 	help
 		This defines the factory reset default WiFi client DNS
+
+	config REVK_MQTT
+	bool "Manage MQTT client"
+	default y
+        help
+		Manage client MQTT
+
+	config REVK_MQTTHOST
+	string "Default MQTT host"
+	default "mqtt.iot"
+	depends on REVK_MQTT
+	help
+		This defines the factory reset default MQTT host
+
+	config REVK_MQTTUSER
+	string "Default MQTT username"
+	default ""
+	depends on REVK_MQTT
+	help
+		This defines the factory reset MQTT username
+
+	config REVK_MQTTPASS
+	string "Default MQTT password"
+	default ""
+	depends on REVK_MQTT
+	help
+		This defines the factory reset MQTT password
+
+	config REVK_MQTTCERT
+	string "Default MQTT certificate"
+	default ""
+	depends on REVK_MQTT
+	help
+		This defines the factory reset MQTT certificate
+
+	config REVK_MQTTPORT
+	int "Default MQTT port"
+	default 1883
+	depends on REVK_MQTT
+	help
+		This defines the factory reset MQTT port
+
+	config REVK_MQTTSIZE
+	int "Default MQTT packet size"
+	default 2048
+	depends on REVK_MQTT
+	help
+		This defines the factory reset MQTT packet size
 
 	config REVK_OTAHOST
 	string "Default OTA host"
 	default "ota.iot"
 	help
 		This defines the factory reset default OTA host (https)
+
+	config REVK_OTACERT
+	string "Default OTA certificate"
+	default ""
+	help
+		This defines the factory reset default OTA certificate
 
 	config REVK_NTPHOST
 	string "Default NTP host"

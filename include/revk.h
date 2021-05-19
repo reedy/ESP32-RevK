@@ -63,22 +63,30 @@ esp_err_t revk_err_check (esp_err_t, const char *file, int line);       // Log i
 // Make a task
 TaskHandle_t revk_task (const char *tag, TaskFunction_t t, const void *param);
 
-// MQTT reporting
+// reporting (normally MQTT)
 void revk_state (const char *tag, const char *fmt, ...);        // Send status
 void revk_event (const char *tag, const char *fmt, ...);        // Send event
 void revk_error (const char *tag, const char *fmt, ...);        // Send error
 void revk_info (const char *tag, const char *fmt, ...); // Send info
+#ifdef	CONFIG_REVK_MQTT
 void revk_raw (const char *prefix, const char *tag, int len, void * data, int retain);
+#endif
 
 const char *revk_setting (const char *tag, unsigned int len, const void *value);       // Store a setting (same as MQTT, so calls app_setting)
 const char *revk_command (const char *tag, unsigned int len, const void *value);       // Do a command (same as MQTT, so calls app_command)
 const char *revk_restart (const char *reason, int delay);       // Restart cleanly
 const char *revk_ota (const char *host);        // OTA and restart cleanly
-void revk_mqtt_close(const char *reason); // Clean close MQTT
 
+#ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt (void);
+void revk_mqtt_close(const char *reason); // Clean close MQTT
+#endif
+#ifdef	CONFIG_REVK_WIFI
 const char *revk_wifi (void);
+#endif
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
 uint32_t revk_offline (void);   // How long we have been offline (seconds), or 0 if online
+#endif
 void revk_blink(uint8_t on,uint8_t off); // Set LED blink rate (0,0) for default
 
 #endif
