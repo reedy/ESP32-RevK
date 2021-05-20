@@ -12,38 +12,80 @@ menu "RevK"
         help
 		Manage client WiFi
 
+	config REVK_MESH
+        bool "Mesh WiFi mode"
+        default n
+	depends on !REVK_WIFI
+        help
+		Enable WiFi Mesh operation
+
+	config REVK_MESHID
+        bool "Mesh ID (6 byte hex)"
+        default ""
+	depends on REVK_MESH
+        help
+		Mesh network ID (12 characters hex)
+
+	config REVK_MESHPASS
+        bool "Mesh network passphrase"
+        default ""
+	depends on REVK_MESH
+        help
+		Mesh network passphrase
+
+	config REVK_MESHDEPTH
+        int "Mesh network depth"
+        default 3
+	depends on REVK_MESH
+        help
+		Mesh network depth
+
+	config REVK_MESHWIDTH
+        int "Mesh network connections"
+        default 10
+	depends on REVK_MESH
+        help
+		Mesh network connections per node
+
 	config REVK_WIFISSID
 	string "Default WiFi SSID"
 	default "IoT"
-	depends on REVK_WIFI
+	depends on REVK_WIFI || REVK_MESH
 	help
 		This defines the factory reset default WiFi SSID
 
 	config REVK_WIFIPASS
 	string "Default WiFi passphrase"
 	default "security"
-	depends on REVK_WIFI
+	depends on REVK_WIFI || REVK_MESH
 	help
 		This defines the factory reset default WiFi passphrase
+
+	config REVK_WIFICHAN
+	int "WiFi channel"
+	default 0
+	depends on REVK_WIFI || REVK_MESH
+	help
+		This defines the factory reset WiFi channel
 
 	config REVK_WIFIIP
 	string "Default WiFi Static IP"
 	default ""
-	depends on REVK_WIFI
+	depends on REVK_WIFI || REVK_MESH
 	help
 		This defines the factory reset default WiFi client static IP / CIDR
 
 	config REVK_WIFIGW
 	string "Default WiFi Static gateway"
 	default ""
-	depends on REVK_WIFI
+	depends on REVK_WIFI || REVK_MESH
 	help
 		This defines the factory reset default WiFi client static gateway
 
 	config REVK_WIFIDNS
 	string "Default WiFi DNS"
 	default ""
-	depends on REVK_WIFI
+	depends on REVK_WIFI || REVK_MESH
 	help
 		This defines the factory reset default WiFi client DNS
 
@@ -146,13 +188,6 @@ menu "RevK"
 	default 300
 	help
 		Default time for AP mode
-
-	config REVK_MESH
-        bool "Access mesh mode"
-        default y
-	depends on !REVK_WIFI
-        help
-		Enable WiFi Mesh operation (TODO)
 
 	config REVK_PARTITION_CHECK
         bool "Check and update partition table"
