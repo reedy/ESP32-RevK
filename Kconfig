@@ -122,6 +122,7 @@ menu "RevK"
 	config REVK_APMODE
         bool "Access point mode"
         default y
+	depends on REVK_WIFI
         help
 		Enable AP (Access point) mode for base settings
 
@@ -145,6 +146,13 @@ menu "RevK"
 	default 300
 	help
 		Default time for AP mode
+
+	config REVK_MESH
+        bool "Access mesh mode"
+        default y
+	depends on !REVK_WIFI
+        help
+		Enable WiFi Mesh operation (TODO)
 
 	config REVK_PARTITION_CHECK
         bool "Check and update partition table"
