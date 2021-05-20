@@ -61,6 +61,13 @@ menu "RevK"
 	help
 		This defines the factory reset default WiFi passphrase
 
+	config REVK_WIFIBSSID
+	string "Default WiFi BSSID (6 bytes)"
+	default ""
+	depends on REVK_WIFI || REVK_MESH
+	help
+		This defines the factory reset default WiFi BSSID (hex 12 characters)
+
 	config REVK_WIFICHAN
 	int "WiFi channel"
 	default 0

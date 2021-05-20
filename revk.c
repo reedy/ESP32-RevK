@@ -59,8 +59,8 @@ __attribute__((unused)) * TAG = "RevK";
 		sa(wifiip,3,CONFIG_REVK_WIFIIP);	\
 		sa(wifigw,3,CONFIG_REVK_WIFIGW);	\
 		sa(wifidns,3,CONFIG_REVK_WIFIDNS);	\
-		f(wifibssid,3,6);			\
-		u8(wifichan,3,0);			\
+		f(wifibssid,3,6,CONFIG_REVK_BSSID);			\
+		u8a(wifichan,3,CONFIG_REVK_WIFICHAN);			\
 		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
 
 #define	meshsettings	\
@@ -68,19 +68,20 @@ __attribute__((unused)) * TAG = "RevK";
 		s(wifiip,CONFIG_REVK_WIFIIP);	\
 		s(wifigw,CONFIG_REVK_WIFIGW);	\
 		s(wifidns,CONFIG_REVK_WIFIDNS);	\
-		f(wifibssid,3,6);			\
-		u8(wifichan,3,0);			\
+		h(wifibssid,6,CONFIG_REVK_WIFIBSSID);			\
+		u8(wifichan,CONFIG_REVK_WIFICHAN);			\
 		s(wifipass,CONFIG_REVK_WIFIPASS);	\
 		s(meshpass,CONFIG_REVK_MESHPASS);	\
 
 #define s(n,d)		static char *n;
 #define snl(n,d)	static char *n;
 #define sa(n,a,d)	static char *n[a];
-#define f(n,a,s)	static char n[a][s];
+#define f(n,a,s,d)	static char n[a][s];
 #define	u32(n,d)	static uint32_t n;
 #define	u16(n,a,d)	static uint16_t n[a];
 #define	i16(n)		static int16_t n;
-#define	u8(n,a,d)	static uint8_t n[a];
+#define	u8a(n,a,d)	static uint8_t n[a];
+#define	u8(n,d)		static uint8_t n;
 #define	s8(n,d)		static int8_t n;
 #define	io(n)		static uint8_t n;
 #define p(n)		char *prefix##n;
@@ -106,6 +107,7 @@ meshsettings
 #undef u16
 #undef i16
 #undef u8
+#undef u8a
 #undef s8
 #undef io
 #undef p
@@ -644,11 +646,12 @@ revk_init(app_command_t * app_command_cb)
 #define snl(n,d)	revk_register(#n,0,0,&n,d,0)
 #define s(n,d)		revk_register(#n,0,0,&n,d,SETTING_LIVE)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE)
-#define f(n,a,s)	revk_register(#n,a,s,&n,0,SETTING_BINARY|SETTING_LIVE)
+#define f(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINARY|SETTING_LIVE)
 #define	u32(n,d)	revk_register(#n,0,4,&n,str(d),SETTING_LIVE|SETTING_LIVE)
 #define	u16(n,a,d)	revk_register(#n,a,2,&n,str(d),SETTING_LIVE|SETTING_LIVE)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED|SETTING_LIVE)
-#define	u8(n,a,d)	revk_register(#n,a,1,&n,str(d),SETTING_LIVE)
+#define	u8a(n,a,d)	revk_register(#n,a,1,&n,str(d),SETTING_LIVE)
+#define	u8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_LIVE)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_LIVE|SETTING_SIGNED)
 #define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
@@ -673,6 +676,7 @@ revk_init(app_command_t * app_command_cb)
 #undef u32
 #undef u16
 #undef i16
+#undef u8a
 #undef u8
 #undef s8
 #undef io
