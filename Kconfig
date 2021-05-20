@@ -27,7 +27,7 @@ menu "RevK"
 		Mesh network ID (12 characters hex)
 
 	config REVK_MESHPASS
-        bool "Mesh network passphrase"
+        string "Mesh network passphrase"
         default ""
 	depends on REVK_MESH
         help
