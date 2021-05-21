@@ -96,6 +96,34 @@ menu "RevK"
 	help
 		This defines the factory reset default WiFi client DNS
 
+	config REVK_APSSID
+        string "Access point SSID"
+        default ""
+	depends on REVK_WIFI
+        help
+		SSID for access point mode
+
+	config REVK_APPASS
+        string "Access point passphrase"
+        default ""
+	depends on REVK_WIFI
+        help
+		Passphrase for access point mode
+
+	config REVK_APIP
+        string "Access point IP"
+        default "10.0.0.1/24"
+	depends on REVK_WIFI
+        help
+		IP allocation for access point mode
+
+	config REVK_APLR
+        bool "Access point LR mode"
+        default "10.0.0.1/24"
+	depends on REVK_WIFI
+        help
+		Run access point in LR mode
+
 	config REVK_MQTT
 	bool "Manage MQTT client"
 	default y
@@ -169,11 +197,11 @@ menu "RevK"
 		This defines the TZ (timezone) control
 
 	config REVK_APCONFIG
-        bool "Access point mode"
+        bool "Config fallback via an access point / web page"
         default y
 	depends on REVK_WIFI
         help
-		Enable AP (Access point) mode for base settings
+		Enable Access point mode for base settings
 
 	config REVK_APPORT
 	int "Default AP mode port"

@@ -66,6 +66,10 @@ __attribute__((unused)) * TAG = "RevK";
 		f(wifibssid,3,6,CONFIG_REVK_WIFIBSSID);			\
 		u8a(wifichan,3,CONFIG_REVK_WIFICHAN);			\
 		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
+		s(apssid,CONFIG_REVK_APSSID);	\
+		s(appass,CONFIG_REVK_APPASS);	\
+		s(apip,CONFIG_REVK_APIP);	\
+		b(aplr,CONFIG_REVK_APLR);	\
 
 #define	meshsettings	\
 		s(wifissid,CONFIG_REVK_WIFISSID);	\
@@ -86,6 +90,7 @@ __attribute__((unused)) * TAG = "RevK";
 #define	i16(n)		static int16_t n;
 #define	u8a(n,a,d)	static uint8_t n[a];
 #define	u8(n,d)		static uint8_t n;
+#define	b(n,d)		static uint8_t n;
 #define	s8(n,d)		static int8_t n;
 #define	io(n)		static uint8_t n;
 #define p(n)		char *prefix##n;
@@ -111,6 +116,7 @@ meshsettings
 #undef u16
 #undef i16
 #undef u8
+#undef b
 #undef u8a
 #undef s8
 #undef io
@@ -192,7 +198,31 @@ meshsettings
 #endif
 
 #ifdef	CONFIG_REVK_WIFI
-   static void     wifi_next(int start)
+   static void     makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
+{
+   char           *i = strdup(ip);
+   int             cidr = 24;
+   char           *n = strrchr(i, '/');
+   if (n)
+   {
+      *n++ = 0;
+      cidr = atoi(n);
+   }
+   esp_netif_set_ip4_addr(&info->netmask, (0xFFFFFFFF << (32 - cidr)) >> 24, (0xFFFFFFFF << (32 - cidr)) >> 16, (0xFFFFFFFF << (32 - cidr)) >> 8, (0xFFFFFFFF << (32 - cidr)));
+   if (esp_netif_str_to_ip4(i, &info->ip))
+      ESP_LOGE(TAG, "Bad IPv4 %s", ip);
+   if (!gw || !*gw)
+      info->gw = info->ip;
+   else if (esp_netif_str_to_ip4(gw, &info->gw))
+      ESP_LOGE(TAG, "Bad IPv4 GW %s", gw);
+   esp_netif_set_ip_info(sta_netif, info);
+   free(i);
+}
+#endif
+
+#ifdef	CONFIG_REVK_WIFI
+static void
+wifi_next(int start)
 {
    if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
@@ -205,6 +235,19 @@ meshsettings
       return;                   /* No change */
    if (last != wifi_index && last >= 0 && app_command)
       app_command("change", 0, NULL);
+   REVK_ERR_CHECK(esp_wifi_set_mode(*apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA));
+   if (*apssid)
+   {
+      wifi_config_t   wifi_config = {0,};
+      strncpy((char *)wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+      esp_netif_ip_info_t info = {0,};
+      makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : WIFI_PROTOCOL_11N));
+      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
+      REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
+      REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
+      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+   }
    if (last >= 0 || wifi_index || esp_reset_reason() != ESP_RST_DEEPSLEEP)
    {
       wifi_config_t   wifi_config = {};
@@ -218,8 +261,8 @@ meshsettings
       wifi_config.sta.scan_method = ((esp_reset_reason() == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
       strncpy((char *)wifi_config.sta.ssid, wifissid[wifi_index], sizeof(wifi_config.sta.ssid));
       strncpy((char *)wifi_config.sta.password, wifipass[wifi_index], sizeof(wifi_config.sta.password));
-      ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-      ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
+      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
       if (start)
          esp_wifi_connect();
    }
@@ -228,44 +271,36 @@ meshsettings
    {
       if (!*ip)
          return;
+      char           *i = strdup(ip);
+      char           *c = strrchr(i, '/');
+      if              (c)
+                        *c = 0;
       esp_netif_dns_info_t dns = {};
-      if              (!esp_netif_str_to_ip4(ip, &dns.ip.u_addr.ip4))
+      if              (!esp_netif_str_to_ip4(i, &dns.ip.u_addr.ip4))
                          dns.ip.type = AF_INET;
-      else if         (!esp_netif_str_to_ip6(ip, &dns.ip.u_addr.ip6))
+      else if         (!esp_netif_str_to_ip6(i, &dns.ip.u_addr.ip6))
                          dns.ip.type = AF_INET6;
       else
       {
-         ESP_LOGE(TAG, "Bad DNS IP %s", ip);
+         ESP_LOGE(TAG, "Bad DNS IP %s", i);
          return;
       }
       if              (esp_netif_set_dns_info(sta_netif, type, &dns))
-                         ESP_LOGE(TAG, "Bad DNS %s", ip);
+                         ESP_LOGE(TAG, "Bad DNS %s", i);
       else
-         ESP_LOGI(TAG, "Set DNS IP %s", ip);
+         ESP_LOGI(TAG, "Set DNS IP %s", i);
+      free(i);
    }
    /* Static IP(per wifi_index) */
    if (*wifiip[wifi_index])
    {
-      char           *ip = strdup(wifiip[wifi_index]);
       esp_netif_dhcpc_stop(sta_netif);
       esp_netif_ip_info_t info = {0,};
-      int             cidr = 24;
-      char           *n = strrchr(ip, '/');
-      if (n)
-      {
-         *n++ = 0;
-         cidr = atoi(n);
-      }
-      esp_netif_set_ip4_addr(&info.netmask, (0xFFFFFFFF << (32 - cidr)) >> 24, (0xFFFFFFFF << (32 - cidr)) >> 16, (0xFFFFFFFF << (32 - cidr)) >> 8, (0xFFFFFFFF << (32 - cidr)));
-      if (esp_netif_str_to_ip4(ip, &info.ip))
-         ESP_LOGE(TAG, "Bad IPv4 %s", ip);
-      if (esp_netif_str_to_ip4(wifigw[wifi_index], &info.gw))
-         ESP_LOGE(TAG, "Bad IPv4 GW %s", wifigw[wifi_index]);
+      makeip(&info, wifiip[wifi_index], wifigw[wifi_index]);
       esp_netif_set_ip_info(sta_netif, &info);
-      ESP_LOGI(TAG, "Fixed IP %s/%d GW %s", ip, cidr, wifigw[wifi_index]);
+      ESP_LOGI(TAG, "Fixed IP %s GW %s", wifiip[wifi_index], wifigw[wifi_index]);
       if (!*wifidns[0])
-         dns(ip, ESP_NETIF_DNS_MAIN);   /* Fallback to using gateway for DNS */
-      free(ip);
+         dns(wifiip[wifi_index], ESP_NETIF_DNS_MAIN);   /* Fallback to using gateway for DNS */
    } else
       esp_netif_dhcpc_start(sta_netif); /* Dynamic IP */
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
@@ -401,7 +436,7 @@ mqtt_next(void)
    };
    if (*mqttcert[mqtt_index])
    {
-#if 0 /* When MQTT supports this! */
+#if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
       if (!strcmp(mqttcert[mqtt_index], "*"))
          config.crt_bundle_attach = esp_crt_bundle_attach;
@@ -554,13 +589,13 @@ task(void *pvParameters)
             esp_mqtt_client_disconnect(mqtt_client);
             esp_mqtt_client_stop(mqtt_client);
          }
-         ESP_ERROR_CHECK(nvs_commit(nvs));
+         REVK_ERR_CHECK(nvs_commit(nvs));
          esp_restart();
          restart_time = 0;
       }
       if (nvs_time && nvs_time < now)
       {
-         ESP_ERROR_CHECK(nvs_commit(nvs));
+         REVK_ERR_CHECK(nvs_commit(nvs));
          nvs_time = 0;
       }
 #ifdef	CONFIG_REVK_MQTT
@@ -633,7 +668,7 @@ revk_init(app_command_t * app_command_cb)
       ESP_LOGE(TAG, "Malloc fail: %d", SPI_FLASH_SEC_SIZE);
       return;
    }
-   ESP_ERROR_CHECK(spi_flash_read(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+   REVK_ERR_CHECK(spi_flash_read(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
    if (memcmp(mem, part_start, part_end - part_start))
    {
 #ifndef CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
@@ -642,18 +677,17 @@ revk_init(app_command_t * app_command_cb)
       ESP_LOGI(TAG, "Updating partition table");
       memset(mem, 0, SPI_FLASH_SEC_SIZE);
       memcpy(mem, part_start, part_end - part_start);
-      ESP_ERROR_CHECK(spi_flash_erase_range(CONFIG_PARTITION_TABLE_OFFSET, SPI_FLASH_SEC_SIZE));
-      ESP_ERROR_CHECK(spi_flash_write(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+      REVK_ERR_CHECK(spi_flash_erase_range(CONFIG_PARTITION_TABLE_OFFSET, SPI_FLASH_SEC_SIZE));
+      REVK_ERR_CHECK(spi_flash_write(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
       esp_restart();
    }
    free(mem);
 #endif
-   /* TODO keys */
    nvs_flash_init();
    nvs_flash_init_partition(TAG);
    const esp_app_desc_t *app = esp_ota_get_app_description();
    if (nvs_open_from_partition(TAG, TAG, NVS_READWRITE, &nvs))
-      ESP_ERROR_CHECK(nvs_open(TAG, NVS_READWRITE, &nvs));
+      REVK_ERR_CHECK(nvs_open(TAG, NVS_READWRITE, &nvs));
    /* Fallback if no dedicated partition */
 #define str(x) #x
 #define snl(n,d)	revk_register(#n,0,0,&n,d,0)
@@ -665,13 +699,14 @@ revk_init(app_command_t * app_command_cb)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED|SETTING_LIVE)
 #define	u8a(n,a,d)	revk_register(#n,a,1,&n,str(d),SETTING_LIVE)
 #define	u8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_LIVE)
+#define	b(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_BOOLEAN|SETTING_LIVE)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_LIVE|SETTING_SIGNED)
 #define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINARY|SETTING_HEX)
-   settings;
+   settings
 #ifdef	CONFIG_REVK_WIFI
-   wifisettings
+      wifisettings
 #endif
 #ifdef	CONFIG_REVK_MQTT
       mqttsettings
@@ -691,12 +726,13 @@ revk_init(app_command_t * app_command_cb)
 #undef i16
 #undef u8a
 #undef u8
+#undef b
 #undef s8
 #undef io
 #undef p
 #undef str
 #undef h
-      ESP_ERROR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));
+      REVK_ERR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));
    /* Application specific settings */
    if (!*appname)
       appname = strdup(app->project_name);
@@ -717,7 +753,7 @@ revk_init(app_command_t * app_command_cb)
    /* If settings change at start up we can ignore. */
    esp_netif_init();
 #ifndef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-   ESP_ERROR_CHECK(esp_tls_set_global_ca_store(LECert, sizeof(LECert)));
+   REVK_ERR_CHECK(esp_tls_set_global_ca_store(LECert, sizeof(LECert)));
 #endif
    revk_version = app->version;
    revk_app = appname;
@@ -731,7 +767,7 @@ revk_init(app_command_t * app_command_cb)
    app_command = app_command_cb;
    {                            /* Chip ID from MAC */
       unsigned char   mac[6];
-      ESP_ERROR_CHECK(esp_efuse_mac_get_default(mac));
+      REVK_ERR_CHECK(esp_efuse_mac_get_default(mac));
       revk_binid = ((mac[0] << 16) + (mac[1] << 8) + mac[2]) ^ ((mac[3] << 16) + (mac[4] << 8) + mac[5]);
       snprintf(revk_id, sizeof(revk_id), "%06X", revk_binid);
    }
@@ -740,21 +776,21 @@ revk_init(app_command_t * app_command_cb)
 #ifdef	CONFIG_REVK_WIFI
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 #endif
-   ESP_ERROR_CHECK(esp_event_loop_create_default());
+   REVK_ERR_CHECK(esp_event_loop_create_default());
 #ifdef	CONFIG_REVK_WIFI
-   ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
 #endif
-   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
-   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &event_handler, NULL));
-   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &event_handler, NULL));
 #ifdef	CONFIG_REVK_WIFI
-   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-   ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-   ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+   REVK_ERR_CHECK(esp_wifi_init(&cfg));
+   REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+   REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
    sta_netif = esp_netif_create_default_wifi_sta();
    ap_netif = esp_netif_create_default_wifi_ap();
    wifi_next(0);
-   ESP_ERROR_CHECK(esp_wifi_start());
+   REVK_ERR_CHECK(esp_wifi_start());
    esp_wifi_connect();
    /* esp_netif_create_ip6_linklocal(sta_netif); */
 #endif
@@ -1043,15 +1079,25 @@ ap_task(void *pvParameters)
       {
          0,
       };
-      IP4_ADDR(&info.ip, 10, revk_binid >> 8, revk_binid, 1);
-      info.gw = info.ip;        /* We are the gateway */
-      IP4_ADDR(&info.netmask, 255, 255, 255, 0);
-      esp_netif_dhcps_stop(ap_netif);
-      esp_netif_set_ip_info(ap_netif, &info);
-      esp_netif_dhcps_start(ap_netif);
+      if (*apip)
+         makeip(&info, apip, NULL);
+      else
+      {
+         IP4_ADDR(&info.ip, 10, revk_binid >> 8, revk_binid, 1);
+         info.gw = info.ip;     /* We are the gateway */
+         IP4_ADDR(&info.netmask, 255, 255, 255, 0);
+      }
+      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
+      REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
+      REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
    }
    wifi_config_t   wifi_config = {};
-   snprintf((char *)wifi_config.ap.ssid, sizeof(wifi_config.ap.ssid), "%s-10.%d.%d.1", appname, (revk_binid >> 8) & 255, revk_binid & 255);
+#ifdef	CONFIG_REVK_WIFI
+   if (*apssid)
+      strncpy((char *)wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+   else
+#endif
+      snprintf((char *)wifi_config.ap.ssid, sizeof(wifi_config.ap.ssid), "%s-10.%d.%d.1", appname, (revk_binid >> 8) & 255, revk_binid & 255);
    wifi_config.ap.max_connection = 255;
    revk_state(NULL, "0 AP mode started %s", wifi_config.ap.ssid);
    sleep(2);                    /* MQTT close cleanly */
@@ -1059,8 +1105,8 @@ ap_task(void *pvParameters)
    if (xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY))
       esp_wifi_disconnect();
 #endif
-   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-   ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+   REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+   REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
    httpd_config_t  config = HTTPD_DEFAULT_CONFIG();
    if (apport)
       config.server_port = apport;
@@ -1074,7 +1120,7 @@ ap_task(void *pvParameters)
          .handler = ap_get,
          .user_ctx = NULL
       };
-      ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri));
+      REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
       xEventGroupWaitBits(revk_group, GROUP_APCONFIG_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS);
       httpd_stop(server);
       lastonline = esp_timer_get_time() + 3000000LL;
@@ -1715,7 +1761,10 @@ esp_err_t
 revk_err_check(esp_err_t e, const char *file, int line)
 {
    if (e != ERR_OK)
-      revk_error("error", "Error at line %s in %s (%s)", line, file, esp_err_to_name(e));
+   {
+      ESP_LOGE(TAG, "Error at line %d in %s (%s)", line, file, esp_err_to_name(e));
+      revk_error("error", "Error at line %d in %s (%s)", line, file, esp_err_to_name(e));
+   }
    return e;
 }
 
