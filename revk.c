@@ -8,12 +8,16 @@ __attribute__((unused)) * TAG = "RevK";
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
 #include "esp_tls.h"
+#ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
+#include "esp_crt_bundle.h"
+#else
 #include "lecert.h"
+#endif
 #include "esp_int_wdt.h"
 #include "esp_task_wdt.h"
 #include "esp_sntp.h"
 #include "esp_phy_init.h"
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
 #include "esp_http_server.h"
 #endif
 #include <driver/gpio.h>
@@ -38,7 +42,7 @@ __attribute__((unused)) * TAG = "RevK";
 		p(error);				\
 		io(blink);				\
 
-#define	apsettings	\
+#define	apconfigsettings	\
 		u32(apport,CONFIG_REVK_APPORT);		\
 		u32(aptime,CONFIG_REVK_APTIME);		\
 		u32(apwait,CONFIG_REVK_APWAIT);		\
@@ -59,7 +63,7 @@ __attribute__((unused)) * TAG = "RevK";
 		sa(wifiip,3,CONFIG_REVK_WIFIIP);	\
 		sa(wifigw,3,CONFIG_REVK_WIFIGW);	\
 		sa(wifidns,3,CONFIG_REVK_WIFIDNS);	\
-		f(wifibssid,3,6,CONFIG_REVK_BSSID);			\
+		f(wifibssid,3,6,CONFIG_REVK_WIFIBSSID);			\
 		u8a(wifichan,3,CONFIG_REVK_WIFICHAN);			\
 		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
 
@@ -93,8 +97,8 @@ wifisettings
 #ifdef	CONFIG_REVK_MQTT
 mqttsettings
 #endif
-#ifdef	CONFIG_REVK_APMODE
-apsettings
+#ifdef	CONFIG_REVK_APCONFIG
+apconfigsettings
 #endif
 #ifdef	CONFIG_REVK_MESH
 meshsettings
@@ -145,12 +149,12 @@ meshsettings
 #ifdef	CONFIG_REVK_MQTT
    const static int GROUP_MQTT_TRY = BIT3;
 #endif
-#ifdef	CONFIG_REVK_APMODE
-   const static int GROUP_APMODE = BIT4;
-   const static int GROUP_APMODE_DONE = BIT5;
+#ifdef	CONFIG_REVK_APCONFIG
+   const static int GROUP_APCONFIG = BIT4;
+   const static int GROUP_APCONFIG_DONE = BIT5;
 #endif
    static TaskHandle_t ota_task_id = NULL;
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
    static TaskHandle_t ap_task_id = NULL;
 #endif
    static app_command_t *app_command = NULL;
@@ -172,14 +176,14 @@ meshsettings
 #endif
    static int64_t  lastonline = 0;
    static char     wdt_test = 0;
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
    static esp_netif_t *ap_netif = NULL;
 #endif
    static uint8_t  blink_on = 0,
                    blink_off = 0;
 
 /* Local functions */
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
    static void     ap_task(void *pvParameters);
 #endif
 
@@ -190,7 +194,7 @@ meshsettings
 #ifdef	CONFIG_REVK_WIFI
    static void     wifi_next(int start)
 {
-   if (xEventGroupGetBits(revk_group) & GROUP_APMODE)
+   if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
    int             last = wifi_index;
    wifi_index++;
@@ -396,7 +400,16 @@ mqtt_next(void)
       /* .disable_auto_reconnect = true, */
    };
    if (*mqttcert[mqtt_index])
-      config.cert_pem = mqttcert[mqtt_index];
+   {
+#if 0 /* When MQTT supports this! */
+#ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
+      if (!strcmp(mqttcert[mqtt_index], "*"))
+         config.crt_bundle_attach = esp_crt_bundle_attach;
+      else
+#endif
+#endif
+         config.cert_pem = mqttcert[mqtt_index];
+   }
    if (*mqttuser[mqtt_index])
       config.username = mqttuser[mqtt_index];
    if (*mqttpass[mqtt_index])
@@ -572,13 +585,13 @@ task(void *pvParameters)
       }
 #endif
 #ifdef	CONFIG_REVK_WIFI
-      if ((xEventGroupGetBits(revk_group) & (CROUP_WIFI
+      if ((xEventGroupGetBits(revk_group) & (GROUP_WIFI
 #ifdef	CONFIG_REVK_MQTT
                                              | GROUP_MQTT
                                              | GROUP_MQTT_TRY
 #endif
-#ifdef	CONFIG_REVK_APMODE
-                                             | GROUP_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
+                                             | GROUP_APCONFIG
 #endif
                                              )) == (GROUP_WIFI))
 #endif
@@ -587,7 +600,7 @@ task(void *pvParameters)
       if (!(xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
          wifi_next(1);
 #endif
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
                           || (apwait && revk_offline() > apwait)
@@ -663,8 +676,8 @@ revk_init(app_command_t * app_command_cb)
 #ifdef	CONFIG_REVK_MQTT
       mqttsettings
 #endif
-#ifdef	CONFIG_REVK_APMODE
-      apsettings
+#ifdef	CONFIG_REVK_APCONFIG
+      apconfigsettings
 #endif
 #ifdef	CONFIG_REVK_MESH
       meshsettings
@@ -693,7 +706,7 @@ revk_init(app_command_t * app_command_cb)
       gpio_reset_pin(blink & 0x3F);
       gpio_set_direction(blink & 0x3F, GPIO_MODE_OUTPUT);       /* Blinky LED */
    }
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
    if (apgpio)
    {
       gpio_reset_pin(apgpio & 0x3F);
@@ -703,7 +716,9 @@ revk_init(app_command_t * app_command_cb)
    restart_time = 0;
    /* If settings change at start up we can ignore. */
    esp_netif_init();
+#ifndef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
    ESP_ERROR_CHECK(esp_tls_set_global_ca_store(LECert, sizeof(LECert)));
+#endif
    revk_version = app->version;
    revk_app = appname;
    char           *d = strstr(revk_version, "dirty");
@@ -975,7 +990,7 @@ ota_handler(esp_http_client_event_t * evt)
    return ESP_OK;
 }
 
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
 static          esp_err_t
 ap_get(httpd_req_t * req)
 {
@@ -1006,7 +1021,7 @@ ap_get(httpd_req_t * req)
          }
          const char      resp[] = "Done";
          httpd_resp_send(req, resp, strlen(resp));
-         xEventGroupSetBits(revk_group, GROUP_APMODE_DONE);
+         xEventGroupSetBits(revk_group, GROUP_APCONFIG_DONE);
          return ESP_OK;
       }
    }
@@ -1017,12 +1032,12 @@ ap_get(httpd_req_t * req)
 }
 #endif
 
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
 static void
 ap_task(void *pvParameters)
 {
    ESP_LOGI(TAG, "AP mode start");
-   xEventGroupSetBits(revk_group, GROUP_APMODE);
+   xEventGroupSetBits(revk_group, GROUP_APCONFIG);
    {                            /* IP */
       esp_netif_ip_info_t info =
       {
@@ -1060,11 +1075,11 @@ ap_task(void *pvParameters)
          .user_ctx = NULL
       };
       ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri));
-      xEventGroupWaitBits(revk_group, GROUP_APMODE_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS);
+      xEventGroupWaitBits(revk_group, GROUP_APCONFIG_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS);
       httpd_stop(server);
       lastonline = esp_timer_get_time() + 3000000LL;
    }
-   xEventGroupClearBits(revk_group, GROUP_APMODE | GROUP_APMODE_DONE);
+   xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE);
 #ifdef	CONFIG_REVK_WIFI
    esp_wifi_disconnect();
    wifi_next(1);
@@ -1087,7 +1102,11 @@ ota_task(void *pvParameters)
    if (*otacert)
       config.cert_pem = otacert;/* Pinned cert */
    else
+#ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
+      config.crt_bundle_attach = esp_crt_bundle_attach;
+#else
       config.use_global_ca_store = true;        /* Global cert */
+#endif
    esp_http_client_handle_t client = esp_http_client_init(&config);
    if (!client)
       revk_error("upgrade", "HTTP client failed");
@@ -1600,8 +1619,8 @@ revk_command(const char *tag, unsigned int len, const void *value)
       revk_info(tag, "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
       return "";
    }
-#ifdef	CONFIG_REVK_APMODE
-   if (!e && !strcmp(tag, "apmode") && !ap_task_id)
+#ifdef	CONFIG_REVK_APCONFIG
+   if (!e && !strcmp(tag, "apconfig") && !ap_task_id)
    {
       ap_task_id = revk_task("AP", ap_task, NULL);
       return "";
