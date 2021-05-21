@@ -79,6 +79,7 @@ __attribute__((unused)) * TAG = "RevK";
 		h(wifibssid,6,CONFIG_REVK_WIFIBSSID);			\
 		u8(wifichan,CONFIG_REVK_WIFICHAN);			\
 		s(wifipass,CONFIG_REVK_WIFIPASS);	\
+		h(meshid,6,CONFIG_REVK_MESHID);			\
 		s(meshpass,CONFIG_REVK_MESHPASS);	\
 
 #define s(n,d)		static char *n;
