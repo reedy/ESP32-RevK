@@ -119,10 +119,17 @@ menu "RevK"
 
 	config REVK_APLR
         bool "Access point LR mode"
-        default "10.0.0.1/24"
+        default n
 	depends on REVK_WIFI
         help
 		Run access point in LR mode
+
+	config REVK_APHIDE
+        bool "Access point hidden SSID"
+        default n
+	depends on REVK_WIFI
+        help
+		Run AP in hidden SSID mode
 
 	config REVK_MQTT
 	bool "Manage MQTT client"

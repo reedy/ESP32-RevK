@@ -70,6 +70,7 @@ __attribute__((unused)) * TAG = "RevK";
 		s(appass,CONFIG_REVK_APPASS);	\
 		s(apip,CONFIG_REVK_APIP);	\
 		b(aplr,CONFIG_REVK_APLR);	\
+		b(aphide,CONFIG_REVK_APHIDE);	\
 
 #define	meshsettings	\
 		s(wifissid,CONFIG_REVK_WIFISSID);	\
@@ -210,13 +211,11 @@ meshsettings
       cidr = atoi(n);
    }
    esp_netif_set_ip4_addr(&info->netmask, (0xFFFFFFFF << (32 - cidr)) >> 24, (0xFFFFFFFF << (32 - cidr)) >> 16, (0xFFFFFFFF << (32 - cidr)) >> 8, (0xFFFFFFFF << (32 - cidr)));
-   if (esp_netif_str_to_ip4(i, &info->ip))
-      ESP_LOGE(TAG, "Bad IPv4 %s", ip);
+   REVK_ERR_CHECK(esp_netif_str_to_ip4(i, &info->ip));
    if (!gw || !*gw)
       info->gw = info->ip;
-   else if (esp_netif_str_to_ip4(gw, &info->gw))
-      ESP_LOGE(TAG, "Bad IPv4 GW %s", gw);
-   esp_netif_set_ip_info(sta_netif, info);
+   else
+      REVK_ERR_CHECK(esp_netif_str_to_ip4(gw, &info->gw));
    free(i);
 }
 #endif
@@ -240,16 +239,31 @@ wifi_next(int start)
    if (*apssid)
    {
       wifi_config_t   wifi_config = {0,};
-      strncpy((char *)wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+      if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
+      {
+         memcpy((char *)wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+         wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
+      } else
+      {
+         strcpy((char *)wifi_config.ap.ssid, apssid);
+         wifi_config.ap.ssid_len = strlen(apssid);
+      }
+      if (*appass)
+      {
+         strncpy((char *)wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
+         wifi_config.ap.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
+      }
+      wifi_config.ap.ssid_hidden = aphide;
+      wifi_config.ap.max_connection = 255;
       esp_netif_ip_info_t info = {0,};
       makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
-      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : WIFI_PROTOCOL_11N));
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
       REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
       REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
       REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
    }
-   if (last >= 0 || wifi_index || esp_reset_reason() != ESP_RST_DEEPSLEEP)
+   if (last >= 0 || wifi_index || esp_reset_reason() != ESP_RST_DEEPSLEEP || *apssid)
    {
       wifi_config_t   wifi_config = {};
       if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
@@ -298,7 +312,7 @@ wifi_next(int start)
       esp_netif_dhcpc_stop(sta_netif);
       esp_netif_ip_info_t info = {0,};
       makeip(&info, wifiip[wifi_index], wifigw[wifi_index]);
-      esp_netif_set_ip_info(sta_netif, &info);
+      REVK_ERR_CHECK(esp_netif_set_ip_info(sta_netif, &info));
       ESP_LOGI(TAG, "Fixed IP %s GW %s", wifiip[wifi_index], wifigw[wifi_index]);
       if (!*wifidns[0])
          dns(wifiip[wifi_index], ESP_NETIF_DNS_MAIN);   /* Fallback to using gateway for DNS */
@@ -467,12 +481,15 @@ mqtt_next(void)
 #endif
 
 static void
-event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
 #ifdef	CONFIG_REVK_WIFI
    if (event_base == WIFI_EVENT)
       switch (event_id)
       {
+      case WIFI_EVENT_AP_START:
+         ESP_LOGI(TAG, "AP Start %s%s",apssid,aphide?" (hidden)":"");
+         break;
       case WIFI_EVENT_STA_START:
          ESP_LOGI(TAG, "STA Start");
          esp_wifi_connect();
@@ -483,12 +500,18 @@ event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *ev
          if (wifireset)
             esp_phy_erase_cal_data_in_nvs();    /* Lets calibrate on boot */
          break;
+      case WIFI_EVENT_AP_STACONNECTED:
+         ESP_LOGI(TAG, "AP STA Connect");
+         break;
       case WIFI_EVENT_STA_DISCONNECTED:
          ESP_LOGI(TAG, "STA Disconnect");
          if (wifireset)
             revk_restart("WiFi lost", wifireset);
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_WIFI_TRY);
          wifi_count++;
+         break;
+      case WIFI_EVENT_AP_STADISCONNECTED:
+         ESP_LOGI(TAG, "AP STA Disconnect");
          break;
       default:
          break;
@@ -779,11 +802,11 @@ revk_init(app_command_t * app_command_cb)
 #endif
    REVK_ERR_CHECK(esp_event_loop_create_default());
 #ifdef	CONFIG_REVK_WIFI
-   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
 #endif
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &event_handler, NULL));
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &ip_event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &ip_event_handler, NULL));
 #ifdef	CONFIG_REVK_WIFI
    REVK_ERR_CHECK(esp_wifi_init(&cfg));
    REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
