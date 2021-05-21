@@ -222,7 +222,7 @@ meshsettings
 
 #ifdef	CONFIG_REVK_WIFI
 static void
-wifi_next(int start)
+wifi_next(void)
 {
    if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
@@ -236,35 +236,10 @@ wifi_next(int start)
    if (last != wifi_index && last >= 0 && app_command)
       app_command("change", 0, NULL);
    REVK_ERR_CHECK(esp_wifi_set_mode(*apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA));
-   if (*apssid)
-   {
-      wifi_config_t   wifi_config = {0,};
-      if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
-      {
-         memcpy((char *)wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
-         wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
-      } else
-      {
-         strcpy((char *)wifi_config.ap.ssid, apssid);
-         wifi_config.ap.ssid_len = strlen(apssid);
-      }
-      if (*appass)
-      {
-         strncpy((char *)wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
-         wifi_config.ap.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
-      }
-      wifi_config.ap.ssid_hidden = aphide;
-      wifi_config.ap.max_connection = 255;
-      esp_netif_ip_info_t info = {0,};
-      makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
-      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
-      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
-      REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
-      REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
-      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-   }
    if (last >= 0 || wifi_index || esp_reset_reason() != ESP_RST_DEEPSLEEP || *apssid)
    {
+      if (last >= 0 && wifi_index != last)
+         esp_wifi_disconnect();
       wifi_config_t   wifi_config = {};
       if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
       {
@@ -278,7 +253,9 @@ wifi_next(int start)
       strncpy((char *)wifi_config.sta.password, wifipass[wifi_index], sizeof(wifi_config.sta.password));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
       REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-      if (start)
+      if (last < 0)
+         esp_wifi_start();
+      if (wifi_index != last)
          esp_wifi_connect();
    }
    /* DNS(not per wifi_index, but main, backup and fallback) */
@@ -532,8 +509,7 @@ ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void 
       case IP_EVENT_STA_LOST_IP:
          ESP_LOGI(TAG, "Lost IP");
 #ifdef	CONFIG_REVK_WIFI
-         esp_wifi_disconnect();
-         wifi_next(1);
+         wifi_next();
 #endif
          break;
       case IP_EVENT_STA_GOT_IP:
@@ -666,7 +642,7 @@ task(void *pvParameters)
          mqtt_next();           /* reconnect */
 #ifdef	CONFIG_REVK_WIFI
       if (!(xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
-         wifi_next(1);
+         wifi_next();
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
@@ -724,18 +700,18 @@ revk_init(app_command_t * app_command_cb)
    /* Fallback if no dedicated partition */
 #define str(x) #x
 #define snl(n,d)	revk_register(#n,0,0,&n,d,0)
-#define s(n,d)		revk_register(#n,0,0,&n,d,SETTING_LIVE)
-#define sa(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_LIVE)
-#define f(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINARY|SETTING_LIVE)
-#define	u32(n,d)	revk_register(#n,0,4,&n,str(d),SETTING_LIVE|SETTING_LIVE)
-#define	u16(n,a,d)	revk_register(#n,a,2,&n,str(d),SETTING_LIVE|SETTING_LIVE)
-#define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED|SETTING_LIVE)
-#define	u8a(n,a,d)	revk_register(#n,a,1,&n,str(d),SETTING_LIVE)
-#define	u8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_LIVE)
-#define	b(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_BOOLEAN|SETTING_LIVE)
-#define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_LIVE|SETTING_SIGNED)
+#define s(n,d)		revk_register(#n,0,0,&n,d,0)
+#define sa(n,a,d)	revk_register(#n,a,0,&n,d,0)
+#define f(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINARY)
+#define	u32(n,d)	revk_register(#n,0,4,&n,str(d),0)
+#define	u16(n,a,d)	revk_register(#n,a,2,&n,str(d),0)
+#define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED)
+#define	u8a(n,a,d)	revk_register(#n,a,1,&n,str(d),0)
+#define	u8(n,d)		revk_register(#n,0,1,&n,str(d),0)
+#define	b(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_BOOLEAN)
+#define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_SIGNED)
 #define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
-#define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,SETTING_LIVE)
+#define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINARY|SETTING_HEX)
    settings
 #ifdef	CONFIG_REVK_WIFI
@@ -822,7 +798,34 @@ revk_init(app_command_t * app_command_cb)
    REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
    sta_netif = esp_netif_create_default_wifi_sta();
    ap_netif = esp_netif_create_default_wifi_ap();
-   wifi_next(0);
+   wifi_next();
+   if (*apssid)
+   {
+      wifi_config_t   wifi_config = {0,};
+      if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
+      {
+         memcpy((char *)wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+         wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
+      } else
+      {
+         strcpy((char *)wifi_config.ap.ssid, apssid);
+         wifi_config.ap.ssid_len = strlen(apssid);
+      }
+      if (*appass)
+      {
+         strncpy((char *)wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
+         wifi_config.ap.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
+      }
+      wifi_config.ap.ssid_hidden = aphide;
+      wifi_config.ap.max_connection = 255;
+      esp_netif_ip_info_t info = {0,};
+      makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
+      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
+      REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
+      REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
+      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+   }
    REVK_ERR_CHECK(esp_wifi_start());
    esp_wifi_connect();
    /* esp_netif_create_ip6_linklocal(sta_netif); */
@@ -1160,8 +1163,7 @@ ap_task(void *pvParameters)
    }
    xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE);
 #ifdef	CONFIG_REVK_WIFI
-   esp_wifi_disconnect();
-   wifi_next(1);
+   wifi_next();
 #endif
    ESP_LOGI(TAG, "AP mode end");
    ap_task_id = NULL;
