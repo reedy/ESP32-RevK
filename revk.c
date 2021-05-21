@@ -488,11 +488,17 @@ ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void 
       switch (event_id)
       {
       case WIFI_EVENT_AP_START:
-         ESP_LOGI(TAG, "AP Start %s%s",apssid,aphide?" (hidden)":"");
+         ESP_LOGI(TAG, "AP Start %s%s", apssid, aphide ? " (hidden)" : "");
          break;
       case WIFI_EVENT_STA_START:
          ESP_LOGI(TAG, "STA Start");
          esp_wifi_connect();
+         break;
+      case WIFI_EVENT_AP_STOP:
+         ESP_LOGI(TAG, "AP Stop %s%s", apssid, aphide ? " (hidden)" : "");
+         break;
+      case WIFI_EVENT_STA_STOP:
+         ESP_LOGI(TAG, "STA Stop");
          break;
       case WIFI_EVENT_STA_CONNECTED:
          ESP_LOGI(TAG, "STA Connect");
@@ -512,6 +518,9 @@ ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void 
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
          ESP_LOGI(TAG, "AP STA Disconnect");
+         break;
+      case WIFI_EVENT_AP_PROBEREQRECVED:
+         ESP_LOGE(TAG, "AP PROBEREQRECVED");
          break;
       default:
          break;
