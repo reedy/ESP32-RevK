@@ -20,7 +20,7 @@ menu "RevK"
 		Enable WiFi Mesh operation
 
 	config REVK_MESHID
-        bool "Mesh ID (6 byte hex)"
+        string "Mesh ID (6 byte hex)"
         default ""
 	depends on REVK_MESH
         help

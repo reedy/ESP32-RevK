@@ -826,9 +826,10 @@ revk_init(app_command_t * app_command_cb)
       REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
       REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
    }
+   /* REVK_ERR_CHECK(esp_netif_create_ip6_linklocal(ap_netif)); */
+   /* REVK_ERR_CHECK(esp_netif_create_ip6_linklocal(sta_netif)); */
    REVK_ERR_CHECK(esp_wifi_start());
    esp_wifi_connect();
-   /* esp_netif_create_ip6_linklocal(sta_netif); */
 #endif
 #ifdef	CONFIF_REVK_WIFI
    /* DHCP */
