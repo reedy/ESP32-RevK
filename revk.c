@@ -28,7 +28,7 @@ static const char
 
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
-		s(otacert,CONFIG_REVK_OTACERT);			\
+		s(otacert,CONFIG_REVK_OTACERT);		\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
 		u32(watchdogtime,10);			\
@@ -51,11 +51,12 @@ static const char
 #define	mqttsettings	\
 		u32(mqttreset,0);			\
 		sa(mqtthost,3,CONFIG_REVK_MQTTHOST);	\
-		sa(mqttuser,3,CONFIG_REVK_MQTTUSER);			\
-		sa(mqttpass,3,CONFIG_REVK_MQTTPASS);			\
-		u16(mqttport,3,CONFIG_REVK_MQTTPORT);			\
-		u32(mqttsize,CONFIG_REVK_MQTTSIZE);			\
-		sa(mqttcert,3,CONFIG_REVK_MQTTCERT);			\
+		sa(mqttuser,3,CONFIG_REVK_MQTTUSER);	\
+		sa(mqttpass,3,CONFIG_REVK_MQTTPASS);	\
+		u16(mqttport,3,CONFIG_REVK_MQTTPORT);	\
+		u32(mqttsize,CONFIG_REVK_MQTTSIZE);	\
+		sa(mqttcert,3,CONFIG_REVK_MQTTCERT);	\
+    		b(mqttquiet,CONFIG_REVK_MQTTQUIET);	\
 
 #define	wifisettings	\
 		u32(wifireset,0);			\
@@ -63,24 +64,24 @@ static const char
 		sa(wifiip,3,CONFIG_REVK_WIFIIP);	\
 		sa(wifigw,3,CONFIG_REVK_WIFIGW);	\
 		sa(wifidns,3,CONFIG_REVK_WIFIDNS);	\
-		f(wifibssid,3,6,CONFIG_REVK_WIFIBSSID);			\
-		u8a(wifichan,3,CONFIG_REVK_WIFICHAN);			\
+		f(wifibssid,3,6,CONFIG_REVK_WIFIBSSID);	\
+		u8a(wifichan,3,CONFIG_REVK_WIFICHAN);	\
 		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
-		s(apssid,CONFIG_REVK_APSSID);	\
-		s(appass,CONFIG_REVK_APPASS);	\
-		s(apip,CONFIG_REVK_APIP);	\
-		b(aplr,CONFIG_REVK_APLR);	\
-		b(aphide,CONFIG_REVK_APHIDE);	\
+		s(apssid,CONFIG_REVK_APSSID);		\
+		s(appass,CONFIG_REVK_APPASS);		\
+		s(apip,CONFIG_REVK_APIP);		\
+		b(aplr,CONFIG_REVK_APLR);		\
+		b(aphide,CONFIG_REVK_APHIDE);		\
 
 #define	meshsettings	\
 		s(wifissid,CONFIG_REVK_WIFISSID);	\
-		s(wifiip,CONFIG_REVK_WIFIIP);	\
-		s(wifigw,CONFIG_REVK_WIFIGW);	\
-		s(wifidns,CONFIG_REVK_WIFIDNS);	\
-		h(wifibssid,6,CONFIG_REVK_WIFIBSSID);			\
-		u8(wifichan,CONFIG_REVK_WIFICHAN);			\
+		s(wifiip,CONFIG_REVK_WIFIIP);		\
+		s(wifigw,CONFIG_REVK_WIFIGW);		\
+		s(wifidns,CONFIG_REVK_WIFIDNS);		\
+		h(wifibssid,6,CONFIG_REVK_WIFIBSSID);	\
+		u8(wifichan,CONFIG_REVK_WIFICHAN);	\
 		s(wifipass,CONFIG_REVK_WIFIPASS);	\
-		h(meshid,6,CONFIG_REVK_MESHID);			\
+		h(meshid,6,CONFIG_REVK_MESHID);		\
 		s(meshpass,CONFIG_REVK_MESHPASS);	\
 
 #define s(n,d)		static char *n;
@@ -335,6 +336,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       const esp_partition_t *p = esp_ota_get_running_partition();
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info(&ap);
+      if(!mqttquiet)
       revk_info(NULL, "MQTT%d(%d) %s ota=%u mem=%u %ums log=%u rst=%u", mqtt_index + 1, mqtt_count, p->label, p->size, esp_get_free_heap_size(), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL, esp_reset_reason());
       if (esp_get_free_heap_size() < 20 * 1024)
          revk_error(TAG, "WARNING LOW MEMORY - OTA MAY FAIL");
@@ -614,6 +616,7 @@ static void task(void *pvParameters)
          esp_wifi_sta_get_ap_info(&ap);
          if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastindex != wifi_index)
          {
+		 if(!mqttquiet)
             revk_info(NULL, "WiFi%d(%d) %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d%s", wifi_index + 1, wifi_count, ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary, ap.country.cc);
             lastindex = wifi_index;
             lastch = ap.primary;
