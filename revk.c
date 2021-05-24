@@ -1819,3 +1819,17 @@ void revk_mqtt_close(const char *reason)
    esp_mqtt_client_stop(mqtt_client);
 }
 #endif
+
+#ifdef	CONFIG_REVK_WIFI
+int revk_wait_wifi(int seconds)
+{
+   return xEventGroupWaitBits(revk_group, GROUP_WIFI, false, true, seconds * 1000 / portTICK_PERIOD_MS) | GROUP_WIFI;
+}
+#endif
+
+#ifdef	CONFIG_REVK_MQTT
+int revk_wait_mqtt(int seconds)
+{
+   return xEventGroupWaitBits(revk_group, GROUP_MQTT, false, true, seconds * 1000 / portTICK_PERIOD_MS) | GROUP_MQTT;
+}
+#endif

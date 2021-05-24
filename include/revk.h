@@ -80,9 +80,11 @@ const char *revk_ota (const char *host);        // OTA and restart cleanly
 #ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt (void);
 void revk_mqtt_close(const char *reason); // Clean close MQTT
+int revk_wait_mqtt(int seconds);
 #endif
 #ifdef	CONFIG_REVK_WIFI
 const char *revk_wifi (void);
+int revk_wait_wifi(int seconds);
 #endif
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
 uint32_t revk_offline (void);   // How long we have been offline (seconds), or 0 if online
@@ -90,3 +92,5 @@ uint32_t revk_offline (void);   // How long we have been offline (seconds), or 0
 void revk_blink(uint8_t on,uint8_t off); // Set LED blink rate (0,0) for default
 
 #endif
+
+
