@@ -587,15 +587,10 @@ static void task(void *pvParameters)
       {                         /* Restart */
          if (!restart_reason)
             restart_reason = "Unknown";
+	 revk_mqtt_close(restart_reason);
          revk_state(NULL, "0 %s", restart_reason);
          if (app_command)
             app_command("shutdown", strlen(restart_reason), (unsigned char *) restart_reason);
-         if (mqtt_client)
-         {
-            mqtt_index = -2;    // Don't reconnect
-            esp_mqtt_client_disconnect(mqtt_client);
-            sleep(1);
-         }
          REVK_ERR_CHECK(nvs_commit(nvs));
          esp_restart();
          restart_time = 0;
@@ -1821,7 +1816,7 @@ void revk_mqtt_close(const char *reason)
       return;
    revk_state(NULL, "0 %s", reason);
    mqtt_index = -2;             // Don't reconnect
-   esp_mqtt_client_disconnect(mqtt_client);
+   esp_mqtt_client_stop(mqtt_client);
 }
 #endif
 
