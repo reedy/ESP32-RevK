@@ -222,6 +222,8 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 #ifdef	CONFIG_REVK_WIFI
 static void wifi_next(void)
 {
+   if (wifi_index < -1)
+      return;
    if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
    int last = wifi_index;
@@ -387,6 +389,8 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
 #ifdef	CONFIG_REVK_MQTT
 static void mqtt_next(void)
 {
+   if (mqtt_index < -1)
+      return;
    int last = mqtt_index;
    mqtt_index++;
    if (mqtt_index >= sizeof(mqtthost) / sizeof(*mqtthost) || !*mqtthost[mqtt_index])
@@ -588,9 +592,8 @@ static void task(void *pvParameters)
             app_command("shutdown", strlen(restart_reason), (unsigned char *) restart_reason);
          if (mqtt_client)
          {
+            mqtt_next = -2;     // Don't reconnect
             esp_mqtt_client_disconnect(mqtt_client);
-            esp_mqtt_client_stop(mqtt_client);
-	    usleep(1);
          }
          REVK_ERR_CHECK(nvs_commit(nvs));
          esp_restart();
@@ -1816,8 +1819,8 @@ void revk_mqtt_close(const char *reason)
    if (!mqtt_client)
       return;
    revk_state(NULL, "0 %s", reason);
+   mqtt_next = -2;              // Don't reconnect
    esp_mqtt_client_disconnect(mqtt_client);
-   esp_mqtt_client_stop(mqtt_client);
 }
 #endif
 
