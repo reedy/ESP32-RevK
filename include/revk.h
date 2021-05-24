@@ -84,6 +84,7 @@ int revk_wait_mqtt(int seconds);
 #endif
 #ifdef	CONFIG_REVK_WIFI
 const char *revk_wifi (void);
+void revk_wifi_close(void);
 int revk_wait_wifi(int seconds);
 #endif
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
