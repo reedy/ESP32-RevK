@@ -589,7 +589,7 @@ static void task(void *pvParameters)
          if (mqtt_client)
          {
             esp_mqtt_client_disconnect(mqtt_client);
-            esp_mqtt_client_stop(mqtt_client);
+	    usleep(100000);
          }
          REVK_ERR_CHECK(nvs_commit(nvs));
          esp_restart();
