@@ -592,7 +592,7 @@ static void task(void *pvParameters)
             app_command("shutdown", strlen(restart_reason), (unsigned char *) restart_reason);
          if (mqtt_client)
          {
-            mqtt_next = -2;     // Don't reconnect
+            mqtt_index = -2;     // Don't reconnect
             esp_mqtt_client_disconnect(mqtt_client);
          }
          REVK_ERR_CHECK(nvs_commit(nvs));
@@ -1819,7 +1819,7 @@ void revk_mqtt_close(const char *reason)
    if (!mqtt_client)
       return;
    revk_state(NULL, "0 %s", reason);
-   mqtt_next = -2;              // Don't reconnect
+   mqtt_index = -2;              // Don't reconnect
    esp_mqtt_client_disconnect(mqtt_client);
 }
 #endif
