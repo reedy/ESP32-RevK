@@ -1842,12 +1842,8 @@ void revk_wifi_close(void)
 {
    ESP_LOGI(TAG, "WIFi Close");
    wifi_index = -2;             /* Do not reconnect */
-   if (xEventGroupGetBits(revk_group) & GROUP_WIFI)
-   {
-      esp_wifi_disconnect();
-      xEventGroupWaitBits(revk_group, GROUP_WIFI_DONE, false, true, 1000 / portTICK_PERIOD_MS);
-   }
-   esp_wifi_stop();
+   esp_wifi_set_mode(WIFI_MODE_NULL);
+   esp_wifi_deinit();
    ESP_LOGI(TAG, "WIFi Closed");
 }
 #endif
