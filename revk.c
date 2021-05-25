@@ -220,11 +220,11 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 #endif
 
 #ifdef	CONFIG_REVK_WIFI
-static void wifi_next(void)
+static void wifi_next(const char *reason)
 {
    if (wifi_index < -1)
       return;
-   ESP_LOGI(TAG, "WiFi next");
+   ESP_LOGI(TAG, "WiFi next %s",reason);
    if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
    if (wifi_index == -1)
@@ -335,8 +335,8 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       slow_connect = 0;
       if (mqttreset)
          revk_restart(NULL, -1);
-      xEventGroupClearBits(revk_group, GROUP_MQTT_TRY | GROUP_MQTT_DONE);
       xEventGroupSetBits(revk_group, GROUP_MQTT);
+      xEventGroupClearBits(revk_group, GROUP_MQTT_TRY | GROUP_MQTT_DONE);
       void sub(const char *prefix) {
          char *topic;
          if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
@@ -373,8 +373,8 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       if (mqttreset)
          revk_restart("MQTT lost", mqttreset);
       mqtt_count++;
-      xEventGroupClearBits(revk_group, GROUP_MQTT | GROUP_MQTT_TRY);
       xEventGroupSetBits(revk_group, GROUP_MQTT_DONE);
+      xEventGroupClearBits(revk_group, GROUP_MQTT | GROUP_MQTT_TRY);
       if (app_command)
          app_command("disconnect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
@@ -539,7 +539,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case IP_EVENT_STA_LOST_IP:
          ESP_LOGI(TAG, "Lost IP");
 #ifdef	CONFIG_REVK_WIFI
-         wifi_next();
+         wifi_next("Lost IP");
 #endif
          break;
       case IP_EVENT_STA_GOT_IP:
@@ -560,8 +560,8 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             esp_mqtt_client_reconnect(mqtt_client);
 #endif
 #ifdef  CONFIG_REVK_WIFI
-         xEventGroupClearBits(revk_group, GROUP_WIFI_TRY | GROUP_WIFI_DONE);
          xEventGroupSetBits(revk_group, GROUP_WIFI);
+         xEventGroupClearBits(revk_group, GROUP_WIFI_TRY | GROUP_WIFI_DONE);
          if (app_command)
             app_command("wifi", strlen(wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
 #endif
@@ -670,9 +670,11 @@ static void task(void *pvParameters)
                                              | GROUP_APCONFIG
 #endif
            )) == (GROUP_WIFI))
+#endif
          mqtt_next();           /* reconnect */
-      else if (!(xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
-         wifi_next();
+#ifdef	CONFIG_REVK_WIFI
+      if (!(xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
+         wifi_next("Not running WiFi");
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
@@ -685,7 +687,6 @@ static void task(void *pvParameters)
           ))
          ap_task_id = revk_task("AP", ap_task, NULL);   /* Start AP mode */
 #endif
-      usleep(10000); /* Give idle a chance */
    }
 }
 
@@ -831,7 +832,7 @@ void revk_init(app_command_t * app_command_cb)
    REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
    sta_netif = esp_netif_create_default_wifi_sta();
    ap_netif = esp_netif_create_default_wifi_ap();
-   wifi_next();
+   wifi_next("Start");
 #endif
 #ifdef	CONFIF_REVK_WIFI
    /* DHCP */
