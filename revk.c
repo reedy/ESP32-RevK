@@ -52,7 +52,7 @@ static const char
 		u32(mqttreset,0);			\
 		sa(mqtthost,3,CONFIG_REVK_MQTTHOST);	\
 		sa(mqttuser,3,CONFIG_REVK_MQTTUSER);	\
-		sa(mqttpass,3,CONFIG_REVK_MQTTPASS);	\
+		sap(mqttpass,3,CONFIG_REVK_MQTTPASS);	\
 		u16(mqttport,3,CONFIG_REVK_MQTTPORT);	\
 		u32(mqttsize,CONFIG_REVK_MQTTSIZE);	\
 		sa(mqttcert,3,CONFIG_REVK_MQTTCERT);	\
@@ -66,9 +66,9 @@ static const char
 		sa(wifidns,3,CONFIG_REVK_WIFIDNS);	\
 		f(wifibssid,3,6,CONFIG_REVK_WIFIBSSID);	\
 		u8a(wifichan,3,CONFIG_REVK_WIFICHAN);	\
-		sa(wifipass,3,CONFIG_REVK_WIFIPASS);	\
+		sap(wifipass,3,CONFIG_REVK_WIFIPASS);	\
 		s(apssid,CONFIG_REVK_APSSID);		\
-		s(appass,CONFIG_REVK_APPASS);		\
+		sp(appass,CONFIG_REVK_APPASS);		\
 		s(apip,CONFIG_REVK_APIP);		\
 		b(aplr,CONFIG_REVK_APLR);		\
 		b(aphide,CONFIG_REVK_APHIDE);		\
@@ -80,13 +80,15 @@ static const char
 		s(wifidns,CONFIG_REVK_WIFIDNS);		\
 		h(wifibssid,6,CONFIG_REVK_WIFIBSSID);	\
 		u8(wifichan,CONFIG_REVK_WIFICHAN);	\
-		s(wifipass,CONFIG_REVK_WIFIPASS);	\
+		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
 		h(meshid,6,CONFIG_REVK_MESHID);		\
-		s(meshpass,CONFIG_REVK_MESHPASS);	\
+		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 
 #define s(n,d)		static char *n;
+#define sp(n,d)		static char *n;
 #define snl(n,d)	static char *n;
 #define sa(n,a,d)	static char *n[a];
+#define sap(n,a,d)	static char *n[a];
 #define f(n,a,s,d)	static char n[a][s];
 #define	u32(n,d)	static uint32_t n;
 #define	u16(n,a,d)	static uint16_t n[a];
@@ -112,8 +114,10 @@ settings
     meshsettings
 #endif
 #undef s
+#undef sp
 #undef snl
 #undef sa
+#undef sap
 #undef f
 #undef u32
 #undef u16
@@ -224,7 +228,7 @@ static void wifi_next(const char *reason)
 {
    if (wifi_index < -1)
       return;
-   ESP_LOGI(TAG, "WiFi next %s",reason);
+   ESP_LOGI(TAG, "WiFi next %s", reason);
    if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
    if (wifi_index == -1)
@@ -393,7 +397,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
          for (p = 0; p < event->topic_len && event->topic[p] != '/'; p++);
          if (p == 7 && !memcmp(event->topic, prefixcommand, p))
             e = revk_command(tag, event->data_len, (const unsigned char *) value);
-         else if (p == 7 && !memcmp(event->topic, "setting", p))
+         else if (p == 7 && !memcmp(event->topic, prefixsetting, p))
             e = (revk_setting(tag, event->data_len, (const unsigned char *) value) ? : "");     /* Returns NULL if OK */
          else
             e = "";
@@ -733,7 +737,9 @@ void revk_init(app_command_t * app_command_cb)
 #define str(x) #x
 #define snl(n,d)	revk_register(#n,0,0,&n,d,0)
 #define s(n,d)		revk_register(#n,0,0,&n,d,0)
+#define sp(n,d)		revk_register(#n,0,0,&n,d,SETTING_SECRET)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,0)
+#define sap(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_SECRET)
 #define f(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINARY)
 #define	u32(n,d)	revk_register(#n,0,4,&n,str(d),0)
 #define	u16(n,a,d)	revk_register(#n,a,2,&n,str(d),0)
@@ -1609,8 +1615,23 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    return NULL;                 /* OK */
 }
 
+void revk_setting_dump(void)
+{
+   setting_t *s;
+   for (s = setting; s ; s = s->next)if(!(s->flags&SETTING_SECRET))
+   {
+	   /* TODO - quite complex */
+   	revk_raw("test", s->name, 0, NULL, 0); /* TODO */
+   }
+}
+
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
+   if (!strcmp(tag, "*") && !len)
+   {
+      revk_setting_dump();
+      return "";
+   }
    unsigned char flags = 0;
    if (*tag == '0' && tag[1] == 'x')
    {                            /* Store hex */
@@ -1839,7 +1860,8 @@ void revk_mqtt_close(const char *reason)
    revk_state(NULL, "0 %s", reason);
    mqtt_index = -2;             /* Don't reconnect */
    esp_mqtt_client_stop(mqtt_client);
-   /*xEventGroupWaitBits(revk_group, GROUP_MQTT_DONE, false, true, 1000 / portTICK_PERIOD_MS);*/
+   usleep(1000); /* we dont get event, but need to allow time */
+   /*xEventGroupWaitBits(revk_group, GROUP_MQTT_DONE, false, true, 1000 / portTICK_PERIOD_MS); */
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif
