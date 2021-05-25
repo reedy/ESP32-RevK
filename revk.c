@@ -187,7 +187,7 @@ static int mqtt_index = -1;
 #endif
 static int64_t lastonline = 0;
 static char wdt_test = 0;
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef  CONFIG_REVK_WIFI
 static esp_netif_t *ap_netif = NULL;
 #endif
 static uint8_t blink_on = 0,
@@ -229,8 +229,10 @@ static void wifi_next(const char *reason)
    if (wifi_index < -1)
       return;
    ESP_LOGI(TAG, "WiFi next %s", reason);
+#ifdef	CONFIG_REVK_APCONFIG
    if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
+#endif
    if (wifi_index == -1)
    {                            /* init */
       if (*apssid)
