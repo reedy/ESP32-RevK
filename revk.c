@@ -227,13 +227,49 @@ static void wifi_next(void)
    ESP_LOGI(TAG, "WiFi next");
    if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
+   if (wifi_index == -1)
+   {                            /* init */
+      if (*apssid)
+      {
+         wifi_config_t wifi_config = { 0, };
+         if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
+         {
+            memcpy((char *) wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+            wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
+         } else
+         {
+            strcpy((char *) wifi_config.ap.ssid, apssid);
+            wifi_config.ap.ssid_len = strlen(apssid);
+         }
+         if (*appass)
+         {
+            strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
+            wifi_config.ap.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
+         }
+         wifi_config.ap.ssid_hidden = aphide;
+         wifi_config.ap.max_connection = 255;
+         esp_netif_ip_info_t info = { 0, };
+         makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
+         REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
+         REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
+         REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
+         REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
+         REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+         esp_wifi_set_mode(WIFI_MODE_APSTA);
+      } else
+      {                         /* station only */
+         esp_wifi_set_mode(WIFI_MODE_STA);
+      }
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
+      REVK_ERR_CHECK(esp_wifi_start());
+   }
    int last = wifi_index;
    wifi_index++;
    if (wifi_index >= sizeof(wifissid) / sizeof(*wifissid) || !*wifissid[wifi_index])
       wifi_index = 0;           /* loop */
    if (last != wifi_index && last >= 0 && app_command)
       app_command("change", 0, NULL);
-   ESP_LOGI(TAG, "WIFi [%s]%s %s", wifissid[wifi_index], last == wifi_index ? "" : " (new)", apssid);
+   ESP_LOGI(TAG, "WIFi [%s]", wifissid[wifi_index]);
    wifi_config_t wifi_config = { 0, };
    if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
    {
@@ -385,7 +421,7 @@ static void mqtt_next(void)
    mqtt_index++;
    if (mqtt_index >= sizeof(mqtthost) / sizeof(*mqtthost) || !*mqtthost[mqtt_index])
       mqtt_index = 0;
-   ESP_LOGI(TAG, "MQTT [%s]%s", mqtthost[mqtt_index], last == mqtt_index ? "" : " (new)");
+   ESP_LOGI(TAG, "MQTT [%s]", mqtthost[mqtt_index]);
    if (last == mqtt_index && mqtt_client)
    {
       esp_mqtt_client_reconnect(mqtt_client);
@@ -643,7 +679,7 @@ static void task(void *pvParameters)
 #ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-                          || (apwait && (wifi_fails > 5 || revk_offline() > apwait))
+                          || (apwait && (wifi_fails >= 6 || revk_offline() > apwait))
 #endif
 #ifdef	CONFIG_REVK_WIFI
                           || !*wifissid[0]
@@ -796,41 +832,7 @@ void revk_init(app_command_t * app_command_cb)
    REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
    sta_netif = esp_netif_create_default_wifi_sta();
    ap_netif = esp_netif_create_default_wifi_ap();
-   if (*apssid)
-   {
-      wifi_config_t wifi_config = { 0, };
-      if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
-      {
-         memcpy((char *) wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
-         wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
-      } else
-      {
-         strcpy((char *) wifi_config.ap.ssid, apssid);
-         wifi_config.ap.ssid_len = strlen(apssid);
-      }
-      if (*appass)
-      {
-         strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
-         wifi_config.ap.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
-      }
-      wifi_config.ap.ssid_hidden = aphide;
-      wifi_config.ap.max_connection = 255;
-      esp_netif_ip_info_t info = { 0, };
-      makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
-      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
-      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
-      REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
-      REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
-      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-      esp_wifi_set_mode(WIFI_MODE_APSTA);
-   } else
-   {                            /* station only */
-      esp_wifi_set_mode(WIFI_MODE_STA);
-   }
-   REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
-   REVK_ERR_CHECK(esp_wifi_start());
    wifi_next();
-   esp_wifi_connect();
 #endif
 #ifdef	CONFIF_REVK_WIFI
    /* DHCP */
@@ -949,6 +951,7 @@ void revk_info(const char *tag, const char *fmt, ...)
 
 const char *revk_restart(const char *reason, int delay)
 {                               /* Restart cleanly */
+   ESP_LOGI(TAG, "Restart %d %s", delay, reason);
    restart_reason = reason;
    if (delay < 0)
       restart_time = 0;         /* Cancelled */
@@ -1098,6 +1101,8 @@ static esp_err_t ap_get(httpd_req_t * req)
 static void ap_task(void *pvParameters)
 {
    xEventGroupSetBits(revk_group, GROUP_APCONFIG);
+   wifi_fails = 0;
+   lastonline = esp_timer_get_time();
    if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
    {
       revk_state(NULL, "0 AP mode started");
@@ -1157,9 +1162,11 @@ static void ap_task(void *pvParameters)
       //Send reply maybe...
       httpd_stop(server);
    }
+   esp_wifi_set_mode(WIFI_MODE_NULL);
+   esp_wifi_stop();
+   wifi_index = -1;             /* needs restarting */
    xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE);
    ESP_LOGI(TAG, "AP mode end");
-   revk_restart("AP mode", 1);
    ap_task_id = NULL;
    vTaskDelete(NULL);
 }
@@ -1819,7 +1826,7 @@ uint32_t revk_offline(void)
    int64_t now = esp_timer_get_time();
    if (now < lastonline)
       return 0;
-   return (now - lastonline) / 1000000LL;
+   return ((now - lastonline) / 1000000LL) ? : 1;
 }
 #endif
 
