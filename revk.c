@@ -1839,7 +1839,7 @@ void revk_mqtt_close(const char *reason)
    revk_state(NULL, "0 %s", reason);
    mqtt_index = -2;             /* Don't reconnect */
    esp_mqtt_client_stop(mqtt_client);
-   xEventGroupWaitBits(revk_group, GROUP_MQTT_DONE, false, true, 1000 / portTICK_PERIOD_MS);
+   /*xEventGroupWaitBits(revk_group, GROUP_MQTT_DONE, false, true, 1000 / portTICK_PERIOD_MS);*/
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif
