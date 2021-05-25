@@ -1859,7 +1859,7 @@ void revk_wifi_close(void)
 int revk_wait_wifi(int seconds)
 {
    ESP_LOGD(TAG, "Wait WiFi %d", seconds);
-   return xEventGroupWaitBits(revk_group, GROUP_WIFI, false, true, seconds * 1000 / portTICK_PERIOD_MS) | GROUP_WIFI;
+   return xEventGroupWaitBits(revk_group, GROUP_WIFI, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_WIFI;
 }
 #endif
 
@@ -1867,6 +1867,6 @@ int revk_wait_wifi(int seconds)
 int revk_wait_mqtt(int seconds)
 {
    ESP_LOGD(TAG, "Wait MQTT %d", seconds);
-   return xEventGroupWaitBits(revk_group, GROUP_MQTT, false, true, seconds * 1000 / portTICK_PERIOD_MS) | GROUP_MQTT;
+   return xEventGroupWaitBits(revk_group, GROUP_MQTT, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_MQTT;
 }
 #endif
