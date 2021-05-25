@@ -670,10 +670,8 @@ static void task(void *pvParameters)
                                              | GROUP_APCONFIG
 #endif
            )) == (GROUP_WIFI))
-#endif
          mqtt_next();           /* reconnect */
-#ifdef	CONFIG_REVK_WIFI
-      if (!(xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
+      else if (!(xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
          wifi_next();
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
@@ -687,6 +685,7 @@ static void task(void *pvParameters)
           ))
          ap_task_id = revk_task("AP", ap_task, NULL);   /* Start AP mode */
 #endif
+      usleep(10000); /* Give idle a chance */
    }
 }
 
