@@ -1165,7 +1165,7 @@ static void ap_task(void *pvParameters)
    esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_stop();
    wifi_index = -1;             /* needs restarting */
-   xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE);
+   xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE | GROUP_WIFI | GROUP_WIFI_TRY);
    ESP_LOGI(TAG, "AP mode end");
    ap_task_id = NULL;
    vTaskDelete(NULL);
