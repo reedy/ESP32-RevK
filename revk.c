@@ -31,7 +31,7 @@ static const char
 		s(otacert,CONFIG_REVK_OTACERT);		\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
-		u32(watchdogtime,20);			\
+		u32(watchdogtime,10);			\
 		s(appname,CONFIG_REVK_APPNAME);		\
 		snl(hostname,NULL);			\
 		p(command);				\
@@ -585,21 +585,20 @@ static void task(void *pvParameters)
       esp_task_wdt_add(NULL);
    pvParameters = pvParameters;
    /* Log if unexpected restart */
-   int64_t tick = 0,
-       blinker = 0;
+   int64_t tick = 0;
    while (1)
-   {                            /* Idle - some basic checks that all is well... */
+   {                            /* Idle */
       int64_t now = esp_timer_get_time();
-      if (tick < now)
-      {                         /* Every second */
-         tick += 1000000ULL;
-         ESP_LOGD(TAG, "Idle %d.%06d%s", (uint32_t) (now / 1000000LL), (uint32_t) (now % 1000000LL), wdt_test ? " (testing watchdog)" : "");
-         if (!wdt_test && watchdogtime)
-            esp_task_wdt_reset();
+      if (now < tick)
+      {                         /* wait for next 10th, so idle task runs */
+         usleep(tick - now);
+         now = tick;
       }
-      if (blink && blinker < now)
-      {                         /* Every 1 / 10 th second */
-         blinker += 100000ULL;
+      tick += 100000ULL;        /* 10th second */
+      if (!wdt_test && watchdogtime)
+         esp_task_wdt_reset();
+      if (blink)
+      {
          static uint8_t lit = 0,
              count = 0;
          if (count)
@@ -791,7 +790,8 @@ void revk_init(app_command_t * app_command_cb)
    if (blink)
    {
       gpio_reset_pin(blink & 0x3F);
-      gpio_set_direction(blink & 0x3F, GPIO_MODE_OUTPUT);       /* Blinky LED */
+      gpio_set_level(blink & 0x3F, (blink & 0x40) ? 0 : 1);     /* on */
+      gpio_set_direction(blink & 0x3F, GPIO_MODE_OUTPUT);       /* Blinking LED */
    }
 #ifdef	CONFIG_REVK_APCONFIG
    if (apgpio)
@@ -1620,11 +1620,12 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
 void revk_setting_dump(void)
 {
    setting_t *s;
-   for (s = setting; s ; s = s->next)if(!(s->flags&SETTING_SECRET))
-   {
-	   /* TODO - quite complex */
-   	revk_raw("test", s->name, 0, NULL, 0); /* TODO */
-   }
+   for (s = setting; s; s = s->next)
+      if (!(s->flags & SETTING_SECRET))
+      {
+         /* TODO - quite complex */
+         revk_raw("test", s->name, 0, NULL, 0); /* TODO */
+      }
 }
 
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
@@ -1862,8 +1863,7 @@ void revk_mqtt_close(const char *reason)
    revk_state(NULL, "0 %s", reason);
    mqtt_index = -2;             /* Don't reconnect */
    esp_mqtt_client_stop(mqtt_client);
-   usleep(1000); /* we dont get event, but need to allow time */
-   /*xEventGroupWaitBits(revk_group, GROUP_MQTT_DONE, false, true, 1000 / portTICK_PERIOD_MS); */
+   usleep(2000);                /* we don't get event, but need to allow time */
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif
