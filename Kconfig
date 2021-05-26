@@ -249,10 +249,4 @@ menu "RevK"
         help
 		Lock user tasks to CPU 1
 
-	config REVK_DUMP
-        bool "Allow settings dump"
-        default y
-        help
-		Allows settings command to dump all (non secret) settings
-
 endmenu

@@ -1617,17 +1617,6 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    return NULL;                 /* OK */
 }
 
-void revk_setting_dump(void)
-{
-   setting_t *s;
-   for (s = setting; s; s = s->next)
-      if (!(s->flags & SETTING_SECRET))
-      {
-         /* TODO - quite complex */
-         revk_raw("test", s->name, 0, NULL, 0); /* TODO */
-      }
-}
-
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
    unsigned char flags = 0;
@@ -1673,13 +1662,6 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    ESP_LOGD(TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
    /* My commands */
-#ifdef	CONFIG_REVK_DUMP
-   if (!e && !strcmp(tag, "settings"))
-   {
-      revk_setting_dump();
-      return "";
-   }
-#endif
    if (!e && !strcmp(tag, "upgrade"))
    {
       char *url;                /* TODO, yeh, not freed, but we are rebooting */
@@ -1899,10 +1881,10 @@ int revk_wait_mqtt(int seconds)
 
 const char *revk_appname(void)
 {
-	return appname;
+   return appname;
 }
 
 const char *revk_hostname(void)
 {
-	return hostname;
+   return hostname;
 }
