@@ -1630,11 +1630,6 @@ void revk_setting_dump(void)
 
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
-   if (!strcmp(tag, "*") && !len)
-   {
-      revk_setting_dump();
-      return "";
-   }
    unsigned char flags = 0;
    if (*tag == '0' && tag[1] == 'x')
    {                            /* Store hex */
@@ -1678,6 +1673,13 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    ESP_LOGD(TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
    /* My commands */
+#ifdef	CONFIG_REVK_DUMP
+   if (!e && !strcmp(tag, "settings"))
+   {
+      revk_setting_dump();
+      return "";
+   }
+#endif
    if (!e && !strcmp(tag, "upgrade"))
    {
       char *url;                /* TODO, yeh, not freed, but we are rebooting */
@@ -1894,3 +1896,13 @@ int revk_wait_mqtt(int seconds)
    return xEventGroupWaitBits(revk_group, GROUP_MQTT, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_MQTT;
 }
 #endif
+
+const char *revk_appname(void)
+{
+	return appname;
+}
+
+const char *revk_hostname(void)
+{
+	return hostname;
+}

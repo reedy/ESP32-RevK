@@ -61,6 +61,9 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
 esp_err_t revk_err_check (esp_err_t, const char *file, int line);       // Log if error
 #define	REVK_ERR_CHECK(x) revk_err_check(x,__FILE__,__LINE__)
 
+const char *revk_appname(void);
+const char *revk_hostname(void);
+
 // Make a task
 TaskHandle_t revk_task (const char *tag, TaskFunction_t t, const void *param);
 
