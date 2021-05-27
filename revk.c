@@ -397,9 +397,9 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
             memcpy(value, event->data, event->data_len);
          value[event->data_len] = 0;    /* Safe */
          for (p = 0; p < event->topic_len && event->topic[p] != '/'; p++);
-         if (p == 7 && !memcmp(event->topic, prefixcommand, p))
+         if (p == strlen(prefixcommand) && !memcmp(event->topic, prefixcommand, p))
             e = revk_command(tag, event->data_len, (const unsigned char *) value);
-         else if (p == 7 && !memcmp(event->topic, prefixsetting, p))
+         else if (p == strlen(prefixsetting) && !memcmp(event->topic, prefixsetting, p))
             e = (revk_setting(tag, event->data_len, (const unsigned char *) value) ? : "");     /* Returns NULL if OK */
          else
             e = "";
