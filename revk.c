@@ -1350,10 +1350,18 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    ESP_LOGD(TAG, "MQTT setting %s (%d)", tag, len);
    char erase = 0;
    /* Using default, so remove from flash(as defaults may change later, don 't store the default in flash) */
-   if (!len && s->defval && !(flags & SETTING_BITFIELD) && index <= 1)
+   const char *defval = s->defval;
+   if (defval && (flags & SETTING_BITFIELD))
+   {                            /* default is after bitfields and a space */
+      while (*defval && *defval != ' ')
+         defval++;
+      if (*defval == ' ')
+         defval++;
+   }
+   if (!len && defval && index <= 1)
    {                            /* Use default value */
-      len = strlen(s->defval);
-      value = (const unsigned char *) s->defval;
+      len = strlen(defval);
+      value = (const unsigned char *) defval;
       if (flags & SETTING_BINARY)
          flags |= SETTING_HEX;
       erase = 1;
@@ -1462,15 +1470,17 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          if (flags & SETTING_SET)
          {                      /* Set top bit if a value is present */
             bits--;
-            if (len && value != (const unsigned char *) s->defval)
+            if (len && value != (const unsigned char *) defval)
                bitfield |= (1ULL << bits);      /* Value is set (not so if using default value) */
          }
          if (flags & SETTING_BITFIELD && s->defval)
          {                      /* Bit fields */
             while (len)
             {
-               char *c = strchr(s->defval, *value);
-               if (!c)
+               const char *c = s->defval;
+               while (*c && *c != ' ' && *c != *value)
+                  c++;
+               if (*c != *value)
                   break;
                uint64_t m = (1ULL << (bits - 1 - (c - s->defval)));
                if (bitfield & m)
@@ -1479,7 +1489,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
                len--;
                value++;
             }
-            bits -= strlen(s->defval);
+            const char *c = s->defval;
+            while (*c && *c != ' ')
+               c++;
+            bits -= (c - s->defval);
          }
          if (len && bits <= 0)
             return "Extra data on end";
@@ -1720,12 +1733,21 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
 
 void revk_register(const char *name, uint8_t array, uint16_t size, void *data, const char *defval, uint8_t flags)
 {                               /* Register setting (not expected to be thread safe, should be called from init) */
-   if (flags & SETTING_BITFIELD && !defval)
-      ESP_LOGE(TAG, "%s missing defval on bitfield", name);
-   else if (flags & SETTING_BITFIELD && !size)
-      ESP_LOGE(TAG, "%s missing size on bitfield", name);
-   else if (flags & SETTING_BITFIELD && strlen(defval) > 8 * size)
-      ESP_LOGE(TAG, "%s too small for bitfield", name); /* TODO other checks, maybe as asserts */
+   if (flags & SETTING_BITFIELD)
+   {
+      if (!defval)
+         ESP_LOGE(TAG, "%s missing defval on bitfield", name);
+      else if (!size)
+         ESP_LOGE(TAG, "%s missing size on bitfield", name);
+      else
+      {
+         const char *p = defval;
+         while (*p && *p != ' ')
+            p++;
+         if ((p - defval) > 8 * size - ((flags & SETTING_SET) ? 1 : 0))
+            ESP_LOGE(TAG, "%s too small for bitfield", name);
+      }
+   }
    setting_t *s;
    for (s = setting; s && strcmp(s->name, name); s = s->next);
    if (s)

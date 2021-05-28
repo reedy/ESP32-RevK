@@ -48,7 +48,7 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
                     uint8_t array,        // If non zero then settings are suffixed numerically 1 to array
                     uint16_t size, // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
                     void *data, // The setting itself (for string this points to a char* pointer)
-                    const char *defval, // default value (default for each byte for BINARY fixed size)
+                    const char *defval, // default value (default for each byte for BINARY fixed size, or bitmask[space]default)
                     uint8_t flags);       // Setting flags
 #define	SETTING_LIVE		1       // Setting update live (else reboots shortly after any change)
 #define	SETTING_BINARY		2       // Binary block rather than numeric
