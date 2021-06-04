@@ -79,6 +79,9 @@ void jo_string(jo_t, const char *tag, const char *string);
 void jo_printf(jo_t, const char *tag, const char *format, ...);
 // Add a string (formatted)
 
+void jo_litf(jo_t, const char *tag, const char *format, ...);
+// Add a literal string (formatted) - caller is expected to meet JSON rules - used typically for numeric values
+
 void jo_base64(jo_t, const char *tag, const void *mem, size_t len);
 // Add a base64 string
 
@@ -87,9 +90,6 @@ void jo_hex(jo_t, const char *tag, const void *mem, size_t len);
 
 void jo_int(jo_t, const char *tag, int64_t);
 // Add an integer
-
-void jo_real(jo_t j, const char *tag, const char *fmt,double val);
-// Add a real
 
 void jo_bool(jo_t, const char *tag, int);
 // Add a bool (true if non zero passed)

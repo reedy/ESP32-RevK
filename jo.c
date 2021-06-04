@@ -278,6 +278,14 @@ static void jo_write_tag(jo_t j, const char *tag)
    jo_write(j, ':');
 }
 
+static void jo_lit(jo_t j, const char *tag, const char *lit)
+{
+   if (jo_write_bad(j, tag, strlen(lit)))
+      return;
+   while (*lit)
+      jo_write(j, *lit++);
+}
+
 void jo_array(jo_t j, const char *tag)
 {                               // Start an array
    if (jo_write_bad(j, tag, 1))
@@ -351,6 +359,16 @@ void jo_printf(jo_t j, const char *tag, const char *format, ...)
    free(v);
 }
 
+void jo_litf(jo_t j, const char *tag, const char *format, ...)
+{                               // Add a literal (formatted)
+   char temp[100];
+   va_list ap;
+   va_start(ap, format);
+   vsnprintf(temp, sizeof(temp), format, ap);
+   va_end(ap);
+   jo_lit(j, tag, temp);
+}
+
 static void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bits, const char *alphabet)
 {                               // base 16/32/64 binary to string
    size_t dlen = (slen * 8 + bits - 1) / bits;
@@ -406,26 +424,9 @@ void jo_hex(jo_t j, const char *tag, const void *mem, size_t len)
    jo_baseN(j, tag, mem, len, 4, BASE16);
 }
 
-static void jo_lit(jo_t j, const char *tag, const char *lit)
-{
-   if (jo_write_bad(j, tag, strlen(lit)))
-      return;
-   while (*lit)
-      jo_write(j, *lit++);
-}
-
 void jo_int(jo_t j, const char *tag, int64_t val)
 {                               // Add an integer
-   char temp[100];
-   snprintf(temp, sizeof(temp), "%lld", val);
-   jo_lit(j, tag, temp);
-}
-
-void jo_real(jo_t j, const char *tag, const char *fmt, double val)
-{                               // Add an integer
-   char temp[100];
-   snprintf(temp, sizeof(temp), fmt ? : "%lf", val);
-   jo_lit(j, tag, temp);
+   jo_litf(j, tag, "%lld", val);
 }
 
 void jo_bool(jo_t j, const char *tag, int val)
