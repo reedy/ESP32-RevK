@@ -249,4 +249,10 @@ menu "RevK"
         help
 		Lock user tasks to CPU 1
 
+	config REVK_SHORT_ID
+        bool "Make a short ID"
+        default n
+        help
+		Make a short (6 hex chars) ID rather than full MAC
+
 endmenu

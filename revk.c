@@ -144,8 +144,8 @@ struct setting_s {
 /* Public */
 const char *revk_version = "";  /* Git version */
 const char *revk_app = "";      /* App name */
-char revk_id[7];                /* Chip ID as hex (derived from MAC) */
-uint32_t revk_binid = 0;        /* Binary chip ID */
+char revk_id[13];               /* Chip ID as hex (from MAC) */
+uint64_t revk_binid = 0;        /* Binary chip ID */
 
 /* Local */
 static EventGroupHandle_t revk_group;
@@ -819,8 +819,13 @@ void revk_init(app_command_t * app_command_cb)
    {                            /* Chip ID from MAC */
       unsigned char mac[6];
       REVK_ERR_CHECK(esp_efuse_mac_get_default(mac));
+#ifdef	CONFIG_REVK_SHORT_ID
       revk_binid = ((mac[0] << 16) + (mac[1] << 8) + mac[2]) ^ ((mac[3] << 16) + (mac[4] << 8) + mac[5]);
-      snprintf(revk_id, sizeof(revk_id), "%06X", revk_binid);
+      snprintf(revk_id, sizeof(revk_id), "%06llX", revk_binid);
+#else
+      revk_binid = ((uint64_t) mac[0] << 40) + ((uint64_t) mac[1] << 32) + ((uint64_t) mac[2] << 24) + ((uint64_t) mac[3] << 16) + ((uint64_t) mac[4] << 8) + ((uint64_t) mac[5]);
+      snprintf(revk_id, sizeof(revk_id), "%012llX", revk_binid);
+#endif
    }
    /* WiFi */
    revk_group = xEventGroupCreate();
@@ -840,15 +845,16 @@ void revk_init(app_command_t * app_command_cb)
    REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
    sta_netif = esp_netif_create_default_wifi_sta();
    ap_netif = esp_netif_create_default_wifi_ap();
-   wifi_next("Start");
-#endif
-#ifdef	CONFIF_REVK_WIFI
    /* DHCP */
    char *id;
-   asprintf(&id, "%s-%s", appname, *hostname ? hostname : revk_id);
+   if (*hostname)
+      asprintf(&id, "%s-%s", appname, hostname);
+   else
+      asprintf(&id, "%s-%06llX", appname, revk_binid & 0xFFFFFF);
    esp_netif_set_hostname(sta_netif, id);
    esp_netif_create_ip6_linklocal(sta_netif);
    free(id);
+   wifi_next("Start");
 #endif
    revk_task(TAG, task, NULL);
 }
