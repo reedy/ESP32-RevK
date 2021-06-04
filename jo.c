@@ -6,6 +6,7 @@
 #include <malloc.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include "esp_log.h"
 
 #ifndef	JO_MAX
 #define	JO_MAX	64
@@ -64,7 +65,7 @@ static ssize_t jo_space(jo_t j, size_t need)
       }
    }
    if (j->len - j->ptr < need)
-      return -1;                // Not eenough
+      return -1;                // Not enough
    return j->len - j->ptr;
 }
 
@@ -304,6 +305,7 @@ void jo_array(jo_t j, const char *tag)
       return;
    }
    j->o[j->level / 8] &= ~(1 << (j->level & 7));
+   j->level++;
    j->comma = 0;
    jo_write(j, '[');
 }
@@ -318,6 +320,7 @@ void jo_object(jo_t j, const char *tag)
       return;
    }
    j->o[j->level / 8] |= (1 << (j->level & 7));
+   j->level++;
    j->comma = 0;
    jo_write(j, '{');
 }
