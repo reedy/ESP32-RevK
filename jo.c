@@ -4,6 +4,8 @@
 #include "jo.h"
 #include <string.h>
 #include <malloc.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #ifndef	JO_MAX
 #define	JO_MAX	64
@@ -21,6 +23,17 @@ struct jo_s {                   // cursor to JSON object
    uint8_t o[(JO_MAX + 7) / 8]; // Bit set at each level if level is object, else it is array
 };
 
+static const char HEX[] = "0123456789ABCDEF";
+
+#define escapes \
+        esc ('"', '"') \
+        esc ('\\', '\\') \
+        esco ('/', '/') \
+        esc ('b', '\b') \
+        esc ('f', '\f') \
+        esc ('n', '\n') \
+        esc ('r', '\r') \
+        esc ('t', '\t') \
 
 static jo_t jo_new(void)
 {                               // Create a jo_t
@@ -35,7 +48,7 @@ static ssize_t jo_space(jo_t j, size_t need)
 {                               // How much space we have
    // If need is set then allocates need first if possible
    // If need is set and not need space then returns -1
-   if (!j)
+   if (!j || j->parse)
       return -1;
    if (j->alloc && j->len - j->ptr < need)
    {
@@ -122,7 +135,7 @@ char *jo_result(jo_t j)
    if (j->parse)
       return j->buf;            // As parsed
    // Add closing...
-   if (jo_space(j, j->level + 1) < 0)
+   if (jo_space(j, j->level + 1) <= 0)
       return NULL;              // No space
    uint8_t l = j->level;
    char *p = j->buf + j->ptr;
@@ -173,13 +186,30 @@ const char *jo_error(jo_t j, int *pos)
 // Creating
 // Note that tag is required if in an object and must be null if not
 
-static size_t j_codedlen(const char *s)
+static size_t jo_codedlen(const char *s)
 {                               // How much space would this string take as JSON (including "'s)
-   // TODO
-   return 0;
+   if (!s)
+      return 4;                 // null
+   int l = 2;                   // The first and last "
+   while (*s)
+   {
+      uint8_t c = *s++;
+#define esc(a,b) if(c==b){l+=2;continue;}
+#define esco(a,b)               // optional
+      escapes
+#undef esco
+#undef esc
+          if (c < ' ')
+      {
+         l += 6;                // \u00XX
+         continue;
+      }
+      l++;
+   }
+   return l;
 }
 
-static const char *sanity(jo_t j, const char *tag, int need)
+static const char *jo_write_bad(jo_t j, const char *tag, int need)
 {
    if (!j)
       return "No j";
@@ -194,82 +224,176 @@ static const char *sanity(jo_t j, const char *tag, int need)
    } else if (tag)
       return (j->err = "tag in non object");
    if (need && tag)
-      need += j_codedlen(tag) + 1;
+      need += jo_codedlen(tag) + 1;
    if (need && j->comma)
       need++;
-   if (jo_space(j, need) < 0)
+   if (jo_space(j, need) <= 0)
       return "No space";
    return NULL;
 }
 
+static void jo_write(jo_t j, uint8_t c)
+{
+   if (jo_space(j, 1) <= 0)
+      return;
+   j->buf[j->ptr++] = c;
+}
+
+static void jo_write_str(jo_t j, const char *s)
+{
+   jo_write(j, '"');
+   while (*s)
+   {
+      uint8_t c = *s++;
+#define esc(a,b) if(c==b){jo_write(j,'\\');jo_write(j,b);continue;}
+#define esco(a,b)               // optional
+      escapes
+#undef esco
+#undef esc
+          if (c < ' ')
+      {
+         jo_write(j, '\\');
+         jo_write(j, 'u');
+         jo_write(j, '0');
+         jo_write(j, '0');
+         jo_write(j, HEX[c >> 4]);
+         jo_write(j, HEX[c & 0xF]);
+         continue;
+      }
+      jo_write(j, c);
+   }
+   jo_write(j, '"');
+}
+
+static void jo_write_tag(jo_t j, const char *tag)
+{
+   if (j->comma)
+      jo_write(j, ',');
+   j->comma = 1;
+   if (!tag)
+      return;
+   jo_write_str(j, tag);
+   jo_write(j, ':');
+}
+
 void jo_array(jo_t j, const char *tag)
 {                               // Start an array
-   if (sanity(j, tag, 1))
+   if (jo_write_bad(j, tag, 1))
       return;
-   // TODO
+   if (j->level >= JO_MAX)
+   {
+      j->err = "JSON too deep";
+      return;
+   }
+   j->o[j->level / 8] &= ~(1 << (j->level & 7));
+   j->comma = 0;
+   jo_write(j, '[');
 }
 
 void jo_object(jo_t j, const char *tag)
 {                               // Start an object
-   if (sanity(j, tag, 1))
+   if (jo_write_bad(j, tag, 1))
       return;
-   // TODO
+   if (j->level >= JO_MAX)
+   {
+      j->err = "JSON too deep";
+      return;
+   }
+   j->o[j->level / 8] |= (1 << (j->level & 7));
+   j->comma = 0;
+   jo_write(j, '{');
 }
 
 void jo_close(jo_t j)
 {                               // Close current array or object
-   // TODO
+   if (jo_space(j, 1) <= 0)
+      return;
+   if (!j->level)
+   {
+      j->err = "JSON too many closes";
+      return;
+   }
+   j->level--;
+   j->comma = 1;
+   jo_write(j, (j->o[j->level / 8] & (1 << (j->level & 7))) ? '}' : ']');
 }
 
 void jo_string(jo_t j, const char *tag, const char *string)
 {                               // Add a string
-   if (sanity(j, tag, 0))
+   if (!string)
+   {
+      jo_null(j, tag);
       return;
-   // TODO
+   }
+   if (jo_write_bad(j, tag, jo_codedlen(string)))
+      return;
+   jo_write_tag(j, tag);
+   jo_write_str(j, string);
 }
 
 void jo_printf(jo_t j, const char *tag, const char *format, ...)
 {                               // Add a string (formatted)
-   if (sanity(j, tag, 0))
+   if (jo_write_bad(j, tag, 0))
       return;
-   // TODO
+   jo_write_tag(j, tag);
+   char *v = NULL;
+   va_list ap;
+   va_start(ap, format);
+   vasprintf(&v, format, ap);
+   if (!v)
+   {
+      j->err = "malloc for printf";
+      return;
+   }
+   jo_write_str(j, v);
+   free(v);
 }
 
 void jo_base64(jo_t j, const char *tag, const void *mem, size_t len)
 {                               // Add a base64 string
-   if (sanity(j, tag, 0))
+   if (jo_write_bad(j, tag, 0))
       return;
    // TODO
 }
 
 void jo_hex(jo_t j, const char *tag, const void *mem, size_t len)
 {                               // Add a hex string
-   if (sanity(j, tag, 0))
+   if (jo_write_bad(j, tag, 0))
       return;
    // TODO
+}
+
+static void jo_lit(jo_t j, const char *tag, const char *lit)
+{
+   if (jo_write_bad(j, tag, strlen(lit)))
+      return;
+   while (*lit)
+      jo_write(j, *lit++);
 }
 
 void jo_int(jo_t j, const char *tag, int64_t val)
 {                               // Add an integer
-   if (sanity(j, tag, 0))
-      return;
-   // TODO
+   char temp[100];
+   snprintf(temp,sizeof(temp),"%lld",val);
+   jo_lit(j,tag,temp);
+}
+
+void jo_real(jo_t j, const char *tag, const char *fmt,double val)
+{                               // Add an integer
+   char temp[100];
+   snprintf(temp,sizeof(temp),fmt?:"%lf",val);
+   jo_lit(j,tag,temp);
 }
 
 void jo_bool(jo_t j, const char *tag, int val)
 {                               // Add a bool (true if non zero passed)
-   if (sanity(j, tag, val ? 5 : 4))
-      return;
-   // TODO
+   jo_lit(j, tag, val ? "true" : "false");
 }
 
 void jo_null(jo_t j, const char *tag)
 {                               // Add a null
-   if (sanity(j, tag, 4))
-      return;
-   // TODO
+   jo_lit(j, tag, "null");
 }
-
 
 // Parsing
 

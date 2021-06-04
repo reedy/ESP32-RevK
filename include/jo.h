@@ -88,6 +88,9 @@ void jo_hex(jo_t, const char *tag, const void *mem, size_t len);
 void jo_int(jo_t, const char *tag, int64_t);
 // Add an integer
 
+void jo_real(jo_t j, const char *tag, const char *fmt,double val);
+// Add a real
+
 void jo_bool(jo_t, const char *tag, int);
 // Add a bool (true if non zero passed)
 
