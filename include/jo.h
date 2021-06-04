@@ -24,13 +24,13 @@ typedef enum {                  // The parse data value type we are at
 
 // Setting up
 
-jo_t *jo_parse_str(const char *buf);
+jo_t jo_parse_str(const char *buf);
 // Start parsing a null terminated JSON object string
 
-jo_t *jo_parse_mem(const char *buf, size_t len);
+jo_t jo_parse_mem(const char *buf, size_t len);
 // Start parsing a JSON string in memory - does not need a null
 
-jo_t *jo_create_mem(char *buf, size_t len);
+jo_t jo_create_mem(char *buf, size_t len);
 // Start creating JSON in memory at buf, max space len.
 
 jo_t jo_create_alloc(void);
