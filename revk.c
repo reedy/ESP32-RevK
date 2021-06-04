@@ -5,6 +5,7 @@ static const char
     __attribute__((unused)) * TAG = "RevK";
 
 #include "revk.h"
+#include "jo.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
 #include "esp_tls.h"
