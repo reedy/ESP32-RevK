@@ -45,10 +45,10 @@ char *jo_result(jo_t);
 // If writing, this has necessary closing brackets and NULL added first, but does not move the cursor
 // Returns NULL if adding brackets and null would not fit
 
-void jo_free(jo_t);
+void jo_free(jo_t *);
 // Free jo_t and any allocated memory
 
-char *jo_result_free(jo_t);
+char *jo_result_free(jo_t *);
 // Return the JSON string, and free the jo_t object.
 // NULL if error state, as per jo_result
 // This is intended to be used with jo_create_alloc(), returning the allocated string (which will need freeing).

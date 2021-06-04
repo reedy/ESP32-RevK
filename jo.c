@@ -122,7 +122,7 @@ jo_t jo_copy(jo_t j)
       n->buf = malloc(j->len);
       if (!n->buf)
       {
-         jo_free(n);
+         jo_free(&n);
          return NULL;           // malloc
       }
       memcpy(n->buf, j->buf, j->ptr);
@@ -147,25 +147,33 @@ char *jo_result(jo_t j)
    return j->buf;
 }
 
-void jo_free(jo_t j)
+void jo_free(jo_t * jp)
 {                               // Free jo_t and any allocated memory
+   if (!jp)
+      return;
+   jo_t j = *jp;
    if (j)
    {
+      *jp = NULL;
       if (j->alloc && j->buf)
          free(j->buf);
       free(j);
    }
 }
 
-char *jo_result_free(jo_t j)
+char *jo_result_free(jo_t * jp)
 {                               // Return the JSON string, and free the jo_t object.
 // NULL if error state, as per jo_result
 // This is intended to be used with jo_create_alloc(), returning the allocated string (which will need freeing).
 // If used with a fixed string, a strdup is done, so that the return value can always be freed
-   char *res = jo_result(j);
-   if (!res)
+   if (!jp)
       return NULL;
-   if (j->alloc)
+   jo_t j = *jp;
+   if (!j)
+      return NULL;
+   *jp = NULL;
+   char *res = jo_result(j);
+   if (res && j->alloc)
       res = strdup(res);
    free(j);
    return res;
