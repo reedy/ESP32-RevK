@@ -1142,7 +1142,7 @@ static void ap_task(void *pvParameters)
       REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
    }
    wifi_config_t wifi_config = { 0, };
-   wifi_config.ap.ssid_len = snprintf((char *) wifi_config.ap.ssid, sizeof(wifi_config.ap.ssid), "%s-10.%d.%d.1", appname, (revk_binid >> 8) & 255, revk_binid & 255);
+   wifi_config.ap.ssid_len = snprintf((char *) wifi_config.ap.ssid, sizeof(wifi_config.ap.ssid), "%s-10.%d.%d.1", appname, (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
    if (wifi_config.ap.ssid_len > sizeof(wifi_config.ap.ssid))
       wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
    ESP_LOGI(TAG, "AP mode start %.*s", wifi_config.ap.ssid_len, wifi_config.ap.ssid);
