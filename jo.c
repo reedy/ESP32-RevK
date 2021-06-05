@@ -19,7 +19,8 @@ struct jo_s {                   // cursor to JSON object
    size_t len;                  // Max space for buf
    uint8_t parse:1;             // This is parsing, not generating
    uint8_t alloc:1;             // buf is malloced space
-   uint8_t comma:1;             // Set if comma needed, i.e. object or array at current level has at least one entry
+   uint8_t comma:1;             // Set if comma needed / expected
+   uint8_t tagok:1;             // We have skipped an expected tag already in parsing
    uint8_t level;               // Current level
    uint8_t o[(JO_MAX + 7) / 8]; // Bit set at each level if level is object, else it is array
 };
@@ -326,6 +327,8 @@ static const char *jo_write_check(jo_t j, const char *tag)
          return (j->err = "missing tag in object");
    } else if (tag)
       return (j->err = "tag in non object");
+   if (!j->level && j->ptr)
+      return (j->err = "second value at top level");
    if (j->comma)
       jo_write(j, ',');
    j->comma = 1;
@@ -496,7 +499,7 @@ void jo_null(jo_t j, const char *tag)
 
 // Parsing
 
-static inline int jo_skip(jo_t j)
+static inline int jo_ws(jo_t j)
 {                               // Skip white space, and return peek at next
    int c = jo_peek(j);
    while (c == ' ' || c == '\t' || c == '\r' || c == '\n')
@@ -504,73 +507,190 @@ static inline int jo_skip(jo_t j)
    return c;
 }
 
-// TODO do we need a skip tag / skip string thing?
-// TODO validating null, true, false, number
-
 jo_type_t jo_here(jo_t j)
 {                               // Return what type of thing we are at - we are always at a value of some sort, which has a tag if we are in an object
    if (!j || j->err || !j->parse)
       return JO_END;
-   int c = jo_skip(j);
-   jo_t p = jo_copy(j);
-   if (j->level && (j->o[(j->level - 1) / 8] & (1 << ((j->level - 1) & 7))))
-   {                            // Expect tag
-      if (j->comma)
-      {                         // Expect comma
-         if (c != ',')
-            j->err = "Missing comma";
-         else
-            jo_read(p);
-         c = jo_skip(p);
+   int c = jo_ws(j);
+   if (c < 0)
+      return c;
+   if (j->comma)
+   {
+      if (!j->level)
+      {
+         j->err = "Extra value at top level";
+         return JO_END;
       }
+      if (c != ',')
+      {
+         j->err = "Missing comma";
+         return JO_END;
+      }
+      jo_read(j);
+      c = jo_ws(j);
+      j->comma = 0;             // Comma consumed
+   }
+   // These are a guess of type - a robust check is done by jo_next
+   if (!j->tagok && j->level && (j->o[(j->level - 1) / 8] & (1 << ((j->level - 1) & 7))))
+   {                            // We should be at a tag
       if (c != '"')
+      {
          j->err = "Missing tag";
-      else
-      {                         // Skip the tag
-         jo_read(p);
-         while (jo_read_str(p) >= 0);
-         c = jo_read(p);
-         if (c != '"')
-            j->err = "Unclosed tag";
-         else
-         {                      // colon
-            c = jo_skip(p);
-            if (c != ':')
-               j->err = "Missing colon";
-            else
-               jo_read(p);
-         }
+         return JO_END;
       }
+      return JO_TAG;
    }
-   jo_type_t t = JO_END;
-   if (!j->err)
-   {                            // Work out type
-      c = jo_skip(p);
-      if (c == '"')
-         t = JO_STRING;
-      else if (c == '{')
-         t = JO_OBJECT;
-      else if (c == '[')
-         t = JO_ARRAY;
-      else if (c == 'n')
+   if (c == '"')
+      return JO_STRING;
+   if (c == '{')
+      return JO_OBJECT;
+   if (c == '[')
+      return JO_ARRAY;
+   if (c == '}' || c == ']')
+   {
+      if (j->tagok)
       {
-      } else if (c == 't')
-      {
-      } else if (c == 'f')
-      {
-      } else
-      {                         // Possible number
+         j->err = "Missing value";
+         return JO_END;
       }
+      if (!j->level)
+      {
+         j->err = "Too many closed";
+         return JO_END;
+      }
+      if (c != ((j->o[j->level / 8] & (1 << (j->level & 7))) ? '}' : ']'))
+      {
+         j->err = "Mismatched close";
+         return JO_END;
+      }
+      return JO_CLOSE;
    }
-   jo_free(&p);
-   if (j->err)
-      t = JO_END;
-   return t;
+   if (c == 'n')
+      return JO_NULL;
+   if (c == 't')
+      return JO_TRUE;
+   if (c == 'f')
+      return JO_FALSE;
+   if (c == '-' || (c >= '0' && c <= '9'))
+      return JO_NUMBER;
+   j->err = "Bad JSON";
+   return JO_END;
 }
 
 void jo_next(jo_t j)
-{                               // Move to next value - note this will pass any closing } or ] to get there
-// Typically one loops in an object until jo_level() is back to start level or below.
+{                               // Move to next value, this validates what we are skipping. A tag and its value are separate
+   int c;
+   if (!j || !j->parse || j->err)
+      return;
+   switch (jo_here(j))
+   {
+   case JO_END:                // End or error
+      return;
+   case JO_TAG:                // Tag
+      jo_read(j);
+      while (jo_read_str(j) >= 0);
+      if (!j->err && jo_read(j) != '"')
+         j->err = "Missing closing quote on tag";
+      jo_ws(j);
+      if (!j->err && jo_read(j) != ':')
+         j->err = "Missing colon after tag";
+      j->tagok = 1;             // We have skipped tag
+      break;
+   case JO_OBJECT:
+      if (j->level >= JO_MAX)
+      {
+         j->err = "JSON too deep";
+         return;
+      }
+      j->o[j->level / 8] |= (1 << (j->level & 7));
+      j->level++;
+      j->comma = 0;
+      j->tagok = 0;
+      break;
+   case JO_ARRAY:
+      if (j->level >= JO_MAX)
+      {
+         j->err = "JSON too deep";
+         return;
+      }
+      j->o[j->level / 8] &= ~(1 << (j->level & 7));
+      j->level++;
+      j->comma = 0;
+      j->tagok = 0;
+      break;
+   case JO_CLOSE:
+      j->level--;               // Was checked by jo_here()
+      j->comma = 1;
+      j->tagok = 0;
+      break;
+   case JO_STRING:
+      jo_read(j);
+      while (jo_read_str(j) >= 0);
+      if (!j->err && jo_read(j) != '"')
+         j->err = "Missing closing quote on string";
+      j->comma = 1;
+      j->tagok = 0;
+      break;
+   case JO_NUMBER:
+      if (jo_peek(j) == '-')
+         jo_read(j);            // minus
+      if ((c = jo_peek(j)) == '0')
+         jo_read(j);            // just zero
+      else if (c >= '1' && c <= '9')
+         while ((c = jo_peek(j)) >= '0' && c < '9')
+            jo_read(j);         // int
+      if (jo_peek(j) == '.')
+      {                         // real
+         jo_read(j);
+         if ((c = jo_peek(j)) < '0' || c > '9')
+            j->err = "Bad real, must be digits after decimal point";
+         else
+            while ((c = jo_peek(j)) >= '0' && c < '9')
+               jo_read(j);      // frac
+      }
+      if ((c = jo_peek(j)) == 'e' || c == 'E')
+      {                         // exp
+         jo_read(j);
+         if ((c = jo_peek(j)) == '-' || c == '+')
+            jo_read(j);
+         if ((c = jo_peek(j)) < '0' || c > '9')
+            j->err = "Bad exp";
+         else
+            while ((c = jo_peek(j)) >= '0' && c < '9')
+               jo_read(j);      // exp
+      }
+      j->comma = 1;
+      j->tagok = 0;
+      break;
+   case JO_NULL:
+      if (jo_read(j) != 'n' ||  //
+          jo_read(j) != 'u' ||  //
+          jo_read(j) != 'l' ||  //
+          jo_read(j) != 'l')
+         j->err = "Misspelled null";
+      j->comma = 1;
+      j->tagok = 0;
+      break;
+   case JO_TRUE:
+      if (jo_read(j) != 't' ||  //
+          jo_read(j) != 'r' ||  //
+          jo_read(j) != 'u' ||  //
+          jo_read(j) != 'e')
+         j->err = "Misspelled true";
+      j->comma = 1;
+      j->tagok = 0;
+      break;
+   case JO_FALSE:
+      if (jo_read(j) != 'f' ||  //
+          jo_read(j) != 'a' ||  //
+          jo_read(j) != 'l' ||  //
+          jo_read(j) != 's' ||  //
+          jo_read(j) != 'e')
+         j->err = "Misspelled false";
+      j->comma = 1;
+      j->tagok = 0;
+      break;
+   }
 }
 
 const char *jo_tag(jo_t j)

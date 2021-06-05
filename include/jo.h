@@ -10,11 +10,12 @@ typedef struct jo_s *jo_t;      // The JSON cursor used by all calls
 typedef enum {                  // The parse data value type we are at
    JO_END,                      // Not a value, we are at the end, or in an error state
    // JO_END always at start
+   JO_TAG,			// at a tag
    JO_OBJECT,                   // value is the '{' of an object, jo_next() goes in to object if it has things in it
    JO_ARRAY,                    // value is the '[' of an array, jo_next() goes in to array if it has things in it
+   JO_CLOSE,			// at close of object or array
    JO_STRING,                   // value is the '"' of a string
-   JO_INT,                      // value is start of an integer
-   JO_REAL,                     // value is the start of a real
+   JO_NUMBER,                   // value is start of an number
    // Can test >= JO_NULL as test for literal
    JO_NULL,                     // value is the 'n' in a null
    // Can test >= JO_TRUE as test for bool
@@ -96,11 +97,8 @@ void jo_null(jo_t, const char *tag);
 // Parsing
 
 jo_type_t jo_here(jo_t);
-// Return what type of thing we are at - we are always at a value of some sort, which has a tag if we are in an object
-
 void jo_next(jo_t);
-// Move to next value - not this will pass any closing } or ] to get there
-// Typically one loops in an object until j_level() is back to start level or below.
+// Here returns where we are in the parse, and next moves to next element that can be parsed
 
 const char *jo_tag(jo_t);
 // Return pointer to the '"' at the start of the current value's tag
