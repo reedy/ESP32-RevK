@@ -1404,7 +1404,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    }
    if (!value)
       value = (const unsigned char *) "";
-   ESP_LOGI(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);      // TODO
+   ESP_LOGD(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);      // TODO
    /* Parse new setting */
    unsigned char *n = NULL;
    int l = 0;
