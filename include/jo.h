@@ -73,7 +73,7 @@ void jo_close(jo_t);
 void jo_string(jo_t, const char *tag, const char *string);
 // Add a string
 
-void jo_printf(jo_t, const char *tag, const char *format, ...);
+void jo_stringf(jo_t, const char *tag, const char *format, ...);
 // Add a string (formatted)
 
 void jo_lit(jo_t, const char *tag, const char *lit);

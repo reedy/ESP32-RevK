@@ -408,7 +408,7 @@ void jo_string(jo_t j, const char *tag, const char *string)
    jo_write_str(j, string);
 }
 
-void jo_printf(jo_t j, const char *tag, const char *format, ...)
+void jo_stringf(jo_t j, const char *tag, const char *format, ...)
 {                               // Add a string (formatted)
    if (jo_write_check(j, tag))
       return;
