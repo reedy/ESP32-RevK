@@ -778,8 +778,6 @@ static ssize_t jo_cpycmp(jo_t j, char *str, size_t max, uint8_t cmp)
             add(0xC0 + (c & 0x3F));
          } else
             add(c);
-         if (str && str < end)
-            *str = 0;           // Final null...
       }
    }
    if (c == '"')
@@ -789,9 +787,11 @@ static ssize_t jo_cpycmp(jo_t j, char *str, size_t max, uint8_t cmp)
          process(c);
    } else
    {                            // Literal or number
-      while ((c = jo_read(p)) >= 0 && c > ' ' && c != ',' && c != ']' && c != '}' && (!cmp || !result))
+      while ((c = jo_read(p)) >= 0 && c > ' ' && c != ',' && c != '[' && c != '{' && c != ']' && c != '}' && (!cmp || !result))
          process(c);
    }
+   if (str && str < end)
+      *str = 0;                 // Final null...
    if (!result && cmp && str && str < end)
       result = -1;              // j ended, do str>j
    jo_free(&p);
