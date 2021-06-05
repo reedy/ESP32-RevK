@@ -1923,7 +1923,6 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
       }
       j = jo_parse_mem(value, len);
       t = jo_next(j);           // Start object
-      ESP_LOGI(TAG, "t=%d", t);
       while (t == JO_TAG)
       {
          int l = jo_strlen(j);
@@ -1933,7 +1932,6 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
          if (tag)
          {
             jo_strncpy(j, tag, l + 1);
-            ESP_LOGI(TAG, "tag=%s", tag);
             // TODO find setting
 
             t = jo_next(j);
@@ -1948,7 +1946,7 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                   if (val)
                   {
                      jo_strncpy(j, val, l + 1);
-		     ESP_LOGI(TAG,"tag=%s val=%s",tag,val);
+                     ESP_LOGI(TAG, "tag=%s val=%s", tag, val);
                      // TODO
                      free(val);
                   }
@@ -1957,7 +1955,6 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
             free(tag);
          }
          t = jo_skip(j);
-      ESP_LOGI(TAG, "t=%d", t);
       }
       jo_free(&j);
       return er;

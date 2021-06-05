@@ -819,8 +819,6 @@ jo_type_t jo_skip(jo_t j)
    if (t > JO_CLOSE)
    {
       int l = jo_level(j);
-      do
-         jo_next(j);
       while ((t = jo_next(j)) != JO_END && jo_level(j) > l);
       if (!j->err && t == JO_END && j->level)
          j->err = "Unclosed";
