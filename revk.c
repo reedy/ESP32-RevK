@@ -1716,7 +1716,6 @@ static const char *revk_setting_dump(void)
          }
          void addvalue(const char *tag, int n) {        // Add a value
             start();
-            ESP_LOGI(TAG, "Adding %s(%d)", tag ? : "?", n);     // TODO
             void *data = s->data;
             if (!(s->flags & SETTING_BOOLEAN))
                data += (s->size ? : sizeof(void *)) * n;        // TODO

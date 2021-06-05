@@ -220,7 +220,7 @@ jo_t jo_copy(jo_t j)
       }
       memcpy(n->buf, j->buf, j->ptr);
    }
-   return j;
+   return n;
 }
 
 char *jo_result(jo_t j)
