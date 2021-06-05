@@ -1812,7 +1812,7 @@ static const char *revk_setting_dump(void)
                   else
                      while (*t >= '0' && *t <= '9')
                         t++;
-                  if (t == temp || *t)
+                  if (t == temp || *t || (s->flags & SETTING_HEX))
                      jo_string(p, tag, temp);
                   else
                      jo_lit(p, tag, temp);
