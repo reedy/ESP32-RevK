@@ -52,8 +52,8 @@ static jo_t jo_new(void)
 static void *saferealloc(void *m, size_t len)
 {
    void *n = realloc(m, len);
-   if (m && m != n)
-      free(m);
+   if (m && !n)
+      free(m); // Failed, clear existing
    return n;
 }
 
