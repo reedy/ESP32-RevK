@@ -1873,23 +1873,6 @@ static const char *revk_setting_dump(void)
 
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
-   if (!tag && !len)
-   {
-      revk_dump = 1;
-      return NULL;
-   }
-   if (!tag)
-   {                            // Setting using JSON
-      // TODO check valid JSON
-      // TODO process
-      return NULL;
-   }
-   unsigned char flags = 0;
-   if (*tag == '0' && tag[1] == 'x')
-   {                            /* Store hex */
-      flags |= SETTING_HEX;
-      tag += 2;
-   }
    int index = 0;
    int match(setting_t * s) {
       const char *a = s->name;
@@ -1914,6 +1897,72 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
          return 4;              /* Invalid index, no match */
       index = v;
       return 0;                 /* Match, index */
+   }
+   if (!tag && !len)
+   {
+      revk_dump = 1;
+      return NULL;
+   }
+   if (!tag)
+   {                            // Setting using JSON
+      jo_t j = jo_parse_mem(value, len);
+      if (jo_here(j) != JO_OBJECT)
+      {
+         jo_free(&j);
+         return "Pass JSON object";
+      }
+      while (jo_next(j));
+      int pos;
+      const char *er = jo_error(j, &pos);
+      jo_free(&j);
+      if (er)
+      {
+         ESP_LOGE(TAG, "Fail at pos %d: %s", pos, er);
+         return er;
+      }
+      j = jo_parse_mem(value, len);
+      jo_next(j);               // Start object
+      while (jo_here(j) == JO_TAG)
+      {
+         int l = jo_strlen(j);
+         if (l < 0)
+            break;
+         char *tag = malloc(l + 1);
+         if (tag)
+         {
+            ESP_LOGI(TAG, "tag=%s", tag);
+            jo_strncpy(j, tag, l + 1);
+            // TODO find setting
+
+            jo_type_t t = jo_next(j);
+            if (t == JO_OBJECT)
+               er = "Unexpected object";
+            else
+            {
+               l = jo_strlen(j);
+               if (l >= 0)
+               {
+                  char *val = malloc(l + 1);
+                  if (val)
+                  {
+                     jo_strncpy(j, val, l + 1);
+                     revk_error(TAG, "tag=%s val=%s", tag, val);
+                     // TODO
+                     free(val);
+                  }
+               }
+            }
+            free(tag);
+         }
+      }
+      jo_free(&j);
+      return er;
+   }
+   unsigned char flags = 0;
+   if (*tag == '0' && tag[1] == 'x')
+   {                            /* Store hex */
+      flags |= SETTING_HEX;
+      tag += 2;
    }
    setting_t *s;
    for (s = setting; s && match(s); s = s->next);

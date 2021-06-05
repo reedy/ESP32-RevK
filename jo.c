@@ -593,7 +593,7 @@ jo_type_t jo_next(jo_t j)
    case JO_END:                // End or error
       break;
    case JO_TAG:                // Tag
-      jo_read(j);
+      jo_read(j); // "
       while (jo_read_str(j) >= 0);
       if (!j->err && jo_read(j) != '"')
          j->err = "Missing closing quote on tag";
@@ -603,6 +603,7 @@ jo_type_t jo_next(jo_t j)
       j->tagok = 1;             // We have skipped tag
       break;
    case JO_OBJECT:
+      jo_read(j); // {
       if (j->level >= JO_MAX)
       {
          j->err = "JSON too deep";
@@ -614,6 +615,7 @@ jo_type_t jo_next(jo_t j)
       j->tagok = 0;
       break;
    case JO_ARRAY:
+      jo_read(j); // ]
       if (j->level >= JO_MAX)
       {
          j->err = "JSON too deep";
@@ -625,12 +627,13 @@ jo_type_t jo_next(jo_t j)
       j->tagok = 0;
       break;
    case JO_CLOSE:
+      jo_read(j); // }/]
       j->level--;               // Was checked by jo_here()
       j->comma = 1;
       j->tagok = 0;
       break;
    case JO_STRING:
-      jo_read(j);
+      jo_read(j); // "
       while (jo_read_str(j) >= 0);
       if (!j->err && jo_read(j) != '"')
          j->err = "Missing closing quote on string";
@@ -643,7 +646,7 @@ jo_type_t jo_next(jo_t j)
       if ((c = jo_peek(j)) == '0')
          jo_read(j);            // just zero
       else if (c >= '1' && c <= '9')
-         while ((c = jo_peek(j)) >= '0' && c < '9')
+         while ((c = jo_peek(j)) >= '0' && c <= '9')
             jo_read(j);         // int
       if (jo_peek(j) == '.')
       {                         // real
@@ -651,7 +654,7 @@ jo_type_t jo_next(jo_t j)
          if ((c = jo_peek(j)) < '0' || c > '9')
             j->err = "Bad real, must be digits after decimal point";
          else
-            while ((c = jo_peek(j)) >= '0' && c < '9')
+            while ((c = jo_peek(j)) >= '0' && c <= '9')
                jo_read(j);      // frac
       }
       if ((c = jo_peek(j)) == 'e' || c == 'E')
@@ -662,7 +665,7 @@ jo_type_t jo_next(jo_t j)
          if ((c = jo_peek(j)) < '0' || c > '9')
             j->err = "Bad exp";
          else
-            while ((c = jo_peek(j)) >= '0' && c < '9')
+            while ((c = jo_peek(j)) >= '0' && c <= '9')
                jo_read(j);      // exp
       }
       j->comma = 1;
@@ -700,16 +703,16 @@ jo_type_t jo_next(jo_t j)
    return jo_here(j);
 }
 
-static ssize_t jo_cpycmp(jo_t j, char *dst, size_t max, uint8_t cmp)
-{                               // Copy or compare (-1 for dst<j, +1 for dst>j)
-   char *end = dst + max;
+static ssize_t jo_cpycmp(jo_t j, char *str, size_t max, uint8_t cmp)
+{                               // Copy or compare (-1 for j<str, +1 for j>str)
+   char *end = str + max;
    if (!j || !j->parse || j->err)
    {                            // No pointer
       if (!cmp)
          return -1;             // Invalid length
-      if (!dst)
+      if (!str)
          return 0;              // null==null?
-      return 1;                 // dst>null
+      return 1;                 // str>null
    }
    jo_t p = jo_copy(j);
    int c = jo_peek(p);
@@ -717,14 +720,14 @@ static ssize_t jo_cpycmp(jo_t j, char *dst, size_t max, uint8_t cmp)
    void process(int c) {        // Compare or copy or count, etc
       if (cmp)
       {                         // Comparing
-         if (!dst)
+         if (!str)
             return;             // Uh
-         if (dst >= end)
+         if (str >= end)
          {
-            result = -1;        // dst ended, so dst<j
+            result = 1;        // str ended, so str<j
             return;
          }
-         int c2 = *dst++,
+         int c2 = *str++,
              q = 0;
          if (c2 >= 0xF0)
          {
@@ -739,23 +742,23 @@ static ssize_t jo_cpycmp(jo_t j, char *dst, size_t max, uint8_t cmp)
             c2 &= 0x1F;
             q = 1;
          }
-         while (q-- && dst < end && *dst >= 0x80 && *dst < 0xC0)
-            c2 = (c2 << 6) + (*dst++ & 0x3F);
+         while (q-- && str < end && *str >= 0x80 && *str < 0xC0)
+            c2 = (c2 << 6) + (*str++ & 0x3F);
          if (c < c2)
          {
-            result = 1;         // dst>j
+            result = -1;         // str>j
             return;
          }
          if (c > c2)
          {
-            result = -1;        // dst<j
+            result = 1;        // str<j
             return;
          }
       } else
       {                         // Copy or count
          void add(uint8_t v) {
-            if (dst && dst < end)
-               *dst++ = v;
+            if (str && str < end)
+               *str++ = v;
             result++;           // count
          }
          if (c >= 0xF0)
@@ -775,8 +778,8 @@ static ssize_t jo_cpycmp(jo_t j, char *dst, size_t max, uint8_t cmp)
             add(0xC0 + (c & 0x3F));
          } else
             add(c);
-         if (dst && dst < end)
-            *dst = 0;           // Final null...
+         if (str && str < end)
+            *str = 0;           // Final null...
       }
    }
    if (c == '"')
@@ -789,8 +792,8 @@ static ssize_t jo_cpycmp(jo_t j, char *dst, size_t max, uint8_t cmp)
       while ((c = jo_read(p)) >= 0 && c > ' ' && c != ',' && c != ']' && c != '}' && (!cmp || !result))
          process(c);
    }
-   if (!result && cmp && dst && dst < end)
-      result = 1;               // j ended, do dst>j
+   if (!result && cmp && str && str < end)
+      result = -1;               // j ended, do str>j
    jo_free(&p);
    return result;
 }
@@ -800,14 +803,14 @@ ssize_t jo_strlen(jo_t j)
    return jo_cpycmp(j, NULL, 0, 0);
 }
 
-ssize_t jo_strncpy(char *target, jo_t j, size_t max)
+ssize_t jo_strncpy(jo_t j,char *target, size_t max)
 {                               // Copy from current point to a string. If a string or a tag, remove quotes and decode/deescape
    return jo_cpycmp(j, target, max, 0);
 }
 
-ssize_t jo_strncmp(char *target, jo_t j, size_t max)
+ssize_t jo_strncmp(jo_t j,char *source, size_t max)
 {                               // Compare from current point to a string. If a string or a tag, remove quotes and decode/deescape
-   return jo_cpycmp(j, target, max, 1);
+   return jo_cpycmp(j, source, max, 1);
 }
 
 jo_type_t jo_skip(jo_t j)
