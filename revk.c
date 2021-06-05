@@ -1718,8 +1718,47 @@ static const char *revk_setting_dump(void)
             start();
             void *data = s->data;
             if (!(s->flags & SETTING_BOOLEAN))
-               data += (s->size ? : sizeof(void *)) * n;        // TODO
-            jo_string(p, tag, "test");  // TODO
+               data += (s->size ? : sizeof(void *)) * n;
+            if (s->flags & SETTING_BINARY)
+            {                   // Binary data
+               int len = s->size;
+               if (!len)
+               {                // alloc'd with len at start
+                  data = *(void **) data;
+                  len = *(uint8_t *) data++;
+               }
+               if (s->flags & SETTING_HEX)
+                  jo_hex(p, tag, data, len);
+               else
+                  jo_base64(p, tag, data, len);
+            } else if (!s->size)
+            {
+               char *v = *(char **) data;
+               if (v)
+                  jo_string(p, tag, v);      // String
+               else
+                  jo_null(p, tag);      // Null string
+            } else
+            {
+               uint64_t v = 0;
+               if (s->size == 1)
+                  v = *(uint8_t *) data;
+               else if (s->size == 2)
+                  v = *(uint16_t *) data;
+               else if (s->size == 4)
+                  v = *(uint32_t *) data;
+               else if (s->size == 8)
+                  v = *(uint64_t *) data;
+               if (s->flags && SETTING_BOOLEAN)
+                  jo_bool(p, tag, (v >> n) & 1);
+               else
+               {                // numeric
+		       jo_int(p,tag,v);
+		       // TODO bitfields
+		       // TODO signed
+		       // TODO set
+               }
+            }
          }
          void addsetting(void) {        // Add a whole setting
             if (s->array)
