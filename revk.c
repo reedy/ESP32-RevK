@@ -1695,9 +1695,20 @@ static const char *revk_setting_dump(void)
             }
          }
          jo_t p = NULL;
-         void addvalue(const char *tag, int n) {        // Add a value
+         void start(void) {
             if (!p)
-               p = (j ? jo_copy(j) : jo_create_mem(buf, sizeof(buf)));
+            {
+               if (j)
+                  p = jo_copy(j);
+               else
+               {
+                  p = jo_create_mem(buf, sizeof(buf));
+                  jo_object(p, NULL);
+               }
+            }
+         }
+         void addvalue(const char *tag, int n) {        // Add a value
+            start();
             void *data = s->data;
             if (!(s->flags & SETTING_BOOLEAN))
                data += (s->size ? : sizeof(void *)) * n;        // TODO
@@ -1706,8 +1717,7 @@ static const char *revk_setting_dump(void)
          void addsetting(void) {        // Add a whole setting
             if (s->array)
             {
-               if (!p)
-                  p = (j ? jo_copy(j) : jo_create_mem(buf, sizeof(buf)));
+               start();
                jo_array(p, s->name);
                for (int n = 0; n < max; n++)
                   addvalue(NULL, n);
