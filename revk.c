@@ -1382,8 +1382,6 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (s->array && index > 1 && !(flags & SETTING_BOOLEAN))
          data += (index - 1) * (s->size ? : sizeof(void *));
    }
-   if (!value)
-      value = (const unsigned char *) "";
    char tag[16];                /* Max NVS name size */
    if (snprintf(tag, sizeof(tag), s->array ? "%s%u" : "%s", s->name, index ? : 1) >= sizeof(tag))
       return "Setting name too long";
@@ -1398,7 +1396,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (*defval == ' ')
          defval++;
    }
-   if (!len && defval && index <= 1)
+   if (!len && defval && index <= 1 && !value)
    {                            /* Use default value */
       len = strlen(defval);
       value = (const unsigned char *) defval;
@@ -1406,6 +1404,9 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          flags |= SETTING_HEX;
       erase = 1;
    }
+   if (!value)
+      value = (const unsigned char *) "";
+   ESP_LOGI(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);      // TODO
    /* Parse new setting */
    unsigned char *n = NULL;
    int l = 0;
@@ -1874,7 +1875,7 @@ static const char *revk_setting_dump(void)
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
    int index = 0;
-   int match(setting_t * s) {
+   int match(setting_t * s, const char *tag) {
       const char *a = s->name;
       const char *b = tag;
       while (*a && *a == *b)
@@ -1923,7 +1924,7 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
       }
       j = jo_parse_mem(value, len);
       t = jo_next(j);           // Start object
-      while (t == JO_TAG)
+      while (t == JO_TAG && !er)
       {
          int l = jo_strlen(j);
          if (l < 0)
@@ -1931,26 +1932,48 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
          char *tag = malloc(l + 1);
          if (tag)
          {
-            jo_strncpy(j, tag, l + 1);
-            // TODO find setting
-
-            t = jo_next(j);
-            if (t == JO_OBJECT)
-               er = "Unexpected object";
+            jo_strncpy(j, (char *) tag, l + 1);
+            setting_t *s;
+            for (s = setting; s && match(s, tag); s = s->next);
+            if (!s)
+               er = "Unknown setting";
             else
             {
-               l = jo_strlen(j);
-               if (l >= 0)
-               {
-                  char *val = malloc(l + 1);
-                  if (val)
+               void store(void) {
+                  int l = 0;
+                  char *val = NULL;
+                  if (t != JO_NULL)
                   {
-                     jo_strncpy(j, val, l + 1);
-                     ESP_LOGI(TAG, "tag=%s val=%s", tag, val);
-                     // TODO
-                     free(val);
+                     l = jo_strlen(j);
+                     if (l >= 0)
+                        jo_strncpy(j, val = malloc(l + 1), l + 1);
                   }
+                  er = revk_setting_internal(s, l, (const unsigned char *) val, index, 0);
+                  if (val)
+                     free(val);
                }
+               t = jo_next(j);
+               if (t == JO_OBJECT)
+                  er = "Unexpected object";
+               else if (t == JO_ARRAY)
+               {
+                  if (!s->array)
+                     er = "Not an array";
+                  else
+                  {
+                     if (index)
+                        index--;
+                     t = jo_next(j);    // In to array
+                     while (index < s->array)
+                     {
+                        store();
+                        t = jo_skip(j);
+                        index++;
+                     }
+                  }
+
+               } else
+                  store();
             }
             free(tag);
          }
@@ -1966,9 +1989,11 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
       tag += 2;
    }
    setting_t *s;
-   for (s = setting; s && match(s); s = s->next);
+   for (s = setting; s && match(s, tag); s = s->next);
    if (!s)
       return "Unknown setting";
+   if (!len)
+      value = NULL;             // Allows defval 
    return revk_setting_internal(s, len, value, index, flags);
 }
 
