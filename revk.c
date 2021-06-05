@@ -1798,7 +1798,10 @@ static const char *revk_setting_dump(void)
                         }
                      }
                      v &= ((1ULL << bits) - 1);
-                     t += sprintf(t, "%lld", v);
+                     if (s->flags & SETTING_HEX)
+                        t += sprintf(t, "%llX", v);
+                     else
+                        t += sprintf(t, "%llu", v);
                   }
                   *t = 0;
                   t = temp;
