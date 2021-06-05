@@ -1409,11 +1409,9 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    unsigned char *n = NULL;
    int l = 0;
    if (flags & SETTING_HEX)
-   {                            /* Count length */
-   } else if(flags&SETTING_BINARY)
-   { /* convert from base64 */
-
-   }
+      l = jo_based16(NULL, 0, (const char *) value, len);
+   else if (flags & SETTING_BINARY)
+      l = jo_based64(NULL, 0, (const char *) value, len);
    else
       l = len;
    if (flags & SETTING_BINARY)
@@ -1437,24 +1435,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (l)
       {
          if (flags & SETTING_HEX)
-         {                      /* hex */
-            int p = 0;
-            while (p < len && !isalnum(value[p]))
-               p++;             /* Separator */
-            while (p < len)
-            {                   /* store hex length */
-               int v = (isalpha(value[p]) ? 9 : 0) + (value[p] & 15);
-               p++;
-               if (p < len && isxdigit(value[p]))
-               {
-                  v = v * 16 + (isalpha(value[p]) ? 9 : 0) + (value[p] & 15);
-                  p++;          /* Second hex digit in byte */
-               }
-               *o++ = v;
-               while (p < len && !isalnum(value[p]))
-                  p++;          /* Separator */
-            }
-         } else
+            jo_based16(o, l, (const char *) value, len);
+         else if (flags & SETTING_BINARY)
+            jo_based64(o, l, (const char *) value, len);
+         else
             memcpy(o, value, len);      /* Binary */
       }
    } else if (!s->size)
