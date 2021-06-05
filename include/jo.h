@@ -80,11 +80,20 @@ void jo_lit(jo_t, const char *tag, const char *lit);
 void jo_litf(jo_t, const char *tag, const char *format, ...);
 // Add a literal string (formatted) - caller is expected to meet JSON rules - used typically for numeric values
 
-void jo_base64(jo_t, const char *tag, const void *mem, size_t len);
-// Add a base64 string
+extern const char JO_BASE64[];
+extern const char JO_BASE32[];
+extern const char JO_BASE16[];
 
-void jo_hex(jo_t, const char *tag, const void *mem, size_t len);
-// Add a hex string
+void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bits, const char *alphabet);
+// Store string in different bases
+#define	jo_base64(j,t,m,l) jo_baseN(j,t,m,l,6,JO_BASE64)
+#define	jo_base32(j,t,m,l) jo_baseN(j,t,m,l,5,JO_BASE32)
+#define	jo_base16(j,t,m,l) jo_baseN(j,t,m,l,4,JO_BASE16)
+
+size_t jo_based(const char *src, unsigned char *dst, size_t dlen, const char *alphabet, unsigned int bits);
+#define	jo_based64(s,d,l) jo_based(s,d,l,6,JO_BASE64)
+#define	jo_based32(s,d,l) jo_based(s,d,l,5,JO_BASE32)
+#define	jo_based16(s,d,l) jo_based(s,d,l,4,JO_BASE16)
 
 void jo_int(jo_t, const char *tag, int64_t);
 // Add an integer
@@ -110,8 +119,8 @@ jo_type_t jo_skip(jo_t);
 ssize_t jo_strlen(jo_t);
 // Return byte length, if a string or tag this is the decoded byte length, else length of literal
 
-ssize_t jo_strncpy(jo_t,char *, size_t max);
+ssize_t jo_strncpy(jo_t, char *, size_t max);
 // Copy from current point to a string. If a string or a tag, remove quotes and decode/deescape
 
-ssize_t jo_strncmp(jo_t,char *, size_t max);
+ssize_t jo_strncmp(jo_t, char *, size_t max);
 // Compare from current point to a string. If a string or a tag, remove quotes and decode/deescape

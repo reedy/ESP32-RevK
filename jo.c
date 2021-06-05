@@ -6,6 +6,7 @@
 #include <malloc.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <ctype.h>
 #include "esp_log.h"
 
 #ifndef	JO_MAX
@@ -25,9 +26,9 @@ struct jo_s {                   // cursor to JSON object
    uint8_t o[(JO_MAX + 7) / 8]; // Bit set at each level if level is object, else it is array
 };
 
-static const char BASE64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static const char BASE32[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-static const char BASE16[] = "0123456789ABCDEF";
+const char JO_BASE64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const char JO_BASE32[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const char JO_BASE16[] = "0123456789ABCDEF";
 
 #define escapes \
         esc ('"', '"') \
@@ -310,8 +311,8 @@ static void jo_write_str(jo_t j, const char *s)
          jo_write(j, 'u');
          jo_write(j, '0');
          jo_write(j, '0');
-         jo_write(j, BASE16[c >> 4]);
-         jo_write(j, BASE16[c & 0xF]);
+         jo_write(j, JO_BASE16[c >> 4]);
+         jo_write(j, JO_BASE16[c & 0xF]);
          continue;
       }
       jo_write(j, c);
@@ -435,7 +436,7 @@ void jo_litf(jo_t j, const char *tag, const char *format, ...)
    jo_lit(j, tag, temp);
 }
 
-static void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bits, const char *alphabet)
+void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bits, const char *alphabet)
 {                               // base 16/32/64 binary to string
    if (jo_write_check(j, tag))
       return;
@@ -473,19 +474,36 @@ static void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint
    jo_write(j, '"');
 }
 
-void jo_base64(jo_t j, const char *tag, const void *mem, size_t len)
-{                               // Add a base64 string
-   jo_baseN(j, tag, mem, len, 6, BASE64);
-}
-
-void jo_base32(jo_t j, const char *tag, const void *mem, size_t len)
-{                               // Add a base32 string
-   jo_baseN(j, tag, mem, len, 5, BASE32);
-}
-
-void jo_hex(jo_t j, const char *tag, const void *mem, size_t len)
-{                               // Add a hex string
-   jo_baseN(j, tag, mem, len, 4, BASE16);
+size_t jo_based(const char *src, unsigned char *dst, size_t dlen,const char *alphabet, unsigned int bits)
+{                               // Base16/32/64 string to binary
+   if (!src||!dlen)
+      return -1;
+   int b = 0,
+       v = 0;
+   ssize_t ptr=0;
+   while (*src && *src != '=')
+   {
+      char *q = strchr(alphabet, bits < 6 ? toupper(*src) : *src);
+      if (!q)
+      {                         // Bad character
+         if (isspace(*src) || *src == '\r' || *src == '\n')
+         {
+            src++;
+            continue;
+         }
+         return -1;
+      }
+      v = (v << bits) + (q - alphabet);
+      b += bits;
+      src++;
+      if (b >= 8)
+      {                         // output byte
+         b -= 8;
+	 if(dst&&ptr<dlen)dst[ptr]=(v >> b);
+	 ptr++;
+      }
+   }
+   return ptr;
 }
 
 void jo_int(jo_t j, const char *tag, int64_t val)

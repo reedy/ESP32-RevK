@@ -1742,7 +1742,7 @@ static const char *revk_setting_dump(void)
                   len = *(uint8_t *) data++;
                }
                if (s->flags & SETTING_HEX)
-                  jo_hex(p, tag, data, len);
+                  jo_base16(p, tag, data, len);
                else
                   jo_base64(p, tag, data, len);
             } else if (!s->size)
