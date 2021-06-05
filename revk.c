@@ -1693,10 +1693,18 @@ static const char *revk_setting_dump(void)
                {
                   int l = (s->size ? : sizeof(void *));
                   uint8_t *data = s->data + l * (max - 1);
-                  while (l && !*data++)
-                     l--;
-                  if (l)
-                     break;     // Has data
+                  if (!s->size)
+                  {
+                     char *v = *(char **) data;
+                     if (v && *v)
+                        break;
+                  } else
+                  {
+                     while (l && !*data++)
+                        l--;
+                     if (l)
+                        break;  // Has data
+                  }
                   max--;
                }
             }
@@ -1717,6 +1725,7 @@ static const char *revk_setting_dump(void)
          void addvalue(const char *tag, int n) {        // Add a value
             start();
             void *data = s->data;
+            const char *defval = s->defval ? : "";
             if (!(s->flags & SETTING_BOOLEAN))
                data += (s->size ? : sizeof(void *)) * n;
             if (s->flags & SETTING_BINARY)
@@ -1735,9 +1744,10 @@ static const char *revk_setting_dump(void)
             {
                char *v = *(char **) data;
                if (v)
+               {
                   jo_string(p, tag, v); // String
-               else
-                  jo_null(p, tag);      // Null string
+               } else
+                  jo_null(p, tag);      // Null string - should not happen
             } else
             {
                uint64_t v = 0;
@@ -1750,8 +1760,9 @@ static const char *revk_setting_dump(void)
                else if (s->size == 8)
                   v = *(uint64_t *) data;
                if (s->flags & SETTING_BOOLEAN)
+               {
                   jo_bool(p, tag, (v >> n) & 1);
-               else
+               } else
                {                // numeric
                   char temp[100],
                   *t = temp;
@@ -1762,14 +1773,15 @@ static const char *revk_setting_dump(void)
                   {
                      if (s->flags & SETTING_BITFIELD)
                      {
-                        const char *c = s->defval;
-                        while (*c && *c != ' ')
+                        while (*defval && *defval != ' ')
                         {
                            bits--;
                            if ((v >> bits) & 1)
-                              *t++ = *c;
-                           c++;
+                              *t++ = *defval;
+                           defval++;
                         }
+                        if (*defval == ' ')
+                           defval++;
                      }
                      if (s->flags & SETTING_SIGNED)
                      {
