@@ -283,7 +283,7 @@ const char *jo_error(jo_t j, int *pos)
 {                               // Return NULL if no error, else returns an error string.
    if (j && !j->err && !j->parse && !j->alloc && j->ptr + j->level + 1 > j->len)
       return "No space to close";
-   if (*pos)
+   if (pos)
       *pos = (j ? j->ptr : -1);
    if (!j)
       return "No j";
