@@ -1661,6 +1661,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
 
 static const char *revk_setting_dump(void)
 {                               // Dump settings (in JSON)
+   const char *err = NULL;
    jo_t j = NULL;
    void send(void) {
       if (!j)
@@ -1713,7 +1714,7 @@ static const char *revk_setting_dump(void)
                jo_close(p);
             } else
                addvalue(s->name, 0);
-            if (jo_error(p, NULL))
+            if ((err = jo_error(p, NULL)))
                jo_free(&p);     // Did not fit
          }
          addsetting();
@@ -1741,11 +1742,11 @@ static const char *revk_setting_dump(void)
                      jo_free(&j);
                      j = p;
                   } else
-                     revk_error(TAG, "Setting did not fit %s", tag);
+                     revk_error(TAG, "Setting did not fit %s (%s)", tag, err ? : "?");
                   free(tag);
                }
             }
-            if (jo_error(p, NULL))
+            if ((err = jo_error(p, NULL)))
                jo_free(&p);     // Did not fit
          }
          if (p)
@@ -1753,7 +1754,7 @@ static const char *revk_setting_dump(void)
             jo_free(&j);
             j = p;
          } else
-            revk_error(TAG, "Setting did not fit %s", s->name);
+            revk_error(TAG, "Setting did not fit %s (%s)", s->name, err ? : "?");
       }
    send();
    return "Not dumping yet";
