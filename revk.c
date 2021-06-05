@@ -1659,10 +1659,116 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    return NULL;                 /* OK */
 }
 
+static const char *revk_setting_dump(void)
+{                               // Dump settings (in JSON)
+   jo_t j = NULL;
+   void send(void) {
+      if (!j)
+         return;
+      char *v = jo_result(j);
+      if (v)
+         revk_raw(prefixsetting, NULL, strlen(v), v, 0);
+      jo_free(&j);
+   }
+   char buf[CONFIG_MQTT_BUFFER_SIZE - 100];
+   setting_t *s;
+   for (s = setting; s; s = s->next)
+      if (!(s->flags & SETTING_SECRET))
+      {
+         int max = 0;
+         if (s->array)
+         {                      // Work out m
+            max = s->array;
+            if (!(s->flags & SETTING_BOOLEAN))
+            {                   // Ignore all null data values
+               while (max)
+               {
+                  int l = (s->size ? : sizeof(void *));
+                  uint8_t *data = s->data + l * (max - 1);
+                  while (l && !*data++)
+                     l--;
+                  if (l)
+                     break;     // Has data
+                  max--;
+               }
+            }
+         }
+         jo_t p = NULL;
+         void addvalue(const char *tag, int n) {        // Add a value
+            if (!p)
+               p = (j ? jo_copy(j) : jo_create_mem(buf, sizeof(buf)));
+            void *data = s->data;
+            if (!(s->flags & SETTING_BOOLEAN))
+               data += (s->size ? : sizeof(void *)) * n;        // TODO
+            jo_string(p, tag, "test");  // TODO
+         }
+         void addsetting(void) {        // Add a whole setting
+            if (s->array)
+            {
+               if (!p)
+                  p = (j ? jo_copy(j) : jo_create_mem(buf, sizeof(buf)));
+               jo_array(p, s->name);
+               for (int n = 0; n < max; n++)
+                  addvalue(NULL, n);
+               jo_close(p);
+            } else
+               addvalue(s->name, 0);
+            if (jo_error(p, NULL))
+               jo_free(&p);     // Did not fit
+         }
+         addsetting();
+         if (!p && j)
+         {
+            send();             // Failed, clear what we were sending and try again
+            addsetting();
+         }
+         if (!p && s->array)
+         {                      // Failed, but is an array, so try each setting individually
+            for (int n = 0; n < max; n++)
+            {
+               char *tag;
+               asprintf(&tag, "%s%d", s->name, n + 1);
+               if (tag)
+               {
+                  addvalue(tag, n);
+                  if (!p && j)
+                  {
+                     send();    // Failed, clear what we were sending and try again
+                     addvalue(tag, n);
+                  }
+                  if (p)
+                  {             // Fitted, move forward
+                     jo_free(&j);
+                     j = p;
+                  } else
+                     revk_error(TAG, "Setting did not fit %s", tag);
+                  free(tag);
+               }
+            }
+            if (jo_error(p, NULL))
+               jo_free(&p);     // Did not fit
+         }
+         if (p)
+         {                      // Fitted, move forward
+            jo_free(&j);
+            j = p;
+         } else
+            revk_error(TAG, "Setting did not fit %s", s->name);
+      }
+   send();
+   return "Not dumping yet";
+}
+
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
+   if (!tag && !len)
+      return revk_setting_dump();
    if (!tag)
-      return "No setting";
+   {                            // Setting using JSON
+      // TODO check valid JSON
+      // TODO process
+      return NULL;
+   }
    unsigned char flags = 0;
    if (*tag == '0' && tag[1] == 'x')
    {                            /* Store hex */
@@ -1703,7 +1809,7 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
 
 const char *revk_command(const char *tag, unsigned int len, const void *value)
 {
-   if (!tag)
+   if (!tag || !*tag)
       return "No command";
    ESP_LOGD(TAG, "MQTT command [%s]", tag);
    const char *e = NULL;

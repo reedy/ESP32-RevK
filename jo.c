@@ -229,6 +229,11 @@ char *jo_result(jo_t j)
       return NULL;              // No good
    if (j->parse)
       return j->buf;            // As parsed
+   if (!j->ptr)
+   {
+      j->err = "Empty";
+      return NULL;
+   }
    // Add closing...
    while (j->level)
       jo_close(j);
@@ -243,13 +248,12 @@ void jo_free(jo_t * jp)
    if (!jp)
       return;
    jo_t j = *jp;
-   if (j)
-   {
-      *jp = NULL;
-      if (j->alloc && j->buf)
-         free(j->buf);
-      free(j);
-   }
+   if (!j)
+      return;
+   *jp = NULL;
+   if (j->alloc && j->buf)
+      free(j->buf);
+   free(j);
 }
 
 char *jo_result_free(jo_t * jp)
@@ -277,6 +281,8 @@ int jo_level(jo_t j)
 
 const char *jo_error(jo_t j, int *pos)
 {                               // Return NULL if no error, else returns an error string.
+   if (j && !j->err && !j->parse && !j->alloc && j->ptr + j->level + 1 > j->len)
+      return "No space to close";
    if (*pos)
       *pos = (j ? j->ptr : -1);
    if (!j)
