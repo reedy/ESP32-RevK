@@ -27,6 +27,10 @@ static const char
 #warning Set CONFIG_TASK_WDT_PANIC
 #endif
 
+#ifndef CONFIG_MQTT_BUFFER_SIZE
+#define	CONFIG_MQTT_BUFFER_SIZE 1024
+#endif
+
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		s(otacert,CONFIG_REVK_OTACERT);		\
