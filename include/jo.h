@@ -90,10 +90,10 @@ void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bit
 #define	jo_base32(j,t,m,l) jo_baseN(j,t,m,l,5,JO_BASE32)
 #define	jo_base16(j,t,m,l) jo_baseN(j,t,m,l,4,JO_BASE16)
 
-size_t jo_based(const char *src, unsigned char *dst, size_t dlen, const char *alphabet, unsigned int bits);
-#define	jo_based64(s,d,l) jo_based(s,d,l,6,JO_BASE64)
-#define	jo_based32(s,d,l) jo_based(s,d,l,5,JO_BASE32)
-#define	jo_based16(s,d,l) jo_based(s,d,l,4,JO_BASE16)
+size_t jo_based(unsigned char *dst, size_t dlen, const char *src,size_t slen,const char *alphabet, unsigned int bits);
+#define	jo_based64(d,dl,s,sl) jo_based(d,dl,s,sl,6,JO_BASE64)
+#define	jo_based32(d,dl,s,sl) jo_based(d,dl,s,sl,5,JO_BASE32)
+#define	jo_based16(d,dl,s,sl) jo_based(d,dl,s,sl,4,JO_BASE16)
 
 void jo_int(jo_t, const char *tag, int64_t);
 // Add an integer

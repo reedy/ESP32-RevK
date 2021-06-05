@@ -474,14 +474,15 @@ void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bit
    jo_write(j, '"');
 }
 
-size_t jo_based(const char *src, unsigned char *dst, size_t dlen,const char *alphabet, unsigned int bits)
+size_t jo_based(unsigned char *dst, size_t dlen, const char *src, size_t slen, const char *alphabet, unsigned int bits)
 {                               // Base16/32/64 string to binary
-   if (!src||!dlen)
+   if (!src || !dlen)
       return -1;
    int b = 0,
        v = 0;
-   ssize_t ptr=0;
-   while (*src && *src != '=')
+   ssize_t ptr = 0;
+   const char *e = src + slen;
+   while (src < e && *src != '=')
    {
       char *q = strchr(alphabet, bits < 6 ? toupper(*src) : *src);
       if (!q)
@@ -499,8 +500,9 @@ size_t jo_based(const char *src, unsigned char *dst, size_t dlen,const char *alp
       if (b >= 8)
       {                         // output byte
          b -= 8;
-	 if(dst&&ptr<dlen)dst[ptr]=(v >> b);
-	 ptr++;
+         if (dst && ptr < dlen)
+            dst[ptr] = (v >> b);
+         ptr++;
       }
    }
    return ptr;

@@ -1400,8 +1400,6 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    {                            /* Use default value */
       len = strlen(defval);
       value = (const unsigned char *) defval;
-      if (flags & SETTING_BINARY)
-         flags |= SETTING_HEX;
       erase = 1;
    }
    if (!value)
@@ -1412,22 +1410,11 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    int l = 0;
    if (flags & SETTING_HEX)
    {                            /* Count length */
-      int p = 0;
-      while (p < len && !isalnum(value[p]))
-         p++;
-      /* Separator */
-      while (p < len)
-      {                         /* get hex length */
-         if (!isxdigit(value[p]))
-            break;
-         p++;
-         if (p < len && isxdigit(value[p]))
-            p++;                /* Second hex digit in byte */
-         while (p < len && !isalnum(value[p]))
-            p++;                /* Separator */
-         l++;
-      }
-   } else
+   } else if(flags&SETTING_BINARY)
+   { /* convert from base64 */
+
+   }
+   else
       l = len;
    if (flags & SETTING_BINARY)
    {                            /* Blob */
