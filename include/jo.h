@@ -40,19 +40,14 @@ jo_t jo_copy(jo_t);
 // Copy object - copies the object, and if allocating memory, makes copy of the allocated memory too
 
 char *jo_result(jo_t);
-// Return JSON string
-// If in error, this is NULL - so can be used to check for error state
-// If writing, this has necessary closing brackets and NULL added first, but does not move the cursor
-// Returns NULL if adding brackets and null would not fit
+// Return JSON string - if writing then closes all levels and adds terminating null first. Does not free. NULL for error
 
 void jo_free(jo_t *);
 // Free jo_t and any allocated memory
 
 char *jo_result_free(jo_t *);
-// Return the JSON string, and free the jo_t object.
-// NULL if error state, as per jo_result
-// This is intended to be used with jo_create_alloc(), returning the allocated string (which will need freeing).
-// If used with a fixed string, a strdup is done, so that the return value can always be freed
+// Return JSON string and frees JSON object. Null for error.
+// Return value needs to be freed, intended to be used with jo_create_alloc()
 
 int jo_level(jo_t);
 // Current level, 0 being the top level

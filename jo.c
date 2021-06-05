@@ -47,26 +47,117 @@ static jo_t jo_new(void)
    return j;
 }
 
-static ssize_t jo_space(jo_t j, size_t need)
-{                               // How much space we have
-   // If need is set then allocates need first if possible
-   // If need is set and not need space then returns -1
-   if (!j || j->parse)
-      return -1;
-   if (j->alloc && j->len - j->ptr < need)
+static void *saferealloc(void *m, size_t len)
+{
+   void *n = realloc(m, len);
+   if (m && m != n)
+      free(m);
+   return n;
+}
+
+static inline void jo_write(jo_t j, uint8_t c)
+{                               // Write out byte
+   if (!j || j->err || j->parse)
+      return;
+   if (j->ptr >= j->len && (!j->alloc || !(j->buf = saferealloc(j->buf, j->len += 100))))
    {
-      if (need < 100)
-         need = 100;
-      char *more = realloc(j->buf, j->len + need);
-      if (more)
-      {                         // Got more
-         j->buf = more;
-         j->len += need;
-      }
+      j->err = "Out of space";
+      return;
    }
-   if (j->len - j->ptr < need)
-      return -1;                // Not enough
-   return j->len - j->ptr;
+   j->buf[j->ptr++] = c;
+}
+
+static inline int jo_peek(jo_t j)
+{                               // Peek next raw byte (-1 for end/fail)
+   if (!j || j->err || !j->parse || j->ptr >= j->len)
+      return -1;
+   return j->buf[j->ptr];
+}
+
+static inline int jo_read(jo_t j)
+{                               // Read and advance next raw byte (-1 for end/fail)
+   if (!j || j->err || !j->parse || j->ptr >= j->len)
+      return -1;
+   return j->buf[j->ptr++];
+}
+
+static int jo_read_str(jo_t j)
+{                               // Read next (UTF-8) within a string, so decode escaping (-1 for end/fail)
+   if (!j || !j->parse || j->err)
+      return -1;
+   int bad(const char *e) {     // Fail
+      if (!j->err)
+         j->err = e;
+      return -1;
+   }
+   int utf8(void) {             // next character
+      if (jo_peek(j) == '"')
+         return -1;             // Clean end of string
+      int c = jo_read(j),
+          q = 0;
+      if (c < 0)
+         return c;
+      if (c >= 0xF7)
+         return bad("Bad UTF-8");
+      if (c >= 0xF0)
+      {
+         c &= 0x07;
+         q = 3;
+      } else if (c >= 0xE0)
+      {
+         c &= 0x0F;
+         q = 2;
+      } else if (c >= 0xC0)
+      {
+         if (c < 0xC2)
+            return bad("Bad UTF-8");
+         c &= 0x1F;
+         q = 1;
+      } else if (c >= 0x80)
+         return bad("Bat UTF-8");
+      else if (c == '\\')
+      {                         // Escape
+         c = jo_read(j);
+         if (c == 'u')
+         {                      // Hex
+            c = 0;
+            for (int q = 4; q; q--)
+            {
+               int u = jo_read(j);
+               if (u >= '0' && u <= '9')
+                  c = (c << 4) + (u & 0xF);
+               else if ((u >= 'A' && u <= 'F') || (u >= 'a' && u <= 'f'))
+                  c = (c << 4) + 9 + (u & 0xF);
+               else
+                  return bad("bad hex escape");
+            }
+         }
+#define esc(a,b) else if(c==a)c=b;
+#define esco(a,b) esc(a,b)      // optional
+         escapes
+#undef esco
+#undef esc
+             else
+            return bad("Bad escape");
+      }
+      while (q--)
+      {                         // More UTF-8 characters
+         int u = jo_read(j);
+         if (u < 0x80 || u >= 0xC0)
+            return bad("Bad UTF-8");
+         c = (c << 6) + (u & 0x3F);
+      }
+      return c;
+   }
+   int c = utf8();
+   if (c >= 0xD800 && c <= 0xDBFF)
+   {                            // UTF16 Surrogates
+      int c2 = utf8();
+      if (c2 < 0xDC00 || c2 > 0xDFFF)
+         return bad("Bad UTF-16, second part invalid");
+      c = ((c & 0x3FF) << 10) + (c2 & 0x3FF) + 0x10000;
+   }
+   return c;
 }
 
 // Setting up
@@ -132,19 +223,17 @@ jo_t jo_copy(jo_t j)
 }
 
 char *jo_result(jo_t j)
-{                               // Return JSON string
+{                               // Return JSON string - if writing then closes all levels and adds terminating null first. Does not free. NULL for error
    if (!j || j->err)
       return NULL;              // No good
    if (j->parse)
       return j->buf;            // As parsed
    // Add closing...
-   if (jo_space(j, j->level + 1) <= 0)
-      return NULL;              // No space
-   uint8_t l = j->level;
-   char *p = j->buf + j->ptr;
-   while (l--)
-      *p++ = ((j->o[l / 8] & (1 << (l & 7))) ? '}' : ']');
-   *p = 0;
+   while (j->level)
+      jo_close(j);
+   jo_write(j, 0);              // Final null
+   if (j->err)
+      return NULL;
    return j->buf;
 }
 
@@ -163,10 +252,8 @@ void jo_free(jo_t * jp)
 }
 
 char *jo_result_free(jo_t * jp)
-{                               // Return the JSON string, and free the jo_t object.
-// NULL if error state, as per jo_result
-// This is intended to be used with jo_create_alloc(), returning the allocated string (which will need freeing).
-// If used with a fixed string, a strdup is done, so that the return value can always be freed
+{                               // Return JSON string and frees JSON object. Null for error.
+// Return value needs to be freed, intended to be used with jo_create_alloc()
    if (!jp)
       return NULL;
    jo_t j = *jp;
@@ -174,7 +261,7 @@ char *jo_result_free(jo_t * jp)
       return NULL;
    *jp = NULL;
    char *res = jo_result(j);
-   if (res && j->alloc)
+   if (res && !j->alloc)
       res = strdup(res);
    free(j);
    return res;
@@ -189,6 +276,8 @@ int jo_level(jo_t j)
 
 const char *jo_error(jo_t j, int *pos)
 {                               // Return NULL if no error, else returns an error string.
+   if (*pos)
+      *pos = (j ? j->ptr : -1);
    if (!j)
       return "No j";
    return j->err;
@@ -196,59 +285,6 @@ const char *jo_error(jo_t j, int *pos)
 
 // Creating
 // Note that tag is required if in an object and must be null if not
-
-static size_t jo_codedlen(const char *s)
-{                               // How much space would this string take as JSON (including "'s)
-   if (!s)
-      return 4;                 // null
-   int l = 2;                   // The first and last "
-   while (*s)
-   {
-      uint8_t c = *s++;
-#define esc(a,b) if(c==b){l+=2;continue;}
-#define esco(a,b)               // optional
-      escapes
-#undef esco
-#undef esc
-          if (c < ' ')
-      {
-         l += 6;                // \u00XX
-         continue;
-      }
-      l++;
-   }
-   return l;
-}
-
-static const char *jo_write_bad(jo_t j, const char *tag, int need)
-{
-   if (!j)
-      return "No j";
-   if (j->err)
-      return j->err;
-   if (j->parse)
-      return (j->err = "Writing to parse");
-   if (j->level && (j->o[(j->level - 1) / 8] & (1 << ((j->level - 1) & 7))))
-   {
-      if (!tag)
-         return (j->err = "missing tag in object");
-   } else if (tag)
-      return (j->err = "tag in non object");
-   if (need && tag)
-      need += jo_codedlen(tag) + 1;
-   if (need && j->comma)
-      need++;
-   if (jo_space(j, need) <= 0)
-      return "No space";
-   return NULL;
-}
-
-static void jo_write(jo_t j, uint8_t c)
-{
-   if (jo_space(j, 1) <= 0)
-      return;
-   j->buf[j->ptr++] = c;
-}
 
 static void jo_write_str(jo_t j, const char *s)
 {
@@ -276,20 +312,34 @@ static void jo_write_str(jo_t j, const char *s)
    jo_write(j, '"');
 }
 
-static void jo_write_tag(jo_t j, const char *tag)
-{
+static const char *jo_write_check(jo_t j, const char *tag)
+{                               // Check if we are able to write, and write the tag
+   if (!j)
+      return "No j";
+   if (j->err)
+      return j->err;
+   if (j->parse)
+      return (j->err = "Writing to parse");
+   if (j->level && (j->o[(j->level - 1) / 8] & (1 << ((j->level - 1) & 7))))
+   {
+      if (!tag)
+         return (j->err = "missing tag in object");
+   } else if (tag)
+      return (j->err = "tag in non object");
    if (j->comma)
       jo_write(j, ',');
    j->comma = 1;
-   if (!tag)
-      return;
-   jo_write_str(j, tag);
-   jo_write(j, ':');
+   if (tag)
+   {
+      jo_write_str(j, tag);
+      jo_write(j, ':');
+   }
+   return j->err;
 }
 
 static void jo_lit(jo_t j, const char *tag, const char *lit)
 {
-   if (jo_write_bad(j, tag, strlen(lit)))
+   if (jo_write_check(j, tag))
       return;
    while (*lit)
       jo_write(j, *lit++);
@@ -297,7 +347,7 @@ static void jo_lit(jo_t j, const char *tag, const char *lit)
 
 void jo_array(jo_t j, const char *tag)
 {                               // Start an array
-   if (jo_write_bad(j, tag, 1))
+   if (jo_write_check(j, tag))
       return;
    if (j->level >= JO_MAX)
    {
@@ -312,7 +362,7 @@ void jo_array(jo_t j, const char *tag)
 
 void jo_object(jo_t j, const char *tag)
 {                               // Start an object
-   if (jo_write_bad(j, tag, 1))
+   if (jo_write_check(j, tag))
       return;
    if (j->level >= JO_MAX)
    {
@@ -327,8 +377,6 @@ void jo_object(jo_t j, const char *tag)
 
 void jo_close(jo_t j)
 {                               // Close current array or object
-   if (jo_space(j, 1) <= 0)
-      return;
    if (!j->level)
    {
       j->err = "JSON too many closes";
@@ -346,17 +394,15 @@ void jo_string(jo_t j, const char *tag, const char *string)
       jo_null(j, tag);
       return;
    }
-   if (jo_write_bad(j, tag, jo_codedlen(string)))
+   if (jo_write_check(j, tag))
       return;
-   jo_write_tag(j, tag);
    jo_write_str(j, string);
 }
 
 void jo_printf(jo_t j, const char *tag, const char *format, ...)
 {                               // Add a string (formatted)
-   if (jo_write_bad(j, tag, 0))
+   if (jo_write_check(j, tag))
       return;
-   jo_write_tag(j, tag);
    char *v = NULL;
    va_list ap;
    va_start(ap, format);
@@ -382,10 +428,8 @@ void jo_litf(jo_t j, const char *tag, const char *format, ...)
 
 static void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bits, const char *alphabet)
 {                               // base 16/32/64 binary to string
-   size_t dlen = (slen * 8 + bits - 1) / bits;
-   if (jo_write_bad(j, tag, dlen + 2))
+   if (jo_write_check(j, tag))
       return;
-   jo_write_tag(j, tag);
    jo_write(j, '"');
    unsigned int i = 0,
        b = 0,
@@ -452,13 +496,80 @@ void jo_null(jo_t j, const char *tag)
 
 // Parsing
 
+static inline int jo_skip(jo_t j)
+{                               // Skip white space, and return peek at next
+   int c = jo_peek(j);
+   while (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+      c = jo_read(j);
+   return c;
+}
+
+// TODO do we need a skip tag / skip string thing?
+// TODO validating null, true, false, number
+
 jo_type_t jo_here(jo_t j)
 {                               // Return what type of thing we are at - we are always at a value of some sort, which has a tag if we are in an object
-   return 0;                    // TODO
+   if (!j || j->err || !j->parse)
+      return JO_END;
+   int c = jo_skip(j);
+   jo_t p = jo_copy(j);
+   if (j->level && (j->o[(j->level - 1) / 8] & (1 << ((j->level - 1) & 7))))
+   {                            // Expect tag
+      if (j->comma)
+      {                         // Expect comma
+         if (c != ',')
+            j->err = "Missing comma";
+         else
+            jo_read(p);
+         c = jo_skip(p);
+      }
+      if (c != '"')
+         j->err = "Missing tag";
+      else
+      {                         // Skip the tag
+         jo_read(p);
+         while (jo_read_str(p) >= 0);
+         c = jo_read(p);
+         if (c != '"')
+            j->err = "Unclosed tag";
+         else
+         {                      // colon
+            c = jo_skip(p);
+            if (c != ':')
+               j->err = "Missing colon";
+            else
+               jo_read(p);
+         }
+      }
+   }
+   jo_type_t t = JO_END;
+   if (!j->err)
+   {                            // Work out type
+      c = jo_skip(p);
+      if (c == '"')
+         t = JO_STRING;
+      else if (c == '{')
+         t = JO_OBJECT;
+      else if (c == '[')
+         t = JO_ARRAY;
+      else if (c == 'n')
+      {
+      } else if (c == 't')
+      {
+      } else if (c == 'f')
+      {
+      } else
+      {                         // Possible number
+      }
+   }
+   jo_free(&p);
+   if (j->err)
+      t = JO_END;
+   return t;
 }
 
 void jo_next(jo_t j)
-{                               // Move to next value - not this will pass any closing } or ] to get there
+{                               // Move to next value - note this will pass any closing } or ] to get there
 // Typically one loops in an object until jo_level() is back to start level or below.
 }
 
