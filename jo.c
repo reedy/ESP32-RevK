@@ -101,11 +101,11 @@ static int jo_read_str(jo_t j)
       if (c >= 0xF7)
          return bad("Bad UTF-8");
       if (c >= 0xF0)
-      {
+      { // Note could check for F0 and next byte as bad
          c &= 0x07;
          q = 3;
       } else if (c >= 0xE0)
-      {
+      { // Note could check for E0 and next byte as bad
          c &= 0x0F;
          q = 2;
       } else if (c >= 0xC0)
