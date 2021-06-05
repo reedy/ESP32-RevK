@@ -386,27 +386,49 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
          app_command("disconnect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
    case MQTT_EVENT_DATA:
-      {
-         const char *e = NULL;
-         int p;
-         for (p = event->topic_len; p && event->topic[p - 1] != '/'; p--);
-         char *tag = malloc(event->topic_len + 1 - p);
-         memcpy(tag, event->topic + p, event->topic_len - p);
-         tag[event->topic_len - p] = 0;
+      {                         // topic is expected to be a prefix/appname/id/tag where tag could be omitted
+         const char *t = event->topic,
+             *e = t + event->topic_len;
+         const char *err = NULL;
+         const char *p = t;
+         char *tag = NULL;
+         while (p < e && *p != '/')
+            p++;                // prefix
+         if (p >= e)
+            break;              // odd
+         int plen = p - t;
+         p++;
+         while (p < e && *p != '/')
+            p++;                // appname (ignore)
+         if (p >= e)
+            break;              // odd
+         p++;
+         while (p < e && *p != '/')
+            p++;                // id (ignore)
+         if (p < e)
+         {                      // tag
+            p++;
+            tag = malloc(e + 1 - p);
+            if (tag)
+            {
+               memcpy(tag, p, e - p);
+               tag[e - p] = 0;
+            }
+         }
          char *value = malloc(event->data_len + 1);
          if (event->data_len)
             memcpy(value, event->data, event->data_len);
          value[event->data_len] = 0;    /* Safe */
-         for (p = 0; p < event->topic_len && event->topic[p] != '/'; p++);
-         if (p == strlen(prefixcommand) && !memcmp(event->topic, prefixcommand, p))
-            e = revk_command(tag, event->data_len, (const unsigned char *) value);
-         else if (p == strlen(prefixsetting) && !memcmp(event->topic, prefixsetting, p))
-            e = (revk_setting(tag, event->data_len, (const unsigned char *) value) ? : "");     /* Returns NULL if OK */
+         if (plen == strlen(prefixcommand) && !memcmp(event->topic, prefixcommand, plen))
+            err = revk_command(tag, event->data_len, (const unsigned char *) value);
+         else if (plen == strlen(prefixsetting) && !memcmp(event->topic, prefixsetting, plen))
+            err = (revk_setting(tag, event->data_len, (const unsigned char *) value) ? : "");   /* Returns NULL if OK */
          else
-            e = "";
-         if (!e || *e)
-            revk_error(tag, "Failed %s", e ? : "Unknown");
-         free(tag);
+            err = "";
+         if (!err || *err)
+            revk_error(tag, "Failed %s", err ? : "Unknown");
+         if (tag)
+            free(tag);
          free(value);
       }
       break;
@@ -1639,6 +1661,8 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
 
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
+   if (!tag)
+      return "No setting";
    unsigned char flags = 0;
    if (*tag == '0' && tag[1] == 'x')
    {                            /* Store hex */
@@ -1679,6 +1703,8 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
 
 const char *revk_command(const char *tag, unsigned int len, const void *value)
 {
+   if (!tag)
+      return "No command";
    ESP_LOGD(TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
    /* My commands */
