@@ -693,42 +693,112 @@ void jo_next(jo_t j)
    }
 }
 
-const char *jo_tag(jo_t j)
-{                               // Return pointer to the '"' at the start of the current value's tag
-   return NULL;                 // TODO
+static ssize_t jo_cpycmp(jo_t j, char *dst, size_t max, uint8_t cmp)
+{                               // Copy or compare (-1 for dst<j, +1 for dst>j)
+   char *end = dst + max;
+   if (!j || !j->parse || j->err)
+   {                            // No pointer
+      if (!cmp)
+         return -1;             // Invalid length
+      if (!dst)
+         return 0;              // null==null?
+      return 1;                 // dst>null
+   }
+   jo_t p = jo_copy(j);
+   int c = jo_peek(p);
+   ssize_t result = 0;
+   void process(int c) {        // Compare or copy or count, etc
+      if (cmp)
+      {                         // Comparing
+         if (!dst)
+            return;             // Uh
+         if (dst >= end)
+         {
+            result = -1;        // dst ended, so dst<j
+            return;
+         }
+         int c2 = *dst++,
+             q = 0;
+         if (c2 >= 0xF0)
+         {
+            c2 &= 0x07;
+            q = 3;
+         } else if (c >= 0xE0)
+         {
+            c2 &= 0x0F;
+            q = 2;
+         } else if (c >= 0xC0)
+         {
+            c2 &= 0x1F;
+            q = 1;
+         }
+         while (q-- && dst < end && *dst >= 0x80 && *dst < 0xC0)
+            c2 = (c2 << 6) + (*dst++ & 0x3F);
+         if (c < c2)
+         {
+            result = 1;         // dst>j
+            return;
+         }
+         if (c > c2)
+         {
+            result = -1;        // dst<j
+            return;
+         }
+      } else
+      {                         // Copy or count
+         void add(uint8_t v) {
+            if (dst && dst < end)
+               *dst++ = v;
+            result++;           // count
+         }
+         if (c >= 0xF0)
+         {
+            add(0xF0 + (c >> 18));
+            add(0xC0 + ((c >> 12) & 0x3F));
+            add(0xC0 + ((c >> 6) & 0x3F));
+            add(0xC0 + (c & 0x3F));
+         } else if (c >= 0xE0)
+         {
+            add(0xF0 + (c >> 12));
+            add(0xC0 + ((c >> 6) & 0x3F));
+            add(0xC0 + (c & 0x3F));
+         } else if (c >= 0xC0)
+         {
+            add(0xF0 + (c >> 6));
+            add(0xC0 + (c & 0x3F));
+         } else
+            add(c);
+         if (dst && dst < end)
+            *dst = 0;           // Final null...
+      }
+   }
+   if (c == '"')
+   {                            // String
+      jo_read(p);
+      while ((c = jo_read_str(p)) >= 0 && (!cmp || !result))
+         process(c);
+   } else
+   {                            // Literal or number
+      while ((c = jo_read(p)) >= 0 && c > ' ' && c != ',' && c != ']' && c != '}' && (!cmp || !result))
+         process(c);
+   }
+   if (!result && cmp && dst && dst < end)
+      result = 1;               // j ended, do dst>j
+   jo_free(&p);
+   return result;
 }
 
-const char *jo_val(jo_t j)
-{                               // Return pointer to the first character of the value, e.g. the '"' at start of a string type
-   return NULL;                 // TODO
+ssize_t jo_strlen(jo_t j)
+{                               // Return byte length, if a string or tag this is the decoded byte length, else length of literal
+   return jo_cpycmp(j, NULL, 0, 0);
 }
 
-int64_t jo_val_int(jo_t j)
-{                               // Process the value and convert to integer
-   return 0;                    // TODO
+ssize_t jo_strncpy(char *target, jo_t j, size_t max)
+{                               // Copy from current point to a string. If a string or a tag, remove quotes and decode/deescape
+   return jo_cpycmp(j, target, max, 0);
 }
 
-double jo_val_real(jo_t j)
-{                               // Process the value and convert to real
-   return 0;                    // TODO
-}
-
-int jo_val_bool(jo_t j)
-{                               // Process the value and convert to bool (0 or 1)
-   return 0;                    // TODO
-}
-
-ssize_t jo_strlen(const char *str)
-{                               // Return length of decoded JSON string, where str is pointing to the '"' at start of tag or string value
-   return 0;                    // TODO
-}
-
-size_t jo_strncpy(char *target, const char *src, size_t max)
-{                               // This copies from src which is pointing to the '"' at start of tag or string value, to target
-   return 0;                    // TODO
-}
-
-int jo_strncmp(char *target, const char *src, size_t max)
-{                               // This compares src which is pointing to the '"' at start of tag or string value, to target
-   return 0;                    // TODO
+ssize_t jo_strncmp(char *target, jo_t j, size_t max)
+{                               // Compare from current point to a string. If a string or a tag, remove quotes and decode/deescape
+   return jo_cpycmp(j, target, max, 1);
 }

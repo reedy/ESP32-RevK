@@ -100,26 +100,11 @@ jo_type_t jo_here(jo_t);
 void jo_next(jo_t);
 // Here returns where we are in the parse, and next moves to next element that can be parsed
 
-const char *jo_tag(jo_t);
-// Return pointer to the '"' at the start of the current value's tag
+ssize_t jo_strlen(jo_t);
+// Return byte length, if a string or tag this is the decoded byte length, else length of literal
 
-const char *jo_val(jo_t);
-// Return pointer to the first character of the value, e.g. the '"' at start of a string type
+ssize_t jo_strncpy(char *target, jo_t, size_t max);
+// Copy from current point to a string. If a string or a tag, remove quotes and decode/deescape
 
-int64_t jo_val_int(jo_t);
-// Process the value and convert to integer
-
-double jo_val_real(jo_t);
-// Process the value and convert to real
-
-int jo_val_bool(jo_t);
-// Process the value and convert to bool (0 or 1)
-
-ssize_t jo_strlen(const char *str);
-// Return length of decoded JSON string, where str is pointing to the '"' at start of tag or string value
-
-size_t jo_strncpy(char *target, const char *src, size_t max);
-// This copies from src which is pointing to the '"' at start of tag or string value, to target
-
-int jo_strncmp(char *target, const char *src, size_t max);
-// This compares src which is pointing to the '"' at start of tag or string value, to target
+ssize_t jo_strncmp(char *target, jo_t, size_t max);
+// Compare from current point to a string. If a string or a tag, remove quotes and decode/deescape
