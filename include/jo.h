@@ -76,6 +76,7 @@ void jo_string(jo_t, const char *tag, const char *string);
 void jo_printf(jo_t, const char *tag, const char *format, ...);
 // Add a string (formatted)
 
+void jo_lit(jo_t, const char *tag, const char *lit);
 void jo_litf(jo_t, const char *tag, const char *format, ...);
 // Add a literal string (formatted) - caller is expected to meet JSON rules - used typically for numeric values
 

@@ -1735,7 +1735,7 @@ static const char *revk_setting_dump(void)
             {
                char *v = *(char **) data;
                if (v)
-                  jo_string(p, tag, v);      // String
+                  jo_string(p, tag, v); // String
                else
                   jo_null(p, tag);      // Null string
             } else
@@ -1749,14 +1749,53 @@ static const char *revk_setting_dump(void)
                   v = *(uint32_t *) data;
                else if (s->size == 8)
                   v = *(uint64_t *) data;
-               if (s->flags && SETTING_BOOLEAN)
+               if (s->flags & SETTING_BOOLEAN)
                   jo_bool(p, tag, (v >> n) & 1);
                else
                {                // numeric
-		       jo_int(p,tag,v);
-		       // TODO bitfields
-		       // TODO signed
-		       // TODO set
+                  char temp[100],
+                  *t = temp;
+                  uint8_t bits = s->size * 8;
+                  if (s->flags & SETTING_SET)
+                     bits--;
+                  if (!(s->flags & SETTING_SET) || ((v >> bits) & 1))
+                  {
+                     if (s->flags & SETTING_BITFIELD)
+                     {
+                        const char *c = s->defval;
+                        while (*c && *c != ' ')
+                        {
+                           bits--;
+                           if ((v >> bits) & 1)
+                              *t++ = *c;
+                           c++;
+                        }
+                     }
+                     if (s->flags & SETTING_SIGNED)
+                     {
+                        bits--;
+                        if ((v >> bits) & 1)
+                        {
+                           *t++ = '-';
+                           v = (v ^ ((1ULL << bits) - 1)) + 1;
+                        }
+                     }
+                     v &= ((1ULL << bits) - 1);
+                     t += sprintf(t, "%lld", v);
+                  }
+                  *t = 0;
+                  t = temp;
+                  if (*t == '-')
+                     t++;
+                  if (*t == '0')
+                     t++;
+                  else
+                     while (*t >= '0' && *t <= '9')
+                        t++;
+                  if (*t)
+                     jo_string(p, tag, temp);
+                  else
+                     jo_lit(p, tag, temp);
                }
             }
          }

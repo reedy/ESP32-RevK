@@ -346,7 +346,7 @@ static const char *jo_write_check(jo_t j, const char *tag)
    return j->err;
 }
 
-static void jo_lit(jo_t j, const char *tag, const char *lit)
+void jo_lit(jo_t j, const char *tag, const char *lit)
 {
    if (jo_write_check(j, tag))
       return;
