@@ -1905,13 +1905,14 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
    }
    if (!tag)
    {                            // Setting using JSON
+      jo_type_t t;
       jo_t j = jo_parse_mem(value, len);
       if (jo_here(j) != JO_OBJECT)
       {
          jo_free(&j);
          return "Pass JSON object";
       }
-      while (jo_next(j));
+      jo_skip(j);
       int pos;
       const char *er = jo_error(j, &pos);
       jo_free(&j);
@@ -1921,8 +1922,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
          return er;
       }
       j = jo_parse_mem(value, len);
-      jo_next(j);               // Start object
-      while (jo_here(j) == JO_TAG)
+      t = jo_next(j);           // Start object
+      ESP_LOGI(TAG, "t=%d", t);
+      while (t == JO_TAG)
       {
          int l = jo_strlen(j);
          if (l < 0)
@@ -1930,11 +1932,11 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
          char *tag = malloc(l + 1);
          if (tag)
          {
-            ESP_LOGI(TAG, "tag=%s", tag);
             jo_strncpy(j, tag, l + 1);
+            ESP_LOGI(TAG, "tag=%s", tag);
             // TODO find setting
 
-            jo_type_t t = jo_next(j);
+            t = jo_next(j);
             if (t == JO_OBJECT)
                er = "Unexpected object";
             else
@@ -1946,7 +1948,7 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                   if (val)
                   {
                      jo_strncpy(j, val, l + 1);
-                     revk_error(TAG, "tag=%s val=%s", tag, val);
+		     ESP_LOGI(TAG,"tag=%s val=%s",tag,val);
                      // TODO
                      free(val);
                   }
@@ -1954,6 +1956,8 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
             }
             free(tag);
          }
+         t = jo_skip(j);
+      ESP_LOGI(TAG, "t=%d", t);
       }
       jo_free(&j);
       return er;

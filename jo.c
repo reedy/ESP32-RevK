@@ -519,7 +519,26 @@ jo_type_t jo_here(jo_t j)
       return JO_END;
    int c = jo_ws(j);
    if (c < 0)
-      return c;
+      return JO_END;
+   if (c == '}' || c == ']')
+   {
+      if (j->tagok)
+      {
+         j->err = "Missing value";
+         return JO_END;
+      }
+      if (!j->level)
+      {
+         j->err = "Too many closed";
+         return JO_END;
+      }
+      if (c != ((j->o[(j->level - 1) / 8] & (1 << ((j->level - 1) & 7))) ? '}' : ']'))
+      {
+         j->err = "Mismatched close";
+         return JO_END;
+      }
+      return JO_CLOSE;
+   }
    if (j->comma)
    {
       if (!j->level)
@@ -552,25 +571,6 @@ jo_type_t jo_here(jo_t j)
       return JO_OBJECT;
    if (c == '[')
       return JO_ARRAY;
-   if (c == '}' || c == ']')
-   {
-      if (j->tagok)
-      {
-         j->err = "Missing value";
-         return JO_END;
-      }
-      if (!j->level)
-      {
-         j->err = "Too many closed";
-         return JO_END;
-      }
-      if (c != ((j->o[j->level / 8] & (1 << (j->level & 7))) ? '}' : ']'))
-      {
-         j->err = "Mismatched close";
-         return JO_END;
-      }
-      return JO_CLOSE;
-   }
    if (c == 'n')
       return JO_NULL;
    if (c == 't')
@@ -593,7 +593,7 @@ jo_type_t jo_next(jo_t j)
    case JO_END:                // End or error
       break;
    case JO_TAG:                // Tag
-      jo_read(j); // "
+      jo_read(j);               // "
       while (jo_read_str(j) >= 0);
       if (!j->err && jo_read(j) != '"')
          j->err = "Missing closing quote on tag";
@@ -603,7 +603,7 @@ jo_type_t jo_next(jo_t j)
       j->tagok = 1;             // We have skipped tag
       break;
    case JO_OBJECT:
-      jo_read(j); // {
+      jo_read(j);               // {
       if (j->level >= JO_MAX)
       {
          j->err = "JSON too deep";
@@ -615,7 +615,7 @@ jo_type_t jo_next(jo_t j)
       j->tagok = 0;
       break;
    case JO_ARRAY:
-      jo_read(j); // ]
+      jo_read(j);               // ]
       if (j->level >= JO_MAX)
       {
          j->err = "JSON too deep";
@@ -627,13 +627,13 @@ jo_type_t jo_next(jo_t j)
       j->tagok = 0;
       break;
    case JO_CLOSE:
-      jo_read(j); // }/]
+      jo_read(j);               // }/]
       j->level--;               // Was checked by jo_here()
       j->comma = 1;
       j->tagok = 0;
       break;
    case JO_STRING:
-      jo_read(j); // "
+      jo_read(j);               // "
       while (jo_read_str(j) >= 0);
       if (!j->err && jo_read(j) != '"')
          j->err = "Missing closing quote on string";
@@ -724,7 +724,7 @@ static ssize_t jo_cpycmp(jo_t j, char *str, size_t max, uint8_t cmp)
             return;             // Uh
          if (str >= end)
          {
-            result = 1;        // str ended, so str<j
+            result = 1;         // str ended, so str<j
             return;
          }
          int c2 = *str++,
@@ -746,12 +746,12 @@ static ssize_t jo_cpycmp(jo_t j, char *str, size_t max, uint8_t cmp)
             c2 = (c2 << 6) + (*str++ & 0x3F);
          if (c < c2)
          {
-            result = -1;         // str>j
+            result = -1;        // str>j
             return;
          }
          if (c > c2)
          {
-            result = 1;        // str<j
+            result = 1;         // str<j
             return;
          }
       } else
@@ -793,7 +793,7 @@ static ssize_t jo_cpycmp(jo_t j, char *str, size_t max, uint8_t cmp)
          process(c);
    }
    if (!result && cmp && str && str < end)
-      result = -1;               // j ended, do str>j
+      result = -1;              // j ended, do str>j
    jo_free(&p);
    return result;
 }
@@ -803,12 +803,12 @@ ssize_t jo_strlen(jo_t j)
    return jo_cpycmp(j, NULL, 0, 0);
 }
 
-ssize_t jo_strncpy(jo_t j,char *target, size_t max)
+ssize_t jo_strncpy(jo_t j, char *target, size_t max)
 {                               // Copy from current point to a string. If a string or a tag, remove quotes and decode/deescape
    return jo_cpycmp(j, target, max, 0);
 }
 
-ssize_t jo_strncmp(jo_t j,char *source, size_t max)
+ssize_t jo_strncmp(jo_t j, char *source, size_t max)
 {                               // Compare from current point to a string. If a string or a tag, remove quotes and decode/deescape
    return jo_cpycmp(j, source, max, 1);
 }
@@ -822,6 +822,8 @@ jo_type_t jo_skip(jo_t j)
       do
          jo_next(j);
       while ((t = jo_next(j)) != JO_END && jo_level(j) > l);
+      if (!j->err && t == JO_END && j->level)
+         j->err = "Unclosed";
    }
    return t;
 }
