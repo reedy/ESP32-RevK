@@ -10,10 +10,11 @@ typedef struct jo_s *jo_t;      // The JSON cursor used by all calls
 typedef enum {                  // The parse data value type we are at
    JO_END,                      // Not a value, we are at the end, or in an error state
    // JO_END always at start
-   JO_TAG,			// at a tag
+   JO_CLOSE,                    // at close of object or array
+   // After JO_END
+   JO_TAG,                      // at a tag
    JO_OBJECT,                   // value is the '{' of an object, jo_next() goes in to object if it has things in it
    JO_ARRAY,                    // value is the '[' of an array, jo_next() goes in to array if it has things in it
-   JO_CLOSE,			// at close of object or array
    JO_STRING,                   // value is the '"' of a string
    JO_NUMBER,                   // value is start of an number
    // Can test >= JO_NULL as test for literal
@@ -97,8 +98,13 @@ void jo_null(jo_t, const char *tag);
 // Parsing
 
 jo_type_t jo_here(jo_t);
-void jo_next(jo_t);
-// Here returns where we are in the parse, and next moves to next element that can be parsed
+// Here returns where we are in the parse
+
+jo_type_t jo_next(jo_t);
+// Move to next element we can parse (validating what we move over as we go)
+
+jo_type_t jo_skip(jo_t);
+// Skip this value to next value AT THE SAME LEVEL, typically used where a tag is not what you are looking for, etc
 
 ssize_t jo_strlen(jo_t);
 // Return byte length, if a string or tag this is the decoded byte length, else length of literal

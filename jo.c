@@ -101,11 +101,11 @@ static int jo_read_str(jo_t j)
       if (c >= 0xF7)
          return bad("Bad UTF-8");
       if (c >= 0xF0)
-      { // Note could check for F0 and next byte as bad
+      {                         // Note could check for F0 and next byte as bad
          c &= 0x07;
          q = 3;
       } else if (c >= 0xE0)
-      { // Note could check for E0 and next byte as bad
+      {                         // Note could check for E0 and next byte as bad
          c &= 0x0F;
          q = 2;
       } else if (c >= 0xC0)
@@ -577,15 +577,15 @@ jo_type_t jo_here(jo_t j)
    return JO_END;
 }
 
-void jo_next(jo_t j)
+jo_type_t jo_next(jo_t j)
 {                               // Move to next value, this validates what we are skipping. A tag and its value are separate
    int c;
    if (!j || !j->parse || j->err)
-      return;
+      return JO_END;
    switch (jo_here(j))
    {
    case JO_END:                // End or error
-      return;
+      break;
    case JO_TAG:                // Tag
       jo_read(j);
       while (jo_read_str(j) >= 0);
@@ -600,7 +600,7 @@ void jo_next(jo_t j)
       if (j->level >= JO_MAX)
       {
          j->err = "JSON too deep";
-         return;
+         break;
       }
       j->o[j->level / 8] |= (1 << (j->level & 7));
       j->level++;
@@ -611,7 +611,7 @@ void jo_next(jo_t j)
       if (j->level >= JO_MAX)
       {
          j->err = "JSON too deep";
-         return;
+         break;
       }
       j->o[j->level / 8] &= ~(1 << (j->level & 7));
       j->level++;
@@ -691,6 +691,7 @@ void jo_next(jo_t j)
       j->tagok = 0;
       break;
    }
+   return jo_here(j);
 }
 
 static ssize_t jo_cpycmp(jo_t j, char *dst, size_t max, uint8_t cmp)
@@ -801,4 +802,17 @@ ssize_t jo_strncpy(char *target, jo_t j, size_t max)
 ssize_t jo_strncmp(char *target, jo_t j, size_t max)
 {                               // Compare from current point to a string. If a string or a tag, remove quotes and decode/deescape
    return jo_cpycmp(j, target, max, 1);
+}
+
+jo_type_t jo_skip(jo_t j)
+{                               // Skip to next value at this level
+   jo_type_t t = jo_here(j);
+   if (t > JO_CLOSE)
+   {
+      int l = jo_level(j);
+      do
+         jo_next(j);
+      while ((t = jo_next(j)) != JO_END && jo_level(j) > l);
+   }
+   return t;
 }
