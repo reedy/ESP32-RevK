@@ -173,6 +173,7 @@ esp_mqtt_client_handle_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
 static int64_t slow_connect = 0;
+static uint8_t revk_dump = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
@@ -193,6 +194,7 @@ static esp_netif_t *ap_netif = NULL;
 #endif
 static uint8_t blink_on = 0,
     blink_off = 0;
+static const char *revk_setting_dump(void);
 
 /* Local functions */
 #ifdef	CONFIG_REVK_APCONFIG
@@ -649,6 +651,11 @@ static void task(void *pvParameters)
             esp_wifi_disconnect();
             xEventGroupWaitBits(revk_group, GROUP_WIFI_DONE, false, true, 1000 / portTICK_PERIOD_MS);
          }
+      }
+      if (revk_dump)
+      {                         // So not from mqtt
+         revk_dump = 0;
+         revk_setting_dump();
       }
       if (restart_time && restart_time < now && !ota_task_id)
       {                         /* Restart */
@@ -1709,7 +1716,7 @@ static const char *revk_setting_dump(void)
          }
          void addvalue(const char *tag, int n) {        // Add a value
             start();
-	    ESP_LOGI(TAG,"Adding %s(%d)",tag?:"?",n); // TODO
+            ESP_LOGI(TAG, "Adding %s(%d)", tag ? : "?", n);     // TODO
             void *data = s->data;
             if (!(s->flags & SETTING_BOOLEAN))
                data += (s->size ? : sizeof(void *)) * n;        // TODO
@@ -1768,13 +1775,16 @@ static const char *revk_setting_dump(void)
             revk_error(TAG, "Setting did not fit %s (%s)", s->name, err ? : "?");
       }
    send();
-   return "Not dumping yet";
+   return NULL;
 }
 
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
    if (!tag && !len)
-      return revk_setting_dump();
+   {
+      revk_dump = 1;
+      return NULL;
+   }
    if (!tag)
    {                            // Setting using JSON
       // TODO check valid JSON
