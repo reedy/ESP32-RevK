@@ -386,7 +386,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
       jo_int(j, "rssi", ap.rssi);
       jo_int(j, "chan", ap.primary);
-      revk_info(NULL, "%s", jo_result_free(&j) ? : "1");
+      revk_state(NULL, "%s", jo_result_free(&j) ? : "1");
       if (app_command)
          app_command("connect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
