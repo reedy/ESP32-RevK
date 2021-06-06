@@ -53,7 +53,7 @@ static void *saferealloc(void *m, size_t len)
 {
    void *n = realloc(m, len);
    if (m && !n)
-      free(m); // Failed, clear existing
+      free(m);                  // Failed, clear existing
    return n;
 }
 

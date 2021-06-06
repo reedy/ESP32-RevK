@@ -61,7 +61,6 @@ static const char
 		u16(mqttport,3,CONFIG_REVK_MQTTPORT);	\
 		u32(mqttsize,CONFIG_REVK_MQTTSIZE);	\
 		sa(mqttcert,3,CONFIG_REVK_MQTTCERT);	\
-    		b(mqttquiet,CONFIG_REVK_MQTTQUIET);	\
 
 #define	wifisettings	\
 		u32(wifireset,0);			\
@@ -368,16 +367,26 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
          free(topic);
       }
       sub(prefixcommand);
-      sub(prefixsetting);       /* Version, up */
-      revk_state(NULL, "1 ESP32 %s %s", revk_version, revk_id); /* Up */
+      sub(prefixsetting);
+
       /* Info */
-      const esp_partition_t *p = esp_ota_get_running_partition();
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info(&ap);
-      if (!mqttquiet)
-         revk_info(NULL, "MQTT%d(%d) %s ota=%u mem=%u %ums log=%u rst=%u", mqtt_index + 1, mqtt_count, p->label, p->size, esp_get_free_heap_size(), portTICK_PERIOD_MS, CONFIG_LOG_DEFAULT_LEVEL, esp_reset_reason());
-      if (esp_get_free_heap_size() < 20 * 1024)
-         revk_error(TAG, "WARNING LOW MEMORY - OTA MAY FAIL");
+      uint64_t t = esp_timer_get_time();
+      jo_t j = jo_create_alloc();
+      jo_object(j, NULL);
+      jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
+      jo_string(j, "id", revk_id);
+      jo_string(j, "app", appname);
+      jo_string(j, "version", revk_version);
+      jo_int(j, "mem", esp_get_free_heap_size());
+      jo_int(j, "tick", portTICK_PERIOD_MS);
+      jo_int(j, "rst", esp_reset_reason());
+      jo_string(j, "ssid", (char *) ap.ssid);
+      jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
+      jo_int(j, "rssi", ap.rssi);
+      jo_int(j, "chan", ap.primary);
+      revk_info(NULL, "%s", jo_result_free(&j) ? : "1");
       if (app_command)
          app_command("connect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
@@ -481,7 +490,7 @@ static void mqtt_next(void)
       .lwt_qos = 1,
       .lwt_retain = 1,
       .lwt_msg_len = 8,
-      .lwt_msg = "0 Failed",
+      .lwt_msg = "{\"up\":false}",
       .event_handle = mqtt_event_handler,
       .buffer_size = mqttsize,
       /* .disable_auto_reconnect = true, */
@@ -691,8 +700,6 @@ static void task(void *pvParameters)
          esp_wifi_sta_get_ap_info(&ap);
          if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastindex != wifi_index)
          {
-            if (!mqttquiet)
-               revk_info(NULL, "WiFi%d(%d) %02X%02X%02X:%02X%02X%02X %s (%ddB) ch%d%s", wifi_index + 1, wifi_count, ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5], ap.ssid, ap.rssi, ap.primary, ap.country.cc);
             lastindex = wifi_index;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
@@ -1152,11 +1159,7 @@ static void ap_task(void *pvParameters)
    wifi_fails = 0;
    lastonline = esp_timer_get_time();
    if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-   {
-      revk_state(NULL, "0 AP mode started");
-      esp_mqtt_client_stop(mqtt_client);        /* clean close */
-      xEventGroupWaitBits(revk_group, GROUP_MQTT_DONE, false, true, 1000 / portTICK_PERIOD_MS);
-   }
+      revk_mqtt_close("AP mode start");
    if (xEventGroupGetBits(revk_group) & GROUP_WIFI)
    {
       esp_wifi_disconnect();
@@ -2169,10 +2172,14 @@ void revk_mqtt_close(const char *reason)
    if (!mqtt_client)
       return;
    ESP_LOGI(TAG, "MQTT Close");
-   revk_state(NULL, "0 %s", reason);
+   jo_t j = jo_create_alloc();
+   jo_object(j, NULL);
+   jo_bool(j, "up", 0);
+   jo_string(j, "reason", reason);
+   revk_state(NULL, "%s", jo_result_free(&j) ? : "0");
    mqtt_index = -2;             /* Don't reconnect */
    esp_mqtt_client_stop(mqtt_client);
-   usleep(2000);                /* we don't get event, but need to allow time */
+   usleep(5000);                /* we don't get event, but need to allow time */
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif
