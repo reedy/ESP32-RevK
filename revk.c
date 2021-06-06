@@ -489,8 +489,8 @@ static void mqtt_next(void)
       .lwt_topic = topic,
       .lwt_qos = 1,
       .lwt_retain = 1,
-      .lwt_msg_len = 8,
       .lwt_msg = "{\"up\":false}",
+      .lwt_msg_len = 12,
       .event_handle = mqtt_event_handler,
       .buffer_size = mqttsize,
       /* .disable_auto_reconnect = true, */
@@ -2179,7 +2179,7 @@ void revk_mqtt_close(const char *reason)
    revk_state(NULL, "%s", jo_result_free(&j) ? : "0");
    mqtt_index = -2;             /* Don't reconnect */
    esp_mqtt_client_stop(mqtt_client);
-   usleep(5000);                /* we don't get event, but need to allow time */
+   usleep(10000);                /* we don't get event, but need to allow time */
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif
