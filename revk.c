@@ -386,7 +386,12 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
       jo_int(j, "rssi", ap.rssi);
       jo_int(j, "chan", ap.primary);
-      revk_state(NULL, "%s", jo_result_free(&j) ? : "1");
+      char *res = jo_finisha(&j);
+      if (res)
+      {
+         revk_state(NULL, "%s", res);
+         free(res);
+      }
       if (app_command)
          app_command("connect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
@@ -1652,10 +1657,9 @@ static const char *revk_setting_dump(void)
    void send(void) {
       if (!j)
          return;
-      char *v = jo_result(j);
+      char *v = jo_finish(&j);
       if (v)
          revk_raw(prefixsetting, NULL, strlen(v), v, 0);
-      jo_free(&j);
    }
    char buf[CONFIG_MQTT_BUFFER_SIZE - 100];
    setting_t *s;
@@ -2176,10 +2180,15 @@ void revk_mqtt_close(const char *reason)
    jo_object(j, NULL);
    jo_bool(j, "up", 0);
    jo_string(j, "reason", reason);
-   revk_state(NULL, "%s", jo_result_free(&j) ? : "0");
+   char *res = jo_finisha(&j);
+   if (res)
+   {
+      revk_state(NULL, "%s", res);
+      free(res);
+   }
    mqtt_index = -2;             /* Don't reconnect */
    esp_mqtt_client_stop(mqtt_client);
-   usleep(10000);                /* we don't get event, but need to allow time */
+   usleep(10000);               /* we don't get event, but need to allow time */
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif

@@ -59,8 +59,13 @@ static void *saferealloc(void *m, size_t len)
 
 static inline void jo_write(jo_t j, uint8_t c)
 {                               // Write out byte
-   if (!j || j->err || j->parse)
+   if (!j || j->err)
       return;
+   if (j->parse)
+   {
+      j->err = "Writing to read only JSON";
+      return;
+   }
    if (j->ptr >= j->len && (!j->alloc || !(j->buf = saferealloc(j->buf, j->len += 100))))
    {
       j->err = "Out of space";
@@ -224,28 +229,26 @@ jo_t jo_copy(jo_t j)
    return n;
 }
 
-char *jo_result(jo_t j)
-{                               // Return JSON string - if writing then closes all levels and adds terminating null first. Does not free. NULL for error
-   if (!j || j->err)
-      return NULL;              // No good
-   if (j->parse)
-      return j->buf;            // As parsed
-   if (!j->ptr)
-   {
-      j->err = "Empty";
-      return NULL;
-   }
-   // Add closing...
-   while (j->level)
-      jo_close(j);
-   jo_write(j, 0);              // Final null
-   if (j->err)
-      return NULL;
-   return j->buf;
+int jo_level(jo_t j)
+{                               // Current level, 0 being the top level
+   if (!j)
+      return -1;
+   return j->level;
+}
+
+const char *jo_error(jo_t j, int *pos)
+{                               // Return NULL if no error, else returns an error string.
+   if (pos)
+      *pos = (j ? j->ptr : -1);
+   if (j && !j->err && !j->parse && !j->alloc && j->ptr + j->level + 1 > j->len)
+      return "No space to finish JSON";
+   if (!j)
+      return "No j";
+   return j->err;
 }
 
 void jo_free(jo_t * jp)
-{                               // Free jo_t and any allocated memory
+{                               // Free j
    if (!jp)
       return;
    jo_t j = *jp;
@@ -257,38 +260,46 @@ void jo_free(jo_t * jp)
    free(j);
 }
 
-char *jo_result_free(jo_t * jp)
-{                               // Return JSON string and frees JSON object. Null for error.
-// Return value needs to be freed, intended to be used with jo_create_alloc()
+char *jo_finish(jo_t * jp)
+{                               // Finish creating static JSON, return start of static JSON if no error. Frees j. It is an error to use with jo_create_alloc
    if (!jp)
       return NULL;
    jo_t j = *jp;
    if (!j)
       return NULL;
    *jp = NULL;
-   char *res = jo_result(j);
-   if (res && !j->alloc)
-      res = strdup(res);
+   while (j->level)
+      jo_close(j);
+   jo_write(j, 0);
+   char *res = j->buf;
+   if (j->err || j->alloc)
+      res = NULL;
+   if (!res && j->alloc && j->buf)
+      free(j->buf);
    free(j);
    return res;
 }
 
-int jo_level(jo_t j)
-{                               // Current level, 0 being the top level
+char *jo_finisha(jo_t * jp)
+{                               // Finish creating allocated JSON, returns start of alloc'd memory if no error. Frees j. If NULL returned then any allocated space also freed
+// It is an error to use with non jo_create_alloc
+   if (!jp)
+      return NULL;
+   jo_t j = *jp;
    if (!j)
-      return -1;
-   return j->level;
-}
+      return NULL;
+   *jp = NULL;
+   while (j->level)
+      jo_close(j);
+   jo_write(j, 0);
+   char *res = j->buf;
+   if (j->err || !j->alloc)
+      res = NULL;
+   if (!res && j->alloc && j->buf)
+      free(j->buf);
+   free(j);
+   return res;
 
-const char *jo_error(jo_t j, int *pos)
-{                               // Return NULL if no error, else returns an error string.
-   if (j && !j->err && !j->parse && !j->alloc && j->ptr + j->level + 1 > j->len)
-      return "No space to close";
-   if (pos)
-      *pos = (j ? j->ptr : -1);
-   if (!j)
-      return "No j";
-   return j->err;
 }
 
 // Creating
@@ -376,7 +387,8 @@ void jo_object(jo_t j, const char *tag)
       return;
    if (j->level >= JO_MAX)
    {
-      j->err = "JSON too deep";
+      if (!j->err)
+         j->err = "JSON too deep";
       return;
    }
    j->o[j->level / 8] |= (1 << (j->level & 7));
@@ -389,7 +401,8 @@ void jo_close(jo_t j)
 {                               // Close current array or object
    if (!j->level)
    {
-      j->err = "JSON too many closes";
+      if (!j->err)
+         j->err = "JSON too many closes";
       return;
    }
    j->level--;

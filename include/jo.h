@@ -41,22 +41,23 @@ jo_t jo_create_alloc(void);
 jo_t jo_copy(jo_t);
 // Copy object - copies the object, and if allocating memory, makes copy of the allocated memory too
 
-char *jo_result(jo_t);
-// Return JSON string - if writing then closes all levels and adds terminating null first. Does not free. NULL for error
-
-void jo_free(jo_t *);
-// Free jo_t and any allocated memory
-
-char *jo_result_free(jo_t *);
-// Return JSON string and frees JSON object. Null for error.
-// Return value needs to be freed, intended to be used with jo_create_alloc()
-
 int jo_level(jo_t);
 // Current level, 0 being the top level
 
 const char *jo_error(jo_t, int *pos);
 // Return NULL if no error, else returns an error string.
+// Note, for creating JSON, this reports and error if not enough space to finish creating
 // If pos is set then the offset in to the JSON is retported
+
+void jo_free(jo_t *);
+// Free jo_t and any allocated memory
+
+char *jo_finish(jo_t *);
+// Finish creating static JSON, return start of static JSON if no error. Frees j. It is an error to use with jo_create_alloc
+
+char *jo_finisha(jo_t *);
+// Finish creating allocated JSON, returns start of alloc'd memory if no error. Frees j. If NULL returned then any allocated space also freed
+// It is an error to use with non jo_create_alloc
 
 // Creating
 // Note that tag is required if in an object and must be null if not
@@ -90,7 +91,7 @@ void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bit
 #define	jo_base32(j,t,m,l) jo_baseN(j,t,m,l,5,JO_BASE32)
 #define	jo_base16(j,t,m,l) jo_baseN(j,t,m,l,4,JO_BASE16)
 
-size_t jo_based(unsigned char *dst, size_t dlen, const char *src,size_t slen,uint8_t bits,const char *alphabet );
+size_t jo_based(unsigned char *dst, size_t dlen, const char *src, size_t slen, uint8_t bits, const char *alphabet);
 #define	jo_based64(d,dl,s,sl) jo_based(d,dl,s,sl,6,JO_BASE64)
 #define	jo_based32(d,dl,s,sl) jo_based(d,dl,s,sl,5,JO_BASE32)
 #define	jo_based16(d,dl,s,sl) jo_based(d,dl,s,sl,4,JO_BASE16)
