@@ -27,6 +27,7 @@
 
 #include "esp_log.h"
 #include "mqtt_client.h"
+#include "jo.h"
 
 // Types
 typedef const char *app_command_t (const char *tag, unsigned int len, const unsigned char *value);      // Return NULL=OK, empty-string=Unknown tag, string=error
@@ -69,9 +70,13 @@ TaskHandle_t revk_task (const char *tag, TaskFunction_t t, const void *param);
 
 // reporting (normally MQTT)
 void revk_state (const char *tag, const char *fmt, ...);        // Send status
+void revk_statej (const char *tag,jo_t *);
 void revk_event (const char *tag, const char *fmt, ...);        // Send event
+void revk_eventj (const char *tag,jo_t *);
 void revk_error (const char *tag, const char *fmt, ...);        // Send error
+void revk_errorj (const char *tag,jo_t *);
 void revk_info (const char *tag, const char *fmt, ...); // Send info
+void revk_infoj (const char *tag,jo_t *);
 #ifdef	CONFIG_REVK_MQTT
 void revk_raw (const char *prefix, const char *tag, int len, void * data, int retain);
 #endif

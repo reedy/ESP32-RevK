@@ -5,7 +5,6 @@ static const char
     __attribute__((unused)) * TAG = "RevK";
 
 #include "revk.h"
-#include "jo.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
 #include "esp_tls.h"
@@ -386,12 +385,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
       jo_int(j, "rssi", ap.rssi);
       jo_int(j, "chan", ap.primary);
-      char *res = jo_finisha(&j);
-      if (res)
-      {
-         revk_state(NULL, "%s", res);
-         free(res);
-      }
+      revk_statej(NULL, &j);
       if (app_command)
          app_command("connect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
@@ -922,10 +916,12 @@ void revk_mqtt_ap(const char *prefix, int qos, int retain, const char *tag, cons
 {                               /* Send formatted mqtt message */
    if (!mqtt_client)
       return;
-   char *topic;
+   char *topic = NULL;
    if (!prefix)
       topic = (char *) tag;     /* Set fixed topic */
    if (asprintf(&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, tag) < 0)
+      topic = NULL;
+   if (!topic)
       return;
    char *buf;
    int l;
@@ -944,6 +940,36 @@ void revk_mqtt_ap(const char *prefix, int qos, int retain, const char *tag, cons
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
+void revk_mqtt_apj(const char *prefix, int qos, int retain, const char *tag, jo_t * jp)
+{
+   if (!jp)
+      return;
+   char *res = jo_finisha(jp);
+   if (!res)
+      return;
+   if (mqtt_client)
+   {
+      char *topic = NULL;
+      if (!prefix)
+         topic = (char *) tag;  /* Set fixed topic */
+      else if (asprintf(&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, tag) < 0)
+         topic = NULL;
+      if (!topic)
+      {
+         free(res);
+         return;
+      }
+      ESP_LOGD(TAG, "MQTT publish %s (%s)", topic ? : "-", res);
+      if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
+         esp_mqtt_client_publish(mqtt_client, topic, res, strlen(res), qos, retain);
+      if (topic != tag)
+         free(topic);
+   }
+   free(res);
+}
+#endif
+
+#ifdef	CONFIG_REVK_MQTT
 void revk_raw(const char *prefix, const char *tag, int len, void *data, int retain)
 {                               /* Send raw MQTT message */
    if (!mqtt_client)
@@ -952,7 +978,7 @@ void revk_raw(const char *prefix, const char *tag, int len, void *data, int reta
    if (!prefix)
       topic = (char *) tag;     /* Set fixed topic */
    else if (asprintf(&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, tag) < 0)
-      return;
+      topic = NULL;
    if (!topic)
       return;
    ESP_LOGD(TAG, "MQTT publish %s (%d)", topic ? : "-", len);
@@ -973,6 +999,13 @@ void revk_state(const char *tag, const char *fmt, ...)
 #endif
 }
 
+void revk_statej(const char *tag, jo_t * jp)
+{
+#ifdef	CONFIG_REVK_MQTT
+   revk_mqtt_apj(prefixstate, 1, 1, tag, jp);
+#endif
+}
+
 void revk_event(const char *tag, const char *fmt, ...)
 {                               /* Send event */
 #ifdef	CONFIG_REVK_MQTT
@@ -980,6 +1013,13 @@ void revk_event(const char *tag, const char *fmt, ...)
    va_start(ap, fmt);
    revk_mqtt_ap(prefixevent, 0, 0, tag, fmt, ap);
    va_end(ap);
+#endif
+}
+
+void revk_eventj(const char *tag, jo_t * jp)
+{
+#ifdef	CONFIG_REVK_MQTT
+   revk_mqtt_apj(prefixevent, 0, 0, tag, jp);
 #endif
 }
 
@@ -999,6 +1039,13 @@ void revk_error(const char *tag, const char *fmt, ...)
 #endif
 }
 
+void revk_errorj(const char *tag, jo_t * jp)
+{
+#ifdef	CONFIG_REVK_MQTT
+   revk_mqtt_apj(prefixerror, 0, 0, tag, jp);
+#endif
+}
+
 void revk_info(const char *tag, const char *fmt, ...)
 {                               /* Send info */
 #ifdef	CONFIG_REVK_MQTT
@@ -1006,6 +1053,13 @@ void revk_info(const char *tag, const char *fmt, ...)
    va_start(ap, fmt);
    revk_mqtt_ap(prefixinfo, 0, 0, tag, fmt, ap);
    va_end(ap);
+#endif
+}
+
+void revk_infoj(const char *tag, jo_t * jp)
+{
+#ifdef	CONFIG_REVK_MQTT
+   revk_mqtt_apj(prefixinfo, 0, 0, tag, jp);
 #endif
 }
 
@@ -1072,7 +1126,10 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   ota_partition = NULL;
                } else
                {
-                  revk_info("upgrade", "Loading %d", ota_size);
+                  jo_t j = jo_create_alloc();
+                  jo_object(j, NULL);
+                  jo_int(j, "size", ota_size);
+                  revk_infoj("upgrade", &j);
                   ota_running = 1;
                   next = now + 5000000LL;
                }
@@ -1089,7 +1146,12 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                int percent = ota_running * 100 / ota_size;
                if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                {
-                  revk_info("upgrade", "%3d%%", ota_progress = percent);
+                  jo_t j = jo_create_alloc();
+                  jo_object(j, NULL);
+                  jo_int(j, "progress", ota_progress = percent);
+                  jo_int(j, "loaded", ota_running - 1);
+                  jo_int(j, "size", ota_size);
+                  revk_infoj("upgrade", &j);
                   next = now + 5000000LL;
                }
             }
@@ -1103,7 +1165,11 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       {
          if (!REVK_ERR_CHECK(esp_ota_end(ota_handle)))
          {
-            revk_info("upgrade", "Updated %s %d", ota_partition->label, ota_running - 1);
+            jo_t j = jo_create_alloc();
+            jo_object(j, NULL);
+            jo_string(j, "complete", ota_partition->label);
+            jo_int(j, "size", ota_size);
+            revk_infoj("upgrade", &j);
             esp_ota_set_boot_partition(ota_partition);
             revk_restart("OTA", 5);
          }
@@ -1231,7 +1297,10 @@ static void ap_task(void *pvParameters)
 static void ota_task(void *pvParameters)
 {
    char *url = pvParameters;
-   revk_info("upgrade", "%s", url);
+   jo_t j = jo_create_alloc();
+   jo_object(j, NULL);
+   jo_string(j, "url", url);
+   revk_infoj("upgrade", &j);
    esp_http_client_config_t config = {
       .url = url,.event_handler = ota_handler,
    };
@@ -2180,12 +2249,7 @@ void revk_mqtt_close(const char *reason)
    jo_object(j, NULL);
    jo_bool(j, "up", 0);
    jo_string(j, "reason", reason);
-   char *res = jo_finisha(&j);
-   if (res)
-   {
-      revk_state(NULL, "%s", res);
-      free(res);
-   }
+   revk_statej(NULL, &j);
    mqtt_index = -2;             /* Don't reconnect */
    esp_mqtt_client_stop(mqtt_client);
    usleep(10000);               /* we don't get event, but need to allow time */
