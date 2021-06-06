@@ -69,7 +69,7 @@ static const char
 		sa(wifiip,3,CONFIG_REVK_WIFIIP);	\
 		sa(wifigw,3,CONFIG_REVK_WIFIGW);	\
 		sa(wifidns,3,CONFIG_REVK_WIFIDNS);	\
-		f(wifibssid,3,6,CONFIG_REVK_WIFIBSSID);	\
+		fh(wifibssid,3,6,CONFIG_REVK_WIFIBSSID);	\
 		u8a(wifichan,3,CONFIG_REVK_WIFICHAN);	\
 		sap(wifipass,3,CONFIG_REVK_WIFIPASS);	\
 		s(apssid,CONFIG_REVK_APSSID);		\
@@ -94,7 +94,7 @@ static const char
 #define snl(n,d)	static char *n;
 #define sa(n,a,d)	static char *n[a];
 #define sap(n,a,d)	static char *n[a];
-#define f(n,a,s,d)	static char n[a][s];
+#define fh(n,a,s,d)	static char n[a][s];
 #define	u32(n,d)	static uint32_t n;
 #define	u16(n,a,d)	static uint16_t n[a];
 #define	i16(n)		static int16_t n;
@@ -123,7 +123,7 @@ settings
 #undef snl
 #undef sa
 #undef sap
-#undef f
+#undef fh
 #undef u32
 #undef u16
 #undef i16
@@ -775,7 +775,7 @@ void revk_init(app_command_t * app_command_cb)
 #define sp(n,d)		revk_register(#n,0,0,&n,d,SETTING_SECRET)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,0)
 #define sap(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_SECRET)
-#define f(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINARY)
+#define fh(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINARY|SETTING_HEX)
 #define	u32(n,d)	revk_register(#n,0,4,&n,str(d),0)
 #define	u16(n,a,d)	revk_register(#n,a,2,&n,str(d),0)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED)
@@ -802,7 +802,7 @@ void revk_init(app_command_t * app_command_cb)
 #undef s
 #undef snl
 #undef sa
-#undef f
+#undef fh
 #undef u32
 #undef u16
 #undef i16
@@ -1400,34 +1400,19 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    {                            /* Use default value */
       len = strlen(defval);
       value = (const unsigned char *) defval;
-      if (flags & SETTING_BINARY)
-         flags |= SETTING_HEX;
       erase = 1;
    }
    if (!value)
       value = (const unsigned char *) "";
-   ESP_LOGI(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);      // TODO
+   ESP_LOGD(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);      // TODO
    /* Parse new setting */
    unsigned char *n = NULL;
    int l = 0;
    if (flags & SETTING_HEX)
-   {                            /* Count length */
-      int p = 0;
-      while (p < len && !isalnum(value[p]))
-         p++;
-      /* Separator */
-      while (p < len)
-      {                         /* get hex length */
-         if (!isxdigit(value[p]))
-            break;
-         p++;
-         if (p < len && isxdigit(value[p]))
-            p++;                /* Second hex digit in byte */
-         while (p < len && !isalnum(value[p]))
-            p++;                /* Separator */
-         l++;
-      }
-   } else
+      l = jo_based16(NULL, 0, (const char *) value, len);
+   else if (flags & SETTING_BINARY)
+      l = jo_based64(NULL, 0, (const char *) value, len);
+   else
       l = len;
    if (flags & SETTING_BINARY)
    {                            /* Blob */
@@ -1450,24 +1435,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (l)
       {
          if (flags & SETTING_HEX)
-         {                      /* hex */
-            int p = 0;
-            while (p < len && !isalnum(value[p]))
-               p++;             /* Separator */
-            while (p < len)
-            {                   /* store hex length */
-               int v = (isalpha(value[p]) ? 9 : 0) + (value[p] & 15);
-               p++;
-               if (p < len && isxdigit(value[p]))
-               {
-                  v = v * 16 + (isalpha(value[p]) ? 9 : 0) + (value[p] & 15);
-                  p++;          /* Second hex digit in byte */
-               }
-               *o++ = v;
-               while (p < len && !isalnum(value[p]))
-                  p++;          /* Separator */
-            }
-         } else
+            jo_based16(o, l, (const char *) value, len);
+         else if (flags & SETTING_BINARY)
+            jo_based64(o, l, (const char *) value, len);
+         else
             memcpy(o, value, len);      /* Binary */
       }
    } else if (!s->size)
@@ -1742,7 +1713,7 @@ static const char *revk_setting_dump(void)
                   len = *(uint8_t *) data++;
                }
                if (s->flags & SETTING_HEX)
-                  jo_hex(p, tag, data, len);
+                  jo_base16(p, tag, data, len);
                else
                   jo_base64(p, tag, data, len);
             } else if (!s->size)
