@@ -59,8 +59,14 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
 #define	SETTING_HEX		32      // Source string is hex coded
 #define	SETTING_SET		64      // Set top bit of numeric if a value is present at all
 #define	SETTING_SECRET		128     // Don't dump setting
-esp_err_t revk_err_check (esp_err_t, const char *file, int line);       // Log if error
-#define	REVK_ERR_CHECK(x) revk_err_check(x,__FILE__,__LINE__)
+
+#if defined(CONFIG_BOOTLOADER_LOG_LEVEL_DEBUG) || defined(CONFIG_BOOTLOADER_LOG_LEVEL_VERBOSE)
+esp_err_t revk_err_check (esp_err_t, const char *file, int line,const char *func,const char *cmd);       // Log if error
+#define	REVK_ERR_CHECK(x) revk_err_check(x,__FILE__,__LINE__,__FUNCTION__,#x)
+#else
+esp_err_t revk_err_check(esp_err_t e);
+#define	REVK_ERR_CHECK(x) revk_err_check(x)
+#endif
 
 const char *revk_appname(void);
 const char *revk_hostname(void);

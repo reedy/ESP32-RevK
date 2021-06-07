@@ -2188,20 +2188,39 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
    }
 }
 
-esp_err_t revk_err_check(esp_err_t e, const char *file, int line)
+#if CONFIG_BOOTLOADER_LOG_LEVEL > 3
+esp_err_t revk_err_check(esp_err_t e, const char *file, int line, const char *func, const char *cmd)
 {
    if (e != ERR_OK)
    {
-      ESP_LOGE(TAG, "Error at line %d in %s (%s)", line, file, esp_err_to_name(e));
+      const char *fn = strrchr(file, '/');
+      if (fn)
+         fn++;
+      else
+         fn = file;
+      ESP_LOGE(TAG, "Error %s at line %d in %s (%s)", esp_err_to_name(e), line, fn, cmd);
       jo_t j = jo_object_alloc();
       jo_int(j, "code", e);
       jo_string(j, "description", esp_err_to_name(e));
-      jo_string(j, "file", file);
+      jo_string(j, "file", fn);
       jo_int(j, "line", line);
+      jo_string(j, "function", func);
+      jo_string(j, "command", cmd);
       revk_errorj("error", &j);
    }
    return e;
 }
+#else
+esp_err_t revk_err_check(esp_err_t e)
+{
+   if (e != ERR_OK)
+   {
+      ESP_LOGE(TAG, "Error %s", esp_err_to_name(e));
+      revk_error("error", "%s", esp_err_to_name(e));    // Simple
+   }
+   return e;
+}
+#endif
 
 #ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt(void)
