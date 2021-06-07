@@ -208,6 +208,13 @@ jo_t jo_create_alloc(void)
    return j;
 }
 
+jo_t jo_object_alloc(void)
+{                               // Common
+   jo_t j = jo_create_alloc();
+   jo_object(j, NULL);
+   return j;
+}
+
 jo_t jo_copy(jo_t j)
 {                               // Copy object - copies the object, and if allocating memory, makes copy of the allocated memory too
    if (!j || j->err)

@@ -372,8 +372,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       wifi_ap_record_t ap = { };
       esp_wifi_sta_get_ap_info(&ap);
       uint64_t t = esp_timer_get_time();
-      jo_t j = jo_create_alloc();
-      jo_object(j, NULL);
+      jo_t j = jo_object_alloc();
       jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
       jo_string(j, "id", revk_id);
       jo_string(j, "app", appname);
@@ -1126,8 +1125,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   ota_partition = NULL;
                } else
                {
-                  jo_t j = jo_create_alloc();
-                  jo_object(j, NULL);
+                  jo_t j = jo_object_alloc();
                   jo_int(j, "size", ota_size);
                   revk_infoj("upgrade", &j);
                   ota_running = 1;
@@ -1146,8 +1144,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                int percent = ota_running * 100 / ota_size;
                if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                {
-                  jo_t j = jo_create_alloc();
-                  jo_object(j, NULL);
+                  jo_t j = jo_object_alloc();
                   jo_int(j, "progress", ota_progress = percent);
                   jo_int(j, "loaded", ota_running - 1);
                   jo_int(j, "size", ota_size);
@@ -1165,8 +1162,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       {
          if (!REVK_ERR_CHECK(esp_ota_end(ota_handle)))
          {
-            jo_t j = jo_create_alloc();
-            jo_object(j, NULL);
+            jo_t j = jo_object_alloc();
             jo_string(j, "complete", ota_partition->label);
             jo_int(j, "size", ota_size);
             revk_infoj("upgrade", &j);
@@ -1297,8 +1293,7 @@ static void ap_task(void *pvParameters)
 static void ota_task(void *pvParameters)
 {
    char *url = pvParameters;
-   jo_t j = jo_create_alloc();
-   jo_object(j, NULL);
+   jo_t j = jo_object_alloc();
    jo_string(j, "url", url);
    revk_infoj("upgrade", &j);
    esp_http_client_config_t config = {
@@ -2198,7 +2193,12 @@ esp_err_t revk_err_check(esp_err_t e, const char *file, int line)
    if (e != ERR_OK)
    {
       ESP_LOGE(TAG, "Error at line %d in %s (%s)", line, file, esp_err_to_name(e));
-      revk_error("error", "Error at line %d in %s (%s)", line, file, esp_err_to_name(e));
+      jo_t j = jo_object_alloc();
+      jo_int(j, "code", e);
+      jo_string(j, "description", esp_err_to_name(e));
+      jo_string(j, "file", file);
+      jo_int(j, "line", line);
+      revk_errorj("error", &j);
    }
    return e;
 }
@@ -2245,8 +2245,7 @@ void revk_mqtt_close(const char *reason)
    if (!mqtt_client)
       return;
    ESP_LOGI(TAG, "MQTT Close");
-   jo_t j = jo_create_alloc();
-   jo_object(j, NULL);
+   jo_t j = jo_object_alloc();
    jo_bool(j, "up", 0);
    jo_string(j, "reason", reason);
    revk_statej(NULL, &j);

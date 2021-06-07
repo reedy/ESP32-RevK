@@ -38,6 +38,9 @@ jo_t jo_create_mem(char *buf, size_t len);
 jo_t jo_create_alloc(void);
 // Start creating JSON in memory, allocating space as needed.
 
+jo_t jo_object_alloc(void);
+// As so common, this does jo_create_alloc(), and jo_object()
+
 jo_t jo_copy(jo_t);
 // Copy object - copies the object, and if allocating memory, makes copy of the allocated memory too
 
