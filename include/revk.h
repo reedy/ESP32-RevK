@@ -60,7 +60,7 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
 #define	SETTING_SET		64      // Set top bit of numeric if a value is present at all
 #define	SETTING_SECRET		128     // Don't dump setting
 
-#if defined(CONFIG_LOG_DEFAULT_LEVEL_DEBUG) || defined(CONFIG_LOG_DEFAULT_LEVEL_VERBOSE)
+#if CONFIG_LOG_DEFAULT_LEVEL > 3
 esp_err_t revk_err_check (esp_err_t, const char *file, int line,const char *func,const char *cmd);       // Log if error
 #define	REVK_ERR_CHECK(x) revk_err_check(x,__FILE__,__LINE__,__FUNCTION__,#x)
 #else

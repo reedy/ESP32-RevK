@@ -2188,7 +2188,7 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
    }
 }
 
-#if defined(CONFIG_LOG_DEFAULT_LEVEL_DEBUG) || defined(CONFIG_LOG_DEFAULT_LEVEL_VERBOSE)
+#if CONFIG_LOG_DEFAULT_LEVEL > 3
 esp_err_t revk_err_check(esp_err_t e, const char *file, int line, const char *func, const char *cmd)
 {
    if (e != ERR_OK)
