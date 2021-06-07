@@ -2188,7 +2188,7 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
    }
 }
 
-#if CONFIG_BOOTLOADER_LOG_LEVEL > 3
+#if defined(CONFIG_LOG_DEFAULT_LEVEL_DEBUG) || defined(CONFIG_LOG_DEFAULT_LEVEL_VERBOSE)
 esp_err_t revk_err_check(esp_err_t e, const char *file, int line, const char *func, const char *cmd)
 {
    if (e != ERR_OK)
@@ -2206,7 +2206,7 @@ esp_err_t revk_err_check(esp_err_t e, const char *file, int line, const char *fu
       jo_int(j, "line", line);
       jo_string(j, "function", func);
       jo_string(j, "command", cmd);
-      revk_errorj("error", &j);
+      revk_errorj(NULL, &j);
    }
    return e;
 }
@@ -2216,7 +2216,10 @@ esp_err_t revk_err_check(esp_err_t e)
    if (e != ERR_OK)
    {
       ESP_LOGE(TAG, "Error %s", esp_err_to_name(e));
-      revk_error("error", "%s", esp_err_to_name(e));    // Simple
+      jo_t j = jo_object_alloc();
+      jo_int(j, "code", e);
+      jo_string(j, "description", esp_err_to_name(e));
+      revk_errorj(NULL, &j);
    }
    return e;
 }
