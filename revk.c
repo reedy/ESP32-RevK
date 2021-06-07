@@ -2011,9 +2011,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      t = jo_next(j);    // In to array
                      while (index < s->array)
                      {
+                        index++;
                         store();
                         t = jo_skip(j);
-                        index++;
                      }
                   }
 
