@@ -343,6 +343,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
    {
    case MQTT_EVENT_CONNECTED:
       ESP_LOGI(TAG, "MQTT connect");
+      lastonline = esp_timer_get_time() + 3000000LL;
       slow_connect = 0;
       if (mqttreset)
          revk_restart(NULL, -1);
@@ -943,9 +944,13 @@ void revk_mqtt_apj(const char *prefix, int qos, int retain, const char *tag, jo_
 {
    if (!jp)
       return;
+   const char *err = jo_error(*jp, NULL);
    char *res = jo_finisha(jp);
    if (!res)
+   {
+      ESP_LOGE(TAG, "JSON not sent: %s", err);
       return;
+   }
    if (mqtt_client)
    {
       char *topic = NULL;
