@@ -135,14 +135,17 @@ settings
 /* Local types */
 typedef struct setting_s setting_t;
 struct setting_s {
-   nvs_handle nvs;
-   setting_t *next;
-   const char *name;
-   const char *defval;
-   void *data;
-   uint16_t size;
-   uint8_t array;
-   uint8_t flags;
+   nvs_handle nvs;              // Where stored
+   setting_t *next;             // Next setting
+   const char *name;            // Setting name
+   const char *defval;          // Default value, or bitfield{[space]default}
+   void *data;                  // Stored data
+   uint16_t size;               // Size of data, 0=dynamic
+   uint8_t array;               // array size
+   uint8_t flags;               // flags 
+   uint8_t set:1;               // Has been set
+   uint8_t parent:1;            // Parent setting
+   uint8_t child:1;             // Child setting
 };
 /* Public */
 const char *revk_version = "";  /* Git version */
@@ -1451,6 +1454,12 @@ static esp_err_t nvs_set(setting_t * s, const char *tag, void *data)
 static const char *revk_setting_internal(setting_t * s, unsigned int len, const unsigned char *value, unsigned char index, unsigned char flags)
 {
    flags |= s->flags;
+   {                            // Overlap check
+      setting_t *q;
+      for (q = setting; q && q->data != s->data; q = q->next);
+      if (q)
+         s = q;
+   }
    void *data = s->data;
    if (s->array)
    {
@@ -1481,6 +1490,8 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    }
    if (!value)
       value = (const unsigned char *) "";
+   else
+      s->set = 1;
    ESP_LOGD(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);      // TODO
    /* Parse new setting */
    unsigned char *n = NULL;
@@ -1733,7 +1744,8 @@ static const char *revk_setting_dump(void)
    char buf[CONFIG_MQTT_BUFFER_SIZE - 100];
    setting_t *s;
    for (s = setting; s; s = s->next)
-      if (!(s->flags & SETTING_SECRET))
+   {
+      if ((!(s->flags & SETTING_SECRET) || s->parent) && !s->child)
       {
          int max = 0;
          if (s->array)
@@ -1774,7 +1786,7 @@ static const char *revk_setting_dump(void)
                }
             }
          }
-         void addvalue(const char *tag, int n) {        // Add a value
+         void addvalue(setting_t * s, const char *tag, int n) { // Add a value
             start();
             void *data = s->data;
             const char *defval = s->defval ? : "";
@@ -1847,7 +1859,7 @@ static const char *revk_setting_dump(void)
                      v &= ((1ULL << bits) - 1);
                      if (s->flags & SETTING_HEX)
                         t += sprintf(t, "%llX", v);
-                     else
+                     else if (bits)
                         t += sprintf(t, "%llu", v);
                   }
                   *t = 0;
@@ -1859,6 +1871,8 @@ static const char *revk_setting_dump(void)
                   else
                      while (*t >= '0' && *t <= '9')
                         t++;
+                  if (t == temp && !*defval)
+                     return;    // default empty string
                   if (t == temp || *t || (s->flags & SETTING_HEX))
                      jo_string(p, tag, temp);
                   else
@@ -1867,15 +1881,36 @@ static const char *revk_setting_dump(void)
             }
          }
          void addsetting(void) {        // Add a whole setting
-            if (s->array)
+            if (s->parent)
+            {
+               int len = strlen(s->name);
+               void jo_sub(int n) {
+                  start();
+                  jo_object(p, NULL);
+                  setting_t *q;
+                  for (q = setting; q; q = q->next)
+                     if (q->child && !strncmp(q->name, s->name, len))
+                        addvalue(q, q->name + len, n);
+                  jo_close(p);
+               }
+               if (s->array)
+               {                // Array above
+                  start();
+                  jo_array(p, s->name);
+                  for (int n = 0; n < max; n++)
+                     jo_sub(n);
+                  jo_close(p);
+               } else
+                  jo_sub(0);
+            } else if (s->array)
             {
                start();
                jo_array(p, s->name);
                for (int n = 0; n < max; n++)
-                  addvalue(NULL, n);
+                  addvalue(s, NULL, n);
                jo_close(p);
             } else
-               addvalue(s->name, 0);
+               addvalue(s, s->name, 0);
             if ((err = jo_error(p, NULL)))
                jo_free(&p);     // Did not fit
          }
@@ -1893,11 +1928,11 @@ static const char *revk_setting_dump(void)
                asprintf(&tag, "%s%d", s->name, n + 1);
                if (tag)
                {
-                  addvalue(tag, n);
+                  addvalue(s, tag, n);
                   if (!p && j)
                   {
                      send();    // Failed, clear what we were sending and try again
-                     addvalue(tag, n);
+                     addvalue(s, tag, n);
                   }
                   if (p)
                   {             // Fitted, move forward
@@ -1918,6 +1953,7 @@ static const char *revk_setting_dump(void)
          } else
             revk_error(TAG, "Setting did not fit %s (%s)", s->name, err ? : "?");
       }
+   }
    send();
    return NULL;
 }
@@ -1980,19 +2016,24 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
          if (l < 0)
             break;
          char *tag = malloc(l + 1);
-         if (tag)
+         if (!tag)
+            er = "Malloc";
+         else
          {
             jo_strncpy(j, (char *) tag, l + 1);
+            t = jo_next(j);     // the value
             setting_t *s;
             for (s = setting; s && match(s, tag); s = s->next);
             if (!s)
-               er = "Unknown setting";
-            else
             {
-               void store(void) {
+               ESP_LOGI(TAG, "Unknown %s", tag);
+               er = "Unknown setting";
+            } else
+            {
+               void store(setting_t * s) {
                   int l = 0;
                   char *val = NULL;
-                  if (t != JO_NULL)
+                  if (t == JO_NUMBER || t == JO_STRING || t >= JO_TRUE)
                   {
                      l = jo_strlen(j);
                      if (l >= 0)
@@ -2002,10 +2043,38 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                   if (val)
                      free(val);
                }
-               t = jo_next(j);
+               void storesub(void) {
+                  t = jo_next(j);       // In to object
+                  while (t && t != JO_CLOSE && !er)
+                  {
+                     if (t == JO_TAG)
+                     {
+                        int l2 = jo_strlen(j);
+                        char *tag2 = malloc(l + l2 + 1);
+                        if (tag2)
+                        {
+                           strcpy(tag2, tag);
+                           jo_strncpy(j, (char *) tag2 + l, l2 + 1);
+                           jo_next(j);
+                           setting_t *q;
+                           for (q = setting; q && match(q, tag2); q = q->next);
+                           if (!q)
+                              er = "Unknown setting";
+                           else
+                              store(q);
+                           free(tag2);
+                        }
+                     }
+                     t = jo_skip(j);
+                  }
+               }
                if (t == JO_OBJECT)
-                  er = "Unexpected object";
-               else if (t == JO_ARRAY)
+               {
+                  if (!s->parent)
+                     er = "Unexpected object";
+                  else
+                     storesub();
+               } else if (t == JO_ARRAY)
                {
                   if (!s->array)
                      er = "Not an array";
@@ -2014,20 +2083,29 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      if (index)
                         index--;
                      t = jo_next(j);    // In to array
+                     while (index < s->array && t != JO_CLOSE && !er)
+                     {
+                        index++;
+                        if (t == JO_OBJECT)
+                           storesub();
+                        else if (t == JO_ARRAY)
+                           er = "Unexpected array";
+                        else
+                           store(s);
+                        t = jo_next(j);
+                     }
                      while (index < s->array)
                      {
                         index++;
-                        store();
-                        t = jo_skip(j);
+                        store(s);
                      }
                   }
-
                } else
-                  store();
+                  store(s);
             }
             free(tag);
+            t = jo_next(j);
          }
-         t = jo_skip(j);
       }
       jo_free(&j);
       return er;
@@ -2132,6 +2210,7 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
    if (s)
       ESP_LOGE(TAG, "%s duplicate", name);
    s = malloc(sizeof(*s));
+   memset(s, 0, sizeof(*s));
    s->nvs = nvs;
    s->name = name;
    s->array = array;
@@ -2140,6 +2219,19 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
    s->flags = flags;
    s->defval = defval;
    s->next = setting;
+   if (!(flags & SETTING_SECRET))
+   {                            // Check if sub setting - parent must be set first, and be secret and same array size
+      setting_t *q;
+      int len = strlen(name),
+          l;
+      for (q = setting; q && ((l = strlen(q->name)) >= len || strncmp(q->name, name, l) || !(q->flags & SETTING_SECRET) || q->array != array); q = q->next);
+      if (q)
+      {
+         ESP_LOGI(TAG, "%s is child of %s", s->name, q->name);  // TODO
+         s->child = 1;
+         q->parent = 1;
+      }
+   }
    setting = s;
    memset(data, 0, (size ? : sizeof(void *)) * (!(flags & SETTING_BOOLEAN) && array ? array : 1));      /* Initialise memory */
    /* Get value */
@@ -2182,9 +2274,8 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
                ESP_LOGD(TAG, "Setting %s created", tag);
          }
       }
-   } else
-      /* Simple setting, not array */ if (get_val(s->name, 0) < 0)
-   {
+   } else if (get_val(s->name, 0) < 0)
+   {                            /* Simple setting, not array */
       e = revk_setting_internal(s, 0, NULL, 0, SETTING_LIVE);   /* Defaulting logic */
       if (e && *e)
          ESP_LOGE(TAG, "Setting %s failed %s", s->name, e);
