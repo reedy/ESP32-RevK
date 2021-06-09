@@ -1140,7 +1140,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             ota_partition = esp_ota_get_next_update_partition(ota_partition);
             if (!ota_partition)
             {
-               revk_error("upgrade", "No OTA parition available");      /* TODO if running in OTA, boot to factory to allow OTA */
+               revk_error("upgrade", "No OTA parition available");      /* If running in OTA, boot to factory to allow OTA */
                ota_size = 0;
             } else
             {
@@ -1507,7 +1507,9 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       value = (const unsigned char *) "";
    else
       s->set = 1;
-   ESP_LOGD(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);      // TODO
+#ifdef SETTING_DEBUG
+   ESP_LOGI(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);
+#endif
    /* Parse new setting */
    unsigned char *n = NULL;
    int l = 0;
@@ -1825,7 +1827,7 @@ static const char *revk_setting_dump(void)
       {
          int max = 0;
          if (s->array)
-         {                      // Work out m - for now, parent items in arrays have to be set for rest to be output - TODO
+         {                      // Work out m - for now, parent items in arrays have to be set for rest to be output - this is the rule...
             max = s->array;
             if (!(s->flags & SETTING_BOOLEAN))
                while (max && isempty(s, max - 1))
@@ -2133,9 +2135,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                   if (s->dup)
                      return;
 #ifdef SETTING_DEBUG
-                  ESP_LOGI(TAG, "Zap %s[%d]", s->name, index);  // TODO
+                  ESP_LOGI(TAG, "Zap %s[%d]", s->name, index);
 #endif
-                  er = revk_setting_internal(s, 0, (const unsigned char *) "", index, 0);
+                  er = revk_setting_internal(s, 0, NULL, index, 0);     // Factory default
                }
                void storesub(void) {
                   setting_t *q;
@@ -2239,7 +2241,7 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    /* My commands */
    if (!e && !strcmp(tag, "upgrade"))
    {
-      char *url;                /* TODO, yeh, not freed, but we are rebooting */
+      char *url;                /* Yeh, not freed, but we are rebooting */
       if (len && (!strncmp((char *) value, "https://", 8) || !strncmp((char *) value, "http://", 7)))   /* Yeh allowing http as
                                                                                                          * code is signed anyway */
          url = strdup((char *) value);
