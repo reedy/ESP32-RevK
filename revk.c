@@ -1140,7 +1140,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             ota_partition = esp_ota_get_next_update_partition(ota_partition);
             if (!ota_partition)
             {
-               revk_error("upgrade", "No OTA parition available");      /* If running in OTA, boot to factory to allow OTA */
+               revk_error("upgrade", "No OTA partition available");     /* If running in OTA, boot to factory to allow OTA */
                ota_size = 0;
             } else
             {
@@ -2081,12 +2081,11 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
       jo_skip(j);
       int pos;
       const char *er = jo_error(j, &pos);
+      if (er)
+         ESP_LOGE(TAG, "Fail at pos %d, %s: %s", pos, er, jo_debug(j));
       jo_free(&j);
       if (er)
-      {
-         ESP_LOGE(TAG, "Fail at pos %d: %s", pos, er);
          return er;
-      }
       j = jo_parse_mem(value, len);
       t = jo_next(j);           // Start object
       while (t == JO_TAG && !er)

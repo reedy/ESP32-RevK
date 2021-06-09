@@ -549,7 +549,10 @@ static inline int jo_ws(jo_t j)
 {                               // Skip white space, and return peek at next
    int c = jo_peek(j);
    while (c == ' ' || c == '\t' || c == '\r' || c == '\n')
-      c = jo_read(j);
+   {
+      jo_read(j);
+      c = jo_peek(j);
+   }
    return c;
 }
 
