@@ -45,6 +45,7 @@ extern char *prefixerror;
 // Calls
 void revk_init (app_command_t * app_command);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
+// Note, a setting that is SECRET that is a root name followed by sub names creates parent/child. Only shown if parent has value or default value (usually overlap a key child)
 void revk_register (const char *name,   // Setting name (note max 15 characters inc any number suffix)
                     uint8_t array,        // If non zero then settings are suffixed numerically 1 to array
                     uint16_t size, // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.

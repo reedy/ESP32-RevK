@@ -1945,14 +1945,17 @@ static const char *revk_setting_dump(void)
          void addsub(setting_t * s, const char *tag, int n) {   // n is 0 based
             if (s->parent)
             {
-               start();
-               jo_object(p, tag);
-               setting_t *q;
-               for (q = setting; q; q = q->next)
-                  if (q->child && !strncmp(q->name, s->name, s->namelen))
-                     if ((!n && hasdef(q)) || !isempty(q, n))
-                        addvalue(q, q->name + s->namelen, n);
-               jo_close(p);
+               if (!tag || (!n && hasdef(s)) || !isempty(s, n))
+               {
+                  start();
+                  jo_object(p, tag);
+                  setting_t *q;
+                  for (q = setting; q; q = q->next)
+                     if (q->child && !strncmp(q->name, s->name, s->namelen))
+                        if ((!n && hasdef(q)) || !isempty(q, n))
+                           addvalue(q, q->name + s->namelen, n);
+                  jo_close(p);
+               }
             } else
                addvalue(s, tag, n);
          }
