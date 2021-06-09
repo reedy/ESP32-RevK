@@ -1789,14 +1789,14 @@ static const char *revk_setting_dump(void)
       {                         // This is basically testing it is false
          uint64_t v = 0;
          if (s->size == 1)
-            v = *(uint8_t *) data;
+            v = *(uint8_t *) s->data;
          else if (s->size == 2)
-            v = *(uint16_t *) data;
+            v = *(uint16_t *) s->data;
          else if (s->size == 4)
-            v = *(uint32_t *) data;
+            v = *(uint32_t *) s->data;
          else if (s->size == 8)
-            v = *(uint64_t *) data;
-         if (v & (1ULL << index))
+            v = *(uint64_t *) s->data;
+         if (v & (1ULL << n))
             return 0;
          return 1;              // Empty bool
       }
