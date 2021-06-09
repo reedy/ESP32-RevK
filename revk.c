@@ -307,7 +307,7 @@ static void wifi_next(const char *reason)
    REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
    /* DNS(not per wifi_index, but main, backup and fallback) */
    void dns(const char *ip, esp_netif_dns_type_t type) {
-      if (!*ip)
+      if (!ip || !*ip)
          return;
       char *i = strdup(ip);
       char *c = strrchr(i, '/');
