@@ -245,11 +245,14 @@ const char *jo_rewind(jo_t j)
       while (j->level)
          jo_close(j);
       jo_write(j, 0);
+      if (j->err)
+         return NULL;
    } else
       j->err = NULL;
-   if (j->err)
-      return NULL;
    j->ptr = 0;
+   j->comma = 0;
+   j->level = 0;
+   j->tagok = 0;
    return j->buf;
 }
 

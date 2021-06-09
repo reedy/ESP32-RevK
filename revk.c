@@ -1508,7 +1508,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    else
       s->set = 1;
 #ifdef SETTING_DEBUG
-   ESP_LOGI(TAG, "%s(%d)=%.*s", (char *) tag, index, len, (char *) value);
+   ESP_LOGI(TAG, "%s=%.*s", (char *) tag, len, (char *) value);
 #endif
    /* Parse new setting */
    unsigned char *n = NULL;
