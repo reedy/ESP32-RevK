@@ -1467,7 +1467,7 @@ static esp_err_t nvs_set(setting_t * s, const char *tag, void *data)
 }
 
 static const char *revk_setting_internal(setting_t * s, unsigned int len, const unsigned char *value, unsigned char index, unsigned char flags)
-{
+{                               // Value is expected to already be binary if using binary
    flags |= s->flags;
    {                            // Overlap check
       setting_t *q;
@@ -1512,13 +1512,8 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
 #endif
    /* Parse new setting */
    unsigned char *n = NULL;
-   int l = 0;
-   if (flags & SETTING_HEX)
-      l = jo_based16(NULL, 0, (const char *) value, len);
-   else if (flags & SETTING_BINARY)
-      l = jo_based64(NULL, 0, (const char *) value, len);
-   else
-      l = len;
+   int l = len;
+   l = len;
    if (flags & SETTING_BINARY)
    {                            /* Blob */
       unsigned char *o;
@@ -1527,24 +1522,23 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          if (l > 255)
             return "Data too long";
          o = n = malloc(l + 1); /* One byte for length */
-         *o++ = l;
-         l++;
-      } else if (l && l != s->size)
-         return "Wrong size";
-      else
-      {
+         if (o)
+         {
+            *o = l++;
+            memcpy(o + 1, value, len);  /* Binary */
+         }
+      } else
+      {                         // Fixed size binary
+         if (l && l != s->size)
+            return "Wrong size";
          o = n = malloc(s->size);
-         if (!l)
-            memset(n, 0, l = s->size);  /* Default */
-      }
-      if (l)
-      {
-         if (flags & SETTING_HEX)
-            jo_based16(o, l, (const char *) value, len);
-         else if (flags & SETTING_BINARY)
-            jo_based64(o, l, (const char *) value, len);
-         else
-            memcpy(o, value, len);      /* Binary */
+         if (o)
+         {
+            if (l)
+               memcpy(o, value, l);
+            else
+               memset(o, 0, l = s->size);
+         }
       }
    } else if (!s->size)
    {                            /* String */
@@ -2036,6 +2030,25 @@ static const char *revk_setting_dump(void)
 
 const char *revk_setting(const char *tag, unsigned int len, const void *value)
 {
+   if (!tag && !len)
+   {
+      revk_dump = 1;
+      return NULL;
+   }
+   jo_t j;
+   jo_type_t t;
+   if (tag)
+   {                            // Legacy
+      j = jo_object_alloc();
+      jo_stringf(j, tag, "%.*s", len, value);
+      jo_rewind(j);
+   } else
+      j = jo_parse_mem(value, len);
+   if (jo_here(j) != JO_OBJECT)
+   {
+      jo_free(&j);
+      return "Pass JSON object";
+   }
    int index = 0;
    int match(setting_t * s, const char *tag) {
       const char *a = s->name;
@@ -2064,171 +2077,160 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
       index = v - 1;
       return 0;                 /* Match, index */
    }
-   if (!tag && !len)
+   jo_skip(j);                  // Check whole JSON
+   int pos;
+   const char *er = jo_error(j, &pos);
+   if (er)
    {
-      revk_dump = 1;
-      return NULL;
-   }
-   if (!tag)
-   {                            // Setting using JSON
-      jo_type_t t;
-      jo_t j = jo_parse_mem(value, len);
-      if (jo_here(j) != JO_OBJECT)
-      {
-         jo_free(&j);
-         return "Pass JSON object";
-      }
-      jo_skip(j);
-      int pos;
-      const char *er = jo_error(j, &pos);
-      if (er)
-         ESP_LOGE(TAG, "Fail at pos %d, %s: %s", pos, er, jo_debug(j));
+      ESP_LOGE(TAG, "Fail at pos %d, %s: %s", pos, er, jo_debug(j));
       jo_free(&j);
-      if (er)
-         return er;
-      j = jo_parse_mem(value, len);
-      t = jo_next(j);           // Start object
-      while (t == JO_TAG && !er)
+      return er;
+   }
+   jo_rewind(j);
+   t = jo_next(j);              // Start object
+   while (t == JO_TAG && !er)
+   {
+      int l = jo_strlen(j);
+      if (l < 0)
+         break;
+      char *tag = malloc(l + 1);
+      if (!tag)
+         er = "Malloc";
+      else
       {
-         int l = jo_strlen(j);
-         if (l < 0)
-            break;
-         char *tag = malloc(l + 1);
-         if (!tag)
-            er = "Malloc";
-         else
+         jo_strncpy(j, (char *) tag, l + 1);
+         t = jo_next(j);        // the value
+         setting_t *s;
+         for (s = setting; s && match(s, tag); s = s->next);
+         if (!s)
          {
-            jo_strncpy(j, (char *) tag, l + 1);
-            t = jo_next(j);     // the value
-            setting_t *s;
-            for (s = setting; s && match(s, tag); s = s->next);
-            if (!s)
-            {
-               ESP_LOGI(TAG, "Unknown %s", tag);
-               er = "Unknown setting";
-            } else
-            {
-               void store(setting_t * s) {
-                  if (s->dup)
-                     return;
+            ESP_LOGI(TAG, "Unknown %s", tag);
+            er = "Unknown setting";
+         } else
+         {
+            void store(setting_t * s) {
+               if (s->dup)
+                  return;
 #ifdef SETTING_DEBUG
-                  if (s->array)
-                     ESP_LOGI(TAG, "Store %s[%d] (type %d): %.20s", s->name, index, t, jo_debug(j));
-                  else
-                     ESP_LOGI(TAG, "Store %s (type %d): %.20s", s->name, t, jo_debug(j));
+               if (s->array)
+                  ESP_LOGI(TAG, "Store %s[%d] (type %d): %.20s", s->name, index, t, jo_debug(j));
+               else
+                  ESP_LOGI(TAG, "Store %s (type %d): %.20s", s->name, t, jo_debug(j));
 #endif
-                  int l = 0;
-                  char *val = NULL;
-                  if (t == JO_NUMBER || t == JO_STRING || t >= JO_TRUE)
+               int l = 0;
+               char *val = NULL;
+               if (t == JO_NUMBER || t == JO_STRING || t >= JO_TRUE)
+               {
+                  if (t == JO_STRING && (s->flags & SETTING_BINARY))
+                  {
+                     if (s->flags & SETTING_HEX)
+                     {
+                        l = jo_strncpy16(j, NULL, 0);
+                        if (l >= 0)
+                           jo_strncpy16(j, val = malloc(l), l);
+                     } else
+                     {
+                        l = jo_strncpy64(j, NULL, 0);
+                        if (l >= 0)
+                           jo_strncpy64(j, val = malloc(l), l);
+                     }
+                  } else
                   {
                      l = jo_strlen(j);
                      if (l >= 0)
                         jo_strncpy(j, val = malloc(l + 1), l + 1);
-                     er = revk_setting_internal(s, l, (const unsigned char *) val, index, 0);
-                  } else
-                     er = "Bad data type";
-                  if (val)
-                     free(val);
-               }
-               void zap(setting_t * s) {        // Erasing
-                  if (s->dup)
-                     return;
-#ifdef SETTING_DEBUG
-                  ESP_LOGI(TAG, "Zap %s[%d]", s->name, index);
-#endif
-                  er = revk_setting_internal(s, 0, NULL, index, 0);     // Factory default
-               }
-               void storesub(void) {
-                  setting_t *q;
-                  for (q = setting; q; q = q->next)
-                     if (q->child && q->namelen > s->namelen && !strncmp(s->name, q->name, s->namelen))
-                        q->used = 0;
-                  t = jo_next(j);       // In to object
-                  while (t && t != JO_CLOSE && !er)
-                  {
-                     if (t == JO_TAG)
-                     {
-                        int l2 = jo_strlen(j);
-                        char *tag2 = malloc(s->namelen + l2 + 1);
-                        if (tag2)
-                        {
-                           strcpy(tag2, s->name);
-                           jo_strncpy(j, (char *) tag2 + s->namelen, l2 + 1);
-                           t = jo_next(j);      // To value
-                           for (q = setting; q && (!q->child || strcmp(q->name, tag2)); q = q->next);
-                           if (!q)
-                              er = "Unknown setting";
-                           else
-                           {
-                              q->used = 1;
-                              store(q);
-                           }
-                           free(tag2);
-                        }
-                     }
-                     t = jo_skip(j);
                   }
-                  for (q = setting; q; q = q->next)
-                     if (!q->used && q->child && q->namelen > s->namelen && !strncmp(s->name, q->name, s->namelen))
-                        zap(q);
-               }
-               if (t == JO_OBJECT)
-               {
-                  if (!s->parent)
-                     er = "Unexpected object";
-                  else
-                     storesub();
-               } else if (t == JO_ARRAY)
-               {
-                  if (!s->array)
-                     er = "Not an array";
-                  else
-                  {
-                     t = jo_next(j);    // In to array
-                     while (index < s->array && t != JO_CLOSE && !er)
-                     {
-                        if (t == JO_OBJECT)
-                           storesub();
-                        else if (t == JO_ARRAY)
-                           er = "Unexpected array";
-                        else
-                           store(s);
-                        t = jo_next(j);
-                        index++;
-                     }
-                     while (index < s->array)
-                     {
-                        zap(s);
-                        if (s->parent)
-                           for (setting_t * q = setting; q; q = q->next)
-                              if (q->child && q->namelen > s->namelen && !strncmp(s->name, q->name, s->namelen))
-                                 zap(q);
-                        index++;
-                     }
-                  }
+                  er = revk_setting_internal(s, l, (const unsigned char *) val, index, 0);
                } else
-                  store(s);
+                  er = "Bad data type";
+               if (val)
+                  free(val);
             }
-            free(tag);
-            t = jo_next(j);
+            void zap(setting_t * s) {   // Erasing
+               if (s->dup)
+                  return;
+#ifdef SETTING_DEBUG
+               ESP_LOGI(TAG, "Zap %s[%d]", s->name, index);
+#endif
+               er = revk_setting_internal(s, 0, NULL, index, 0);        // Factory default
+            }
+            void storesub(void) {
+               setting_t *q;
+               for (q = setting; q; q = q->next)
+                  if (q->child && q->namelen > s->namelen && !strncmp(s->name, q->name, s->namelen))
+                     q->used = 0;
+               t = jo_next(j);  // In to object
+               while (t && t != JO_CLOSE && !er)
+               {
+                  if (t == JO_TAG)
+                  {
+                     int l2 = jo_strlen(j);
+                     char *tag2 = malloc(s->namelen + l2 + 1);
+                     if (tag2)
+                     {
+                        strcpy(tag2, s->name);
+                        jo_strncpy(j, (char *) tag2 + s->namelen, l2 + 1);
+                        t = jo_next(j); // To value
+                        for (q = setting; q && (!q->child || strcmp(q->name, tag2)); q = q->next);
+                        if (!q)
+                           er = "Unknown setting";
+                        else
+                        {
+                           q->used = 1;
+                           store(q);
+                        }
+                        free(tag2);
+                     }
+                  }
+                  t = jo_skip(j);
+               }
+               for (q = setting; q; q = q->next)
+                  if (!q->used && q->child && q->namelen > s->namelen && !strncmp(s->name, q->name, s->namelen))
+                     zap(q);
+            }
+            if (t == JO_OBJECT)
+            {
+               if (!s->parent)
+                  er = "Unexpected object";
+               else
+                  storesub();
+            } else if (t == JO_ARRAY)
+            {
+               if (!s->array)
+                  er = "Not an array";
+               else
+               {
+                  t = jo_next(j);       // In to array
+                  while (index < s->array && t != JO_CLOSE && !er)
+                  {
+                     if (t == JO_OBJECT)
+                        storesub();
+                     else if (t == JO_ARRAY)
+                        er = "Unexpected array";
+                     else
+                        store(s);
+                     t = jo_next(j);
+                     index++;
+                  }
+                  while (index < s->array)
+                  {
+                     zap(s);
+                     if (s->parent)
+                        for (setting_t * q = setting; q; q = q->next)
+                           if (q->child && q->namelen > s->namelen && !strncmp(s->name, q->name, s->namelen))
+                              zap(q);
+                     index++;
+                  }
+               }
+            } else
+               store(s);
          }
+         free(tag);
+         t = jo_next(j);
       }
-      jo_free(&j);
-      return er;
    }
-   unsigned char flags = 0;
-   if (*tag == '0' && tag[1] == 'x')
-   {                            /* Store hex */
-      flags |= SETTING_HEX;
-      tag += 2;
-   }
-   setting_t *s;
-   for (s = setting; s && match(s, tag); s = s->next);
-   if (!s)
-      return "Unknown setting";
-   if (!len)
-      value = NULL;             // Allows defval 
-   return revk_setting_internal(s, len, value, index, flags);
+   jo_free(&j);
+   return er;
 }
 
 const char *revk_command(const char *tag, unsigned int len, const void *value)

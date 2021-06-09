@@ -236,6 +236,23 @@ jo_t jo_copy(jo_t j)
    return n;
 }
 
+const char *jo_rewind(jo_t j)
+{                               // Move to start for parsing. If was writing, closed and set up to read instead. Clears error is reading.
+   if (!j)
+      return NULL;
+   if (!j->parse)
+   {                            // Finish, if possible
+      while (j->level)
+         jo_close(j);
+      jo_write(j, 0);
+   } else
+      j->err = NULL;
+   if (j->err)
+      return NULL;
+   j->ptr = 0;
+   return j->buf;
+}
+
 int jo_level(jo_t j)
 {                               // Current level, 0 being the top level
    if (!j)
@@ -494,29 +511,31 @@ void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bit
    jo_write(j, '"');
 }
 
-size_t jo_based(unsigned char *dst, size_t dlen, const char *src, size_t slen, uint8_t bits, const char *alphabet)
+ssize_t jo_strncpyd(jo_t j, void *dstv, size_t dlen, uint8_t bits, const char *alphabet)
 {                               // Base16/32/64 string to binary
-   if (!src)
+   uint8_t *dst = dstv;
+   if (!j || j->err || !j->parse)
       return -1;
+   if (jo_peek(j) != '"')
+      return -1;                // Not a string
+   jo_t p = jo_copy(j);
+   jo_read(p);                  // skip "
    int b = 0,
-       v = 0;
-   ssize_t ptr = 0;
-   const char *e = src + slen;
-   while (src < e && *src != '=')
+       v = 0,
+       c,
+       ptr = 0;
+   while ((c = jo_read_str(p)) >= 0 && c != '=')
    {
-      char *q = strchr(alphabet, bits < 6 ? toupper(*src) : *src);
-      if (!q)
+      char *q = strchr(alphabet, bits < 6 ? toupper(c) : c);
+      if (!c || !q)
       {                         // Bad character
-         if (isspace(*src) || *src == '\r' || *src == '\n')
-         {
-            src++;
-            continue;
-         }
-         return -1;
+         if (!c || isspace(c) || c == '\r' || c == '\n')
+            continue;           // space
+         jo_free(&p);
+         return -1;             // Bad
       }
       v = (v << bits) + (q - alphabet);
       b += bits;
-      src++;
       if (b >= 8)
       {                         // output byte
          b -= 8;
@@ -525,6 +544,7 @@ size_t jo_based(unsigned char *dst, size_t dlen, const char *src, size_t slen, u
          ptr++;
       }
    }
+   jo_free(&p);
    return ptr;
 }
 
