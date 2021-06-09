@@ -1697,10 +1697,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       }
       if (memcmp(n, d, o))
       {
-         o = -1;                /* Different content */
 #ifdef SETTING_DEBUG
-         ESP_LOGI(TAG, "Setting %s different content %d", tag, o);
+         ESP_LOGI(TAG, "Setting %s different content %d (%02X/%02X)", tag, o, *(uint8_t *) d, *(uint8_t *) n);
 #endif
+         o = -1;                /* Different content */
       }
       free(d);
    }
@@ -1713,10 +1713,12 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          free(n);
          return "Unable to store";
       }
+#ifdef SETTING_DEBUG
       if (flags & SETTING_BINARY)
-         ESP_LOGD(TAG, "Setting %s changed (%d)", tag, len);
+         ESP_LOGI(TAG, "Setting %s changed (%d)", tag, len);
       else
-         ESP_LOGD(TAG, "Setting %s changed %.*s", tag, len, value);
+         ESP_LOGI(TAG, "Setting %s changed %.*s", tag, len, value);
+#endif
       nvs_time = esp_timer_get_time() + 60000000LL;
    }
    if (flags & SETTING_LIVE)
@@ -2097,9 +2099,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      return;
 #ifdef SETTING_DEBUG
                   if (s->array)
-                     ESP_LOGI(TAG, "Store %s (type %d): %.20s", s->name, t, jo_debug(j));
-                  else
                      ESP_LOGI(TAG, "Store %s[%d] (type %d): %.20s", s->name, index, t, jo_debug(j));
+                  else
+                     ESP_LOGI(TAG, "Store %s (type %d): %.20s", s->name, t, jo_debug(j));
 #endif
                   int l = 0;
                   char *val = NULL;
@@ -2108,8 +2110,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      l = jo_strlen(j);
                      if (l >= 0)
                         jo_strncpy(j, val = malloc(l + 1), l + 1);
-                  }
-                  er = revk_setting_internal(s, l, (const unsigned char *) val, index, 0);
+                     er = revk_setting_internal(s, l, (const unsigned char *) val, index, 0);
+                  } else
+                     er = "Bad data type";
                   if (val)
                      free(val);
                }
@@ -2135,7 +2138,7 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                         {
                            strcpy(tag2, s->name);
                            jo_strncpy(j, (char *) tag2 + s->namelen, l2 + 1);
-                           jo_next(j);
+                           t = jo_next(j);      // To value
                            for (q = setting; q && (!q->child || strcmp(q->name, tag2)); q = q->next);
                            if (!q)
                               er = "Unknown setting";
