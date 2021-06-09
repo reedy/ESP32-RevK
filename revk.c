@@ -4,7 +4,7 @@
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
-//#define	SETTING_DEBUG
+//#define       SETTING_DEBUG
 
 #include "revk.h"
 #include "esp_http_client.h"
@@ -1778,7 +1778,7 @@ static const char *revk_setting_dump(void)
       }
       if (!*d)
          return NULL;
-      if ((s->flags && SETTING_BOOLEAN) && !strchr("YytT1", *d))
+      if ((s->flags & SETTING_BOOLEAN) && !strchr("YytT1", *d))
          return NULL;
       if (s->size && !strcmp(d, "0"))
          return NULL;
@@ -1787,8 +1787,18 @@ static const char *revk_setting_dump(void)
    int isempty(setting_t * s, int n) {  // Check empty
       if (s->flags & SETTING_BOOLEAN)
       {                         // This is basically testing it is false
-         // TODO
-         return 0;              // Let's not play with booleans for now - assume not empty
+         uint64_t v = 0;
+         if (s->size == 1)
+            v = *(uint8_t *) data;
+         else if (s->size == 2)
+            v = *(uint16_t *) data;
+         else if (s->size == 4)
+            v = *(uint32_t *) data;
+         else if (s->size == 8)
+            v = *(uint64_t *) data;
+         if (v & (1ULL << index))
+            return 0;
+         return 1;              // Empty bool
       }
       void *data = s->data + (s->size ? : sizeof(void *)) * n;
       int q = s->size;
@@ -1796,7 +1806,7 @@ static const char *revk_setting_dump(void)
       {
          char *p = *(char **) data;
          if (!p || !*p)
-            return 1;           // Empty string
+            return 2;           // Empty string
          return 0;
       }
       while (q && !*(char *) data)
@@ -1805,7 +1815,7 @@ static const char *revk_setting_dump(void)
          data++;
       }
       if (!q)
-         return 2;              // Empty value
+         return 3;              // Empty value
       return 0;
    }
    setting_t *s;
@@ -2119,7 +2129,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                void zap(setting_t * s) {        // Erasing
                   if (s->dup)
                      return;
+#ifdef SETTING_DEBUG
                   ESP_LOGI(TAG, "Zap %s[%d]", s->name, index);  // TODO
+#endif
                   er = revk_setting_internal(s, 0, (const unsigned char *) "", index, 0);
                }
                void storesub(void) {
