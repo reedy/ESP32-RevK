@@ -24,6 +24,8 @@ typedef enum {                  // The parse data value type we are at
    JO_FALSE,                    // value if the 'f' in false
 } jo_type_t;
 
+const char *jo_debug(jo_t j); // Debug string
+
 // Setting up
 
 jo_t jo_parse_str(const char *buf);

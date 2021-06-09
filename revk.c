@@ -4,6 +4,8 @@
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
+//#define	SETTING_DEBUG
+
 #include "revk.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
@@ -154,6 +156,7 @@ struct setting_s {
    uint8_t set:1;               // Has been set
    uint8_t parent:1;            // Parent setting
    uint8_t child:1;             // Child setting
+   uint8_t dup:1;               // Set in parent if it is a duplicate of a child
    uint8_t used:1;              // Used in settings as temp
 };
 /* Public */
@@ -785,19 +788,7 @@ void revk_init(app_command_t * app_command_cb)
    const esp_app_desc_t *app = esp_ota_get_app_description();
    if (nvs_open_from_partition(TAG, TAG, NVS_READWRITE, &nvs))
       REVK_ERR_CHECK(nvs_open(TAG, NVS_READWRITE, &nvs));
-   // Parent settings
-   revk_register("prefix", 0, 0, &prefixcommand, "command", SETTING_SECRET);
-#ifdef CONFIG_REVK_WIFI
-   revk_register("wifi", WIFIMAX, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);
-   revk_register("ap", 0, 0, &apssid, CONFIG_REVK_APSSID, SETTING_SECRET);
-#endif
-#ifdef CONFIG_REVK_MESH
-   revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);
-   revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINARY | SETTING_HEX | SETTING_SECRET);
-#endif
-#ifdef CONFIG_REVK_MQTT
-   revk_register("mqtt", MQTTMAX, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);
-#endif
+   revk_register("prefix", 0, 0, &prefixcommand, "command", SETTING_SECRET);    // Parent
    /* Fallback if no dedicated partition */
 #define str(x) #x
 #define snl(n,d)	revk_register(#n,0,0,&n,d,0)
@@ -816,18 +807,23 @@ void revk_init(app_command_t * app_command_cb)
 #define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINARY|SETTING_HEX)
-   settings
+   settings;
 #ifdef	CONFIG_REVK_WIFI
-       wifisettings
+   revk_register("wifi", WIFIMAX, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);  // Parent
+   revk_register("ap", 0, 0, &apssid, CONFIG_REVK_APSSID, SETTING_SECRET);      // Parent
+   wifisettings;
 #endif
 #ifdef	CONFIG_REVK_MQTT
-       mqttsettings
+   revk_register("mqtt", MQTTMAX, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);  // Parent
+   mqttsettings;
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
-       apconfigsettings
+   apconfigsettings;
 #endif
 #ifdef	CONFIG_REVK_MESH
-       meshsettings
+   revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);        // Parent
+   revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINARY | SETTING_HEX | SETTING_SECRET);     // Parent
+   meshsettings;
 #endif
 #undef s
 #undef snl
@@ -844,7 +840,7 @@ void revk_init(app_command_t * app_command_cb)
 #undef p
 #undef str
 #undef h
-       if (watchdogtime)
+   if (watchdogtime)
       esp_task_wdt_init(watchdogtime, true);
    REVK_ERR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));
    /* Application specific settings */
@@ -1436,7 +1432,7 @@ static int nvs_get(setting_t * s, const char *tag, void *data, size_t len)
 }
 
 static esp_err_t nvs_set(setting_t * s, const char *tag, void *data)
-{                               /* Low level get logic, returns < 0 if error.Calls the right nvs get function for type of setting */
+{                               /* Low level set logic, returns < 0 if error. Calls the right nvs set function for type of setting */
    if (s->flags & SETTING_BINARY)
    {
       if (s->size)
@@ -1444,10 +1440,7 @@ static esp_err_t nvs_set(setting_t * s, const char *tag, void *data)
       return nvs_set_blob(s->nvs, tag, data, 1 + *((unsigned char *) data));    /* Variable */
    }
    if (s->size == 0)
-   {
-      ESP_LOGD(TAG, "Written %s=%s", tag, (char *) data);
       return nvs_set_str(s->nvs, tag, data);
-   }
    if (s->flags & SETTING_SIGNED)
    {
       if (s->size == 8)
@@ -1469,6 +1462,7 @@ static esp_err_t nvs_set(setting_t * s, const char *tag, void *data)
       if (s->size == 1)
          return nvs_set_u8(s->nvs, tag, *((uint8_t *) data));
    }
+   ESP_LOGE(TAG, "Not saved setting %s", tag);
    return -1;
 }
 
@@ -1486,11 +1480,11 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    {
       if (index >= s->array)
          return "Bad index";
-      if (s->array && index > 1 && !(flags & SETTING_BOOLEAN))
+      if (s->array && index && !(flags & SETTING_BOOLEAN))
          data += index * (s->size ? : sizeof(void *));
    }
    char tag[16];                /* Max NVS name size */
-   if (snprintf(tag, sizeof(tag), s->array ? "%s%u" : "%s", s->name, index ? : 1) >= sizeof(tag))
+   if (snprintf(tag, sizeof(tag), s->array ? "%s%u" : "%s", s->name, index + 1) >= sizeof(tag))
       return "Setting name too long";
    ESP_LOGD(TAG, "MQTT setting %s (%d)", tag, len);
    char erase = 0;
@@ -1503,7 +1497,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (*defval == ' ')
          defval++;
    }
-   if (!len && defval && index <= 1 && !value)
+   if (!len && defval && !index && !value)
    {                            /* Use default value */
       len = strlen(defval);
       value = (const unsigned char *) defval;
@@ -1539,7 +1533,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       {
          o = n = malloc(s->size);
          if (!l)
-            memset(n, 0, s->size);      /* Default */
+            memset(n, 0, l = s->size);  /* Default */
       }
       if (l)
       {
@@ -1571,18 +1565,9 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          else if (s->size == 8)
             v = *(uint64_t *) data;
          if (len && strchr("YytT1", *value))
-         {
-            if (s->array && index)
-               v |= (1ULL << (index - 1));
-            else
-               v |= 1;
-         } else
-         {
-            if (s->array && index)
-               v &= ~(1ULL << (index - 1));
-            else
-               v &= ~1;
-         }
+            v |= (1ULL << index);
+         else
+            v &= ~(1ULL << index);
       } else
       {
          char neg = 0;
@@ -1686,11 +1671,21 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    if (!n)
       return "Bad setting type";
    /* See if setting has changed */
-   int o = nvs_get(s, tag, NULL, 0);
+   int o = nvs_get(s, tag, NULL, 0);    // Get length
+#ifdef SETTING_DEBUG
+   if (o < 0 && o != -ESP_ERR_NVS_NOT_FOUND)
+      ESP_LOGI(TAG, "Setting %s nvs read fail %s", tag, esp_err_to_name(-o));
+#endif
    if (o < 0 && erase)
       o = 0;
    else if (o != l)
+   {
+#ifdef SETTING_DEBUG
+      if (o >= 0)
+         ESP_LOGI(TAG, "Setting %s different len %d/%d", tag, o, l);
+#endif
       o = -1;                   /* Different size */
+   }
    if (o > 0)
    {
       void *d = malloc(l);
@@ -1701,7 +1696,12 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          return "Bad setting get";
       }
       if (memcmp(n, d, o))
+      {
          o = -1;                /* Different content */
+#ifdef SETTING_DEBUG
+         ESP_LOGI(TAG, "Setting %s different content %d", tag, o);
+#endif
+      }
       free(d);
    }
    if (o < 0)
@@ -1763,9 +1763,29 @@ static const char *revk_setting_dump(void)
          revk_raw(prefixsetting, NULL, strlen(v), v, 0);
    }
    char buf[CONFIG_MQTT_BUFFER_SIZE - 100];
+   const char *hasdef(setting_t * s) {
+      const char *d = s->defval;
+      if (!d)
+         return NULL;
+      if (s->flags & SETTING_BITFIELD)
+      {
+         while (*d && *d != ' ')
+            d++;
+         if (*d == ' ')
+            d++;
+      }
+      if (!*d)
+         return NULL;
+      if ((s->flags && SETTING_BOOLEAN) && !strchr("YytT1", *d))
+         return NULL;
+      if (s->size && !strcmp(d, "0"))
+         return NULL;
+      return d;
+   }
    int isempty(setting_t * s, int n) {  // Check empty
       if (s->flags & SETTING_BOOLEAN)
       {                         // This is basically testing it is false
+         // TODO
          return 0;              // Let's not play with booleans for now - assume not empty
       }
       void *data = s->data + (s->size ? : sizeof(void *)) * n;
@@ -1918,7 +1938,7 @@ static const char *revk_setting_dump(void)
                setting_t *q;
                for (q = setting; q; q = q->next)
                   if (q->child && !strncmp(q->name, s->name, s->namelen))
-                     if ((!n && q->defval) || !isempty(q, n))
+                     if ((!n && hasdef(q)) || !isempty(q, n))
                         addvalue(q, q->name + s->namelen, n);
                jo_close(p);
             } else
@@ -1929,7 +1949,7 @@ static const char *revk_setting_dump(void)
             {
                if (s->array)
                {                // Array above
-                  if (max || s->defval)
+                  if (max || hasdef(s))
                   {
                      start();
                      jo_array(p, s->name);
@@ -1941,7 +1961,7 @@ static const char *revk_setting_dump(void)
                   addsub(s, s->name, 0);
             } else if (s->array)
             {
-               if (max || s->defval)
+               if (max || hasdef(s))
                {
                   start();
                   jo_array(p, s->name);
@@ -1949,7 +1969,7 @@ static const char *revk_setting_dump(void)
                      addvalue(s, NULL, n);
                   jo_close(p);
                }
-            } else if (s->defval || !isempty(s, 0))
+            } else if (hasdef(s) || !isempty(s, 0))
                addvalue(s, s->name, 0);
          }
          addsetting();
@@ -2073,7 +2093,14 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
             } else
             {
                void store(setting_t * s) {
-                  ESP_LOGI(TAG, "Store %s[%d] (type %d)", s->name, index, t);   // TODO
+                  if (s->dup)
+                     return;
+#ifdef SETTING_DEBUG
+                  if (s->array)
+                     ESP_LOGI(TAG, "Store %s (type %d): %.20s", s->name, t, jo_debug(j));
+                  else
+                     ESP_LOGI(TAG, "Store %s[%d] (type %d): %.20s", s->name, index, t, jo_debug(j));
+#endif
                   int l = 0;
                   char *val = NULL;
                   if (t == JO_NUMBER || t == JO_STRING || t >= JO_TRUE)
@@ -2087,6 +2114,8 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      free(val);
                }
                void zap(setting_t * s) {        // Erasing
+                  if (s->dup)
+                     return;
                   ESP_LOGI(TAG, "Zap %s[%d]", s->name, index);  // TODO
                   er = revk_setting_internal(s, 0, (const unsigned char *) "", index, 0);
                }
@@ -2136,12 +2165,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      er = "Not an array";
                   else
                   {
-                     if (index)
-                        index--;
                      t = jo_next(j);    // In to array
                      while (index < s->array && t != JO_CLOSE && !er)
                      {
-                        index++;
                         if (t == JO_OBJECT)
                            storesub();
                         else if (t == JO_ARRAY)
@@ -2149,11 +2175,16 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                         else
                            store(s);
                         t = jo_next(j);
+                        index++;
                      }
                      while (index < s->array)
                      {
-                        index++;
                         zap(s);
+                        if (s->parent)
+                           for (setting_t * q = setting; q; q = q->next)
+                              if (q->child && q->namelen > s->namelen && !strncmp(s->name, q->name, s->namelen))
+                                 zap(q);
+                        index++;
                      }
                   }
                } else
@@ -2284,6 +2315,8 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
       {
          s->child = 1;
          q->parent = 1;
+         if (s->data == q->data)
+            q->dup = 1;
       }
    }
    setting = s;

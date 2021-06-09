@@ -865,3 +865,19 @@ jo_type_t jo_skip(jo_t j)
    }
    return t;
 }
+
+const char *jo_debug(jo_t j)
+{                               // Debug string
+   if (!j)
+      return "No j";
+   if (!j->parse)
+   {                            // Where we are up to creating
+      if (j->ptr < j->len)
+      {
+         j->buf[j->ptr] = 0;
+         return j->buf;
+      }
+      return "J creating";
+   }
+   return j->buf + j->ptr;      // Where we are
+}
