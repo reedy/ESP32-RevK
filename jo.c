@@ -176,7 +176,7 @@ jo_t jo_parse_str(const char *buf)
    return jo_parse_mem(buf, strlen(buf));
 }
 
-jo_t jo_parse_mem(const char *buf, size_t len)
+jo_t jo_parse_mem(const void *buf, size_t len)
 {                               // Start parsing a JSON string in memory - does not need a null
    if (!buf)
       return NULL;              // No buf
@@ -189,7 +189,7 @@ jo_t jo_parse_mem(const char *buf, size_t len)
    return j;
 }
 
-jo_t jo_create_mem(char *buf, size_t len)
+jo_t jo_create_mem(void *buf, size_t len)
 {                               // Start creating JSON in memory at buf, max space len.
    jo_t j = jo_new();
    if (!j)
