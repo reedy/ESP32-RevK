@@ -4,7 +4,7 @@
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
-#define       SETTING_DEBUG
+//#define       SETTING_DEBUG
 
 #include "revk.h"
 #include "esp_http_client.h"
@@ -2113,6 +2113,13 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
             er = "Unknown setting";
          } else
          {
+            if (s->dup)
+               for (setting_t * q = setting; q; q = q->next)
+                  if (!q->dup && q->data == s->data)
+                  {
+                     s = q;
+                     break;
+                  }
             void store(setting_t * s) {
                if (s->dup)
                   return;
