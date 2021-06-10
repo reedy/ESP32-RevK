@@ -4,7 +4,7 @@
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
-//#define       SETTING_DEBUG
+#define       SETTING_DEBUG
 
 #include "revk.h"
 #include "esp_http_client.h"
@@ -2090,6 +2090,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
    t = jo_next(j);              // Start object
    while (t == JO_TAG && !er)
    {
+#ifdef SETTING_DEBUG
+      ESP_LOGI(TAG, "Setting: %.10s", jo_debug(j));
+#endif
       int l = jo_strlen(j);
       if (l < 0)
          break;
@@ -2098,13 +2101,15 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
          er = "Malloc";
       else
       {
-         jo_strncpy(j, (char *) tag, l + 1);
+         l = jo_strncpy(j, (char *) tag, l + 1);
          t = jo_next(j);        // the value
          setting_t *s;
          for (s = setting; s && match(s, tag); s = s->next);
          if (!s)
          {
-            ESP_LOGI(TAG, "Unknown %s", tag);
+#ifdef SETTING_DEBUG
+            ESP_LOGI(TAG, "Unknown %s len=%d: %.10s", tag, l, jo_debug(j));
+#endif
             er = "Unknown setting";
          } else
          {

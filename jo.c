@@ -231,7 +231,7 @@ jo_t jo_copy(jo_t j)
          jo_free(&n);
          return NULL;           // malloc
       }
-      memcpy(n->buf, j->buf, j->ptr);
+      memcpy(n->buf, j->buf, j->parse ? j->len : j->ptr);
    }
    return n;
 }
@@ -769,8 +769,9 @@ jo_type_t jo_next(jo_t j)
    return jo_here(j);
 }
 
-static ssize_t jo_cpycmp(jo_t j, char *str, size_t max, uint8_t cmp)
+static ssize_t jo_cpycmp(jo_t j, void *strv, size_t max, uint8_t cmp)
 {                               // Copy or compare (-1 for j<str, +1 for j>str)
+   char *str = strv;
    char *end = str + max;
    if (!j || !j->parse || j->err)
    {                            // No pointer
@@ -869,12 +870,12 @@ ssize_t jo_strlen(jo_t j)
    return jo_cpycmp(j, NULL, 0, 0);
 }
 
-ssize_t jo_strncpy(jo_t j, char *target, size_t max)
+ssize_t jo_strncpy(jo_t j, void *target, size_t max)
 {                               // Copy from current point to a string. If a string or a tag, remove quotes and decode/deescape
    return jo_cpycmp(j, target, max, 0);
 }
 
-ssize_t jo_strncmp(jo_t j, char *source, size_t max)
+ssize_t jo_strncmp(jo_t j, void *source, size_t max)
 {                               // Compare from current point to a string. If a string or a tag, remove quotes and decode/deescape
    return jo_cpycmp(j, source, max, 1);
 }
@@ -905,5 +906,5 @@ const char *jo_debug(jo_t j)
       }
       return "J creating";
    }
-   return j->buf + j->ptr;      // Where we are
+   return j->buf + j->ptr;      // Where we are (note, may not be 0 terminated)
 }
