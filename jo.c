@@ -236,18 +236,17 @@ jo_t jo_copy(jo_t j)
    return n;
 }
 
-const char *jo_rewind(jo_t j)
+void jo_rewind(jo_t j)
 {                               // Move to start for parsing. If was writing, closed and set up to read instead. Clears error is reading.
    if (!j)
-      return NULL;
+      return;
    if (!j->parse)
    {                            // Finish, if possible
       while (j->level)
          jo_close(j);
       if (j->err)
-         return NULL;
+         return;
       j->len = j->ptr;
-      jo_write(j, 0);
       j->parse = 1;
    }
    j->err = NULL;
@@ -255,7 +254,6 @@ const char *jo_rewind(jo_t j)
    j->comma = 0;
    j->level = 0;
    j->tagok = 0;
-   return j->buf;
 }
 
 int jo_level(jo_t j)
