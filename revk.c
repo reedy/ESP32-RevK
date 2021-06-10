@@ -1508,7 +1508,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    else
       s->set = 1;
 #ifdef SETTING_DEBUG
-   ESP_LOGI(TAG, "%s=%.*s", (char *) tag, len, (char *) value);
+   if (s->flags & SETTING_BINARY)
+      ESP_LOGI(TAG, "%s=(%d bytes)", (char *) tag, len);
+   else
+      ESP_LOGI(TAG, "%s=%.*s", (char *) tag, len, (char *) value);
 #endif
    /* Parse new setting */
    unsigned char *n = NULL;
@@ -2113,16 +2116,14 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
             er = "Unknown setting";
          } else
          {
-            if (s->dup)
-               for (setting_t * q = setting; q; q = q->next)
-                  if (!q->dup && q->data == s->data)
-                  {
-                     s = q;
-                     break;
-                  }
             void store(setting_t * s) {
                if (s->dup)
-                  return;
+                  for (setting_t * q = setting; q; q = q->next)
+                     if (!q->dup && q->data == s->data)
+                     {
+                        s = q;
+                        break;
+                     }
 #ifdef SETTING_DEBUG
                if (s->array)
                   ESP_LOGI(TAG, "Store %s[%d] (type %d): %.20s", s->name, index, t, jo_debug(j));
