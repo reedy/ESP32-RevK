@@ -222,6 +222,25 @@ static void ap_task(void *pvParameters);
 static void mqtt_next(void);
 #endif
 
+static void revk_report_state(void)
+{                               // Report state
+   wifi_ap_record_t ap = { };
+   esp_wifi_sta_get_ap_info(&ap);
+   uint64_t t = esp_timer_get_time();
+   jo_t j = jo_object_alloc();
+   jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
+   jo_string(j, "id", revk_id);
+   jo_string(j, "app", appname);
+   jo_string(j, "version", revk_version);
+   jo_int(j, "mem", esp_get_free_heap_size());
+   jo_int(j, "rst", esp_reset_reason());
+   jo_string(j, "ssid", (char *) ap.ssid);
+   jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
+   jo_int(j, "rssi", ap.rssi);
+   jo_int(j, "chan", ap.primary);
+   revk_statej(NULL, &j);
+}
+
 #ifdef	CONFIG_REVK_WIFI
 static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 {
@@ -384,22 +403,8 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       sub(prefixcommand);
       sub(prefixsetting);
 
-      /* Info */
-      wifi_ap_record_t ap = { };
-      esp_wifi_sta_get_ap_info(&ap);
-      uint64_t t = esp_timer_get_time();
-      jo_t j = jo_object_alloc();
-      jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
-      jo_string(j, "id", revk_id);
-      jo_string(j, "app", appname);
-      jo_string(j, "version", revk_version);
-      jo_int(j, "mem", esp_get_free_heap_size());
-      jo_int(j, "rst", esp_reset_reason());
-      jo_string(j, "ssid", (char *) ap.ssid);
-      jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
-      jo_int(j, "rssi", ap.rssi);
-      jo_int(j, "chan", ap.primary);
-      revk_statej(NULL, &j);
+      revk_report_state();
+
       if (app_command)
          app_command("connect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
       break;
@@ -679,7 +684,7 @@ static void task(void *pvParameters)
          }
       }
       if (revk_dump)
-      {                         // So not from mqtt
+      {                         // Done here so not reporting from MQTT
          revk_dump = 0;
          revk_setting_dump();
       }
@@ -708,14 +713,18 @@ static void task(void *pvParameters)
          static int lastch = 0;
          static uint8_t lastbssid[6];
          static int lastindex = 0;
+         static uint32_t lastheap = 0;
+         uint32_t heap = esp_get_free_heap_size();
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info(&ap);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastindex != wifi_index)
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastindex != wifi_index || lastheap > heap + 1000)
          {
+            lastheap = heap;
             lastindex = wifi_index;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
+            revk_report_state();
          }
 #endif
       }
