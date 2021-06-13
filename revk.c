@@ -36,7 +36,6 @@ static const char
 #define	CONFIG_MQTT_BUFFER_SIZE 1024
 #endif
 
-#define	WIFIMAX	3
 #define	MQTTMAX	3
 
 #define	settings	\
@@ -72,13 +71,15 @@ static const char
 
 #define	wifisettings	\
 		u32(wifireset,0);			\
-		sa(wifissid,WIFIMAX,CONFIG_REVK_WIFISSID);	\
-		sa(wifiip,WIFIMAX,CONFIG_REVK_WIFIIP);	\
-		sa(wifigw,WIFIMAX,CONFIG_REVK_WIFIGW);	\
-		sa(wifidns,WIFIMAX,CONFIG_REVK_WIFIDNS);	\
-		fh(wifibssid,WIFIMAX,6,CONFIG_REVK_WIFIBSSID);	\
-		u8a(wifichan,WIFIMAX,CONFIG_REVK_WIFICHAN);	\
-		sap(wifipass,WIFIMAX,CONFIG_REVK_WIFIPASS);	\
+		s(wifissid,CONFIG_REVK_WIFISSID);	\
+		s(wifiip,CONFIG_REVK_WIFIIP);		\
+		s(wifigw,CONFIG_REVK_WIFIGW);		\
+		sa(wifidns,3,CONFIG_REVK_WIFIDNS);		\
+		h(wifibssid,6,CONFIG_REVK_WIFIBSSID);	\
+		u8(wifichan,CONFIG_REVK_WIFICHAN);	\
+		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
+
+#define	apsettings	\
 		s(apssid,CONFIG_REVK_APSSID);		\
 		sp(appass,CONFIG_REVK_APPASS);		\
 		s(apip,CONFIG_REVK_APIP);		\
@@ -86,13 +87,6 @@ static const char
 		b(aphide,CONFIG_REVK_APHIDE);		\
 
 #define	meshsettings	\
-		s(wifissid,CONFIG_REVK_WIFISSID);	\
-		s(wifiip,CONFIG_REVK_WIFIIP);		\
-		s(wifigw,CONFIG_REVK_WIFIGW);		\
-		s(wifidns,CONFIG_REVK_WIFIDNS);		\
-		h(wifibssid,6,CONFIG_REVK_WIFIBSSID);	\
-		u8(wifichan,CONFIG_REVK_WIFICHAN);	\
-		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
 		h(meshid,6,CONFIG_REVK_MESHID);		\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 
@@ -113,17 +107,19 @@ static const char
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	static char n[l];
 settings
-#ifdef	CONFIG_REVK_WIFI
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
     wifisettings
+#ifdef	CONFIG_REVK_MESH
+    meshsettings
+#else
+    apsettings
+#endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
     mqttsettings
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
     apconfigsettings
-#endif
-#ifdef	CONFIG_REVK_MESH
-    meshsettings
 #endif
 #undef s
 #undef sp
@@ -167,7 +163,8 @@ uint64_t revk_binid = 0;        /* Binary chip ID */
 
 /* Local */
 static EventGroupHandle_t revk_group;
-#ifdef	CONFIG_REVK_WIFI
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVKMESH)
+static int wifi_fails=0;
 const static int GROUP_WIFI = BIT0;
 const static int GROUP_WIFI_DONE = BIT1;
 const static int GROUP_WIFI_TRY = BIT2;
@@ -194,11 +191,11 @@ static uint8_t revk_dump = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
-#ifdef	CONFIG_REVK_WIFI
-static int wifi_count = 0;
-static int wifi_fails = 0;
-static int wifi_index = -1;
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_WIFI_MESH)
 static esp_netif_t *sta_netif = NULL;
+#ifndef	CONFIG_WIFI_MESH
+static esp_netif_t *ap_netif = NULL;
+#endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
 static int mqtt_count = 0;
@@ -206,9 +203,6 @@ static int mqtt_index = -1;
 #endif
 static int64_t lastonline = 0;
 static char wdt_test = 0;
-#ifdef  CONFIG_REVK_WIFI
-static esp_netif_t *ap_netif = NULL;
-#endif
 static uint8_t blink_on = 0,
     blink_off = 0;
 static const char *revk_setting_dump(void);
@@ -241,7 +235,7 @@ static void revk_report_state(void)
    revk_statej(NULL, &j);
 }
 
-#ifdef	CONFIG_REVK_WIFI
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 {
    char *i = strdup(ip);
@@ -262,18 +256,13 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 }
 #endif
 
-#ifdef	CONFIG_REVK_WIFI
-static void wifi_next(const char *reason)
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_WIFI_MESH)
+static void wifi_init(void)
 {
-   if (wifi_index < -1)
-      return;
-   ESP_LOGI(TAG, "WiFi next %s", reason);
 #ifdef	CONFIG_REVK_APCONFIG
    if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
       return;
 #endif
-   if (wifi_index == -1)
-   {                            /* init */
       if (*apssid)
       {
          wifi_config_t wifi_config = { 0, };
@@ -307,27 +296,19 @@ static void wifi_next(const char *reason)
       }
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
       REVK_ERR_CHECK(esp_wifi_start());
-   }
-   int last = wifi_index;
-   wifi_index++;
-   if (wifi_index >= sizeof(wifissid) / sizeof(*wifissid) || !*wifissid[wifi_index])
-      wifi_index = 0;           /* loop */
-   if (last != wifi_index && last >= 0 && app_command)
-      app_command("change", 0, NULL);
-   ESP_LOGI(TAG, "WIFi [%s]", wifissid[wifi_index]);
+   ESP_LOGI(TAG, "WIFi [%s]", wifissid);
    wifi_config_t wifi_config = { 0, };
-   if (wifibssid[wifi_index][0] || wifibssid[wifi_index][1] || wifibssid[wifi_index][2])
+   if (wifibssid[0] || wifibssid[1] || wifibssid[2])
    {
-      memcpy(wifi_config.sta.bssid, wifibssid[wifi_index], sizeof(wifi_config.sta.bssid));
+      memcpy(wifi_config.sta.bssid, wifibssid, sizeof(wifi_config.sta.bssid));
       wifi_config.sta.bssid_set = 1;
    }
    xEventGroupSetBits(revk_group, GROUP_WIFI_TRY);
-   wifi_config.sta.channel = wifichan[wifi_index];
+   wifi_config.sta.channel = wifichan;
    wifi_config.sta.scan_method = ((esp_reset_reason() == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
-   strncpy((char *) wifi_config.sta.ssid, wifissid[wifi_index], sizeof(wifi_config.sta.ssid));
-   strncpy((char *) wifi_config.sta.password, wifipass[wifi_index], sizeof(wifi_config.sta.password));
+   strncpy((char *) wifi_config.sta.ssid, wifissid, sizeof(wifi_config.sta.ssid));
+   strncpy((char *) wifi_config.sta.password, wifipass, sizeof(wifi_config.sta.password));
    REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-   /* DNS(not per wifi_index, but main, backup and fallback) */
    void dns(const char *ip, esp_netif_dns_type_t type) {
       if (!ip || !*ip)
          return;
@@ -351,16 +332,15 @@ static void wifi_next(const char *reason)
          ESP_LOGI(TAG, "Set DNS IP %s", i);
       free(i);
    }
-   /* Static IP(per wifi_index) */
-   if (*wifiip[wifi_index])
+   if (*wifiip)
    {
       esp_netif_dhcpc_stop(sta_netif);
       esp_netif_ip_info_t info = { 0, };
-      makeip(&info, wifiip[wifi_index], wifigw[wifi_index]);
+      makeip(&info, wifiip, wifigw);
       REVK_ERR_CHECK(esp_netif_set_ip_info(sta_netif, &info));
-      ESP_LOGI(TAG, "Fixed IP %s GW %s", wifiip[wifi_index], wifigw[wifi_index]);
+      ESP_LOGI(TAG, "Fixed IP %s GW %s", wifiip, wifigw);
       if (!*wifidns[0])
-         dns(wifiip[wifi_index], ESP_NETIF_DNS_MAIN);   /* Fallback to using gateway for DNS */
+         dns(wifiip, ESP_NETIF_DNS_MAIN);   /* Fallback to using gateway for DNS */
    } else
       esp_netif_dhcpc_start(sta_netif); /* Dynamic IP */
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
@@ -580,7 +560,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             revk_restart("WiFi lost", wifireset);
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_WIFI_TRY);
          xEventGroupSetBits(revk_group, GROUP_WIFI_DONE);
-         wifi_count++;
          wifi_fails++;
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
@@ -600,9 +579,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       {
       case IP_EVENT_STA_LOST_IP:
          ESP_LOGI(TAG, "Lost IP");
-#ifdef	CONFIG_REVK_WIFI
-         wifi_next("Lost IP");
-#endif
          break;
       case IP_EVENT_STA_GOT_IP:
          ESP_LOGI(TAG, "Got IP");
@@ -625,7 +601,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          xEventGroupSetBits(revk_group, GROUP_WIFI);
          xEventGroupClearBits(revk_group, GROUP_WIFI_TRY | GROUP_WIFI_DONE);
          if (app_command)
-            app_command("wifi", strlen(wifissid[wifi_index]), (unsigned char *) wifissid[wifi_index]);
+            app_command("wifi", strlen(wifissid), (unsigned char *) wifissid);
 #endif
          break;
       case IP_EVENT_GOT_IP6:
@@ -712,16 +688,14 @@ static void task(void *pvParameters)
 #ifdef	CONFIG_REVK_WIFI
          static int lastch = 0;
          static uint8_t lastbssid[6];
-         static int lastindex = 0;
          static uint32_t lastheap = 0;
          uint32_t heap = esp_get_free_heap_size();
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info(&ap);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastindex != wifi_index || lastheap > heap + 1000)
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap > heap + 1000)
          {
             lastheap = heap;
-            lastindex = wifi_index;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
             revk_report_state();
@@ -740,10 +714,6 @@ static void task(void *pvParameters)
            )) == (GROUP_WIFI))
 #endif
          mqtt_next();           /* reconnect */
-#ifdef	CONFIG_REVK_WIFI
-      if (!(xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY)))
-         wifi_next("Not running WiFi");
-#endif
 #ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
@@ -817,10 +787,16 @@ void revk_init(app_command_t * app_command_cb)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINARY|SETTING_HEX)
    settings;
-#ifdef	CONFIG_REVK_WIFI
-   revk_register("wifi", WIFIMAX, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);  // Parent
-   revk_register("ap", 0, 0, &apssid, CONFIG_REVK_APSSID, SETTING_SECRET);      // Parent
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+   revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);  // Parent
    wifisettings;
+#ifdef	CONFIG_WIFI_MESH
+   revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINARY | SETTING_HEX | SETTING_SECRET);     // Parent
+   meshsettings;
+#else
+   revk_register("ap", 0, 0, &apssid, CONFIG_REVK_APSSID, SETTING_SECRET);      // Parent
+   apsettings;
+#endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
    revk_register("mqtt", MQTTMAX, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);  // Parent
@@ -828,11 +804,6 @@ void revk_init(app_command_t * app_command_cb)
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
    apconfigsettings;
-#endif
-#ifdef	CONFIG_REVK_MESH
-   revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);        // Parent
-   revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINARY | SETTING_HEX | SETTING_SECRET);     // Parent
-   meshsettings;
 #endif
 #undef s
 #undef snl
@@ -923,7 +894,7 @@ void revk_init(app_command_t * app_command_cb)
    esp_netif_set_hostname(sta_netif, id);
    esp_netif_create_ip6_linklocal(sta_netif);
    free(id);
-   wifi_next("Start");
+   wifi_init();
 #endif
    revk_task(TAG, task, NULL);
 }
@@ -1316,7 +1287,6 @@ static void ap_task(void *pvParameters)
    }
    esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_stop();
-   wifi_index = -1;             /* needs restarting */
    xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE | GROUP_WIFI | GROUP_WIFI_TRY);
    ESP_LOGI(TAG, "AP mode end");
    ap_task_id = NULL;
@@ -2463,9 +2433,7 @@ const char *revk_mqtt(void)
 #ifdef	CONFIG_REVK_WIFI
 const char *revk_wifi(void)
 {
-   if (wifi_index < 0)
-      return "";
-   return wifissid[wifi_index];
+   return wifissid;
 }
 #endif
 
@@ -2508,7 +2476,6 @@ void revk_mqtt_close(const char *reason)
 void revk_wifi_close(void)
 {
    ESP_LOGI(TAG, "WIFi Close");
-   wifi_index = -2;             /* Do not reconnect */
    esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_deinit();
    ESP_LOGI(TAG, "WIFi Closed");
