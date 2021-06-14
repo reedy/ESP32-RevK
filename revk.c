@@ -720,7 +720,7 @@ static void task(void *pvParameters)
                           || (apwait && (wifi_fails >= 6 || revk_offline() > apwait))
 #endif
 #ifdef	CONFIG_REVK_WIFI
-                          || !*wifissid[0]
+                          || !*wifissid
 #endif
           ))
          ap_task_id = revk_task("AP", ap_task, NULL);   /* Start AP mode */
