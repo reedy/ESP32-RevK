@@ -589,6 +589,10 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       {
       case IP_EVENT_STA_LOST_IP:
          ESP_LOGI(TAG, "Lost IP");
+#ifdef  CONFIG_REVK_WIFI
+         if (wifireset)
+            revk_restart("WiFi lost", wifireset);       // Reset on loss of wifi if not reconnected in time
+#endif
          break;
       case IP_EVENT_STA_GOT_IP:
          ESP_LOGI(TAG, "Got IP");
