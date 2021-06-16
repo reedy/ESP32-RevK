@@ -229,7 +229,7 @@ static void revk_report_state(void)
    jo_int(j, "mem", esp_get_free_heap_size());
    jo_int(j, "rst", esp_reset_reason());
    jo_string(j, "ssid", (char *) ap.ssid);
-   jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
+   jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
    jo_int(j, "rssi", ap.rssi);
    jo_int(j, "chan", ap.primary);
    revk_statej(NULL, &j);
@@ -367,7 +367,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       lastonline = esp_timer_get_time() + 3000000LL;
       slow_connect = 0;
       if (mqttreset)
-         revk_restart(NULL, -1); // Cancel reset
+         revk_restart(NULL, -1);        // Cancel reset
       xEventGroupSetBits(revk_group, GROUP_MQTT);
       xEventGroupClearBits(revk_group, GROUP_MQTT_TRY | GROUP_MQTT_DONE);
       void sub(const char *prefix) {
@@ -545,7 +545,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case WIFI_EVENT_STA_START:
          ESP_LOGI(TAG, "STA Start");
          if (wifireset)
-            revk_restart("WiFi lost", wifireset); // Reset on loss of wifi if not reconnected in time
+            revk_restart("WiFi lost", wifireset);       // Reset on loss of wifi if not reconnected in time
          esp_wifi_connect();
          break;
       case WIFI_EVENT_AP_STOP:
@@ -569,7 +569,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          xEventGroupSetBits(revk_group, GROUP_WIFI_DONE);
          wifi_fails++;
          if (wifireset)
-            revk_restart("WiFi lost", wifireset); // Reset on loss of wifi if not reconnected in time
+            revk_restart("WiFi lost", wifireset);       // Reset on loss of wifi if not reconnected in time
          esp_wifi_connect();
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
@@ -599,7 +599,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #endif
 #ifdef  CONFIG_REVK_WIFI
          if (wifireset)
-            revk_restart(NULL, -1); // Cancel reset
+            revk_restart(NULL, -1);     // Cancel reset
 #endif
          sntp_stop();
          sntp_init();
