@@ -367,7 +367,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       lastonline = esp_timer_get_time() + 3000000LL;
       slow_connect = 0;
       if (mqttreset)
-         revk_restart(NULL, -1);
+         revk_restart(NULL, -1); // Cancel reset
       xEventGroupSetBits(revk_group, GROUP_MQTT);
       xEventGroupClearBits(revk_group, GROUP_MQTT_TRY | GROUP_MQTT_DONE);
       void sub(const char *prefix) {
@@ -544,6 +544,8 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case WIFI_EVENT_STA_START:
          ESP_LOGI(TAG, "STA Start");
+         if (wifireset)
+            revk_restart("WiFi lost", wifireset); // Reset on loss of wifi if not reconnected in time
          esp_wifi_connect();
          break;
       case WIFI_EVENT_AP_STOP:
@@ -563,11 +565,11 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
          ESP_LOGI(TAG, "STA Disconnect");
-         if (wifireset)
-            revk_restart("WiFi lost", wifireset);
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_WIFI_TRY);
          xEventGroupSetBits(revk_group, GROUP_WIFI_DONE);
          wifi_fails++;
+         if (wifireset)
+            revk_restart("WiFi lost", wifireset); // Reset on loss of wifi if not reconnected in time
          esp_wifi_connect();
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
@@ -597,7 +599,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #endif
 #ifdef  CONFIG_REVK_WIFI
          if (wifireset)
-            revk_restart(NULL, -1);
+            revk_restart(NULL, -1); // Cancel reset
 #endif
          sntp_stop();
          sntp_init();
