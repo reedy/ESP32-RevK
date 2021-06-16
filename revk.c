@@ -164,7 +164,7 @@ uint64_t revk_binid = 0;        /* Binary chip ID */
 /* Local */
 static EventGroupHandle_t revk_group;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVKMESH)
-static int wifi_fails=0;
+static int wifi_fails = 0;
 const static int GROUP_WIFI = BIT0;
 const static int GROUP_WIFI_DONE = BIT1;
 const static int GROUP_WIFI_TRY = BIT2;
@@ -257,45 +257,53 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 #endif
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_WIFI_MESH)
+static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void wifi_init(void)
 {
-#ifdef	CONFIG_REVK_APCONFIG
-   if (xEventGroupGetBits(revk_group) & GROUP_APCONFIG)
-      return;
-#endif
-      if (*apssid)
+   REVK_ERR_CHECK(esp_event_loop_create_default());
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+
+   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+   REVK_ERR_CHECK(esp_wifi_init(&cfg));
+   REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+   REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+   sta_netif = esp_netif_create_default_wifi_sta();
+   ap_netif = esp_netif_create_default_wifi_ap();
+   if (*apssid)
+   {                            // AP config
+      wifi_config_t wifi_config = { 0, };
+      if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
       {
-         wifi_config_t wifi_config = { 0, };
-         if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
-         {
-            memcpy((char *) wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
-            wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
-         } else
-         {
-            strcpy((char *) wifi_config.ap.ssid, apssid);
-            wifi_config.ap.ssid_len = strlen(apssid);
-         }
-         if (*appass)
-         {
-            strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
-            wifi_config.ap.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
-         }
-         wifi_config.ap.ssid_hidden = aphide;
-         wifi_config.ap.max_connection = 255;
-         esp_netif_ip_info_t info = { 0, };
-         makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
-         REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
-         REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
-         REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
-         REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
-         REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-         esp_wifi_set_mode(WIFI_MODE_APSTA);
+         memcpy((char *) wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+         wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
       } else
-      {                         /* station only */
-         esp_wifi_set_mode(WIFI_MODE_STA);
+      {
+         strcpy((char *) wifi_config.ap.ssid, apssid);
+         wifi_config.ap.ssid_len = strlen(apssid);
       }
-      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
-      REVK_ERR_CHECK(esp_wifi_start());
+      if (*appass)
+      {
+         strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
+         wifi_config.ap.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
+      }
+      wifi_config.ap.ssid_hidden = aphide;
+      wifi_config.ap.max_connection = 255;
+      esp_netif_ip_info_t info = { 0, };
+      makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
+      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
+      REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
+      REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
+      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+      esp_wifi_set_mode(WIFI_MODE_APSTA);
+   } else
+   {                            /* station only */
+      esp_wifi_set_mode(WIFI_MODE_STA);
+   }
+   REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
+   xEventGroupSetBits(revk_group, GROUP_WIFI_TRY);
+   REVK_ERR_CHECK(esp_wifi_start());
    ESP_LOGI(TAG, "WIFi [%s]", wifissid);
    wifi_config_t wifi_config = { 0, };
    if (wifibssid[0] || wifibssid[1] || wifibssid[2])
@@ -303,7 +311,6 @@ static void wifi_init(void)
       memcpy(wifi_config.sta.bssid, wifibssid, sizeof(wifi_config.sta.bssid));
       wifi_config.sta.bssid_set = 1;
    }
-   xEventGroupSetBits(revk_group, GROUP_WIFI_TRY);
    wifi_config.sta.channel = wifichan;
    wifi_config.sta.scan_method = ((esp_reset_reason() == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
    strncpy((char *) wifi_config.sta.ssid, wifissid, sizeof(wifi_config.sta.ssid));
@@ -340,7 +347,7 @@ static void wifi_init(void)
       REVK_ERR_CHECK(esp_netif_set_ip_info(sta_netif, &info));
       ESP_LOGI(TAG, "Fixed IP %s GW %s", wifiip, wifigw);
       if (!*wifidns[0])
-         dns(wifiip, ESP_NETIF_DNS_MAIN);   /* Fallback to using gateway for DNS */
+         dns(wifiip, ESP_NETIF_DNS_MAIN);       /* Fallback to using gateway for DNS */
    } else
       esp_netif_dhcpc_start(sta_netif); /* Dynamic IP */
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
@@ -561,6 +568,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_WIFI_TRY);
          xEventGroupSetBits(revk_group, GROUP_WIFI_DONE);
          wifi_fails++;
+         esp_wifi_connect();
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
          ESP_LOGI(TAG, "AP STA Disconnect");
@@ -788,7 +796,7 @@ void revk_init(app_command_t * app_command_cb)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINARY|SETTING_HEX)
    settings;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-   revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);  // Parent
+   revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);        // Parent
    wifisettings;
 #ifdef	CONFIG_WIFI_MESH
    revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINARY | SETTING_HEX | SETTING_SECRET);     // Parent
@@ -867,24 +875,8 @@ void revk_init(app_command_t * app_command_cb)
       snprintf(revk_id, sizeof(revk_id), "%012llX", revk_binid);
 #endif
    }
-   /* WiFi */
    revk_group = xEventGroupCreate();
-#ifdef	CONFIG_REVK_WIFI
-   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-#endif
-   REVK_ERR_CHECK(esp_event_loop_create_default());
-#ifdef	CONFIG_REVK_WIFI
-   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-#endif
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &ip_event_handler, NULL));
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &ip_event_handler, NULL));
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &ip_event_handler, NULL));
-#ifdef	CONFIG_REVK_WIFI
-   REVK_ERR_CHECK(esp_wifi_init(&cfg));
-   REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-   REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-   sta_netif = esp_netif_create_default_wifi_sta();
-   ap_netif = esp_netif_create_default_wifi_ap();
+   wifi_init();
    /* DHCP */
    char *id;
    if (*hostname)
@@ -894,8 +886,6 @@ void revk_init(app_command_t * app_command_cb)
    esp_netif_set_hostname(sta_netif, id);
    esp_netif_create_ip6_linklocal(sta_netif);
    free(id);
-   wifi_init();
-#endif
    revk_task(TAG, task, NULL);
 }
 
@@ -2235,15 +2225,14 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    if (!e && !strcmp(tag, "upgrade"))
    {
       char *url;                /* Yeh, not freed, but we are rebooting */
-      if (len && (!strncmp((char *) value, "https://", 8) || !strncmp((char *) value, "http://", 7)))   /* Yeh allowing http as
-                                                                                                         * code is signed anyway */
+      if (len && (!strncmp((char *) value, "https://", 8) || !strncmp((char *) value, "http://", 7)))
          url = strdup((char *) value);
       else
          asprintf(&url, "%s://%s/%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                   *otacert ? "https" : "http",
 #else
-                  "https",      /* If not signed, use https even if no cert pinned */
+                  "http",       /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
                   len ? (char *) value : otahost, appname);
       e = revk_ota(url);
@@ -2384,7 +2373,7 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
    }
 }
 
-#if CONFIG_LOG_DEFAULT_LEVEL > 3
+#if CONFIG_LOG_DEFAULT_LEVEL > 2
 esp_err_t revk_err_check(esp_err_t e, const char *file, int line, const char *func, const char *cmd)
 {
    if (e != ERR_OK)
