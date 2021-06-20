@@ -2183,7 +2183,8 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    /* My commands */
    if (!e && !strcmp(tag, "status"))
    {
-      revk_report_state()e = "";
+      revk_report_state();
+      e = "";
    }
    if (!e && !strcmp(tag, "upgrade"))
    {
