@@ -1184,7 +1184,7 @@ static void ap_task(void *pvParameters)
    if (xEventGroupGetBits(revk_group) & GROUP_WIFI)
    {
       esp_wifi_disconnect();
-      xEventGroupWaitBits(revk_group, GROUP_WIFI_DONE, false, true, 1000 / portTICK_PERIOD_MS);
+      //xEventGroupWaitBits(revk_group, GROUP_WIFI_DONE, false, true, 1000 / portTICK_PERIOD_MS);
    }
    esp_wifi_stop();
    {                            /* IP */
@@ -1208,7 +1208,7 @@ static void ap_task(void *pvParameters)
    if (xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY))
    {
       esp_wifi_disconnect();
-      xEventGroupWaitBits(revk_group, GROUP_WIFI_DONE, false, true, 1000 / portTICK_PERIOD_MS);
+      //xEventGroupWaitBits(revk_group, GROUP_WIFI_DONE, false, true, 1000 / portTICK_PERIOD_MS);
    }
 #endif
    REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
