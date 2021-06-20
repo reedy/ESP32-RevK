@@ -96,6 +96,13 @@ menu "RevK"
 	help
 		This defines the factory reset default WiFi client DNS
 
+	config REVK_WIFIRESET
+	bool "Reset if WiFi reconnect"
+	default n
+	depends on REVK_WIFI
+	help
+		If we fail to connect or reconnect to WiFi and IP we reset
+
 	config REVK_APSSID
         string "Access point SSID"
         default ""
@@ -178,6 +185,13 @@ menu "RevK"
 	depends on REVK_MQTT
 	help
 		This defines the factory reset MQTT packet size
+
+	config REVK_MQTTRESET
+	bool "Reset if MQTT reconnect"
+	default n
+	depends on REVK_MQTT
+	help
+		If we fail to connect or reconnect to MQTT
 
 	config REVK_OTAHOST
 	string "Default OTA host"

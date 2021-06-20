@@ -36,8 +36,6 @@ static const char
 #define	CONFIG_MQTT_BUFFER_SIZE 1024
 #endif
 
-#define	MQTTMAX	3
-
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		s(otacert,CONFIG_REVK_OTACERT);		\
@@ -61,16 +59,16 @@ static const char
 		io(apgpio);		\
 
 #define	mqttsettings	\
-		u32(mqttreset,0);			\
-		sa(mqtthost,MQTTMAX,CONFIG_REVK_MQTTHOST);	\
-		sa(mqttuser,MQTTMAX,CONFIG_REVK_MQTTUSER);	\
-		sap(mqttpass,MQTTMAX,CONFIG_REVK_MQTTPASS);	\
-		u16(mqttport,MQTTMAX,CONFIG_REVK_MQTTPORT);	\
+		b(mqttreset,CONFIG_REVK_MQTTRESET);			\
+		s(mqtthost,CONFIG_REVK_MQTTHOST);	\
+		s(mqttuser,CONFIG_REVK_MQTTUSER);	\
+		sp(mqttpass,CONFIG_REVK_MQTTPASS);	\
+		u16(mqttport,CONFIG_REVK_MQTTPORT);	\
 		u32(mqttsize,CONFIG_REVK_MQTTSIZE);	\
-		sa(mqttcert,MQTTMAX,CONFIG_REVK_MQTTCERT);	\
+		s(mqttcert,CONFIG_REVK_MQTTCERT);	\
 
 #define	wifisettings	\
-		u32(wifireset,0);			\
+		b(wifireset,CONFIG_REVK_WIFIRESET);			\
 		s(wifissid,CONFIG_REVK_WIFISSID);	\
 		s(wifiip,CONFIG_REVK_WIFIIP);		\
 		s(wifigw,CONFIG_REVK_WIFIGW);		\
@@ -97,7 +95,7 @@ static const char
 #define sap(n,a,d)	static char *n[a];
 #define fh(n,a,s,d)	static char n[a][s];
 #define	u32(n,d)	static uint32_t n;
-#define	u16(n,a,d)	static uint16_t n[a];
+#define	u16(n,d)	static uint16_t n;
 #define	i16(n)		static int16_t n;
 #define	u8a(n,a,d)	static uint8_t n[a];
 #define	u8(n,d)		static uint8_t n;
@@ -164,19 +162,19 @@ uint64_t revk_binid = 0;        /* Binary chip ID */
 /* Local */
 static EventGroupHandle_t revk_group;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVKMESH)
-static int wifi_fails = 0;
-const static int GROUP_WIFI = BIT0;
-const static int GROUP_WIFI_DONE = BIT1;
-const static int GROUP_WIFI_TRY = BIT2;
+#define	WIFIRETRY 10
+volatile static uint64_t wifi_retry = 0;        // When to retry wifi connect again, cleared on getting IP
+const static int GROUP_WIFI = BIT0;     // We are WiFi connected
+const static int GROUP_IP = BIT1;       // We have IP address
 #endif
 #ifdef	CONFIG_REVK_MQTT
-const static int GROUP_MQTT = BIT3;
-const static int GROUP_MQTT_DONE = BIT4;
-const static int GROUP_MQTT_TRY = BIT5;
+#define	MQTTRETRY 30
+volatile static uint64_t mqtt_retry = 0;        // When to retry MQTT connect
+const static int GROUP_MQTT = BIT2;     // We are MQTT connected
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
-const static int GROUP_APCONFIG = BIT6;
-const static int GROUP_APCONFIG_DONE = BIT7;
+const static int GROUP_APCONFIG = BIT3;
+const static int GROUP_APCONFIG_DONE = BIT4;
 #endif
 static TaskHandle_t ota_task_id = NULL;
 #ifdef	CONFIG_REVK_APCONFIG
@@ -186,7 +184,6 @@ static app_command_t *app_command = NULL;
 esp_mqtt_client_handle_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
-static int64_t slow_connect = 0;
 static uint8_t revk_dump = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
@@ -199,7 +196,6 @@ static esp_netif_t *ap_netif = NULL;
 #endif
 #ifdef	CONFIG_REVK_MQTT
 static int mqtt_count = 0;
-static int mqtt_index = -1;
 #endif
 static int64_t lastonline = 0;
 static char wdt_test = 0;
@@ -210,10 +206,6 @@ static const char *revk_setting_dump(void);
 /* Local functions */
 #ifdef	CONFIG_REVK_APCONFIG
 static void ap_task(void *pvParameters);
-#endif
-
-#ifdef	CONFIG_REVK_MQTT
-static void mqtt_next(void);
 #endif
 
 static void revk_report_state(void)
@@ -302,7 +294,6 @@ static void wifi_init(void)
       esp_wifi_set_mode(WIFI_MODE_STA);
    }
    REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
-   xEventGroupSetBits(revk_group, GROUP_WIFI_TRY);
    REVK_ERR_CHECK(esp_wifi_start());
    ESP_LOGI(TAG, "WIFi [%s]", wifissid);
    wifi_config_t wifi_config = { 0, };
@@ -365,11 +356,10 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
    case MQTT_EVENT_CONNECTED:
       ESP_LOGI(TAG, "MQTT connect");
       lastonline = esp_timer_get_time() + 3000000LL;
-      slow_connect = 0;
       if (mqttreset)
          revk_restart(NULL, -1);        // Cancel reset
+      mqtt_retry = 0;
       xEventGroupSetBits(revk_group, GROUP_MQTT);
-      xEventGroupClearBits(revk_group, GROUP_MQTT_TRY | GROUP_MQTT_DONE);
       void sub(const char *prefix) {
          char *topic;
          if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
@@ -393,17 +383,15 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       revk_report_state();
 
       if (app_command)
-         app_command("connect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
+         app_command("connect", strlen(mqtthost), (unsigned char *) mqtthost);
       break;
    case MQTT_EVENT_DISCONNECTED:
       ESP_LOGI(TAG, "MQTT disconnect");
-      if (mqttreset)
-         revk_restart("MQTT lost", mqttreset);
-      mqtt_count++;
-      xEventGroupSetBits(revk_group, GROUP_MQTT_DONE);
-      xEventGroupClearBits(revk_group, GROUP_MQTT | GROUP_MQTT_TRY);
       if (app_command)
-         app_command("disconnect", strlen(mqtthost[mqtt_index]), (unsigned char *) mqtthost[mqtt_index]);
+         app_command("disconnect", strlen(mqtthost), (unsigned char *) mqtthost);
+      mqtt_count++;
+      xEventGroupClearBits(revk_group, GROUP_MQTT);
+      mqtt_retry = esp_timer_get_time() + MQTTRETRY * 1000000ULL;
       break;
    case MQTT_EVENT_DATA:
       {                         // topic is expected to be a prefix/appname/id/tag where tag could be omitted
@@ -462,29 +450,18 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-static void mqtt_next(void)
+static void mqtt_init(void)
 {
-   if (mqtt_index < -1)
+   if (mqtt_client)
       return;
-   int last = mqtt_index;
-   mqtt_index++;
-   if (mqtt_index >= sizeof(mqtthost) / sizeof(*mqtthost) || !*mqtthost[mqtt_index])
-      mqtt_index = 0;
-   ESP_LOGI(TAG, "MQTT [%s]", mqtthost[mqtt_index]);
-   if (last == mqtt_index && mqtt_client)
-   {
-      esp_mqtt_client_reconnect(mqtt_client);
-      return;                   /* No change */
-   }
-   if (last != mqtt_index && last >= 0 && app_command)
-      app_command("change", 0, NULL);
-   if (!*mqtthost[mqtt_index] || *mqtthost[mqtt_index] == '-')  /* No MQTT */
+   ESP_LOGI(TAG, "MQTT [%s]", mqtthost);
+   if (!*mqtthost)              /* No MQTT */
       return;
    char *topic;
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
       return;
    char *url;
-   if (asprintf(&url, "%s://%s/", *mqttcert[mqtt_index] ? "mqtts" : "mqtt", mqtthost[mqtt_index]) < 0)
+   if (asprintf(&url, "%s://%s/", *mqttcert ? "mqtts" : "mqtt", mqtthost) < 0)
    {
       free(topic);
       return;
@@ -498,34 +475,25 @@ static void mqtt_next(void)
       .lwt_msg_len = 12,
       .event_handle = mqtt_event_handler,
       .buffer_size = mqttsize,
-      /* .disable_auto_reconnect = true, */
    };
-   if (*mqttcert[mqtt_index])
+   if (*mqttcert)
    {
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-      if (!strcmp(mqttcert[mqtt_index], "*"))
+      if (!strcmp(mqttcert, "*"))
          config.crt_bundle_attach = esp_crt_bundle_attach;
       else
 #endif
 #endif
-         config.cert_pem = mqttcert[mqtt_index];
+         config.cert_pem = mqttcert;
    }
-   if (*mqttuser[mqtt_index])
-      config.username = mqttuser[mqtt_index];
-   if (*mqttpass[mqtt_index])
-      config.password = mqttpass[mqtt_index];
-   if (mqttport[mqtt_index])
-      config.port = mqttport[mqtt_index];
-   if (!mqtt_client)
-      mqtt_client = esp_mqtt_client_init(&config);
-   else
-   {
-      esp_mqtt_client_stop(mqtt_client);
-      xEventGroupWaitBits(revk_group, GROUP_MQTT_DONE, false, true, 1000 / portTICK_PERIOD_MS);
-      esp_mqtt_set_config(mqtt_client, &config);
-   }
-   xEventGroupSetBits(revk_group, GROUP_MQTT_TRY);
+   if (*mqttuser)
+      config.username = mqttuser;
+   if (*mqttpass)
+      config.password = mqttpass;
+   if (mqttport)
+      config.port = mqttport;
+   mqtt_client = esp_mqtt_client_init(&config);
    esp_mqtt_client_start(mqtt_client);
    free(topic);
    free(url);
@@ -544,35 +512,32 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case WIFI_EVENT_STA_START:
          ESP_LOGI(TAG, "STA Start");
-         if (wifireset)
-            revk_restart("WiFi lost", wifireset);       // Reset on loss of wifi if not reconnected in time
-         esp_wifi_connect();
          break;
       case WIFI_EVENT_AP_STOP:
          ESP_LOGI(TAG, "AP Stop");
          break;
       case WIFI_EVENT_STA_STOP:
          ESP_LOGI(TAG, "STA Stop");
+         xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
          break;
       case WIFI_EVENT_STA_CONNECTED:
          ESP_LOGI(TAG, "STA Connect");
-         slow_connect = esp_timer_get_time() + 300000000LL;     /* If no DHCP && MQTT we disconnect WiFi */
-         if (wifireset)
-            esp_phy_erase_cal_data_in_nvs();    /* Lets calibrate on boot */
+         wifi_retry = 0;
+         xEventGroupSetBits(revk_group, GROUP_WIFI);
          break;
       case WIFI_EVENT_AP_STACONNECTED:
          ESP_LOGI(TAG, "AP STA Connect");
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
          ESP_LOGI(TAG, "STA Disconnect");
-         xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_WIFI_TRY);
-         xEventGroupSetBits(revk_group, GROUP_WIFI_DONE);
-         wifi_fails++;
-         if (wifireset)
-            revk_restart("WiFi lost", wifireset);       // Reset on loss of wifi if not reconnected in time
-         esp_wifi_connect();
+         xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
+         wifi_retry = esp_timer_get_time() + WIFIRETRY * 1000000ULL;
+         esp_wifi_connect();    // Reconnect anyway, the retry will kick if this does not happen
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
+#ifdef CONFIG_REVK_APCONFIG
+         xEventGroupSetBits(revk_group, GROUP_APCONFIG_DONE);
+#endif
          ESP_LOGI(TAG, "AP STA Disconnect");
          break;
       case WIFI_EVENT_AP_PROBEREQRECVED:
@@ -590,30 +555,24 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case IP_EVENT_STA_LOST_IP:
          ESP_LOGI(TAG, "Lost IP");
 #ifdef  CONFIG_REVK_WIFI
-         if (wifireset)
-            revk_restart("WiFi lost", wifireset);       // Reset on loss of wifi if not reconnected in time
+         wifi_retry = esp_timer_get_time() + WIFIRETRY * 1000000ULL;
 #endif
          break;
       case IP_EVENT_STA_GOT_IP:
          ESP_LOGI(TAG, "Got IP");
-         wifi_fails = 0;
-#ifdef	CONFIG_REVK_MQTT
-         if (mqtt_index >= 0 && (!*mqtthost[mqtt_index] || *mqtthost[mqtt_index] == '-'))
-            slow_connect = 0;
-#endif
-#ifdef  CONFIG_REVK_WIFI
-         if (wifireset)
-            revk_restart(NULL, -1);     // Cancel reset
-#endif
+         xEventGroupSetBits(revk_group, GROUP_IP);
          sntp_stop();
          sntp_init();
 #ifdef	CONFIG_REVK_MQTT
          if (mqtt_client)
+         {
+            mqtt_retry = esp_timer_get_time() + MQTTRETRY * 1000000ULL;
             esp_mqtt_client_reconnect(mqtt_client);
+         } else
+            mqtt_init();        // First time
 #endif
 #ifdef  CONFIG_REVK_WIFI
          xEventGroupSetBits(revk_group, GROUP_WIFI);
-         xEventGroupClearBits(revk_group, GROUP_WIFI_TRY | GROUP_WIFI_DONE);
          if (app_command)
             app_command("wifi", strlen(wifissid), (unsigned char *) wifissid);
 #endif
@@ -663,16 +622,6 @@ static void task(void *pvParameters)
                gpio_set_level(blink & 0x3F, lit ^ ((blink & 0x40) ? 1 : 0));
          }
       }
-      if (slow_connect && slow_connect < now)
-      {
-         ESP_LOGI(TAG, "Slow connect, disconnecting");
-         slow_connect = 0;
-         if (xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY))
-         {
-            esp_wifi_disconnect();
-            xEventGroupWaitBits(revk_group, GROUP_WIFI_DONE, false, true, 1000 / portTICK_PERIOD_MS);
-         }
-      }
       if (revk_dump)
       {                         // Done here so not reporting from MQTT
          revk_dump = 0;
@@ -697,7 +646,7 @@ static void task(void *pvParameters)
       }
 #ifdef	CONFIG_REVK_MQTT
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-      {                         /* on line */
+      {                         // Online, check for any changes and report status
          lastonline = esp_timer_get_time() + 3000000LL;
 #ifdef	CONFIG_REVK_WIFI
          static int lastch = 0;
@@ -716,18 +665,22 @@ static void task(void *pvParameters)
          }
 #endif
       }
+      if (mqtt_retry && mqtt_retry < now)
+      {                         // This should not really happen
+         if (mqttreset)
+            revk_restart("MQTT not connected", 1);
+         esp_wifi_disconnect(); // brutal, but try it
+      }
 #endif
 #ifdef	CONFIG_REVK_WIFI
-      if ((xEventGroupGetBits(revk_group) & (GROUP_WIFI
-#ifdef	CONFIG_REVK_MQTT
-                                             | GROUP_MQTT | GROUP_MQTT_TRY
+      if (wifi_retry && wifi_retry < now)
+      {
+         if (wifireset)
+            revk_restart("WiFI not connect", 1);
+         wifi_retry = esp_timer_get_time() + WIFIRETRY * 1000000ULL;
+         esp_wifi_connect();
+      }
 #endif
-#ifdef	CONFIG_REVK_APCONFIG
-                                             | GROUP_APCONFIG
-#endif
-           )) == (GROUP_WIFI))
-#endif
-         mqtt_next();           /* reconnect */
 #ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
@@ -791,7 +744,7 @@ void revk_init(app_command_t * app_command_cb)
 #define sap(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_SECRET)
 #define fh(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINARY|SETTING_HEX)
 #define	u32(n,d)	revk_register(#n,0,4,&n,str(d),0)
-#define	u16(n,a,d)	revk_register(#n,a,2,&n,str(d),0)
+#define	u16(n,d)	revk_register(#n,0,2,&n,str(d),0)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED)
 #define	u8a(n,a,d)	revk_register(#n,a,1,&n,str(d),0)
 #define	u8(n,d)		revk_register(#n,0,1,&n,str(d),0)
@@ -813,7 +766,7 @@ void revk_init(app_command_t * app_command_cb)
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
-   revk_register("mqtt", MQTTMAX, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);  // Parent
+   revk_register("mqtt", 0, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);        // Parent
    mqttsettings;
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
@@ -1223,8 +1176,8 @@ static esp_err_t ap_get(httpd_req_t * req)
 #ifdef	CONFIG_REVK_APCONFIG
 static void ap_task(void *pvParameters)
 {
+   xEventGroupClearBits(revk_group, GROUP_APCONFIG_DONE);
    xEventGroupSetBits(revk_group, GROUP_APCONFIG);
-   wifi_fails = 0;
    lastonline = esp_timer_get_time();
    if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
       revk_mqtt_close("AP mode start");
@@ -2419,9 +2372,7 @@ esp_err_t revk_err_check(esp_err_t e)
 #ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt(void)
 {
-   if (mqtt_index < 0)
-      return "";
-   return mqtthost[mqtt_index];
+   return mqtthost;
 }
 #endif
 
@@ -2460,7 +2411,7 @@ void revk_mqtt_close(const char *reason)
    jo_bool(j, "up", 0);
    jo_string(j, "reason", reason);
    revk_statej(NULL, &j);
-   mqtt_index = -2;             /* Don't reconnect */
+   mqtt_retry = esp_timer_get_time() + 60 * 1000000ULL; // Usually never;
    esp_mqtt_client_stop(mqtt_client);
    usleep(10000);               /* we don't get event, but need to allow time */
    ESP_LOGI(TAG, "MQTT Closed");
