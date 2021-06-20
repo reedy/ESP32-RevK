@@ -2181,6 +2181,10 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    ESP_LOGD(TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
    /* My commands */
+   if (!e && !strcmp(tag, "status"))
+   {
+      revk_report_state()e = "";
+   }
    if (!e && !strcmp(tag, "upgrade"))
    {
       char *url;                /* Yeh, not freed, but we are rebooting */
