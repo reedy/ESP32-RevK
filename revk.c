@@ -1205,7 +1205,7 @@ static void ap_task(void *pvParameters)
    ESP_LOGI(TAG, "AP mode start %.*s", wifi_config.ap.ssid_len, wifi_config.ap.ssid);
    wifi_config.ap.max_connection = 255;
 #ifdef	CONFIG_REVK_WIFI
-   if (xEventGroupGetBits(revk_group) & (GROUP_WIFI | GROUP_WIFI_TRY))
+   if (xEventGroupGetBits(revk_group) & GROUP_WIFI)
    {
       esp_wifi_disconnect();
       //xEventGroupWaitBits(revk_group, GROUP_WIFI_DONE, false, true, 1000 / portTICK_PERIOD_MS);
@@ -1236,7 +1236,7 @@ static void ap_task(void *pvParameters)
    }
    esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_stop();
-   xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE | GROUP_WIFI | GROUP_WIFI_TRY);
+   xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE | GROUP_WIFI);
    ESP_LOGI(TAG, "AP mode end");
    ap_task_id = NULL;
    vTaskDelete(NULL);
