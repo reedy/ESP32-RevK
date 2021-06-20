@@ -684,7 +684,7 @@ static void task(void *pvParameters)
 #ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-                          || (apwait && (wifi_fails >= 6 || revk_offline() > apwait))
+                          || (apwait && (revk_offline() > apwait))
 #endif
 #ifdef	CONFIG_REVK_WIFI
                           || !*wifissid
