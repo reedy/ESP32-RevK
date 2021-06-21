@@ -51,7 +51,7 @@ static const char
 		p(info);				\
 		p(error);				\
 		io(blink);				\
-    		s(clientkey,NULL);			\
+    		sp(clientkey,NULL);			\
     		s(clientcert,NULL);			\
 
 #define	apconfigsettings	\
