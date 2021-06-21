@@ -172,8 +172,9 @@ const static int GROUP_IP = BIT2;       // We have IP address
 const static int GROUP_MQTT = BIT3;     // We are MQTT connected
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
-const static int GROUP_APCONFIG = BIT4;
-const static int GROUP_APCONFIG_DONE = BIT5;
+const static int GROUP_APCONFIG = BIT4; // We are running AP config
+const static int GROUP_APCONFIG_DONE = BIT5;    // Config done
+const static int GROUP_APCONFIG_NONE = BIT6;    // No stations connected
 #endif
 static TaskHandle_t ota_task_id = NULL;
 #ifdef	CONFIG_REVK_APCONFIG
@@ -533,11 +534,12 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGI(TAG, "AP Stop");
          break;
       case WIFI_EVENT_AP_STACONNECTED:
+         xEventGroupClearBits(revk_group, GROUP_APCONFIG_NONE);
          ESP_LOGI(TAG, "AP STA Connect");
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
 #ifdef CONFIG_REVK_APCONFIG
-         xEventGroupSetBits(revk_group, GROUP_APCONFIG_DONE);
+         xEventGroupSetBits(revk_group, GROUP_APCONFIG_DONE | GROUP_APCONFIG_NONE);
 #endif
          ESP_LOGI(TAG, "AP STA Disconnect");
          break;
@@ -1163,7 +1165,7 @@ static esp_err_t ap_get(httpd_req_t * req)
 static void ap_task(void *pvParameters)
 {
    xEventGroupClearBits(revk_group, GROUP_APCONFIG_DONE);
-   xEventGroupSetBits(revk_group, GROUP_APCONFIG);
+   xEventGroupSetBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_NONE);
    if (!*apssid)
    {                            // If we are not running an AP already
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
@@ -1217,8 +1219,10 @@ static void ap_task(void *pvParameters)
          .user_ctx = NULL
       };
       REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
-      xEventGroupWaitBits(revk_group, GROUP_APCONFIG_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS);
-      sleep(2);
+      if (!(xEventGroupWaitBits(revk_group, GROUP_APCONFIG_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS) & GROUP_APCONFIG_DONE))
+         xEventGroupWaitBits(revk_group, GROUP_APCONFIG_NONE, true, true, 60 * 1000LL / portTICK_PERIOD_MS);    // Wait for disconnect if not done yet
+      else
+         sleep(2);              // Allow http close cleanly
       //Send reply maybe...
       REVK_ERR_CHECK(httpd_stop(server));
    }
