@@ -447,7 +447,6 @@ static void mqtt_init(void)
       esp_mqtt_client_reconnect(mqtt_client);
       return;
    }
-   ESP_LOGI(TAG, "MQTT [%s]", mqtthost);
    if (!*mqtthost)              /* No MQTT */
       return;
    char *topic;
@@ -469,6 +468,7 @@ static void mqtt_init(void)
       .event_handle = mqtt_event_handler,
       .buffer_size = mqttsize,
    };
+   ESP_LOGI(TAG, "MQTT %s", url);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
    if (mqttport == 8883 || !strcmp(mqttcert, "*"))
@@ -534,7 +534,9 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGI(TAG, "AP Stop");
          break;
       case WIFI_EVENT_AP_STACONNECTED:
+#ifdef CONFIG_REVK_APCONFIG
          xEventGroupClearBits(revk_group, GROUP_APCONFIG_NONE);
+#endif
          ESP_LOGI(TAG, "AP STA Connect");
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
