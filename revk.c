@@ -1165,7 +1165,7 @@ static void ap_task(void *pvParameters)
    xEventGroupClearBits(revk_group, GROUP_APCONFIG_DONE);
    xEventGroupSetBits(revk_group, GROUP_APCONFIG);
    if (!*apssid)
-   {
+   {                            // If we are not running an AP already
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
          revk_mqtt_close("AP mode start");
       if (xEventGroupGetBits(revk_group) & GROUP_WIFI)
@@ -1173,7 +1173,7 @@ static void ap_task(void *pvParameters)
          esp_wifi_disconnect();
          xEventGroupWaitBits(revk_group, GROUP_OFFLINE, false, true, 1000 / portTICK_PERIOD_MS);
       }
-      esp_wifi_stop();
+      REVK_ERR_CHECK(esp_wifi_stop());
       {                         /* IP */
          esp_netif_ip_info_t info = {
             0,
@@ -1194,14 +1194,14 @@ static void ap_task(void *pvParameters)
 #ifdef	CONFIG_REVK_WIFI
       if (xEventGroupGetBits(revk_group) & GROUP_WIFI)
       {
-         esp_wifi_disconnect();
+         REVK_ERR_CHECK(esp_wifi_disconnect());
          xEventGroupWaitBits(revk_group, GROUP_OFFLINE, false, true, 1000 / portTICK_PERIOD_MS);
       }
 #endif
       REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
       REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
-      esp_wifi_start();
+      REVK_ERR_CHECK(esp_wifi_start());
    }
    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
    if (apport)
@@ -1220,13 +1220,14 @@ static void ap_task(void *pvParameters)
       xEventGroupWaitBits(revk_group, GROUP_APCONFIG_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS);
       sleep(2);
       //Send reply maybe...
-      httpd_stop(server);
+      REVK_ERR_CHECK(httpd_stop(server));
    }
-   xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE | GROUP_WIFI);
+   offline = esp_timer_get_time();      // Don't retry instantly
+   xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE);
    if (!*apssid)
    {
       REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-      esp_wifi_connect();
+      REVK_ERR_CHECK(esp_wifi_connect());
    }
    ESP_LOGI(TAG, "AP mode end");
    ap_task_id = NULL;
@@ -2409,8 +2410,10 @@ void revk_mqtt_close(const char *reason)
    jo_bool(j, "up", 0);
    jo_string(j, "reason", reason);
    revk_statej(NULL, &j);
-   esp_mqtt_client_stop(mqtt_client);
-   usleep(10000);               /* we don't get event, but need to allow time */
+   REVK_ERR_CHECK(esp_mqtt_client_stop(mqtt_client));
+   usleep(10000);               /* we don't get event, but need to allow time to close cleanly */
+   REVK_ERR_CHECK(esp_mqtt_client_destroy(mqtt_client));
+   mqtt_client = NULL;
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif
