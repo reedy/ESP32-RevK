@@ -51,6 +51,8 @@ static const char
 		p(info);				\
 		p(error);				\
 		io(blink);				\
+    		s(clientkey,NULL);			\
+    		s(clientcert,NULL);			\
 
 #define	apconfigsettings	\
 		u32(apport,CONFIG_REVK_APPORT);		\
@@ -466,16 +468,19 @@ static void mqtt_init(void)
       .event_handle = mqtt_event_handler,
       .buffer_size = mqttsize,
    };
-   if (*mqttcert)
-   {
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-      if (!strcmp(mqttcert, "*"))
-         config.crt_bundle_attach = esp_crt_bundle_attach;
-      else
+   if (mqttport == 8883 || !strcmp(mqttcert, "*"))
+      config.crt_bundle_attach = esp_crt_bundle_attach;
+   else
 #endif
 #endif
-         config.cert_pem = mqttcert;
+   if (*mqttcert)
+      config.cert_pem = mqttcert;
+   if (*clientkey && *clientcert)
+   {
+      config.client_cert_pem = clientcert;
+      config.client_key_pem = clientkey;
    }
    if (*mqttuser)
       config.username = mqttuser;
@@ -1241,6 +1246,11 @@ static void ota_task(void *pvParameters)
 #else
       config.use_global_ca_store = true;        /* Global cert */
 #endif
+   if (*clientcert && *clientkey)
+   {
+      config.client_cert_pem = clientcert;
+      config.client_key_pem = clientkey;
+   }
    esp_http_client_handle_t client = esp_http_client_init(&config);
    if (!client)
       revk_error("upgrade", "HTTP client failed");
