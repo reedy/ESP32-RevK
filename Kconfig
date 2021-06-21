@@ -174,10 +174,10 @@ menu "RevK"
 
 	config REVK_MQTTPORT
 	int "Default MQTT port"
-	default 1883
+	default 0
 	depends on REVK_MQTT
 	help
-		This defines the factory reset MQTT port
+		This defines the factory reset MQTT port (0 for standard)
 
 	config REVK_MQTTSIZE
 	int "Default MQTT packet size"

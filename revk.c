@@ -488,7 +488,7 @@ static void mqtt_init(void)
    if (*mqttpass)
       config.password = mqttpass;
    if (mqttport)
-      config.port = mqttport;
+      config.port = (mqttport ? : *mqttcert ? 8883 : 1883);
    mqtt_client = esp_mqtt_client_init(&config);
    esp_mqtt_client_start(mqtt_client);
    free(topic);
