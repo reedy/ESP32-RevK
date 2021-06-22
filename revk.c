@@ -1662,9 +1662,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (o < 0 && o != -ESP_ERR_NVS_NOT_FOUND)
          ESP_LOGI(TAG, "Setting %s nvs read fail %s", tag, esp_err_to_name(-o));
 #endif
-      if (o < 0 && erase)
-         o = 0;
-      else if (o != l)
+      if (o != l)
       {
 #ifdef SETTING_DEBUG
          if (o >= 0)
@@ -1672,7 +1670,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
 #endif
          o = -1;                /* Different size */
       }
-      if (o > 0)
+      if (o >= 0)
       {
          void *d = malloc(l);
          if (nvs_get(s, tag, d, l) != o)
