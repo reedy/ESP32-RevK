@@ -420,14 +420,22 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
          if (event->data_len)
             memcpy(value, event->data, event->data_len);
          value[event->data_len] = 0;    /* Safe */
-         if (plen == strlen(prefixcommand) && !memcmp(event->topic, prefixcommand, plen))
+         if (plen == strlen(prefixcommand) && !memcmp(t, prefixcommand, plen))
             err = revk_command(tag, event->data_len, (const unsigned char *) value);
-         else if (plen == strlen(prefixsetting) && !memcmp(event->topic, prefixsetting, plen))
+         else if (plen == strlen(prefixsetting) && !memcmp(t, prefixsetting, plen))
             err = (revk_setting(tag, event->data_len, (const unsigned char *) value) ? : "");   /* Returns NULL if OK */
          else
             err = "";
          if (!err || *err)
-            revk_error(tag, "Failed %s", err ? : "Unknown");
+         {
+            jo_t j = jo_create_alloc();
+            jo_string(j, "description", err);
+            jo_stringf(j, "prefix","%.*s",plen, t);
+            if (tag)
+               jo_string(j, "suffix", tag);
+            jo_string(j, "payload", value);
+            revk_errorj(tag, &j);
+         }
          if (tag)
             free(tag);
          free(value);
@@ -2264,9 +2272,14 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    }
    if (!e && !strcmp(tag, "upgrade"))
    {
+      char val[256];
+      jo_t j = jo_parse_mem((char *) value, len);
+      if (jo_here(j) == JO_STRING && jo_strncpy(j, val, sizeof(val)) < 0)
+         *val = 0;
+      jo_free(&j);
       char *url;                /* Yeh, not freed, but we are rebooting */
-      if (len && (!strncmp((char *) value, "https://", 8) || !strncmp((char *) value, "http://", 7)))
-         url = strdup((char *) value);
+      if (!strncmp((char *) value, "https://", 8) || !strncmp((char *) value, "http://", 7))
+         url = strdup(val);
       else
          asprintf(&url, "%s://%s/%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
@@ -2274,7 +2287,7 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
 #else
                   "http",       /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-                  len ? (char *) value : otahost, appname);
+                  *val ? val : otahost, appname);
       e = revk_ota(url);
    }
    if (!e && watchdogtime && !strcmp(tag, "watchdog"))
@@ -2373,7 +2386,7 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
       {                         /* Dynamic */
          void *d = NULL;
          l = nvs_get(s, tag, NULL, 0);
-         if (l >=0)
+         if (l >= 0)
          {                      // Has data
             d = malloc(l);
             l = nvs_get(s, tag, d, l);
