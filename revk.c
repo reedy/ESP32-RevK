@@ -1488,8 +1488,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       erase = 1;
    }
    if (!value)
+   {
       value = (const unsigned char *) "";
-   else
+      erase = 1;
+   } else
       s->set = 1;
 #ifdef SETTING_DEBUG
    if (s->flags & SETTING_BINDATA)
@@ -1699,9 +1701,9 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          }
 #ifdef SETTING_DEBUG
          if (flags & SETTING_BINDATA)
-            ESP_LOGI(TAG, "Setting %s changed (%d)", tag, len);
+            ESP_LOGI(TAG, "Setting %s %s (%d)", tag, erase ? "erased" : "changed", len);
          else
-            ESP_LOGI(TAG, "Setting %s changed %.*s", tag, len, value);
+            ESP_LOGI(TAG, "Setting %s %s %.*s", tag, erase ? "erased" : "changed", len, value);
 #endif
          nvs_time = esp_timer_get_time() + 60000000LL;
       }
@@ -2147,7 +2149,7 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      if (l >= 0)
                         jo_strncpy(j, val = malloc(l + 1), l + 1);
                   }
-                  er = revk_setting_internal(s, l, (const unsigned char *) val ? : "", index, 0);
+                  er = revk_setting_internal(s, l, (const unsigned char *) (val ? : ""), index, 0);
                } else
                   er = "Bad data type";
                if (val)
