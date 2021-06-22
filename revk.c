@@ -1310,9 +1310,20 @@ static int nvs_get(setting_t * s, const char *tag, void *data, size_t len)
    esp_err_t err;
    if (s->flags & SETTING_BINDATA)
    {
-      if ((err = nvs_get_blob(s->nvs, tag, data, &len)) != ERR_OK)
+      if (s->size || !data)
+      {                         // Fixed size, or getting len
+         if ((err = nvs_get_blob(s->nvs, tag, data, &len)) != ERR_OK)
+            return -err;
+         if (!s->size)
+            len += sizeof(revk_bindata_t);
+         return len;
+      }
+      len -= sizeof(revk_bindata_t);
+      revk_bindata_t *d = data;
+      d->len = len;
+      if ((err = nvs_get_blob(s->nvs, tag, d->data, &len)) != ERR_OK)
          return -err;
-      return len;
+      return len + sizeof(revk_bindata_t);
    }
    if (s->size == 0)
    {                            /* String */
@@ -1384,7 +1395,10 @@ static esp_err_t nvs_set(setting_t * s, const char *tag, void *data)
    if (s->flags & SETTING_BINDATA)
    {
       if (s->size)
-         return nvs_set_blob(s->nvs, tag, data, s->size);       /* Fixed */
+      {                         // Fixed size - just store
+         return nvs_set_blob(s->nvs, tag, data, s->size);
+      }
+      // Variable size, store the size it is
       revk_bindata_t *d = data;
       return nvs_set_blob(s->nvs, tag, d->data, d->len);        // Variable
    }
