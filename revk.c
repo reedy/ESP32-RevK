@@ -33,7 +33,7 @@ static const char
 #endif
 
 #ifndef CONFIG_MQTT_BUFFER_SIZE
-#define	CONFIG_MQTT_BUFFER_SIZE 1024
+#define	CONFIG_MQTT_BUFFER_SIZE 2048
 #endif
 
 #define	settings	\
@@ -65,7 +65,6 @@ static const char
 		s(mqttuser,CONFIG_REVK_MQTTUSER);	\
 		sp(mqttpass,CONFIG_REVK_MQTTPASS);	\
 		u16(mqttport,CONFIG_REVK_MQTTPORT);	\
-		u32(mqttsize,CONFIG_REVK_MQTTSIZE);	\
 		bd(mqttcert,CONFIG_REVK_MQTTCERT);	\
 
 #define	wifisettings	\
@@ -470,7 +469,7 @@ static void mqtt_init(void)
       .lwt_msg = "{\"up\":false}",
       .lwt_msg_len = 12,
       .event_handle = mqtt_event_handler,
-      .buffer_size = mqttsize,
+      .buffer_size = CONFIG_MQTT_BUFFER_SIZE,
    };
    ESP_LOGI(TAG, "MQTT %s", url);
 #if 0                           /* When MQTT supports this! */
@@ -1395,9 +1394,7 @@ static esp_err_t nvs_set(setting_t * s, const char *tag, void *data)
    if (s->flags & SETTING_BINDATA)
    {
       if (s->size)
-      {                         // Fixed size - just store
-         return nvs_set_blob(s->nvs, tag, data, s->size);
-      }
+         return nvs_set_blob(s->nvs, tag, data, s->size);       // Fixed size - just store
       // Variable size, store the size it is
       revk_bindata_t *d = data;
       return nvs_set_blob(s->nvs, tag, d->data, d->len);        // Variable
@@ -1988,7 +1985,10 @@ static const char *revk_setting_dump(void)
                j = p;
             }
          } else
+         {
+            ESP_LOGI(TAG, "Setting did not fit %s (%s)", s->name, err ? : "?");
             revk_error(TAG, "Setting did not fit %s (%s)", s->name, err ? : "?");
+         }
       }
    }
    send();
