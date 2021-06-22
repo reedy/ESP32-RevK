@@ -481,13 +481,11 @@ static void mqtt_init(void)
 #endif
    if (mqttcert->len)
    {
-      ESP_LOGI(TAG, "Setting client CA (cert %d)", mqttcert->len);
       config.cert_pem = (void *) mqttcert->data;
       config.cert_len = mqttcert->len;
    }
    if (clientkey->len && clientcert->len)
    {
-      ESP_LOGI(TAG, "Setting client cert (key %d cert %d)", clientkey->len, clientcert->len);
       config.client_cert_pem = (void *) clientcert->data;
       config.client_cert_len = clientcert->len;
       config.client_key_pem = (void *) clientkey->data;
@@ -1451,6 +1449,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    ESP_LOGD(TAG, "MQTT setting %s (%d)", tag, len);
    char erase = 0;
    /* Using default, so remove from flash(as defaults may change later, don 't store the default in flash) */
+   unsigned char *temp = NULL;  // Malloced space to be freed
    const char *defval = s->defval;
    if (defval && (flags & SETTING_BITFIELD))
    {                            /* default is after bitfields and a space */
@@ -1461,8 +1460,30 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    }
    if (!len && defval && !index && !value)
    {                            /* Use default value */
-      len = strlen(defval);
-      value = (const unsigned char *) defval;
+      if (s->flags & SETTING_BINDATA)
+      {                         // Convert to binary
+         jo_t j = jo_create_alloc();
+         jo_string(j, NULL, defval);
+         int l;
+         if (s->flags & SETTING_HEX)
+         {
+            l = jo_strncpy16(j, NULL, 0);
+            if (l >= 0)
+               jo_strncpy16(j, temp = malloc(l), l);
+         } else
+         {
+            l = jo_strncpy64(j, NULL, 0);
+            if (l >= 0)
+               jo_strncpy64(j, temp = malloc(l), l);
+         }
+         value = temp;          // temp gets freed at end
+         len = l;
+         jo_free(&j);
+      } else
+      {
+         len = strlen(defval);
+         value = (const unsigned char *) defval;
+      }
       erase = 1;
    }
    if (!value)
@@ -1475,243 +1496,249 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    else
       ESP_LOGI(TAG, "%s=%.*s", (char *) tag, len, (char *) value);
 #endif
-   /* Parse new setting */
-   unsigned char *n = NULL;
-   int l = len;
-   if (flags & SETTING_BINDATA)
-   {                            /* Blob */
-      unsigned char *o;
-      if (!s->size)
-      {                         /* Dynamic */
-         l += sizeof(revk_bindata_t);
-         revk_bindata_t *d = malloc(l);
-         o = n = (void *) d;
-         if (o)
-         {
-            d->len = len;
-            if (len)
-               memcpy(d->data, value, len);
-         }
-      } else
-      {                         // Fixed size binary
-         if (l && l != s->size)
-            return "Wrong size";
-         o = n = malloc(s->size);
-         if (o)
-         {
-            if (l)
-               memcpy(o, value, l);
-            else
-               memset(o, 0, l = s->size);
-         }
-      }
-   } else if (!s->size)
-   {                            /* String */
-      l++;
-      n = malloc(l);            /* One byte for null termination */
-      if (len)
-         memcpy(n, value, len);
-      n[len] = 0;
-   } else
-   {                            /* Numeric */
-      uint64_t v = 0;
-      if (flags & SETTING_BOOLEAN)
-      {                         /* Boolean */
-         if (s->size == 1)
-            v = *(uint8_t *) data;
-         else if (s->size == 2)
-            v = *(uint16_t *) data;
-         else if (s->size == 4)
-            v = *(uint32_t *) data;
-         else if (s->size == 8)
-            v = *(uint64_t *) data;
-         if (len && strchr("YytT1", *value))
-            v |= (1ULL << index);
-         else
-            v &= ~(1ULL << index);
-      } else
-      {
-         char neg = 0;
-         int bits = s->size * 8;
-         uint64_t bitfield = 0;
-         if (flags & SETTING_SET)
-         {                      /* Set top bit if a value is present */
-            bits--;
-            if (len && value != (const unsigned char *) defval)
-               bitfield |= (1ULL << bits);      /* Value is set (not so if using default value) */
-         }
-         if (flags & SETTING_BITFIELD && s->defval)
-         {                      /* Bit fields */
-            while (len)
-            {
-               const char *c = s->defval;
-               while (*c && *c != ' ' && *c != *value)
-                  c++;
-               if (*c != *value)
-                  break;
-               uint64_t m = (1ULL << (bits - 1 - (c - s->defval)));
-               if (bitfield & m)
-                  break;
-               bitfield |= m;
-               len--;
-               value++;
-            }
-            const char *c = s->defval;
-            while (*c && *c != ' ')
-               c++;
-            bits -= (c - s->defval);
-         }
-         if (len && bits <= 0)
-            return "Extra data on end";
-         if (len > 2 && *value == '0' && value[1] == 'x')
-         {
-            flags |= SETTING_HEX;
-            len -= 2;
-            value += 2;
-         }
-         if (len && *value == '-' && (flags & SETTING_SIGNED))
-         {                      /* Decimal */
-            len--;
-            value++;
-            neg = 1;
-         }
-         if (flags & SETTING_HEX)
-            while (len && isxdigit(*value))
-            {                   /* Hex */
-               uint64_t n = v * 16 + (isalpha(*value) ? 9 : 0) + (*value & 15);
-               if (n < v)
-                  return "Silly number";
-               v = n;
-               value++;
-               len--;
-         } else
-            while (len && isdigit(*value))
-            {
-               uint64_t n = v * 10 + (*value++ - '0');
-               if (n < v)
-                  return "Silly number";
-               v = n;
-               len--;
-            }
-         if (len)
-            return "Bad number";
-         if (flags & SETTING_SIGNED)
-            bits--;
-         if (bits < 0 || (bits < 64 && ((v - (v && neg ? 1 : 0)) >> bits)))
-            return "Number too big";
-         if (neg)
-            v = -v;
-         if (flags & SETTING_SIGNED)
-            bits++;
-         if (bits < 64)
-            v &= (1ULL << bits) - 1;
-         v |= bitfield;
-      }
-      if (flags & SETTING_SIGNED)
-      {
-         if (s->size == 8)
-            *((int64_t *) (n = malloc(l = 8))) = v;
-         else if (s->size == 4)
-            *((int32_t *) (n = malloc(l = 4))) = v;
-         else if (s->size == 2)
-            *((int16_t *) (n = malloc(l = 2))) = v;
-         else if (s->size == 1)
-            *((int8_t *) (n = malloc(l = 1))) = v;
-      } else
-      {
-         if (s->size == 8)
-            *((int64_t *) (n = malloc(l = 8))) = v;
-         else if (s->size == 4)
-            *((int32_t *) (n = malloc(l = 4))) = v;
-         else if (s->size == 2)
-            *((int16_t *) (n = malloc(l = 2))) = v;
-         else if (s->size == 1)
-            *((int8_t *) (n = malloc(l = 1))) = v;
-      }
-   }
-   if (!n)
-      return "Bad setting type";
-   /* See if setting has changed */
-   int o = nvs_get(s, tag, NULL, 0);    // Get length
-#ifdef SETTING_DEBUG
-   if (o < 0 && o != -ESP_ERR_NVS_NOT_FOUND)
-      ESP_LOGI(TAG, "Setting %s nvs read fail %s", tag, esp_err_to_name(-o));
-#endif
-   if (o < 0 && erase)
-      o = 0;
-   else if (o != l)
-   {
-#ifdef SETTING_DEBUG
-      if (o >= 0)
-         ESP_LOGI(TAG, "Setting %s different len %d/%d", tag, o, l);
-#endif
-      o = -1;                   /* Different size */
-   }
-   if (o > 0)
-   {
-      void *d = malloc(l);
-      if (nvs_get(s, tag, d, l) != o)
-      {
-         free(n);
-         free(d);
-         return "Bad setting get";
-      }
-      if (memcmp(n, d, o))
-      {
-#ifdef SETTING_DEBUG
-         ESP_LOGI(TAG, "Setting %s different content %d (%02X/%02X)", tag, o, *(uint8_t *) d, *(uint8_t *) n);
-#endif
-         o = -1;                /* Different content */
-      }
-      free(d);
-   }
-   if (o < 0)
-   {                            /* Flash changed */
-      if (erase)
-         nvs_erase_key(s->nvs, tag);
-      else if (nvs_set(s, tag, n) != ERR_OK && (nvs_erase_key(s->nvs, tag) != ERR_OK || nvs_set(s, tag, n) != ERR_OK))
-      {
-         free(n);
-         return "Unable to store";
-      }
-#ifdef SETTING_DEBUG
+   const char *parse(void) {
+      /* Parse new setting */
+      unsigned char *n = NULL;
+      int l = len;
       if (flags & SETTING_BINDATA)
-         ESP_LOGI(TAG, "Setting %s changed (%d)", tag, len);
-      else
-         ESP_LOGI(TAG, "Setting %s changed %.*s", tag, len, value);
-#endif
-      nvs_time = esp_timer_get_time() + 60000000LL;
-   }
-   if (flags & SETTING_LIVE)
-   {                            /* Store changed value in memory live */
-      if (!s->size)
-      {                         /* Dynamic */
-         void *o = *((void **) data);
-         /* See if different */
-         if (!o || ((flags & SETTING_BINDATA) ? memcmp(o, n, len) : strcmp(o, (char *) n)))
-         {
-            *((void **) data) = n;
+      {                         /* Blob */
+         unsigned char *o;
+         if (!s->size)
+         {                      /* Dynamic */
+            l += sizeof(revk_bindata_t);
+            revk_bindata_t *d = malloc(l);
+            o = n = (void *) d;
             if (o)
-               free(o);
+            {
+               d->len = len;
+               if (len)
+                  memcpy(d->data, value, len);
+            }
          } else
-            free(n);            /* No change */
+         {                      // Fixed size binary
+            if (l && l != s->size)
+               return "Wrong size";
+            o = n = malloc(s->size);
+            if (o)
+            {
+               if (l)
+                  memcpy(o, value, l);
+               else
+                  memset(o, 0, l = s->size);
+            }
+         }
+      } else if (!s->size)
+      {                         /* String */
+         l++;
+         n = malloc(l);         /* One byte for null termination */
+         if (len)
+            memcpy(n, value, len);
+         n[len] = 0;
       } else
-      {                         /* Static (try and make update atomic) */
-         if (s->size == 1)
-            *(uint8_t *) data = *(uint8_t *) n;
-         else if (s->size == 2)
-            *(uint16_t *) data = *(uint16_t *) n;
-         else if (s->size == 4)
-            *(uint32_t *) data = *(uint32_t *) n;
-         else if (s->size == 8)
-            *(uint64_t *) data = *(uint64_t *) n;
-         else
-            memcpy(data, n, s->size);
-         free(n);
+      {                         /* Numeric */
+         uint64_t v = 0;
+         if (flags & SETTING_BOOLEAN)
+         {                      /* Boolean */
+            if (s->size == 1)
+               v = *(uint8_t *) data;
+            else if (s->size == 2)
+               v = *(uint16_t *) data;
+            else if (s->size == 4)
+               v = *(uint32_t *) data;
+            else if (s->size == 8)
+               v = *(uint64_t *) data;
+            if (len && strchr("YytT1", *value))
+               v |= (1ULL << index);
+            else
+               v &= ~(1ULL << index);
+         } else
+         {
+            char neg = 0;
+            int bits = s->size * 8;
+            uint64_t bitfield = 0;
+            if (flags & SETTING_SET)
+            {                   /* Set top bit if a value is present */
+               bits--;
+               if (len && value != (const unsigned char *) defval)
+                  bitfield |= (1ULL << bits);   /* Value is set (not so if using default value) */
+            }
+            if (flags & SETTING_BITFIELD && s->defval)
+            {                   /* Bit fields */
+               while (len)
+               {
+                  const char *c = s->defval;
+                  while (*c && *c != ' ' && *c != *value)
+                     c++;
+                  if (*c != *value)
+                     break;
+                  uint64_t m = (1ULL << (bits - 1 - (c - s->defval)));
+                  if (bitfield & m)
+                     break;
+                  bitfield |= m;
+                  len--;
+                  value++;
+               }
+               const char *c = s->defval;
+               while (*c && *c != ' ')
+                  c++;
+               bits -= (c - s->defval);
+            }
+            if (len && bits <= 0)
+               return "Extra data on end";
+            if (len > 2 && *value == '0' && value[1] == 'x')
+            {
+               flags |= SETTING_HEX;
+               len -= 2;
+               value += 2;
+            }
+            if (len && *value == '-' && (flags & SETTING_SIGNED))
+            {                   /* Decimal */
+               len--;
+               value++;
+               neg = 1;
+            }
+            if (flags & SETTING_HEX)
+               while (len && isxdigit(*value))
+               {                /* Hex */
+                  uint64_t n = v * 16 + (isalpha(*value) ? 9 : 0) + (*value & 15);
+                  if (n < v)
+                     return "Silly number";
+                  v = n;
+                  value++;
+                  len--;
+            } else
+               while (len && isdigit(*value))
+               {
+                  uint64_t n = v * 10 + (*value++ - '0');
+                  if (n < v)
+                     return "Silly number";
+                  v = n;
+                  len--;
+               }
+            if (len)
+               return "Bad number";
+            if (flags & SETTING_SIGNED)
+               bits--;
+            if (bits < 0 || (bits < 64 && ((v - (v && neg ? 1 : 0)) >> bits)))
+               return "Number too big";
+            if (neg)
+               v = -v;
+            if (flags & SETTING_SIGNED)
+               bits++;
+            if (bits < 64)
+               v &= (1ULL << bits) - 1;
+            v |= bitfield;
+         }
+         if (flags & SETTING_SIGNED)
+         {
+            if (s->size == 8)
+               *((int64_t *) (n = malloc(l = 8))) = v;
+            else if (s->size == 4)
+               *((int32_t *) (n = malloc(l = 4))) = v;
+            else if (s->size == 2)
+               *((int16_t *) (n = malloc(l = 2))) = v;
+            else if (s->size == 1)
+               *((int8_t *) (n = malloc(l = 1))) = v;
+         } else
+         {
+            if (s->size == 8)
+               *((int64_t *) (n = malloc(l = 8))) = v;
+            else if (s->size == 4)
+               *((int32_t *) (n = malloc(l = 4))) = v;
+            else if (s->size == 2)
+               *((int16_t *) (n = malloc(l = 2))) = v;
+            else if (s->size == 1)
+               *((int8_t *) (n = malloc(l = 1))) = v;
+         }
       }
-   } else if (o < 0)
-      revk_restart("Settings changed", 5);
-   return NULL;                 /* OK */
+      if (!n)
+         return "Bad setting type";
+      /* See if setting has changed */
+      int o = nvs_get(s, tag, NULL, 0); // Get length
+#ifdef SETTING_DEBUG
+      if (o < 0 && o != -ESP_ERR_NVS_NOT_FOUND)
+         ESP_LOGI(TAG, "Setting %s nvs read fail %s", tag, esp_err_to_name(-o));
+#endif
+      if (o < 0 && erase)
+         o = 0;
+      else if (o != l)
+      {
+#ifdef SETTING_DEBUG
+         if (o >= 0)
+            ESP_LOGI(TAG, "Setting %s different len %d/%d", tag, o, l);
+#endif
+         o = -1;                /* Different size */
+      }
+      if (o > 0)
+      {
+         void *d = malloc(l);
+         if (nvs_get(s, tag, d, l) != o)
+         {
+            free(n);
+            free(d);
+            return "Bad setting get";
+         }
+         if (memcmp(n, d, o))
+         {
+#ifdef SETTING_DEBUG
+            ESP_LOGI(TAG, "Setting %s different content %d (%02X/%02X)", tag, o, *(uint8_t *) d, *(uint8_t *) n);
+#endif
+            o = -1;             /* Different content */
+         }
+         free(d);
+      }
+      if (o < 0)
+      {                         /* Flash changed */
+         if (erase)
+            nvs_erase_key(s->nvs, tag);
+         else if (nvs_set(s, tag, n) != ERR_OK && (nvs_erase_key(s->nvs, tag) != ERR_OK || nvs_set(s, tag, n) != ERR_OK))
+         {
+            free(n);
+            return "Unable to store";
+         }
+#ifdef SETTING_DEBUG
+         if (flags & SETTING_BINDATA)
+            ESP_LOGI(TAG, "Setting %s changed (%d)", tag, len);
+         else
+            ESP_LOGI(TAG, "Setting %s changed %.*s", tag, len, value);
+#endif
+         nvs_time = esp_timer_get_time() + 60000000LL;
+      }
+      if (flags & SETTING_LIVE)
+      {                         /* Store changed value in memory live */
+         if (!s->size)
+         {                      /* Dynamic */
+            void *o = *((void **) data);
+            /* See if different */
+            if (!o || ((flags & SETTING_BINDATA) ? memcmp(o, n, len) : strcmp(o, (char *) n)))
+            {
+               *((void **) data) = n;
+               if (o)
+                  free(o);
+            } else
+               free(n);         /* No change */
+         } else
+         {                      /* Static (try and make update atomic) */
+            if (s->size == 1)
+               *(uint8_t *) data = *(uint8_t *) n;
+            else if (s->size == 2)
+               *(uint16_t *) data = *(uint16_t *) n;
+            else if (s->size == 4)
+               *(uint32_t *) data = *(uint32_t *) n;
+            else if (s->size == 8)
+               *(uint64_t *) data = *(uint64_t *) n;
+            else
+               memcpy(data, n, s->size);
+            free(n);
+         }
+      } else if (o < 0)
+         revk_restart("Settings changed", 5);
+      return NULL;
+   }
+   const char *fail = parse();
+   if (temp)
+      free(temp);
+   return fail;                 /* OK */
 }
 
 static const char *revk_setting_dump(void)
