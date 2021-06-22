@@ -1465,7 +1465,6 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    /* Parse new setting */
    unsigned char *n = NULL;
    int l = len;
-   l = len;
    if (flags & SETTING_BINDATA)
    {                            /* Blob */
       unsigned char *o;
@@ -1476,8 +1475,9 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          o = n = (void *) d;
          if (o)
          {
-            d->len = l;
-            memcpy(d->data, value, len);
+            d->len = len;
+            if (len)
+               memcpy(d->data, value, len);
          }
       } else
       {                         // Fixed size binary
