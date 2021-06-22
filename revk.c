@@ -2497,6 +2497,7 @@ void revk_mqtt_close(const char *reason)
    ESP_LOGI(TAG, "MQTT Close");
    jo_t j = jo_object_alloc();
    jo_bool(j, "up", 0);
+   jo_string(j, "id", revk_id);
    jo_string(j, "reason", reason);
    revk_statej(NULL, &j);
    REVK_ERR_CHECK(esp_mqtt_client_stop(mqtt_client));
