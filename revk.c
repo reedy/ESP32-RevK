@@ -38,7 +38,7 @@ static const char
 
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
-		s(otacert,CONFIG_REVK_OTACERT);		\
+		bd(otacert,CONFIG_REVK_OTACERT);		\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
 		u32(watchdogtime,10);			\
@@ -51,8 +51,8 @@ static const char
 		p(info);				\
 		p(error);				\
 		io(blink);				\
-    		sp(clientkey,NULL);			\
-    		s(clientcert,NULL);			\
+    		bdp(clientkey,NULL);			\
+    		bd(clientcert,NULL);			\
 
 #define	apconfigsettings	\
 		u32(apport,CONFIG_REVK_APPORT);		\
@@ -66,7 +66,7 @@ static const char
 		sp(mqttpass,CONFIG_REVK_MQTTPASS);	\
 		u16(mqttport,CONFIG_REVK_MQTTPORT);	\
 		u32(mqttsize,CONFIG_REVK_MQTTSIZE);	\
-		s(mqttcert,CONFIG_REVK_MQTTCERT);	\
+		bd(mqttcert,CONFIG_REVK_MQTTCERT);	\
 
 #define	wifisettings	\
 		u32(wifireset,CONFIG_REVK_WIFIRESET);			\
@@ -105,6 +105,8 @@ static const char
 #define	io(n)		static uint8_t n;
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	static char n[l];
+#define bd(n,d)		static revk_bindata_t *n;
+#define bdp(n,d)	static revk_bindata_t *n;
 settings
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
     wifisettings
@@ -136,6 +138,8 @@ settings
 #undef io
 #undef p
 #undef h
+#undef bd
+#undef bdp
 /* Local types */
 typedef struct setting_s setting_t;
 struct setting_s {
@@ -453,7 +457,7 @@ static void mqtt_init(void)
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
       return;
    char *url;
-   if (asprintf(&url, "%s://%s/", *mqttcert ? "mqtts" : "mqtt", mqtthost) < 0)
+   if (asprintf(&url, "%s://%s/", mqttcert->len ? "mqtts" : "mqtt", mqtthost) < 0)
    {
       free(topic);
       return;
@@ -471,24 +475,29 @@ static void mqtt_init(void)
    ESP_LOGI(TAG, "MQTT %s", url);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-   if (mqttport == 8883 || !strcmp(mqttcert, "*"))
+   if (mqttport == 8883&&!mqttcert->len)
       config.crt_bundle_attach = esp_crt_bundle_attach;
    else
 #endif
 #endif
-   if (*mqttcert)
-      config.cert_pem = mqttcert;
-   if (*clientkey && *clientcert)
+   if (mqttcert->len)
    {
-      config.client_cert_pem = clientcert;
-      config.client_key_pem = clientkey;
+      config.cert_pem = (void*)mqttcert->data;
+      config.cert_len = mqttcert->len;
+   }
+   if (clientkey->len && clientcert->len)
+   {
+      config.client_cert_pem = (void*)clientcert->data;
+      config.client_cert_len = clientcert->len;
+      config.client_key_pem = (void*)clientkey->data;
+      config.client_key_len = clientkey->len;
    }
    if (*mqttuser)
       config.username = mqttuser;
    if (*mqttpass)
       config.password = mqttpass;
    if (mqttport)
-      config.port = (mqttport ? : *mqttcert ? 8883 : 1883);
+      config.port = (mqttport ? : mqttcert->len ? 8883 : 1883);
    mqtt_client = esp_mqtt_client_init(&config);
    esp_mqtt_client_start(mqtt_client);
    free(topic);
@@ -742,6 +751,8 @@ void revk_init(app_command_t * app_command_cb)
 #define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
+#define bd(n,d)		revk_register(#n,0,0,&n,d,SETTING_BINDATA)
+#define bdp(n,d)	revk_register(#n,0,0,&n,d,SETTING_BINDATA|SETTING_SECRET)
    settings;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
    revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);        // Parent
@@ -776,6 +787,8 @@ void revk_init(app_command_t * app_command_cb)
 #undef p
 #undef str
 #undef h
+#undef bd
+#undef bdp
    if (watchdogtime)
       esp_task_wdt_init(watchdogtime, true);
    REVK_ERR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));
@@ -1251,18 +1264,23 @@ static void ota_task(void *pvParameters)
       .url = url,.event_handler = ota_handler,
    };
    /* Set the TLS in case redirect to TLS even if http */
-   if (*otacert)
-      config.cert_pem = otacert;        /* Pinned cert */
+   if (otacert->len)
+   {
+      config.cert_pem = (void*)otacert->data;
+      config.cert_len = otacert->len;
+   }
    else
 #ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
       config.crt_bundle_attach = esp_crt_bundle_attach;
 #else
       config.use_global_ca_store = true;        /* Global cert */
 #endif
-   if (*clientcert && *clientkey)
+   if (clientcert->len && clientkey->len)
    {
-      config.client_cert_pem = clientcert;
-      config.client_key_pem = clientkey;
+      config.client_cert_pem = (void*)clientcert->data;
+      config.client_cert_len = clientcert->len;
+      config.client_key_pem = (void*)clientkey->data;
+      config.client_key_len = clientkey->len;
    }
    esp_http_client_handle_t client = esp_http_client_init(&config);
    if (!client)
@@ -2199,7 +2217,7 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
       else
          asprintf(&url, "%s://%s/%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
-                  *otacert ? "https" : "http",
+                  otacert->len ? "https" : "http",
 #else
                   "http",       /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
