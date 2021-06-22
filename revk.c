@@ -1670,7 +1670,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
 #endif
          o = -1;                /* Different size */
       }
-      if (o >= 0)
+      if (o > 0)
       {
          void *d = malloc(l);
          if (nvs_get(s, tag, d, l) != o)
@@ -2372,7 +2372,7 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
       {                         /* Dynamic */
          void *d = NULL;
          l = nvs_get(s, tag, NULL, 0);
-         if (l > sizeof(revk_bindata_t))
+         if (l >=0)
          {                      // Has data
             d = malloc(l);
             l = nvs_get(s, tag, d, l);
