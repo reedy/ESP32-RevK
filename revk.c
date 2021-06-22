@@ -1464,6 +1464,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       {                         // Convert to binary
          jo_t j = jo_create_alloc();
          jo_string(j, NULL, defval);
+	 jo_rewind(j);
          int l;
          if (s->flags & SETTING_HEX)
          {
