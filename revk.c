@@ -468,6 +468,7 @@ static void mqtt_init(void)
       .lwt_retain = 1,
       .lwt_msg = "{\"up\":false}",
       .lwt_msg_len = 12,
+      .keepalive = 30,
       .event_handle = mqtt_event_handler,
       .buffer_size = CONFIG_MQTT_BUFFER_SIZE,
    };
