@@ -731,7 +731,7 @@ void revk_init(app_command_t * app_command_cb)
 #define sp(n,d)		revk_register(#n,0,0,&n,d,SETTING_SECRET)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,0)
 #define sap(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_SECRET)
-#define fh(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINARY|SETTING_HEX)
+#define fh(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINDATA|SETTING_HEX)
 #define	u32(n,d)	revk_register(#n,0,4,&n,str(d),0)
 #define	u16(n,d)	revk_register(#n,0,2,&n,str(d),0)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED)
@@ -741,13 +741,13 @@ void revk_init(app_command_t * app_command_cb)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_SIGNED)
 #define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
-#define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINARY|SETTING_HEX)
+#define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
    settings;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
    revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);        // Parent
    wifisettings;
 #ifdef	CONFIG_WIFI_MESH
-   revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINARY | SETTING_HEX | SETTING_SECRET);     // Parent
+   revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINDATA | SETTING_HEX | SETTING_SECRET);    // Parent
    meshsettings;
 #else
    revk_register("ap", 0, 0, &apssid, CONFIG_REVK_APSSID, SETTING_SECRET);      // Parent
@@ -1291,7 +1291,7 @@ const char *revk_ota(const char *url)
 static int nvs_get(setting_t * s, const char *tag, void *data, size_t len)
 {                               /* Low level get logic, returns < 0 if error.Calls the right nvs get function for type of setting */
    esp_err_t err;
-   if (s->flags & SETTING_BINARY)
+   if (s->flags & SETTING_BINDATA)
    {
       if ((err = nvs_get_blob(s->nvs, tag, data, &len)) != ERR_OK)
          return -err;
@@ -1364,11 +1364,12 @@ static int nvs_get(setting_t * s, const char *tag, void *data, size_t len)
 
 static esp_err_t nvs_set(setting_t * s, const char *tag, void *data)
 {                               /* Low level set logic, returns < 0 if error. Calls the right nvs set function for type of setting */
-   if (s->flags & SETTING_BINARY)
+   if (s->flags & SETTING_BINDATA)
    {
       if (s->size)
          return nvs_set_blob(s->nvs, tag, data, s->size);       /* Fixed */
-      return nvs_set_blob(s->nvs, tag, data, 1 + *((unsigned char *) data));    /* Variable */
+      revk_bindata_t *d = data;
+      return nvs_set_blob(s->nvs, tag, d->data, d->len);        // Variable
    }
    if (s->size == 0)
       return nvs_set_str(s->nvs, tag, data);
@@ -1439,7 +1440,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    else
       s->set = 1;
 #ifdef SETTING_DEBUG
-   if (s->flags & SETTING_BINARY)
+   if (s->flags & SETTING_BINDATA)
       ESP_LOGI(TAG, "%s=(%d bytes)", (char *) tag, len);
    else
       ESP_LOGI(TAG, "%s=%.*s", (char *) tag, len, (char *) value);
@@ -1448,19 +1449,19 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    unsigned char *n = NULL;
    int l = len;
    l = len;
-   if (flags & SETTING_BINARY)
+   if (flags & SETTING_BINDATA)
    {                            /* Blob */
       unsigned char *o;
       if (!s->size)
       {                         /* Dynamic */
-         if (l > 255)
-            return "Data too long";
-         o = n = malloc(l + 1); /* One byte for length */
+         revk_bindata_t *d = malloc(sizeof(revk_bindata_t) + l);
+         o = n = (void*)d;
          if (o)
          {
-            *o = l++;
-            memcpy(o + 1, value, len);  /* Binary */
+            d->len = l;
+            memcpy(d->data, value, len);
          }
+         len += sizeof(revk_bindata_t);
       } else
       {                         // Fixed size binary
          if (l && l != s->size)
@@ -1644,7 +1645,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          return "Unable to store";
       }
 #ifdef SETTING_DEBUG
-      if (flags & SETTING_BINARY)
+      if (flags & SETTING_BINDATA)
          ESP_LOGI(TAG, "Setting %s changed (%d)", tag, len);
       else
          ESP_LOGI(TAG, "Setting %s changed %.*s", tag, len, value);
@@ -1657,7 +1658,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       {                         /* Dynamic */
          void *o = *((void **) data);
          /* See if different */
-         if (!o || ((flags & SETTING_BINARY) ? memcmp(o, n, 1 + *(uint8_t *) o) : strcmp(o, (char *) n)))
+         if (!o || ((flags & SETTING_BINDATA) ? memcmp(o, n, len) : strcmp(o, (char *) n)))
          {
             *((void **) data) = n;
             if (o)
@@ -1786,13 +1787,14 @@ static const char *revk_setting_dump(void)
             const char *defval = s->defval ? : "";
             if (!(s->flags & SETTING_BOOLEAN))
                data += (s->size ? : sizeof(void *)) * n;
-            if (s->flags & SETTING_BINARY)
+            if (s->flags & SETTING_BINDATA)
             {                   // Binary data
                int len = s->size;
                if (!len)
                {                // alloc'd with len at start
-                  data = *(void **) data;
-                  len = *(uint8_t *) data++;
+                  revk_bindata_t *d = *(void **) data;
+                  len = d->len;
+                  data = d->data;
                }
                if (s->flags & SETTING_HEX)
                   jo_base16(p, tag, data, len);
@@ -2065,7 +2067,7 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                char *val = NULL;
                if (t == JO_NUMBER || t == JO_STRING || t >= JO_TRUE)
                {
-                  if (t == JO_STRING && (s->flags & SETTING_BINARY))
+                  if (t == JO_STRING && (s->flags & SETTING_BINDATA))
                   {
                      if (s->flags & SETTING_HEX)
                      {

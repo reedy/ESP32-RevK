@@ -42,6 +42,11 @@ extern char *prefixevent;
 extern char *prefixinfo;
 extern char *prefixerror;
 
+typedef struct { // Dynamic binary data
+	uint16_t len;
+	uint8_t data[];
+}revk_bindata_t;
+
 // Calls
 void revk_init (app_command_t * app_command);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
@@ -53,7 +58,7 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
                     const char *defval, // default value (default value text, or bitmask[space]default)
                     uint8_t flags);       // Setting flags
 #define	SETTING_LIVE		1       // Setting update live (else reboots shortly after any change)
-#define	SETTING_BINARY		2       // Binary block rather than numeric
+#define	SETTING_BINDATA		2       // Binary block (text is base64 or hex) rather than numeric. Fixed is just the data (malloc), variable is pointer to revk_bin_t
 #define	SETTING_SIGNED		4       // Numeric is signed
 #define	SETTING_BOOLEAN		8       // Boolean value (array sets bits)
 #define	SETTING_BITFIELD	16      // Numeric value has bit field prefix (from defval string)
