@@ -1464,7 +1464,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       {                         // Convert to binary
          jo_t j = jo_create_alloc();
          jo_string(j, NULL, defval);
-	 jo_rewind(j);
+         jo_rewind(j);
          int l;
          if (s->flags & SETTING_HEX)
          {
@@ -2133,13 +2133,11 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      if (s->flags & SETTING_HEX)
                      {
                         l = jo_strncpy16(j, NULL, 0);
-                        if (l >= 0)
-                           jo_strncpy16(j, val = malloc(l), l);
+                        jo_strncpy16(j, val = malloc(l), l);
                      } else
                      {
                         l = jo_strncpy64(j, NULL, 0);
-                        if (l >= 0)
-                           jo_strncpy64(j, val = malloc(l), l);
+                        jo_strncpy64(j, val = malloc(l), l);
                      }
                   } else
                   {
