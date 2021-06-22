@@ -2320,7 +2320,7 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
          void *d = NULL;
          l = nvs_get(s, tag, NULL, 0);
          if (l > sizeof(revk_bindata_t))
-         {                      /* 1 byte means zero len or zero terminated so use default */
+         {                      // Has data
             d = malloc(l);
             l = nvs_get(s, tag, d, l);
             *((void **) data) = d;
