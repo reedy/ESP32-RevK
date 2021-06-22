@@ -2133,11 +2133,13 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      if (s->flags & SETTING_HEX)
                      {
                         l = jo_strncpy16(j, NULL, 0);
-                        jo_strncpy16(j, val = malloc(l), l);
+                        if (l)
+                           jo_strncpy16(j, val = malloc(l), l);
                      } else
                      {
                         l = jo_strncpy64(j, NULL, 0);
-                        jo_strncpy64(j, val = malloc(l), l);
+                        if (l)
+                           jo_strncpy64(j, val = malloc(l), l);
                      }
                   } else
                   {
@@ -2145,7 +2147,7 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
                      if (l >= 0)
                         jo_strncpy(j, val = malloc(l + 1), l + 1);
                   }
-                  er = revk_setting_internal(s, l, (const unsigned char *) val, index, 0);
+                  er = revk_setting_internal(s, l, (const unsigned char *) val ? : "", index, 0);
                } else
                   er = "Bad data type";
                if (val)
