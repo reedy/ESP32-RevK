@@ -1691,18 +1691,27 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (o < 0)
       {                         /* Flash changed */
          if (erase)
-            nvs_erase_key(s->nvs, tag);
-         else if (nvs_set(s, tag, n) != ERR_OK && (nvs_erase_key(s->nvs, tag) != ERR_OK || nvs_set(s, tag, n) != ERR_OK))
          {
-            free(n);
-            return "Unable to store";
-         }
+            esp_err_t __attribute__((unused)) err = nvs_erase_key(s->nvs, tag);
 #ifdef SETTING_DEBUG
-         if (flags & SETTING_BINDATA)
-            ESP_LOGI(TAG, "Setting %s %s (%d)", tag, erase ? "erased" : "changed", len);
-         else
-            ESP_LOGI(TAG, "Setting %s %s %.*s", tag, erase ? "erased" : "changed", len, value);
+            if (err != ESP_ERR_NVS_NOT_FOUND)
+               ESP_LOGI(TAG, "Setting %s erased", tag);
 #endif
+
+         } else
+         {
+            if (nvs_set(s, tag, n) != ERR_OK && (nvs_erase_key(s->nvs, tag) != ERR_OK || nvs_set(s, tag, n) != ERR_OK))
+            {
+               free(n);
+               return "Unable to store";
+            }
+#ifdef SETTING_DEBUG
+            if (flags & SETTING_BINDATA)
+               ESP_LOGI(TAG, "Setting %s stored (%d)", tag, len);
+            else
+               ESP_LOGI(TAG, "Setting %s stored %.*s", tag, len, value);
+#endif
+         }
          nvs_time = esp_timer_get_time() + 60000000LL;
       }
       if (flags & SETTING_LIVE)
