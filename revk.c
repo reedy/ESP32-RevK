@@ -475,21 +475,21 @@ static void mqtt_init(void)
    ESP_LOGI(TAG, "MQTT %s", url);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-   if (mqttport == 8883&&!mqttcert->len)
+   if (mqttport == 8883 && !mqttcert->len)
       config.crt_bundle_attach = esp_crt_bundle_attach;
    else
 #endif
 #endif
    if (mqttcert->len)
    {
-      config.cert_pem = (void*)mqttcert->data;
+      config.cert_pem = (void *) mqttcert->data;
       config.cert_len = mqttcert->len;
    }
    if (clientkey->len && clientcert->len)
    {
-      config.client_cert_pem = (void*)clientcert->data;
+      config.client_cert_pem = (void *) clientcert->data;
       config.client_cert_len = clientcert->len;
-      config.client_key_pem = (void*)clientkey->data;
+      config.client_key_pem = (void *) clientkey->data;
       config.client_key_len = clientkey->len;
    }
    if (*mqttuser)
@@ -1266,10 +1266,9 @@ static void ota_task(void *pvParameters)
    /* Set the TLS in case redirect to TLS even if http */
    if (otacert->len)
    {
-      config.cert_pem = (void*)otacert->data;
+      config.cert_pem = (void *) otacert->data;
       config.cert_len = otacert->len;
-   }
-   else
+   } else
 #ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
       config.crt_bundle_attach = esp_crt_bundle_attach;
 #else
@@ -1277,9 +1276,9 @@ static void ota_task(void *pvParameters)
 #endif
    if (clientcert->len && clientkey->len)
    {
-      config.client_cert_pem = (void*)clientcert->data;
+      config.client_cert_pem = (void *) clientcert->data;
       config.client_cert_len = clientcert->len;
-      config.client_key_pem = (void*)clientkey->data;
+      config.client_key_pem = (void *) clientkey->data;
       config.client_key_len = clientkey->len;
    }
    esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -1472,14 +1471,14 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       unsigned char *o;
       if (!s->size)
       {                         /* Dynamic */
-         revk_bindata_t *d = malloc(sizeof(revk_bindata_t) + l);
-         o = n = (void*)d;
+         l += sizeof(revk_bindata_t);
+         revk_bindata_t *d = malloc(l);
+         o = n = (void *) d;
          if (o)
          {
             d->len = l;
             memcpy(d->data, value, len);
          }
-         len += sizeof(revk_bindata_t);
       } else
       {                         // Fixed size binary
          if (l && l != s->size)
@@ -1495,11 +1494,11 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       }
    } else if (!s->size)
    {                            /* String */
-      n = malloc(len + 1);      /* One byte for null termination */
+      l++;
+      n = malloc(l);            /* One byte for null termination */
       if (len)
          memcpy(n, value, len);
       n[len] = 0;
-      l = len + 1;
    } else
    {                            /* Numeric */
       uint64_t v = 0;
@@ -2320,14 +2319,11 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
       {                         /* Dynamic */
          void *d = NULL;
          l = nvs_get(s, tag, NULL, 0);
-         if (l > 1)
+         if (l > sizeof(revk_bindata_t))
          {                      /* 1 byte means zero len or zero terminated so use default */
             d = malloc(l);
             l = nvs_get(s, tag, d, l);
-            if (l > 0)
-               *((void **) data) = d;
-            else
-               free(d);         /* Should not happen */
+            *((void **) data) = d;
          } else
             l = -1;             /* default */
       } else
