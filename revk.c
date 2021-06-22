@@ -481,11 +481,13 @@ static void mqtt_init(void)
 #endif
    if (mqttcert->len)
    {
+      ESP_LOGI(TAG, "Setting client CA (cert %d)", mqttcert->len);
       config.cert_pem = (void *) mqttcert->data;
       config.cert_len = mqttcert->len;
    }
    if (clientkey->len && clientcert->len)
    {
+      ESP_LOGI(TAG, "Setting client cert (key %d cert %d)", clientkey->len, clientcert->len);
       config.client_cert_pem = (void *) clientcert->data;
       config.client_cert_len = clientcert->len;
       config.client_key_pem = (void *) clientkey->data;
