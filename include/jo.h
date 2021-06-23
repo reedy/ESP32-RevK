@@ -47,7 +47,7 @@ jo_t jo_copy(jo_t);
 // Copy object - copies the object, and if allocating memory, makes copy of the allocated memory too
 
 void jo_rewind(jo_t);
-// Move to start for parsing. If was writing, closed and set up to read instead. Clears error if reading.
+// Move to start for parsing. If was writing, closed and set up to read instead. Clears error if reading. Safe to call with NULL
 
 int jo_level(jo_t);
 // Current level, 0 being the top level

@@ -2164,7 +2164,9 @@ const char *revk_setting(const char *tag, jo_t j)
                         jo_strncpy(j, val = malloc(l + 1), l + 1);
                   }
                   er = revk_setting_internal(s, l, (const unsigned char *) (val ? : ""), index, 0);
-               } else
+               } else if (t == JO_NULL)
+                  er = revk_setting_internal(s, 0, NULL, index, 0);     // Factory
+               else
                   er = "Bad data type";
                if (val)
                   free(val);
@@ -2252,6 +2254,7 @@ const char *revk_setting(const char *tag, jo_t j)
          t = jo_next(j);
       }
    }
+
    return er;
 }
 
