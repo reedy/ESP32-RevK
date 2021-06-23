@@ -58,7 +58,7 @@ const char *jo_error(jo_t, int *pos);
 // If pos is set then the offset in to the JSON is retported
 
 void jo_free(jo_t *);
-// Free jo_t and any allocated memory
+// Free jo_t and any allocated memory (safe to call with NULL or pointer to NULL)
 
 char *jo_finish(jo_t *);
 // Finish creating static JSON, return start of static JSON if no error. Frees j. It is an error to use with jo_create_alloc

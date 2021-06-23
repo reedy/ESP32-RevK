@@ -378,12 +378,12 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       revk_report_state();
 
       if (app_command)
-         app_command("connect", strlen(mqtthost), (unsigned char *) mqtthost);
+         app_command("connect", NULL);
       break;
    case MQTT_EVENT_DISCONNECTED:
       ESP_LOGI(TAG, "MQTT disconnect");
       if (app_command)
-         app_command("disconnect", strlen(mqtthost), (unsigned char *) mqtthost);
+         app_command("disconnect", NULL);
       xEventGroupClearBits(revk_group, GROUP_MQTT);
       break;
    case MQTT_EVENT_DATA:
@@ -416,29 +416,44 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
                tag[e - p] = 0;
             }
          }
-         char *value = malloc(event->data_len + 1);
+         jo_t j = NULL;
          if (event->data_len)
-            memcpy(value, event->data, event->data_len);
-         value[event->data_len] = 0;    /* Safe */
+         {
+            if (tag && *event->data != '"' && *event->data != '{' && *event->data != '[')
+            {
+               j = jo_object_alloc();
+               jo_stringf(j, tag, "%.*s", event->data_len, event->data);
+            } else
+            {                   // Parse
+               j = jo_parse_mem(event->data, event->data_len);
+               jo_skip(j);      // Check whole JSON
+               int pos;
+               err = jo_error(j, &pos);
+               if (err)
+                  ESP_LOGE(TAG, "Fail at pos %d, %s: %s", pos, err, jo_debug(j));
+            }
+            jo_rewind(j);
+         }
          if (plen == strlen(prefixcommand) && !memcmp(t, prefixcommand, plen))
-            err = revk_command(tag, event->data_len, (const unsigned char *) value);
+            err = (err ? : revk_command(tag, j));
          else if (plen == strlen(prefixsetting) && !memcmp(t, prefixsetting, plen))
-            err = (revk_setting(tag, event->data_len, (const unsigned char *) value) ? : "");   /* Returns NULL if OK */
+            err = (err ? : revk_setting(tag, j));
          else
-            err = "";
+            err = (err ? : "");
+         jo_free(&j);
          if (!err || *err)
          {
             jo_t j = jo_create_alloc();
             jo_string(j, "description", err);
-            jo_stringf(j, "prefix","%.*s",plen, t);
+            jo_stringf(j, "prefix", "%.*s", plen, t);
             if (tag)
                jo_string(j, "suffix", tag);
-            jo_string(j, "payload", value);
+            if (event->data_len)
+               jo_stringf(j, "payload", "%.*s", event->data_len, event->data);
             revk_errorj(tag, &j);
          }
          if (tag)
             free(tag);
-         free(value);
       }
       break;
    case MQTT_EVENT_ERROR:
@@ -594,7 +609,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #ifdef  CONFIG_REVK_WIFI
          xEventGroupSetBits(revk_group, GROUP_WIFI);
          if (app_command)
-            app_command("wifi", strlen(wifissid), (unsigned char *) wifissid);
+            app_command("wifi", NULL);
 #endif
          break;
       case IP_EVENT_GOT_IP6:
@@ -652,7 +667,7 @@ static void task(void *pvParameters)
          if (!restart_reason)
             restart_reason = "Unknown";
          if (app_command)
-            app_command("shutdown", strlen(restart_reason), (unsigned char *) restart_reason);
+            app_command("shutdown", NULL);
          revk_mqtt_close(restart_reason);
          revk_wifi_close();
          REVK_ERR_CHECK(nvs_commit(nvs));
@@ -1037,7 +1052,7 @@ const char *revk_restart(const char *reason, int delay)
    {
       restart_time = esp_timer_get_time() + 1000000LL * (int64_t) delay;        /* Reboot now */
       if (app_command)
-         app_command("restart", strlen(reason ? : ""), (void *) reason);        /* Warn of reset */
+         app_command("restart", NULL);
    }
    return "";                   /* Done */
 }
@@ -1156,19 +1171,25 @@ static esp_err_t ap_get(httpd_req_t * req)
              pass[33];
             if (!httpd_query_key_value(query, "ssid", ssid, sizeof(ssid)) && *ssid && !httpd_query_key_value(query, "pass", pass, sizeof(pass)))
             {
-               revk_setting("wifissid", strlen(ssid), ssid);
-               revk_setting("wifipass", strlen(pass), pass);
+               jo_t j = jo_object_alloc();
+               jo_string(j, "wifissid", ssid);
+               jo_string(j, "wifipass", pass);
+               revk_setting(NULL, j);
+               jo_free(&j);
             }
          }
          {
             char host[129];
             if (!httpd_query_key_value(query, "host", host, sizeof(host)) && *host)
             {
-               revk_setting("mqtthost", strlen(host), host);
-               revk_setting("mqttuser", 0, NULL);
-               revk_setting("mqttpass", 0, NULL);
-               revk_setting("mqttcert", 0, NULL);
-               revk_setting("mqttport", 0, NULL);
+               jo_t j = jo_object_alloc();
+               jo_string(j, "mqtthost", host);
+               jo_string(j, "mqttuser", "");
+               jo_string(j, "mqttpass", "");
+               jo_string(j, "mqttcert", "");
+               jo_string(j, "mqttport", "");
+               revk_setting(NULL, j);
+               jo_free(&j);
             }
          }
          const char resp[] = "Done";
@@ -2043,26 +2064,12 @@ static const char *revk_setting_dump(void)
    return NULL;
 }
 
-const char *revk_setting(const char *tag, unsigned int len, const void *value)
+const char *revk_setting(const char *tag, jo_t j)
 {
-   if (!tag && !len)
+   if (!tag && !j)
    {
       revk_dump = 1;
       return NULL;
-   }
-   jo_t j;
-   jo_type_t t;
-   if (tag)
-   {                            // Legacy
-      j = jo_object_alloc();
-      jo_stringf(j, tag, "%.*s", len, value);
-      jo_rewind(j);
-   } else
-      j = jo_parse_mem(value, len);
-   if (jo_here(j) != JO_OBJECT)
-   {
-      jo_free(&j);
-      return "Pass JSON object";
    }
    int index = 0;
    int match(setting_t * s, const char *tag) {
@@ -2092,18 +2099,9 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
       index = v - 1;
       return 0;                 /* Match, index */
    }
-   jo_skip(j);                  // Check whole JSON
-   int pos;
-   const char *er = jo_error(j, &pos);
-   if (er)
-   {
-      ESP_LOGE(TAG, "Fail at pos %d, %s: %s", pos, er, jo_debug(j));
-      jo_free(&j);
-      return er;
-   }
-   jo_rewind(j);
-   t = jo_next(j);              // Start object
-   while (t == JO_TAG && !er)
+   const char *er = NULL;
+   jo_type_t t = jo_next(j);    // Start object
+   while (t == JO_TAG)
    {
 #ifdef SETTING_DEBUG
       ESP_LOGI(TAG, "Setting: %.10s", jo_debug(j));
@@ -2254,11 +2252,10 @@ const char *revk_setting(const char *tag, unsigned int len, const void *value)
          t = jo_next(j);
       }
    }
-   jo_free(&j);
    return er;
 }
 
-const char *revk_command(const char *tag, unsigned int len, const void *value)
+const char *revk_command(const char *tag, jo_t j)
 {
    if (!tag || !*tag)
       return "No command";
@@ -2273,12 +2270,10 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    if (!e && !strcmp(tag, "upgrade"))
    {
       char val[256];
-      jo_t j = jo_parse_mem((char *) value, len);
-      if (jo_here(j) == JO_STRING && jo_strncpy(j, val, sizeof(val)) < 0)
+      if (jo_strncpy(j, val, sizeof(val)) < 0)
          *val = 0;
-      jo_free(&j);
       char *url;                /* Yeh, not freed, but we are rebooting */
-      if (!strncmp((char *) value, "https://", 8) || !strncmp((char *) value, "http://", 7))
+      if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
          url = strdup(val);
       else
          asprintf(&url, "%s://%s/%s.bin",
@@ -2297,14 +2292,20 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    }
    if (!e && !strcmp(tag, "restart"))
       e = revk_restart("Restart command", 5);
-   if (!e && !strcmp(tag, "factory") && len == strlen(revk_id) + strlen(appname) && !strncmp((char *) value, revk_id, strlen(revk_id)) && !strcmp((char *) value + strlen(revk_id), appname))
+   if (!e && !strcmp(tag, "factory"))
    {
+      char val[256];
+      if (jo_strncpy(j, val, sizeof(val)) < 0)
+         *val = 0;
+      if (strncmp(val, revk_id, strlen(revk_id)))
+         return "Bad ID";
+      if (strcmp(val + strlen(revk_id), appname))
+         return "Bad appname";
       esp_err_t e = nvs_flash_erase();
       if (!e)
          e = nvs_flash_erase_partition(TAG);
-      if (e)
-         return "Erase failed";
-      revk_restart("Factory reset", 5);
+      if (!e)
+         revk_restart("Factory reset", 5);
       return "";
    }
    if (!e && !strcmp(tag, "uptime"))
@@ -2323,7 +2324,8 @@ const char *revk_command(const char *tag, unsigned int len, const void *value)
    /* App commands */
    if ((!e || !*e) && app_command)
    {                            /* Pass to app, even if we handled with no error */
-      const char *e2 = app_command(tag, len, value);
+      jo_rewind(j);
+      const char *e2 = app_command(tag, j);
       if (e2 && (*e2 || !e))
          e = e2;                /* Overwrite error if we did not have one */
    }

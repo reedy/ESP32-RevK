@@ -30,7 +30,7 @@
 #include "jo.h"
 
 // Types
-typedef const char *app_command_t (const char *tag, unsigned int len, const unsigned char *value);      // Return NULL=OK, empty-string=Unknown tag, string=error
+typedef const char *app_command_t (const char *tag, jo_t);      // Return NULL=OK, empty-string=Unknown tag, string=error, does not consume jo_t
 
 // Data
 extern const char *revk_app;    // App name
@@ -93,8 +93,8 @@ void revk_infoj (const char *tag,jo_t *);
 void revk_raw (const char *prefix, const char *tag, int len, void * data, int retain);
 #endif
 
-const char *revk_setting (const char *tag, unsigned int len, const void *value);       // Store a setting (same as MQTT, so calls app_setting)
-const char *revk_command (const char *tag, unsigned int len, const void *value);       // Do a command (same as MQTT, so calls app_command)
+const char *revk_setting (const char *tag, jo_t);       // Store a setting 
+const char *revk_command (const char *tag, jo_t);       // Do a command (may call app_command if not handled internally)
 const char *revk_restart (const char *reason, int delay);       // Restart cleanly
 const char *revk_ota (const char *host);        // OTA and restart cleanly
 
