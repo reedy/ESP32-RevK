@@ -214,6 +214,12 @@ static void revk_report_state(void)
    uint64_t t = esp_timer_get_time();
    jo_t j = jo_object_alloc();
    jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
+#ifdef	CONFIG_SECURE_BOOT
+   jo_bool(j, "secureboot", 1);
+#endif
+#ifdef	CONFIG_NVS_ENCRYPTION
+   jo_bool(j, "nvsecryption", 1);
+#endif
    jo_string(j, "id", revk_id);
    jo_string(j, "app", appname);
    jo_string(j, "version", revk_version);
