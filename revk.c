@@ -224,6 +224,7 @@ static void revk_report_state(void)
    jo_string(j, "app", appname);
    jo_string(j, "version", revk_version);
    jo_int(j, "mem", esp_get_free_heap_size());
+   jo_int(j, "flash", spi_flash_get_chip_size());
    jo_int(j, "rst", esp_reset_reason());
    jo_string(j, "ssid", (char *) ap.ssid);
    jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
