@@ -442,15 +442,15 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
             jo_rewind(j);
          }
          if (plen == strlen(prefixcommand) && !memcmp(t, prefixcommand, plen))
-            err = (err ? : revk_command(tag, j));
+            err = ((err ? : revk_command(tag, j)) ? : "Unknown command");
          else if (plen == strlen(prefixsetting) && !memcmp(t, prefixsetting, plen))
-            err = (err ? : revk_setting(tag, j));
+            err = ((err ? : revk_setting(tag, j)) ? : "Unknown setting");
          else
-            err = (err ? : "");
+            err = (err ? : ""); // Ignore
          jo_free(&j);
-         if (!err || *err)
+         if (*err)
          {
-            jo_t j = jo_create_alloc();
+            jo_t j = jo_object_alloc();
             jo_string(j, "description", err);
             jo_stringf(j, "prefix", "%.*s", plen, t);
             if (tag)
@@ -926,12 +926,14 @@ void revk_mqtt_apj(const char *prefix, int qos, int retain, const char *tag, jo_
 {
    if (!jp)
       return;
-   const char *err = jo_error(*jp, NULL);
+   int pos;
+   const char *err = jo_error(*jp, &pos);
    char *res = jo_finisha(jp);
    if (!res)
    {
-      ESP_LOGE(TAG, "JSON not sent: %s", err);
-      return;
+      if (err)
+         ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", tag ? : "", err, pos);
+      res = strdup("");
    }
    if (mqtt_client)
    {
@@ -1051,7 +1053,8 @@ void revk_infoj(const char *tag, jo_t * jp)
 
 const char *revk_restart(const char *reason, int delay)
 {                               /* Restart cleanly */
-   ESP_LOGI(TAG, "Restart %d %s", delay, reason);
+   if (restart_reason != reason)
+      ESP_LOGI(TAG, "Restart %d %s", delay, reason);
    restart_reason = reason;
    if (delay < 0)
       restart_time = 0;         /* Cancelled */
@@ -2076,7 +2079,7 @@ const char *revk_setting(const char *tag, jo_t j)
    if (!tag && !j)
    {
       revk_dump = 1;
-      return NULL;
+      return "";
    }
    int index = 0;
    int match(setting_t * s, const char *tag) {
@@ -2262,7 +2265,7 @@ const char *revk_setting(const char *tag, jo_t j)
       }
    }
 
-   return er;
+   return er ? : "";
 }
 
 const char *revk_command(const char *tag, jo_t j)

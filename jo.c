@@ -899,12 +899,10 @@ const char *jo_debug(jo_t j)
       return "No j";
    if (!j->parse)
    {                            // Where we are up to creating
-      if (j->ptr < j->len)
-      {
-         j->buf[j->ptr] = 0;
-         return j->buf;
-      }
-      return "J creating";
+      jo_write(j, 0);           // add null
+      if (!j->err && j->ptr)
+         j->ptr--;              // undo null
+      return j->buf ? : "No buffer";
    }
    return j->buf + j->ptr;      // Where we are (note, may not be 0 terminated)
 }
