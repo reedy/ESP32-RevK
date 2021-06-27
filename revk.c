@@ -1733,8 +1733,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          if (erase)
          {
             esp_err_t __attribute__((unused)) err = nvs_erase_key(s->nvs, tag);
+            if (err == ESP_ERR_NVS_NOT_FOUND)
+               o = 0;
 #ifdef SETTING_DEBUG
-            if (err != ESP_ERR_NVS_NOT_FOUND)
+            else
                ESP_LOGI(TAG, "Setting %s erased", tag);
 #endif
 
