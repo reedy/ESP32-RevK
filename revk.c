@@ -4,7 +4,7 @@
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
-//#define       SETTING_DEBUG
+#define       SETTING_DEBUG
 
 #include "revk.h"
 #include "esp_http_client.h"
@@ -1718,7 +1718,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       }
       if (o > 0)
       {
-         void *d = malloc(l);
+         unsigned char *d = malloc(l);
          if (nvs_get(s, tag, d, l) != o)
          {
             free(n);
@@ -1728,7 +1728,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          if (memcmp(n, d, o))
          {
 #ifdef SETTING_DEBUG
-            ESP_LOGI(TAG, "Setting %s different content %d (%02X/%02X)", tag, o, *(uint8_t *) d, *(uint8_t *) n);
+            ESP_LOGI(TAG, "Setting %s different content %d (%02X%02X%02X%02X/%02X%02X%02X%02X)", tag, o, d[0],d[1],d[2],d[3],n[0],n[1],n[2],n[3]);
 #endif
             o = -1;             /* Different content */
          }
@@ -2139,7 +2139,7 @@ const char *revk_setting(const char *tag, jo_t j)
          if (!s)
          {
 #ifdef SETTING_DEBUG
-            ESP_LOGI(TAG, "Unknown %s len=%d: %.10s", tag, l, jo_debug(j));
+            ESP_LOGI(TAG, "Unknown %s len=%d: %.20s", tag, l, jo_debug(j));
 #endif
             er = "Unknown setting";
          } else
