@@ -4,7 +4,8 @@
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
-#define       SETTING_DEBUG
+//#define       SETTING_DEBUG
+#define		SETTING_CHANGED
 
 #include "revk.h"
 #include "esp_http_client.h"
@@ -1710,7 +1711,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
 #endif
       if (o != l)
       {
-#ifdef SETTING_DEBUG
+#if defined(SETTING_DEBUG) || defined(SETTING_CHANGED)
          if (o >= 0)
             ESP_LOGI(TAG, "Setting %s different len %d/%d", tag, o, l);
 #endif
@@ -1727,7 +1728,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          }
          if (memcmp(n, d, o))
          {
-#ifdef SETTING_DEBUG
+#if defined(SETTING_DEBUG) || defined(SETTING_CHANGED)
             ESP_LOGI(TAG, "Setting %s different content %d (%02X%02X%02X%02X/%02X%02X%02X%02X)", tag, o, d[0],d[1],d[2],d[3],n[0],n[1],n[2],n[3]);
 #endif
             o = -1;             /* Different content */
@@ -1741,7 +1742,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
             esp_err_t __attribute__((unused)) err = nvs_erase_key(s->nvs, tag);
             if (err == ESP_ERR_NVS_NOT_FOUND)
                o = 0;
-#ifdef SETTING_DEBUG
+#if defined(SETTING_DEBUG) || defined(SETTING_CHANGED)
             else
                ESP_LOGI(TAG, "Setting %s erased", tag);
 #endif
@@ -1753,7 +1754,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
                free(n);
                return "Unable to store";
             }
-#ifdef SETTING_DEBUG
+#if defined(SETTING_DEBUG) || defined(SETTING_CHANGED)
             if (flags & SETTING_BINDATA)
                ESP_LOGI(TAG, "Setting %s stored (%d)", tag, len);
             else
