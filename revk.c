@@ -50,7 +50,7 @@ static const char
 		p(event);				\
 		p(info);				\
 		p(error);				\
-		io(blink);				\
+		ioa(blink,3);				\
     		bdp(clientkey,NULL);			\
     		bd(clientcert,NULL);			\
 
@@ -102,6 +102,7 @@ static const char
 #define	b(n,d)		static uint8_t n;
 #define	s8(n,d)		static int8_t n;
 #define	io(n)		static uint8_t n;
+#define	ioa(n,a)	static uint8_t n[a];
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	static char n[l];
 #define bd(n,d)		static revk_bindata_t *n;
@@ -135,6 +136,7 @@ settings
 #undef u8a
 #undef s8
 #undef io
+#undef ioa
 #undef p
 #undef h
 #undef bd
@@ -644,7 +646,7 @@ static void task(void *pvParameters)
       tick += 100000ULL;        /* 10th second */
       if (!wdt_test && watchdogtime)
          esp_task_wdt_reset();
-      if (blink)
+      if (blink[0])
       {
          static uint8_t lit = 0,
              count = 0;
@@ -661,8 +663,9 @@ static void task(void *pvParameters)
             lit = 1 - lit;
             count = (lit ? on : off);
             if (count)
-               gpio_set_level(blink & 0x3F, lit ^ ((blink & 0x40) ? 1 : 0));
+               gpio_set_level(blink[0] & 0x3F, lit ^ ((blink[0] & 0x40) ? 1 : 0));
          }
+         // TODO RGB LED
       }
       if (revk_dump)
       {                         // Done here so not reporting from MQTT
@@ -779,6 +782,7 @@ void revk_init(app_command_t * app_command_cb)
 #define	b(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_BOOLEAN)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_SIGNED)
 #define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
+#define ioa(n,a)	revk_register(#n,a,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
 #define bd(n,d)		revk_register(#n,0,0,&n,d,SETTING_BINDATA)
@@ -814,6 +818,7 @@ void revk_init(app_command_t * app_command_cb)
 #undef b
 #undef s8
 #undef io
+#undef ioa
 #undef p
 #undef str
 #undef h
@@ -826,12 +831,13 @@ void revk_init(app_command_t * app_command_cb)
    if (!*appname)
       appname = strdup(app->project_name);
    /* Default is from build */
-   if (blink)
-   {
-      gpio_reset_pin(blink & 0x3F);
-      gpio_set_level(blink & 0x3F, (blink & 0x40) ? 0 : 1);     /* on */
-      gpio_set_direction(blink & 0x3F, GPIO_MODE_OUTPUT);       /* Blinking LED */
-   }
+   for (int b = 0; b < sizeof(blink) / sizeof(*blink); b++)
+      if (blink[b])
+      {
+         gpio_reset_pin(blink[b] & 0x3F);
+         gpio_set_level(blink[b] & 0x3F, (blink[b] & 0x40) ? 0 : 1);    /* on */
+         gpio_set_direction(blink[b] & 0x3F, GPIO_MODE_OUTPUT); /* Blinking LED */
+      }
 #ifdef	CONFIG_REVK_APCONFIG
    if (apgpio)
    {
