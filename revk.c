@@ -209,6 +209,9 @@ static const char *revk_setting_dump(void);
 #ifdef	CONFIG_REVK_APCONFIG
 static void ap_task(void *pvParameters);
 #endif
+#ifdef	CONFIG_REVK_MQTT
+static void mqtt_init(void);
+#endif
 
 static void revk_report_state(void)
 {                               // Report state
@@ -363,7 +366,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
    switch (event->event_id)
    {
    case MQTT_EVENT_CONNECTED:
-      ESP_LOGI(TAG, "MQTT connect");
+      ESP_LOGI(TAG, "MQTT connected");
       xEventGroupSetBits(revk_group, GROUP_MQTT);
       void sub(const char *prefix) {
          char *topic;
@@ -394,10 +397,10 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
       {
          xEventGroupClearBits(revk_group, GROUP_MQTT);
-         ESP_LOGI(TAG, "MQTT disconnect (mem:%d)", esp_get_free_heap_size());
+         ESP_LOGI(TAG, "MQTT disconnected (mem:%d)", esp_get_free_heap_size());
          if (app_command)
             app_command("disconnect", NULL);
-	 // Can we flush TCP TLS stuff somehow
+         // Can we flush TCP TLS stuff somehow?
       } else
          ESP_LOGI(TAG, "MQTT failed (mem:%d)", esp_get_free_heap_size());
       break;
@@ -564,7 +567,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             offline = esp_timer_get_time();
          break;
       case WIFI_EVENT_STA_CONNECTED:
-         ESP_LOGI(TAG, "STA Connect");
+         ESP_LOGI(TAG, "STA Connected");
          xEventGroupSetBits(revk_group, GROUP_WIFI);
          xEventGroupClearBits(revk_group, GROUP_OFFLINE);
          break;
