@@ -391,7 +391,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
          app_command("connect", NULL);
       break;
    case MQTT_EVENT_DISCONNECTED:
-      ESP_LOGI(TAG, "MQTT disconnect");
+      ESP_LOGI(TAG, "MQTT disconnect (mem:%d)",esp_get_free_heap_size());
       if (app_command)
          app_command("disconnect", NULL);
       xEventGroupClearBits(revk_group, GROUP_MQTT);
