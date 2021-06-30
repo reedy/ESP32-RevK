@@ -391,10 +391,15 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
          app_command("connect", NULL);
       break;
    case MQTT_EVENT_DISCONNECTED:
-      ESP_LOGI(TAG, "MQTT disconnect (mem:%d)",esp_get_free_heap_size());
-      if (app_command)
-         app_command("disconnect", NULL);
-      xEventGroupClearBits(revk_group, GROUP_MQTT);
+      if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
+      {
+         xEventGroupClearBits(revk_group, GROUP_MQTT);
+         ESP_LOGI(TAG, "MQTT disconnect (mem:%d)", esp_get_free_heap_size());
+         if (app_command)
+            app_command("disconnect", NULL);
+	 // Can we flush TCP TLS stuff somehow
+      } else
+         ESP_LOGI(TAG, "MQTT failed (mem:%d)", esp_get_free_heap_size());
       break;
    case MQTT_EVENT_DATA:
       {                         // topic is expected to be a prefix/appname/id/tag where tag could be omitted
@@ -1729,7 +1734,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          if (memcmp(n, d, o))
          {
 #if defined(SETTING_DEBUG) || defined(SETTING_CHANGED)
-            ESP_LOGI(TAG, "Setting %s different content %d (%02X%02X%02X%02X/%02X%02X%02X%02X)", tag, o, d[0],d[1],d[2],d[3],n[0],n[1],n[2],n[3]);
+            ESP_LOGI(TAG, "Setting %s different content %d (%02X%02X%02X%02X/%02X%02X%02X%02X)", tag, o, d[0], d[1], d[2], d[3], n[0], n[1], n[2], n[3]);
 #endif
             o = -1;             /* Different content */
          }
