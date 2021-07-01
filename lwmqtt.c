@@ -56,6 +56,7 @@ struct lwmqtt_handle_s {        // mallocd copies
    int client_cert_len;
    void *client_key_pem;        // For client auth
    int client_key_len;
+   // TODO CA Bundle
 };
 
 #define freez(x) do{if(x)free(x);}while(0)
@@ -514,9 +515,9 @@ static void task(void *pvParameters)
                handle->callback(handle->arg, NULL, 0, NULL);
          }
          handle->tls = NULL;
-         esp_tls_conn_destroy(&tls);
          xSemaphoreGive(handle->mutex);
       }
+      esp_tls_conn_destroy(&tls);
       if (backoff < 60)
          backoff *= 2;
       ESP_LOGD(TAG, "Waiting %d", backoff);
