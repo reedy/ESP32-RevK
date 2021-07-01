@@ -36,21 +36,44 @@ static const char
 
 #include "lwmqtt.h"
 
-struct lwmqtt_handle_s {
-   char *host;                  // malloc'd host name
-   char *port;                  // malloc'd port name
+struct lwmqtt_handle_s {        // mallocd copies
+   char *host;
+   char *port;
    lwmqtt_callback_t *callback;
    void *arg;
    int connectlen;
-   unsigned char *connect;      // malloc'd connect message
+   unsigned char *connect;
    SemaphoreHandle_t mutex;     // atomic send mutex
    int sock;                    // TCP socket
    unsigned short keepalive;
    unsigned short seq;
    time_t ka;
    uint8_t running:1;
-   // TODO TLS
+   void *cert_pem;              // For checking server
+   int cert_len;
+   void *client_cert_pem;       // For client auth
+   int client_cert_len;
+   void *client_key_pem;        // For client auth
+   int client_key_len;
 };
+
+#define freez(x) do{if(x)free(x);}while(0)
+static void *handle_free(lwmqtt_handle_t handle)
+{
+   if (handle)
+   {
+      freez(handle->host);
+      freez(handle->port);
+      freez(handle->connect);
+      freez(handle->cert_pem);
+      freez(handle->client_cert_pem);
+      freez(handle->client_key_pem);
+      if (handle->mutex)
+         vSemaphoreDelete(handle->mutex);
+      freez(handle);
+   }
+   return NULL;
+}
 
 static void task(void *pvParameters);
 
@@ -61,25 +84,16 @@ lwmqtt_handle_t lwmqtt_init(lwmqtt_config_t * config)
       return NULL;
    lwmqtt_handle_t handle = malloc(sizeof(*handle));
    if (!handle)
-      return NULL;
+      return handle_free(handle);
    memset(handle, 0, sizeof(*handle));
    handle->sock = -1;
    handle->callback = config->callback;
    handle->arg = config->arg;
    handle->keepalive = config->keepalive ? : 60;
-   handle->host = strdup(config->host);
-   if (!handle->host)
-   {
-      free(handle);
-      return NULL;
-   }
-   handle->port = strdup(config->port ? : "1883");
-   if (!handle->port)
-   {
-      free(handle->host);
-      free(handle);
-      return NULL;
-   }
+   if (!(handle->host = strdup(config->host)))
+      return handle_free(handle);
+   if (!(handle->port = strdup(config->port ? : config->cert_len ? "8883" : "1883")))
+      return handle_free(handle);
    // Make connection message
    int mlen = 6 + 1 + 1 + 2 + strlen(config->client ? : "");
    if (config->plen < 0)
@@ -90,25 +104,33 @@ lwmqtt_handle_t lwmqtt_init(lwmqtt_config_t * config)
       mlen += 2 + strlen(config->username);
    if (config->password)
       mlen += 2 + strlen(config->password);
-   if (mlen >= 128 * 128)
-   {                            // Nope
-      free(handle->host);
-      free(handle->port);
-      free(handle);
-      return NULL;
+   if (config->cert_len && config->cert_pem)
+   {
+      if (!(handle->cert_pem = malloc(config->cert_len)))
+         return handle_free(handle);
+      memcpy(handle->cert_pem, config->cert_pem, handle->cert_len = config->cert_len);
    }
+   if (config->client_cert_len && config->client_cert_pem)
+   {
+      if (!(handle->client_cert_pem = malloc(config->client_cert_len)))
+         return handle_free(handle);
+      memcpy(handle->client_cert_pem, config->client_cert_pem, handle->client_cert_len = config->client_cert_len);
+   }
+   if (config->client_key_len && config->client_key_pem)
+   {
+      if (!(handle->client_key_pem = malloc(config->client_key_len)))
+         return handle_free(handle);
+      memcpy(handle->client_key_pem, config->client_key_pem, handle->client_key_len = config->client_key_len);
+   }
+
+   if (mlen >= 128 * 128)
+      return handle_free(handle);       // Nope
    mlen += 2;                   // keepalive
    if (mlen >= 128)
       mlen++;                   // two byte len
    mlen += 2;                   // header and one byte len
-   handle->connect = malloc(mlen);
-   if (!handle->connect)
-   {
-      free(handle->host);
-      free(handle->port);
-      free(handle);
-      return NULL;
-   }
+   if (!(handle->connect = malloc(mlen)))
+      return handle_free(handle);
    unsigned char *p = handle->connect;
    void str(int l, const char *s) {
       if (l < 0)
@@ -511,11 +533,7 @@ static void task(void *pvParameters)
       ESP_LOGD(TAG, "Waiting %d", backoff);
       sleep(backoff);
    }
-   vSemaphoreDelete(handle->mutex);
-   free(handle->host);
-   free(handle->port);
-   free(handle->connect);
-   free(handle);
+   handle_free(handle);
    vTaskDelete(NULL);
 }
 

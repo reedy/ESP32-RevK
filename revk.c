@@ -106,8 +106,8 @@ static const char
 #define	ioa(n,a)	static uint8_t n[a];
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	static char n[l];
-#define bd(n,d)		static revk_bindata_t *n;
-#define bdp(n,d)	static revk_bindata_t *n;
+#define bd(n,d)		revk_bindata_t *n;
+#define bdp(n,d)	revk_bindata_t *n;
 settings
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
     wifisettings

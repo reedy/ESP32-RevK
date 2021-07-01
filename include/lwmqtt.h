@@ -31,6 +31,12 @@ struct lwmqtt_config_s {
    int plen;                    // Will payload len (-1 does strlen)
    const unsigned char *payload;        // Will payload
    unsigned short keepalive;
+   void *cert_pem;              // For checking server
+   int cert_len;
+   void *client_cert_pem;       // For client auth
+   int client_cert_len;
+   void *client_key_pem;        // For client auth
+   int client_key_len;
    // TLS settings TODO
    uint8_t retain:1;            // Will retain
 };
@@ -57,4 +63,3 @@ const char *lwmqtt_send_full(lwmqtt_handle_t, int tlen, const char *topic, int p
 
 // Simple send - non retained no wait topic ends on space then payload
 const char *lwmqtt_send_str(lwmqtt_handle_t, const char *msg);
-
