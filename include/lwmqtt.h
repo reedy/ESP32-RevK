@@ -3,7 +3,7 @@
 // Live sending to TCP for outgoing messages
 // Simple callback for incoming messages
 // Automatic reconnect
-#ifdef	CONFIG_REVK_LWMQTT
+
 // Callback function.
 // Called for incoming message
 // - Topic is NULL terminated string, even if zero length topic has been used
@@ -58,4 +58,3 @@ const char *lwmqtt_send_full(lwmqtt_handle_t, int tlen, const char *topic, int p
 // Simple send - non retained no wait topic ends on space then payload
 const char *lwmqtt_send_str(lwmqtt_handle_t, const char *msg);
 
-#endif

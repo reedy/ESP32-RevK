@@ -3,11 +3,9 @@
 // Live sending to TCP for outgoing messages
 // Simple callback for incoming messages
 // Automatic reconnect
-#ifdef	CONFIG_REVK_LWMQTT
 static const char
     __attribute__((unused)) * TAG = "LWMQTT";
 
-#include "sdkconfig.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -535,4 +533,3 @@ const char *lwmqtt_send_str(lwmqtt_handle_t handle, const char *msg)
       p++;
    return lwmqtt_send_full(handle, tlen, msg, strlen(p), (void *) p, 0, 1);
 }
-#endif
