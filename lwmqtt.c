@@ -263,6 +263,7 @@ const char *lwmqtt_subscribeub(lwmqtt_handle_t handle, const char *topic, char u
 // Send (return is non null error message if failed)
 const char *lwmqtt_send_full(lwmqtt_handle_t handle, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait)
 {
+	// TODO how to nowait with TLS?
    const char *ret = NULL;
    if (!handle)
       ret = "No handle";
