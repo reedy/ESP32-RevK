@@ -263,7 +263,7 @@ const char *lwmqtt_subscribeub(lwmqtt_handle_t handle, const char *topic, char u
 // Send (return is non null error message if failed)
 const char *lwmqtt_send_full(lwmqtt_handle_t handle, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait)
 {
-	// TODO how to nowait with TLS?
+   // TODO how to nowait with TLS?
    const char *ret = NULL;
    if (!handle)
       ret = "No handle";
@@ -334,8 +334,6 @@ static void task(void *pvParameters)
       vTaskDelete(NULL);
       return;
    }
-   if (handle->cert_len)
-      esp_tls_init();
    int backoff = 1;
    while (handle->running)
    {
@@ -350,12 +348,11 @@ static void task(void *pvParameters)
        clientkey_bytes:handle->client_key_len,
        is_plain_tcp:handle->cert_len ? 0 : 1,
       };
-      esp_tls_t *tls =esp_tls_conn_new(handle->host, strlen(handle->host), atoi(handle->port), &cfg);;
-      if (!tls)
+      esp_tls_t *tls = esp_tls_init();
+      if (!tls || esp_tls_conn_new_sync(handle->host, strlen(handle->host), atoi(handle->port), &cfg, tls) != 1)
          ESP_LOGI(TAG, "Cannot connect");
       else
       {
-	      // TODO esp_tls_conn_new_sync but then how to destroy, and even now we see 5K memory leak on failed TCP
          int len = esp_tls_conn_write(tls, handle->connect, handle->connectlen);
          if (len < 0)
             ESP_LOGE(TAG, "Failed to send connect");
@@ -435,7 +432,7 @@ static void task(void *pvParameters)
                      handle->callback(handle->arg, NULL, strlen(handle->host), (void *) handle->host);
                   break;
                case 3:         // pub
-                  { // Topic
+                  {             // Topic
                      int tlen = (p[0] << 8) + p[1];
                      p += 2;
                      char *topic = (char *) p;
@@ -517,8 +514,9 @@ static void task(void *pvParameters)
          }
          handle->tls = NULL;
          xSemaphoreGive(handle->mutex);
-         esp_tls_conn_destroy(tls);
       }
+      if (tls)
+         esp_tls_conn_destroy(tls);
       if (backoff < 60)
          backoff *= 2;
       ESP_LOGD(TAG, "Waiting %d", backoff);
