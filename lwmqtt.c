@@ -375,7 +375,7 @@ static void task(void *pvParameters)
                else if (pos < 3)
                   need = 3;
                else if (!(buf[2] & 0x80))
-                  need = 3 + (buf[2] >> 7) + (buf[1] & 0x7F);   // Two byte len
+                  need = 3 + (buf[2] << 7) + (buf[1] & 0x7F);   // Two byte len
                else
                {
                   ESP_LOGI(TAG, "Silly len %02X %02X %02X", buf[0], buf[1], buf[2]);
@@ -433,8 +433,7 @@ static void task(void *pvParameters)
                      handle->callback(handle->arg, NULL, strlen(handle->host), (void *) handle->host);
                   break;
                case 3:         // pub
-                  {
-                     // Topic
+                  { // Topic
                      int tlen = (p[0] << 8) + p[1];
                      p += 2;
                      char *topic = (char *) p;
