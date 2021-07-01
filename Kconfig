@@ -144,6 +144,12 @@ menu "RevK"
         help
 		Manage client MQTT
 
+	config REVK_LWMQTT
+	bool "Use LWMQTT"
+	default y
+        help
+		User LWMQTT
+
 	config REVK_MQTTHOST
 	string "Default MQTT host"
 	default "mqtt.iot"
