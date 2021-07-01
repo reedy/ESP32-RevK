@@ -350,17 +350,18 @@ static void task(void *pvParameters)
        clientkey_bytes:handle->client_key_len,
        is_plain_tcp:handle->cert_len ? 0 : 1,
       };
-      esp_tls_t tls = { };
-      if (esp_tls_conn_new_sync(handle->host, strlen(handle->host), atoi(handle->port), &cfg, &tls) != 1)
+      esp_tls_t *tls =esp_tls_conn_new(handle->host, strlen(handle->host), atoi(handle->port), &cfg);;
+      if (!tls)
          ESP_LOGI(TAG, "Cannot connect");
       else
       {
-         int len = esp_tls_conn_write(&tls, handle->connect, handle->connectlen);
+	      // TODO esp_tls_conn_new_sync but then how to destroy, and even now we see 5K memory leak on failed TCP
+         int len = esp_tls_conn_write(tls, handle->connect, handle->connectlen);
          if (len < 0)
             ESP_LOGE(TAG, "Failed to send connect");
          else
          {
-            handle->tls = &tls;
+            handle->tls = tls;
             // Handle rx messages
             unsigned char *buf = 0;
             int buflen = 0;
@@ -389,14 +390,14 @@ static void task(void *pvParameters)
                   {
                      uint8_t b[] = { 0xC0, 0x00 };      // Ping
                      xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                     if (esp_tls_conn_write(&tls, b, sizeof(b)) == sizeof(b))
+                     if (esp_tls_conn_write(tls, b, sizeof(b)) == sizeof(b))
                         handle->ka = time(0) + handle->keepalive;
                      xSemaphoreGive(handle->mutex);
                   }
-                  if (esp_tls_get_bytes_avail(&tls) <= 0)
+                  if (esp_tls_get_bytes_avail(tls) <= 0)
                   {
                      int sock = -1;
-                     if (esp_tls_get_conn_sockfd(&tls, &sock))
+                     if (esp_tls_get_conn_sockfd(tls, &sock))
                         break;
                      fd_set r;
                      FD_ZERO(&r);
@@ -414,7 +415,7 @@ static void task(void *pvParameters)
                         break;
                      }
                   }
-                  int got = esp_tls_conn_read(&tls, buf + pos, need - pos);
+                  int got = esp_tls_conn_read(tls, buf + pos, need - pos);
                   if (got <= 0)
                      break;     // Error or close
                   pos += got;
@@ -454,7 +455,7 @@ static void task(void *pvParameters)
                      {          // reply
                         uint8_t b[4] = { (*buf & 0x4) ? 0x50 : 0x40, 2, id >> 8, id };
                         xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                        if (esp_tls_conn_write(&tls, b, sizeof(b)) == sizeof(b))
+                        if (esp_tls_conn_write(tls, b, sizeof(b)) == sizeof(b))
                            handle->ka = time(0) + handle->keepalive;
                         xSemaphoreGive(handle->mutex);
                      }
@@ -478,7 +479,7 @@ static void task(void *pvParameters)
                   {
                      uint8_t b[4] = { 0x60, p[0], p[1] };
                      xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                     if (esp_tls_conn_write(&tls, b, sizeof(b)) == sizeof(b))
+                     if (esp_tls_conn_write(tls, b, sizeof(b)) == sizeof(b))
                         handle->ka = time(0) + handle->keepalive;
                      xSemaphoreGive(handle->mutex);
                   }
@@ -508,7 +509,7 @@ static void task(void *pvParameters)
             ESP_LOGD(TAG, "Close cleanly");
             uint8_t b[] = { 0xE0, 0x00 };       // Disconnect cleanly
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
-            if (esp_tls_conn_write(&tls, b, sizeof(b)) == sizeof(b))
+            if (esp_tls_conn_write(tls, b, sizeof(b)) == sizeof(b))
                handle->ka = time(0) + handle->keepalive;
             xSemaphoreGive(handle->mutex);
             if (handle->callback)
@@ -516,7 +517,7 @@ static void task(void *pvParameters)
          }
          handle->tls = NULL;
          xSemaphoreGive(handle->mutex);
-         esp_tls_conn_destroy(&tls);
+         esp_tls_conn_destroy(tls);
       }
       if (backoff < 60)
          backoff *= 2;
