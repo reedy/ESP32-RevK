@@ -18,6 +18,7 @@ static const char
 #include "esp_event.h"
 #include "esp_timer.h"
 #include "esp_log.h"
+#include "esp_tls.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -44,7 +45,7 @@ struct lwmqtt_handle_s {        // mallocd copies
    int connectlen;
    unsigned char *connect;
    SemaphoreHandle_t mutex;     // atomic send mutex
-   int sock;                    // TCP socket
+   esp_tls_t *tls;              // Connection
    unsigned short keepalive;
    unsigned short seq;
    time_t ka;
@@ -86,7 +87,6 @@ lwmqtt_handle_t lwmqtt_init(lwmqtt_config_t * config)
    if (!handle)
       return handle_free(handle);
    memset(handle, 0, sizeof(*handle));
-   handle->sock = -1;
    handle->callback = config->callback;
    handle->arg = config->arg;
    handle->keepalive = config->keepalive ? : 60;
@@ -221,7 +221,7 @@ const char *lwmqtt_subscribeub(lwmqtt_handle_t handle, const char *topic, char u
                ret = "Failed to get lock";
             else
             {
-               if (handle->sock < 0)
+               if (!handle->tls)
                   ret = "Not connected";
                else
                {
@@ -243,7 +243,7 @@ const char *lwmqtt_subscribeub(lwmqtt_handle_t handle, const char *topic, char u
                   p += tlen;
                   if (!unsubscribe)
                      *p++ = 0x00;       // QoS requested
-                  if (send(handle->sock, buf, mlen, 0) < mlen)
+                  if (esp_tls_conn_write(handle->tls, buf, mlen) < mlen)
                      ret = "Failed to send";
                   else
                      handle->ka = time(0) + handle->keepalive;
@@ -288,7 +288,7 @@ const char *lwmqtt_send_full(lwmqtt_handle_t handle, int tlen, const char *topic
                ret = "Failed to get lock";
             else
             {
-               if (handle->sock < 0)
+               if (!handle->tls)
                   ret = "Not connected";
                else
                {
@@ -308,7 +308,7 @@ const char *lwmqtt_send_full(lwmqtt_handle_t handle, int tlen, const char *topic
                   if (plen && payload)
                      memcpy(p, payload, plen);
                   p += plen;
-                  if (send(handle->sock, buf, mlen, nowait ? MSG_DONTWAIT : 0) < mlen)
+                  if (esp_tls_conn_write(handle->tls, buf, mlen) < mlen)
                      ret = "Failed to send";
                   else
                      handle->ka = time(0) + handle->keepalive;
@@ -327,50 +327,38 @@ const char *lwmqtt_send_full(lwmqtt_handle_t handle, int tlen, const char *topic
 static void task(void *pvParameters)
 {
    lwmqtt_handle_t handle = pvParameters;
+   if (!handle)
+   {
+      vTaskDelete(NULL);
+      return;
+   }
+   if (handle->cert_len)
+      esp_tls_init();
    int backoff = 1;
    while (handle->running)
    {
       // Connect
       ESP_LOGD(TAG, "Connecting %s:%s", handle->host, handle->port);
-      int sock = -1;
-      {
-         const struct addrinfo hints = {
-            .ai_family = AF_UNSPEC,
-            .ai_socktype = SOCK_STREAM,
-         };
-         struct addrinfo *a = NULL;
-         if (getaddrinfo(handle->host, handle->port, &hints, &a) || !a)
-         {
-            ESP_LOGE(TAG, "Failed to get address");
-            sleep(10);
-            continue;
-         }
-         for (struct addrinfo * p = a; p; p = p->ai_next)
-         {
-            sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-            if (sock < 0)
-               continue;
-            if (connect(sock, p->ai_addr, p->ai_addrlen))
-            {
-               close(sock);
-               sock = -1;
-               continue;
-            }
-            break;
-         }
-         freeaddrinfo(a);
-      }
-      if (sock < 0)
+      esp_tls_cfg_t cfg = {
+       cacert_buf:handle->cert_pem,
+       cacert_bytes:handle->cert_len,
+       clientcert_buf:handle->client_cert_pem,
+       clientcert_bytes:handle->client_cert_len,
+       clientkey_buf:handle->client_key_pem,
+       clientkey_bytes:handle->client_key_len,
+       is_plain_tcp:handle->cert_len ? 0 : 1,
+      };
+      esp_tls_t tls = { };
+      if (esp_tls_conn_new_sync(handle->host, strlen(handle->host), atoi(handle->port), &cfg, &tls) != 1)
          ESP_LOGI(TAG, "Cannot connect");
       else
       {
-         int len = send(sock, handle->connect, handle->connectlen, 0);
+         int len = esp_tls_conn_write(&tls, handle->connect, handle->connectlen);
          if (len < 0)
             ESP_LOGE(TAG, "Failed to send connect");
          else
          {
-
-            handle->sock = sock;
+            handle->tls = &tls;
             // Handle rx messages
             unsigned char *buf = 0;
             int buflen = 0;
@@ -399,33 +387,35 @@ static void task(void *pvParameters)
                   {
                      uint8_t b[] = { 0xC0, 0x00 };      // Ping
                      xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                     if (send(sock, b, sizeof(b), MSG_DONTWAIT) == sizeof(b))
+                     if (esp_tls_conn_write(&tls, b, sizeof(b)) == sizeof(b))
                         handle->ka = time(0) + handle->keepalive;
                      xSemaphoreGive(handle->mutex);
                   }
-                  fd_set r;
-                  FD_ZERO(&r);
-                  FD_SET(sock, &r);
-                  struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
-                  int sel = select(sock + 1, &r, NULL, NULL, &to);
-                  if (sel < 0)
-                     break;
-                  if (sel)
+                  if (esp_tls_get_bytes_avail(&tls) <= 0)
                   {
-                     if (need > buflen)
-                     {
-                        buf = realloc(buf, (buflen = need) + 1);        // One more to allow extra null on end in all cases
-                        if (!buf)
-                        {
-                           ESP_LOGE(TAG, "realloc fail %d", need);
-                           break;
-                        }
-                     }
-                     int got = read(sock, buf + pos, need - pos);
-                     if (got <= 0)
-                        break;  // Error or close
-                     pos += got;
+                     int sock = -1;
+                     if (esp_tls_get_conn_sockfd(&tls, &sock))
+                        break;
+                     fd_set r;
+                     FD_ZERO(&r);
+                     FD_SET(sock, &r);
+                     struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
+                     if (select(sock + 1, &r, NULL, NULL, &to) < 0)
+                        break;
                   }
+                  if (need > buflen)
+                  {
+                     buf = realloc(buf, (buflen = need) + 1);   // One more to allow extra null on end in all cases
+                     if (!buf)
+                     {
+                        ESP_LOGE(TAG, "realloc fail %d", need);
+                        break;
+                     }
+                  }
+                  int got = esp_tls_conn_read(&tls, buf + pos, need - pos);
+                  if (got <= 0)
+                     break;     // Error or close
+                  pos += got;
                   continue;
                }
                unsigned char *p = buf + 1,
@@ -463,7 +453,7 @@ static void task(void *pvParameters)
                      {          // reply
                         uint8_t b[4] = { (*buf & 0x4) ? 0x50 : 0x40, 2, id >> 8, id };
                         xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                        if (send(sock, b, sizeof(b), MSG_DONTWAIT) == sizeof(b))
+                        if (esp_tls_conn_write(&tls, b, sizeof(b)) == sizeof(b))
                            handle->ka = time(0) + handle->keepalive;
                         xSemaphoreGive(handle->mutex);
                      }
@@ -487,7 +477,7 @@ static void task(void *pvParameters)
                   {
                      uint8_t b[4] = { 0x60, p[0], p[1] };
                      xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                     if (send(sock, b, sizeof(b), MSG_DONTWAIT) == sizeof(b))
+                     if (esp_tls_conn_write(&tls, b, sizeof(b)) == sizeof(b))
                         handle->ka = time(0) + handle->keepalive;
                      xSemaphoreGive(handle->mutex);
                   }
@@ -517,15 +507,14 @@ static void task(void *pvParameters)
             ESP_LOGD(TAG, "Close cleanly");
             uint8_t b[] = { 0xE0, 0x00 };       // Disconnect cleanly
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
-            if (send(sock, b, sizeof(b), MSG_DONTWAIT) == sizeof(b))
+            if (esp_tls_conn_write(&tls, b, sizeof(b)) == sizeof(b))
                handle->ka = time(0) + handle->keepalive;
             xSemaphoreGive(handle->mutex);
             if (handle->callback)
                handle->callback(handle->arg, NULL, 0, NULL);
          }
-         handle->sock = -1;
-         shutdown(sock, 0);
-         close(sock);
+         handle->tls = NULL;
+         esp_tls_conn_destroy(&tls);
          xSemaphoreGive(handle->mutex);
       }
       if (backoff < 60)
