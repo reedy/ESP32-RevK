@@ -492,7 +492,6 @@ static void task(void *pvParameters)
                case 11:        // unsuback - ok
                   break;
                case 13:        // pingresp - ok
-                  ESP_LOGI(TAG, "Pong");
                   break;
                default:
                   ESP_LOGI(TAG, "Unknown MQTT %02X", *buf);
