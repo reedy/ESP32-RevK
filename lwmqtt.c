@@ -298,7 +298,7 @@ const char *lwmqtt_send_full(lwmqtt_handle_t handle, int tlen, const char *topic
       }
    }
    if (ret)
-      ESP_LOGI(TAG, "Send: %s", ret);
+      ESP_LOGD(TAG, "Send: %s", ret);
    return ret;
 }
 
@@ -309,7 +309,7 @@ static void task(void *pvParameters)
    while (handle->running)
    {
       // Connect
-      ESP_LOGI(TAG, "Connecting %s:%s", handle->host, handle->port);
+      ESP_LOGD(TAG, "Connecting %s:%s", handle->host, handle->port);
       int sock = -1;
       {
          const struct addrinfo hints = {
@@ -414,7 +414,7 @@ static void task(void *pvParameters)
                switch (*buf >> 4)
                {
                case 2:         // conack
-                  ESP_LOGI(TAG, "Connected");
+                  ESP_LOGD(TAG, "Connected");
                   backoff = 1;
                   if (handle->callback)
                      handle->callback(handle->arg, NULL, strlen(handle->host), (void *) handle->host);
@@ -492,7 +492,7 @@ static void task(void *pvParameters)
          xSemaphoreTake(handle->mutex, portMAX_DELAY);
          if (!handle->running)
          {                      // Closed
-            ESP_LOGI(TAG, "Close cleanly");
+            ESP_LOGD(TAG, "Close cleanly");
             uint8_t b[] = { 0xE0, 0x00 };       // Disconnect cleanly
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
             if (send(sock, b, sizeof(b), MSG_DONTWAIT) == sizeof(b))
@@ -508,7 +508,7 @@ static void task(void *pvParameters)
       }
       if (backoff < 60)
          backoff *= 2;
-      ESP_LOGI(TAG, "Waiting %d", backoff);
+      ESP_LOGD(TAG, "Waiting %d", backoff);
       sleep(backoff);
    }
    vSemaphoreDelete(handle->mutex);
