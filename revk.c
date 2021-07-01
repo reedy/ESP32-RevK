@@ -386,7 +386,6 @@ static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const uns
          p++;
          tag = p;
       }
-      ESP_LOGI(TAG,"Got %s %d %s",topic,plen,payload); // TODO
       jo_t j = NULL;
       if (plen)
       {
