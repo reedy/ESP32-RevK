@@ -516,8 +516,8 @@ static void task(void *pvParameters)
          }
          handle->tls = NULL;
          xSemaphoreGive(handle->mutex);
+         esp_tls_conn_destroy(&tls);
       }
-      esp_tls_conn_destroy(&tls);
       if (backoff < 60)
          backoff *= 2;
       ESP_LOGD(TAG, "Waiting %d", backoff);
