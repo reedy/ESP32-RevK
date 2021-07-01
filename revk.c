@@ -361,7 +361,7 @@ static void wifi_init(void)
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-static void mqtt_event_handler(void *arg, const char *topic, unsigned short plen, const unsigned char *payload)
+static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const unsigned char *payload)
 {
    if (topic)
    {
@@ -386,6 +386,7 @@ static void mqtt_event_handler(void *arg, const char *topic, unsigned short plen
          p++;
          tag = p;
       }
+      ESP_LOGI(TAG,"Got %s %d %s",topic,plen,payload); // TODO
       jo_t j = NULL;
       if (plen)
       {
@@ -485,7 +486,7 @@ static void mqtt_init(void)
       .payload = (void *) "{\"up\":false}",
       .plen = -1,
       .keepalive = 30,
-      .callback = &mqtt_event_handler,
+      .callback = &mqtt_rx,
    };
    ESP_LOGI(TAG, "MQTT %s", mqtthost);
 #if 0                           /* When MQTT supports this! */

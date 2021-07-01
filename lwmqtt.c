@@ -461,7 +461,7 @@ static void task(void *pvParameters)
                      int plen = e - p;
                      if (handle->callback)
                      {
-                        if (plen && !(*buf & 0x60))
+                        if (plen && !(*buf & 0x06))
                         {       // Move back a byte for null termination to be added without hitting payload
                            memmove(topic - 1, topic, tlen);
                            topic--;
