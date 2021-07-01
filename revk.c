@@ -371,13 +371,13 @@ static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const uns
       while (*p && *p != '/')
          p++;                   // prefix
       if (!*p)
-         return;                 // odd
+         return;                // odd
       int prefixlen = p - topic;
       p++;
       while (*p && *p != '/')
          p++;                   // appname (ignore)
       if (!*p)
-         return;                 // odd
+         return;                // odd
       p++;
       while (*p && *p != '/')
          p++;                   // id (ignore)
@@ -898,7 +898,7 @@ void revk_mqtt_ap(const char *prefix, int qos, int retain, const char *tag, cons
    }
    ESP_LOGD(TAG, "MQTT publish %s %s", topic ? : "-", buf);
    if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-      lwmqtt_send_full(mqtt_client, -1, topic, l, (void*)buf, retain, 0);
+      lwmqtt_send_full(mqtt_client, -1, topic, l, (void *) buf, retain, 0);
    free(buf);
    if (topic != tag)
       free(topic);
@@ -933,7 +933,7 @@ void revk_mqtt_apj(const char *prefix, int qos, int retain, const char *tag, jo_
       }
       ESP_LOGD(TAG, "MQTT publish %s (%s)", topic ? : "-", res);
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-         lwmqtt_send_full(mqtt_client, -1, topic, -1, (void*)res, retain, 0);
+         lwmqtt_send_full(mqtt_client, -1, topic, -1, (void *) res, retain, 0);
       if (topic != tag)
          free(topic);
    }

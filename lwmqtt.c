@@ -400,8 +400,12 @@ static void task(void *pvParameters)
                      FD_ZERO(&r);
                      FD_SET(sock, &r);
                      struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
-                     if (select(sock + 1, &r, NULL, NULL, &to) < 0)
+                     time_t now = time(0);
+                     int sel = select(sock + 1, &r, NULL, NULL, &to);
+                     if (sel < 0)
                         break;
+                     if (!sel)
+                        continue;
                   }
                   if (need > buflen)
                   {
@@ -488,6 +492,7 @@ static void task(void *pvParameters)
                case 11:        // unsuback - ok
                   break;
                case 13:        // pingresp - ok
+                  ESP_LOGI(TAG, "Pong");
                   break;
                default:
                   ESP_LOGI(TAG, "Unknown MQTT %02X", *buf);
