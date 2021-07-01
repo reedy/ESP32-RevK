@@ -26,7 +26,7 @@
 #include "lwip/netdb.h"
 
 #include "esp_log.h"
-#include "mqtt_client.h"
+#include "lwmqtt.h"
 #include "jo.h"
 
 // Types

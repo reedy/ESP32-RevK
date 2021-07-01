@@ -65,7 +65,7 @@ static const char
 		s(mqtthost,CONFIG_REVK_MQTTHOST);	\
 		s(mqttuser,CONFIG_REVK_MQTTUSER);	\
 		sp(mqttpass,CONFIG_REVK_MQTTPASS);	\
-		u16(mqttport,CONFIG_REVK_MQTTPORT);	\
+		s(mqttport,CONFIG_REVK_MQTTPORT);	\
 		bd(mqttcert,CONFIG_REVK_MQTTCERT);	\
 
 #define	wifisettings	\
@@ -187,7 +187,7 @@ static TaskHandle_t ota_task_id = NULL;
 static TaskHandle_t ap_task_id = NULL;
 #endif
 static app_command_t *app_command = NULL;
-esp_mqtt_client_handle_t mqtt_client = NULL;
+lwmqtt_handle_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
 static uint8_t revk_dump = 0;
@@ -361,27 +361,85 @@ static void wifi_init(void)
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
+static void mqtt_event_handler(void *arg, const char *topic, unsigned short plen, const unsigned char *payload)
 {
-   switch (event->event_id)
+   if (topic)
    {
-   case MQTT_EVENT_CONNECTED:
-      ESP_LOGI(TAG, "MQTT connected");
+      const char *err = NULL;
+      const char *p = topic;
+      const char *tag = NULL;
+      while (*p && *p != '/')
+         p++;                   // prefix
+      if (!*p)
+         return;                 // odd
+      int prefixlen = p - topic;
+      p++;
+      while (*p && *p != '/')
+         p++;                   // appname (ignore)
+      if (!*p)
+         return;                 // odd
+      p++;
+      while (*p && *p != '/')
+         p++;                   // id (ignore)
+      if (*p)
+      {                         // tag
+         p++;
+         tag = p;
+      }
+      jo_t j = NULL;
+      if (plen)
+      {
+         if (tag && *payload != '"' && *payload != '{' && *payload != '[')
+         {
+            j = jo_object_alloc();
+            jo_stringf(j, tag, "%.*s", plen, payload);
+         } else
+         {                      // Parse
+            j = jo_parse_mem(payload, plen);
+            jo_skip(j);         // Check whole JSON
+            int pos;
+            err = jo_error(j, &pos);
+            if (err)
+               ESP_LOGE(TAG, "Fail at pos %d, %s: %s", pos, err, jo_debug(j));
+         }
+         jo_rewind(j);
+      }
+      if (prefixlen == strlen(prefixcommand) && !memcmp(topic, prefixcommand, prefixlen))
+         err = ((err ? : revk_command(tag, j)) ? : "Unknown command");
+      else if (prefixlen == strlen(prefixsetting) && !memcmp(topic, prefixsetting, prefixlen))
+         err = ((err ? : revk_setting(tag, j)) ? : "Unknown setting");
+      else
+         err = (err ? : "");    // Ignore
+      jo_free(&j);
+      if (*err)
+      {
+         jo_t j = jo_object_alloc();
+         jo_string(j, "description", err);
+         jo_stringf(j, "prefix", "%.*s", prefixlen, topic);
+         if (tag)
+            jo_string(j, "suffix", tag);
+         if (plen)
+            jo_stringf(j, "payload", "%s", payload);
+         revk_errorj(tag, &j);
+      }
+   } else if (payload)
+   {
+      ESP_LOGI(TAG, "MQTT connected %s", (char *) payload);
       xEventGroupSetBits(revk_group, GROUP_MQTT);
       void sub(const char *prefix) {
          char *topic;
          if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
             return;
-         esp_mqtt_client_subscribe(mqtt_client, topic, 0);
+         lwmqtt_subscribe(mqtt_client, topic);
          free(topic);
          if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
             return;
-         esp_mqtt_client_subscribe(mqtt_client, topic, 0);
+         lwmqtt_subscribe(mqtt_client, topic);
          if (*hostname)
          {
             if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
                return;
-            esp_mqtt_client_subscribe(mqtt_client, topic, 0);
+            lwmqtt_subscribe(mqtt_client, topic);
          }
          free(topic);
       }
@@ -392,8 +450,8 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
 
       if (app_command)
          app_command("connect", NULL);
-      break;
-   case MQTT_EVENT_DISCONNECTED:
+   } else
+   {
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
       {
          xEventGroupClearBits(revk_group, GROUP_MQTT);
@@ -403,83 +461,10 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
          // Can we flush TCP TLS stuff somehow?
       } else
          ESP_LOGI(TAG, "MQTT failed (mem:%d)", esp_get_free_heap_size());
-      break;
-   case MQTT_EVENT_DATA:
-      {                         // topic is expected to be a prefix/appname/id/tag where tag could be omitted
-         const char *t = event->topic,
-             *e = t + event->topic_len;
-         const char *err = NULL;
-         const char *p = t;
-         char *tag = NULL;
-         while (p < e && *p != '/')
-            p++;                // prefix
-         if (p >= e)
-            break;              // odd
-         int plen = p - t;
-         p++;
-         while (p < e && *p != '/')
-            p++;                // appname (ignore)
-         if (p >= e)
-            break;              // odd
-         p++;
-         while (p < e && *p != '/')
-            p++;                // id (ignore)
-         if (p < e)
-         {                      // tag
-            p++;
-            tag = malloc(e + 1 - p);
-            if (tag)
-            {
-               memcpy(tag, p, e - p);
-               tag[e - p] = 0;
-            }
-         }
-         jo_t j = NULL;
-         if (event->data_len)
-         {
-            if (tag && *event->data != '"' && *event->data != '{' && *event->data != '[')
-            {
-               j = jo_object_alloc();
-               jo_stringf(j, tag, "%.*s", event->data_len, event->data);
-            } else
-            {                   // Parse
-               j = jo_parse_mem(event->data, event->data_len);
-               jo_skip(j);      // Check whole JSON
-               int pos;
-               err = jo_error(j, &pos);
-               if (err)
-                  ESP_LOGE(TAG, "Fail at pos %d, %s: %s", pos, err, jo_debug(j));
-            }
-            jo_rewind(j);
-         }
-         if (plen == strlen(prefixcommand) && !memcmp(t, prefixcommand, plen))
-            err = ((err ? : revk_command(tag, j)) ? : "Unknown command");
-         else if (plen == strlen(prefixsetting) && !memcmp(t, prefixsetting, plen))
-            err = ((err ? : revk_setting(tag, j)) ? : "Unknown setting");
-         else
-            err = (err ? : ""); // Ignore
-         jo_free(&j);
-         if (*err)
-         {
-            jo_t j = jo_object_alloc();
-            jo_string(j, "description", err);
-            jo_stringf(j, "prefix", "%.*s", plen, t);
-            if (tag)
-               jo_string(j, "suffix", tag);
-            if (event->data_len)
-               jo_stringf(j, "payload", "%.*s", event->data_len, event->data);
-            revk_errorj(tag, &j);
-         }
-         if (tag)
-            free(tag);
-      }
-      break;
-   case MQTT_EVENT_ERROR:
-      break;
-   default:
-      break;
    }
-   return ESP_OK;
+
+
+
 }
 #endif
 
@@ -487,33 +472,22 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_t * event)
 static void mqtt_init(void)
 {
    if (mqtt_client)
-   {                            // Reconnect now
-      esp_mqtt_client_reconnect(mqtt_client);
       return;
-   }
    if (!*mqtthost)              /* No MQTT */
       return;
    char *topic;
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
       return;
-   char *url;
-   if (asprintf(&url, "%s://%s/", mqttcert->len ? "mqtts" : "mqtt", mqtthost) < 0)
-   {
-      free(topic);
-      return;
-   }
-   esp_mqtt_client_config_t config = {
-      .uri = url,
-      .lwt_topic = topic,
-      .lwt_qos = 1,
-      .lwt_retain = 1,
-      .lwt_msg = "{\"up\":false}",
-      .lwt_msg_len = 12,
+   lwmqtt_config_t config = {
+      .host = mqtthost,
+      .topic = topic,
+      .retain = 1,
+      .payload = (void *) "{\"up\":false}",
+      .plen = -1,
       .keepalive = 30,
-      .event_handle = mqtt_event_handler,
-      .buffer_size = CONFIG_MQTT_BUFFER_SIZE,
+      .callback = &mqtt_event_handler,
    };
-   ESP_LOGI(TAG, "MQTT %s", url);
+   ESP_LOGI(TAG, "MQTT %s", mqtthost);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
    if (mqttport == 8883 && !mqttcert->len)
@@ -537,12 +511,10 @@ static void mqtt_init(void)
       config.username = mqttuser;
    if (*mqttpass)
       config.password = mqttpass;
-   if (mqttport)
-      config.port = (mqttport ? : mqttcert->len ? 8883 : 1883);
-   mqtt_client = esp_mqtt_client_init(&config);
-   esp_mqtt_client_start(mqtt_client);
+   if (*mqttport)
+      config.port = mqttport;
+   mqtt_client = lwmqtt_init(&config);
    free(topic);
-   free(url);
 }
 #endif
 
@@ -619,10 +591,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          sntp_stop();
          sntp_init();
 #ifdef	CONFIG_REVK_MQTT
-         if (mqtt_client)
-            esp_mqtt_client_reconnect(mqtt_client);
-         else
-            mqtt_init();        // First time
+         mqtt_init();
 #endif
 #ifdef  CONFIG_REVK_WIFI
          xEventGroupSetBits(revk_group, GROUP_WIFI);
@@ -929,7 +898,7 @@ void revk_mqtt_ap(const char *prefix, int qos, int retain, const char *tag, cons
    }
    ESP_LOGD(TAG, "MQTT publish %s %s", topic ? : "-", buf);
    if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-      esp_mqtt_client_publish(mqtt_client, topic, buf, l, qos, retain);
+      lwmqtt_send_full(mqtt_client, -1, topic, l, (void*)buf, retain, 0);
    free(buf);
    if (topic != tag)
       free(topic);
@@ -964,7 +933,7 @@ void revk_mqtt_apj(const char *prefix, int qos, int retain, const char *tag, jo_
       }
       ESP_LOGD(TAG, "MQTT publish %s (%s)", topic ? : "-", res);
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-         esp_mqtt_client_publish(mqtt_client, topic, res, strlen(res), qos, retain);
+         lwmqtt_send_full(mqtt_client, -1, topic, -1, (void*)res, retain, 0);
       if (topic != tag)
          free(topic);
    }
@@ -986,7 +955,7 @@ void revk_raw(const char *prefix, const char *tag, int len, void *data, int reta
       return;
    ESP_LOGD(TAG, "MQTT publish %s (%d)", topic ? : "-", len);
    if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-      esp_mqtt_client_publish(mqtt_client, topic, data, len, 2, retain);
+      lwmqtt_send_full(mqtt_client, -1, topic, len, data, retain, 0);
    if (topic != tag)
       free(topic);
 }
@@ -2532,10 +2501,8 @@ void revk_mqtt_close(const char *reason)
    jo_string(j, "id", revk_id);
    jo_string(j, "reason", reason);
    revk_statej(NULL, &j);
-   REVK_ERR_CHECK(esp_mqtt_client_stop(mqtt_client));
-   usleep(10000);               /* we don't get event, but need to allow time to close cleanly */
-   REVK_ERR_CHECK(esp_mqtt_client_destroy(mqtt_client));
-   mqtt_client = NULL;
+   lwmqtt_end(&mqtt_client);
+   // We could wait close...
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif

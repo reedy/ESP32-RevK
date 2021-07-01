@@ -1,3 +1,5 @@
+#ifndef	LWMQTT_H
+#define	LWMQTT_H
 // Light weight MQTT client
 // QoS 0 only, no queuing or resending (using TCP to do that for us)
 // Live sending to TCP for outgoing messages
@@ -63,3 +65,4 @@ const char *lwmqtt_send_full(lwmqtt_handle_t, int tlen, const char *topic, int p
 
 // Simple send - non retained no wait topic ends on space then payload
 const char *lwmqtt_send_str(lwmqtt_handle_t, const char *msg);
+#endif
