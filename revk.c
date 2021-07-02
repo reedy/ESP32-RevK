@@ -2365,7 +2365,6 @@ void revk_register(const char *name, uint8_t array, uint16_t size, void *data, c
    s->flags = flags;
    s->defval = defval;
    s->next = setting;
-   if (!(flags & SETTING_SECRET))
    {                            // Check if sub setting - parent must be set first, and be secret and same array size
       setting_t *q;
       for (q = setting; q && (q->namelen >= s->namelen || strncmp(q->name, name, q->namelen) || !(q->flags & SETTING_SECRET) || q->array != array); q = q->next);
