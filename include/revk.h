@@ -32,33 +32,33 @@
 #include "jo.h"
 
 // Types
-typedef const char *app_command_t (const char *tag, jo_t);      // Return NULL=OK, empty-string=Unknown tag, string=error, does not consume jo_t
+typedef const char *app_command_t(const char *tag, jo_t);       // Return NULL=OK, empty-string=Unknown tag, string=error, does not consume jo_t
 
 // Data
 extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
-extern char revk_id[13];         // Chip ID hex (from MAC)
+extern char revk_id[13];        // Chip ID hex (from MAC)
 extern uint64_t revk_binid;     // Chip ID binary
 extern char *prefixstate;
 extern char *prefixevent;
 extern char *prefixinfo;
 extern char *prefixerror;
 
-typedef struct { // Dynamic binary data
-	uint16_t len;
-	uint8_t data[];
-}revk_bindata_t;
+typedef struct {                // Dynamic binary data
+   uint16_t len;
+   uint8_t data[];
+} revk_bindata_t;
 
 // Calls
-void revk_init (app_command_t * app_command);
+void revk_init(app_command_t * app_command);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
 // Note, a setting that is SECRET that is a root name followed by sub names creates parent/child. Only shown if parent has value or default value (usually overlap a key child)
-void revk_register (const char *name,   // Setting name (note max 15 characters inc any number suffix)
-                    uint8_t array,        // If non zero then settings are suffixed numerically 1 to array
-                    uint16_t size, // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
-                    void *data, // The setting itself (for string this points to a char* pointer)
-                    const char *defval, // default value (default value text, or bitmask[space]default)
-                    uint8_t flags);       // Setting flags
+void revk_register(const char *name,    // Setting name (note max 15 characters inc any number suffix)
+                   uint8_t array,       // If non zero then settings are suffixed numerically 1 to array
+                   uint16_t size,       // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
+                   void *data,  // The setting itself (for string this points to a char* pointer)
+                   const char *defval,  // default value (default value text, or bitmask[space]default)
+                   uint8_t flags);      // Setting flags
 #define	SETTING_LIVE		1       // Setting update live (else reboots shortly after any change)
 #define	SETTING_BINDATA		2       // Binary block (text is base64 or hex) rather than numeric. Fixed is just the data (malloc), variable is pointer to revk_bin_t
 #define	SETTING_SIGNED		4       // Numeric is signed
@@ -69,7 +69,7 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
 #define	SETTING_SECRET		128     // Don't dump setting
 
 #if CONFIG_LOG_DEFAULT_LEVEL > 2
-esp_err_t revk_err_check (esp_err_t, const char *file, int line,const char *func,const char *cmd);       // Log if error
+esp_err_t revk_err_check(esp_err_t, const char *file, int line, const char *func, const char *cmd);     // Log if error
 #define	REVK_ERR_CHECK(x) revk_err_check(x,__FILE__,__LINE__,__FUNCTION__,#x)
 #else
 esp_err_t revk_err_check(esp_err_t e);
@@ -80,41 +80,39 @@ const char *revk_appname(void);
 const char *revk_hostname(void);
 
 // Make a task
-TaskHandle_t revk_task (const char *tag, TaskFunction_t t, const void *param);
+TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);
 
 // reporting (normally MQTT)
-void revk_state (const char *tag, const char *fmt, ...);        // Send status
-void revk_statej (const char *tag,jo_t *);
-void revk_event (const char *tag, const char *fmt, ...);        // Send event
-void revk_eventj (const char *tag,jo_t *);
-void revk_error (const char *tag, const char *fmt, ...);        // Send error
-void revk_errorj (const char *tag,jo_t *);
-void revk_info (const char *tag, const char *fmt, ...); // Send info
-void revk_infoj (const char *tag,jo_t *);
+void revk_state(const char *tag, const char *fmt, ...); // Send status
+void revk_statej(const char *tag, jo_t *, lwmqtt_t copy);
+void revk_event(const char *tag, const char *fmt, ...); // Send event
+void revk_eventj(const char *tag, jo_t *, lwmqtt_t copy);
+void revk_error(const char *tag, const char *fmt, ...); // Send error
+void revk_errorj(const char *tag, jo_t *, lwmqtt_t copy);
+void revk_info(const char *tag, const char *fmt, ...);  // Send info
+void revk_infoj(const char *tag, jo_t *, lwmqtt_t copy);
 #ifdef	CONFIG_REVK_MQTT
-void revk_raw (const char *prefix, const char *tag, int len, void * data, int retain);
+void revk_raw(const char *prefix, const char *tag, int len, void *data, int retain);
 #endif
 
-const char *revk_setting (const char *tag, jo_t);       // Store a setting 
-const char *revk_command (const char *tag, jo_t);       // Do a command (may call app_command if not handled internally)
-const char *revk_restart (const char *reason, int delay);       // Restart cleanly
-const char *revk_ota (const char *host);        // OTA and restart cleanly
+const char *revk_setting(const char *tag, jo_t);        // Store a setting 
+const char *revk_command(const char *tag, jo_t);        // Do a command (may call app_command if not handled internally)
+const char *revk_restart(const char *reason, int delay);        // Restart cleanly
+const char *revk_ota(const char *host); // OTA and restart cleanly
 
 #ifdef	CONFIG_REVK_MQTT
-const char *revk_mqtt (void);
-void revk_mqtt_close(const char *reason); // Clean close MQTT
+const char *revk_mqtt(void);
+void revk_mqtt_close(const char *reason);       // Clean close MQTT
 int revk_wait_mqtt(int seconds);
 #endif
 #ifdef	CONFIG_REVK_WIFI
-const char *revk_wifi (void);
+const char *revk_wifi(void);
 void revk_wifi_close(void);
 int revk_wait_wifi(int seconds);
 #endif
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-uint32_t revk_offline (void);   // How long we have been offline (seconds), or 0 if online
+uint32_t revk_offline(void);    // How long we have been offline (seconds), or 0 if online
 #endif
-void revk_blink(uint8_t on,uint8_t off); // Set LED blink rate (0,0) for default
+void revk_blink(uint8_t on, uint8_t off);       // Set LED blink rate (0,0) for default
 
 #endif
-
-

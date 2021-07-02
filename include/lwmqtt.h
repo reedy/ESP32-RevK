@@ -28,8 +28,8 @@ struct lwmqtt_config_s {
    char *username;
    char *password;
    const char *host;            // Name or IP
-   unsigned short port;		// Port 0=auto
-   unsigned short keepalive;	// 0=default
+   unsigned short port;         // Port 0=auto
+   unsigned short keepalive;    // 0=default
    // Will
    const char *topic;           // Will topic
    int plen;                    // Will payload len (-1 does strlen)
@@ -42,29 +42,29 @@ struct lwmqtt_config_s {
    int client_cert_len;
    void *client_key_pem;        // For client auth
    int client_key_len;
-   esp_err_t (*crt_bundle_attach)(void *conf);
+    esp_err_t(*crt_bundle_attach) (void *conf);
 };
 
 // Handle for connection
-typedef struct lwmqtt_handle_s *lwmqtt_handle_t;
+typedef struct lwmqtt_s *lwmqtt_t;
 
 // Create a connection (NULL if failed)
-lwmqtt_handle_t lwmqtt_init(lwmqtt_config_t *);
+lwmqtt_t lwmqtt_init(lwmqtt_config_t *);
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call
-void lwmqtt_end(lwmqtt_handle_t *);
+void lwmqtt_end(lwmqtt_t *);
 
 // Subscribe (return is non null error message if failed)
-const char *lwmqtt_subscribeub(lwmqtt_handle_t, const char *topic, char unsubscribe);
+const char *lwmqtt_subscribeub(lwmqtt_t, const char *topic, char unsubscribe);
 #define lwmqtt_subscribe(h,t) lwmqtt_subscribeub(h,t,0);
 #define lwmqtt_unsubscribe(h,t) lwmqtt_subscribeub(h,t,0);
 
 // Send (return is non null error message if failed) (-1 tlen or plen do strlen)
-const char *lwmqtt_send_full(lwmqtt_handle_t, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait);
+const char *lwmqtt_send_full(lwmqtt_t, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait);
 // Simpler
 #define lwmqtt_send(h,t,l,p) lwmqtt_send_full(h,-1,t,l,p,0,0);
 
 // Simple send - non retained no wait topic ends on space then payload
-const char *lwmqtt_send_str(lwmqtt_handle_t, const char *msg);
+const char *lwmqtt_send_str(lwmqtt_t, const char *msg);
 #endif

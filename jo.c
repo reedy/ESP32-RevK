@@ -310,9 +310,12 @@ char *jo_finish(jo_t * jp)
    if (!j)
       return NULL;
    *jp = NULL;
-   while (j->level)
-      jo_close(j);
-   jo_store(j, 0);
+   if (!j->parse)
+   {
+      while (j->level)
+         jo_close(j);
+      jo_store(j, 0);
+   }
    char *res = j->buf;
    if (j->err || j->alloc)
       res = NULL;
@@ -331,9 +334,12 @@ char *jo_finisha(jo_t * jp)
    if (!j)
       return NULL;
    *jp = NULL;
-   while (j->level)
-      jo_close(j);
-   jo_store(j, 0);
+   if (!j->parse)
+   {
+      while (j->level)
+         jo_close(j);
+      jo_store(j, 0);
+   }
    char *res = j->buf;
    if (j->err || !j->alloc)
       res = NULL;

@@ -187,7 +187,7 @@ static TaskHandle_t ota_task_id = NULL;
 static TaskHandle_t ap_task_id = NULL;
 #endif
 static app_command_t *app_command = NULL;
-lwmqtt_handle_t mqtt_client = NULL;
+lwmqtt_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
 static uint8_t revk_dump = 0;
@@ -236,7 +236,7 @@ static void revk_report_state(void)
    jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
    jo_int(j, "rssi", ap.rssi);
    jo_int(j, "chan", ap.primary);
-   revk_statej(NULL, &j);
+   revk_statej(NULL, &j, NULL);
 }
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
@@ -420,7 +420,7 @@ static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const uns
             jo_string(j, "suffix", tag);
          if (plen)
             jo_stringf(j, "payload", "%s", payload);
-         revk_errorj(tag, &j);
+         revk_errorj(tag, &j, NULL);
       }
    } else if (payload)
    {
@@ -906,7 +906,7 @@ void revk_mqtt_ap(const char *prefix, int retain, const char *tag, const char *f
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-void revk_mqtt_apj(const char *prefix, int retain, const char *tag, jo_t * jp)
+void revk_mqtt_apj(const char *prefix, int retain, const char *tag, jo_t * jp, lwmqtt_t copy)
 {
    if (!jp)
       return;
@@ -934,6 +934,8 @@ void revk_mqtt_apj(const char *prefix, int retain, const char *tag, jo_t * jp)
       ESP_LOGD(TAG, "MQTT publish %s (%s)", topic ? : "-", res);
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
          lwmqtt_send_full(mqtt_client, -1, topic, -1, (void *) res, retain, 0);
+      if (copy)
+         lwmqtt_send_full(copy, -1, topic, -1, (void *) res, retain, 0);
       if (topic != tag)
          free(topic);
    }
@@ -971,10 +973,10 @@ void revk_state(const char *tag, const char *fmt, ...)
 #endif
 }
 
-void revk_statej(const char *tag, jo_t * jp)
+void revk_statej(const char *tag, jo_t * jp, lwmqtt_t copy)
 {
 #ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixstate, 1, tag, jp);
+   revk_mqtt_apj(prefixstate, 1, tag, jp, copy);
 #endif
 }
 
@@ -988,10 +990,10 @@ void revk_event(const char *tag, const char *fmt, ...)
 #endif
 }
 
-void revk_eventj(const char *tag, jo_t * jp)
+void revk_eventj(const char *tag, jo_t * jp, lwmqtt_t copy)
 {
 #ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixevent, 0, tag, jp);
+   revk_mqtt_apj(prefixevent, 0, tag, jp, copy);
 #endif
 }
 
@@ -1011,10 +1013,10 @@ void revk_error(const char *tag, const char *fmt, ...)
 #endif
 }
 
-void revk_errorj(const char *tag, jo_t * jp)
+void revk_errorj(const char *tag, jo_t * jp, lwmqtt_t copy)
 {
 #ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixerror,  0, tag, jp);
+   revk_mqtt_apj(prefixerror, 0, tag, jp, copy);
 #endif
 }
 
@@ -1028,10 +1030,10 @@ void revk_info(const char *tag, const char *fmt, ...)
 #endif
 }
 
-void revk_infoj(const char *tag, jo_t * jp)
+void revk_infoj(const char *tag, jo_t * jp, lwmqtt_t copy)
 {
 #ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixinfo, 0, tag, jp);
+   revk_mqtt_apj(prefixinfo, 0, tag, jp, copy);
 #endif
 }
 
@@ -1101,7 +1103,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                {
                   jo_t j = jo_object_alloc();
                   jo_int(j, "size", ota_size);
-                  revk_infoj("upgrade", &j);
+                  revk_infoj("upgrade", &j, NULL);
                   ota_running = 1;
                   next = now + 5000000LL;
                }
@@ -1122,7 +1124,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   jo_int(j, "progress", ota_progress = percent);
                   jo_int(j, "loaded", ota_running - 1);
                   jo_int(j, "size", ota_size);
-                  revk_infoj("upgrade", &j);
+                  revk_infoj("upgrade", &j, NULL);
                   next = now + 5000000LL;
                }
             }
@@ -1139,7 +1141,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             jo_t j = jo_object_alloc();
             jo_string(j, "complete", ota_partition->label);
             jo_int(j, "size", ota_size);
-            revk_infoj("upgrade", &j);
+            revk_infoj("upgrade", &j, NULL);
             esp_ota_set_boot_partition(ota_partition);
             revk_restart("OTA", 5);
          }
@@ -1282,7 +1284,7 @@ static void ota_task(void *pvParameters)
    char *url = pvParameters;
    jo_t j = jo_object_alloc();
    jo_string(j, "url", url);
-   revk_infoj("upgrade", &j);
+   revk_infoj("upgrade", &j, NULL);
    esp_http_client_config_t config = {
       .url = url,.event_handler = ota_handler,
    };
@@ -2442,7 +2444,7 @@ esp_err_t revk_err_check(esp_err_t e, const char *file, int line, const char *fu
       jo_int(j, "line", line);
       jo_string(j, "function", func);
       jo_string(j, "command", cmd);
-      revk_errorj(NULL, &j);
+      revk_errorj(NULL, &j, NULL);
    }
    return e;
 }
@@ -2455,7 +2457,7 @@ esp_err_t revk_err_check(esp_err_t e)
       jo_t j = jo_object_alloc();
       jo_int(j, "code", e);
       jo_string(j, "description", esp_err_to_name(e));
-      revk_errorj(NULL, &j);
+      revk_errorj(NULL, &j, NULL);
    }
    return e;
 }
@@ -2500,7 +2502,7 @@ void revk_mqtt_close(const char *reason)
    jo_bool(j, "up", 0);
    jo_string(j, "id", revk_id);
    jo_string(j, "reason", reason);
-   revk_statej(NULL, &j);
+   revk_statej(NULL, &j, NULL);
    lwmqtt_end(&mqtt_client);
    // We could wait close...
    ESP_LOGI(TAG, "MQTT Closed");

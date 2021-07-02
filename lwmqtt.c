@@ -37,7 +37,7 @@ static const char
 
 #include "lwmqtt.h"
 
-struct lwmqtt_handle_s {        // mallocd copies
+struct lwmqtt_s {               // mallocd copies
    lwmqtt_callback_t *callback;
    void *arg;
    char *host;
@@ -60,7 +60,7 @@ struct lwmqtt_handle_s {        // mallocd copies
 };
 
 #define freez(x) do{if(x)free(x);}while(0)
-static void *handle_free(lwmqtt_handle_t handle)
+static void *handle_free(lwmqtt_t handle)
 {
    if (handle)
    {
@@ -79,11 +79,11 @@ static void *handle_free(lwmqtt_handle_t handle)
 static void task(void *pvParameters);
 
 // Create a connection
-lwmqtt_handle_t lwmqtt_init(lwmqtt_config_t * config)
+lwmqtt_t lwmqtt_init(lwmqtt_config_t * config)
 {
    if (!config || !config->host)
       return NULL;
-   lwmqtt_handle_t handle = malloc(sizeof(*handle));
+   lwmqtt_t handle = malloc(sizeof(*handle));
    if (!handle)
       return handle_free(handle);
    memset(handle, 0, sizeof(*handle));
@@ -184,7 +184,7 @@ lwmqtt_handle_t lwmqtt_init(lwmqtt_config_t * config)
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call
-void lwmqtt_end(lwmqtt_handle_t * handle)
+void lwmqtt_end(lwmqtt_t * handle)
 {
    if (!handle || !*handle)
       return;
@@ -193,7 +193,7 @@ void lwmqtt_end(lwmqtt_handle_t * handle)
 }
 
 // Subscribe (return is non null error message if failed)
-const char *lwmqtt_subscribeub(lwmqtt_handle_t handle, const char *topic, char unsubscribe)
+const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscribe)
 {
    const char *ret = NULL;
    if (!handle)
@@ -259,7 +259,7 @@ const char *lwmqtt_subscribeub(lwmqtt_handle_t handle, const char *topic, char u
 }
 
 // Send (return is non null error message if failed)
-const char *lwmqtt_send_full(lwmqtt_handle_t handle, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait)
+const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait)
 {
    // TODO how to nowait with TLS?
    const char *ret = NULL;
@@ -326,7 +326,7 @@ const char *lwmqtt_send_full(lwmqtt_handle_t handle, int tlen, const char *topic
 
 static void task(void *pvParameters)
 {
-   lwmqtt_handle_t handle = pvParameters;
+   lwmqtt_t handle = pvParameters;
    if (!handle)
    {
       vTaskDelete(NULL);
@@ -529,7 +529,7 @@ static void task(void *pvParameters)
 }
 
 // Simple send - non retained no wait topic ends on space then payload
-const char *lwmqtt_send_str(lwmqtt_handle_t handle, const char *msg)
+const char *lwmqtt_send_str(lwmqtt_t handle, const char *msg)
 {
    if (!handle || !*msg)
       return NULL;
