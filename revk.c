@@ -878,7 +878,7 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
 
 #ifdef	CONFIG_REVK_MQTT
 /* MQTT reporting */
-void revk_mqtt_ap(const char *prefix, int qos, int retain, const char *tag, const char *fmt, va_list ap)
+void revk_mqtt_ap(const char *prefix, int retain, const char *tag, const char *fmt, va_list ap)
 {                               /* Send formatted mqtt message */
    if (!mqtt_client)
       return;
@@ -906,7 +906,7 @@ void revk_mqtt_ap(const char *prefix, int qos, int retain, const char *tag, cons
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-void revk_mqtt_apj(const char *prefix, int qos, int retain, const char *tag, jo_t * jp)
+void revk_mqtt_apj(const char *prefix, int retain, const char *tag, jo_t * jp)
 {
    if (!jp)
       return;
@@ -966,7 +966,7 @@ void revk_state(const char *tag, const char *fmt, ...)
 #ifdef	CONFIG_REVK_MQTT
    va_list ap;
    va_start(ap, fmt);
-   revk_mqtt_ap(prefixstate, 1, 1, tag, fmt, ap);
+   revk_mqtt_ap(prefixstate, 1, tag, fmt, ap);
    va_end(ap);
 #endif
 }
@@ -974,7 +974,7 @@ void revk_state(const char *tag, const char *fmt, ...)
 void revk_statej(const char *tag, jo_t * jp)
 {
 #ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixstate, 1, 1, tag, jp);
+   revk_mqtt_apj(prefixstate, 1, tag, jp);
 #endif
 }
 
@@ -983,7 +983,7 @@ void revk_event(const char *tag, const char *fmt, ...)
 #ifdef	CONFIG_REVK_MQTT
    va_list ap;
    va_start(ap, fmt);
-   revk_mqtt_ap(prefixevent, 0, 0, tag, fmt, ap);
+   revk_mqtt_ap(prefixevent, 0, tag, fmt, ap);
    va_end(ap);
 #endif
 }
@@ -991,7 +991,7 @@ void revk_event(const char *tag, const char *fmt, ...)
 void revk_eventj(const char *tag, jo_t * jp)
 {
 #ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixevent, 0, 0, tag, jp);
+   revk_mqtt_apj(prefixevent, 0, tag, jp);
 #endif
 }
 
@@ -1006,7 +1006,7 @@ void revk_error(const char *tag, const char *fmt, ...)
    /* Chance of reporting issues */
    va_list ap;
    va_start(ap, fmt);
-   revk_mqtt_ap(prefixerror, 0, 0, tag, fmt, ap);
+   revk_mqtt_ap(prefixerror, 0, tag, fmt, ap);
    va_end(ap);
 #endif
 }
@@ -1014,7 +1014,7 @@ void revk_error(const char *tag, const char *fmt, ...)
 void revk_errorj(const char *tag, jo_t * jp)
 {
 #ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixerror, 0, 0, tag, jp);
+   revk_mqtt_apj(prefixerror,  0, tag, jp);
 #endif
 }
 
@@ -1023,7 +1023,7 @@ void revk_info(const char *tag, const char *fmt, ...)
 #ifdef	CONFIG_REVK_MQTT
    va_list ap;
    va_start(ap, fmt);
-   revk_mqtt_ap(prefixinfo, 0, 0, tag, fmt, ap);
+   revk_mqtt_ap(prefixinfo, 0, tag, fmt, ap);
    va_end(ap);
 #endif
 }
@@ -1031,7 +1031,7 @@ void revk_info(const char *tag, const char *fmt, ...)
 void revk_infoj(const char *tag, jo_t * jp)
 {
 #ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixinfo, 0, 0, tag, jp);
+   revk_mqtt_apj(prefixinfo, 0, tag, jp);
 #endif
 }
 

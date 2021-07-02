@@ -26,7 +26,9 @@
 #include "lwip/netdb.h"
 
 #include "esp_log.h"
+#ifdef	CONFIG_REVK_MQTT
 #include "lwmqtt.h"
+#endif
 #include "jo.h"
 
 // Types
