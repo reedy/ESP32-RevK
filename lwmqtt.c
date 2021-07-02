@@ -450,7 +450,7 @@ static void task(void *pvParameters)
                         ESP_LOGE(TAG, "Bad msg");
                         break;
                      }
-                     if (*buf & 0x60)
+                     if (*buf & 0x06)
                      {          // reply
                         uint8_t b[4] = { (*buf & 0x4) ? 0x50 : 0x40, 2, id >> 8, id };
                         xSemaphoreTake(handle->mutex, portMAX_DELAY);
