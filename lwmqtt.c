@@ -337,7 +337,6 @@ static void task(void *pvParameters)
    {
       // Connect
       ESP_LOGD(TAG, "Connecting %s:%d", handle->host, handle->port);
-      ESP_LOGI(TAG,"CA %d bytes",handle->cert_len); // TODO
       esp_tls_cfg_t cfg = {
        cacert_buf:handle->cert_pem,
        cacert_bytes:handle->cert_len,
@@ -469,7 +468,6 @@ static void task(void *pvParameters)
                         }
                         topic[tlen] = 0;
                         p[plen] = 0;
-			ESP_LOGI(TAG,"Rx [%s] %d",topic,plen); // TODO
                         handle->callback(handle->arg, topic, plen, p);
                      }
                   }
