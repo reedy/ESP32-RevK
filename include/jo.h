@@ -24,7 +24,7 @@ typedef enum {                  // The parse data value type we are at
    JO_FALSE,                    // value if the 'f' in false
 } jo_type_t;
 
-const char *jo_debug(jo_t j); // Debug string
+const char *jo_debug(jo_t j);   // Debug string
 
 // Setting up
 
@@ -46,8 +46,9 @@ jo_t jo_object_alloc(void);
 jo_t jo_copy(jo_t);
 // Copy object - copies the object, and if allocating memory, makes copy of the allocated memory too
 
-void jo_rewind(jo_t);
+const char *jo_rewind(jo_t);
 // Move to start for parsing. If was writing, closed and set up to read instead. Clears error if reading. Safe to call with NULL
+// If safe with terminating NULL then returns pointer to the complete JSON
 
 int jo_level(jo_t);
 // Current level, 0 being the top level
@@ -99,7 +100,7 @@ void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bit
 #define	jo_base32(j,t,m,l) jo_baseN(j,t,m,l,5,JO_BASE32)
 #define	jo_base16(j,t,m,l) jo_baseN(j,t,m,l,4,JO_BASE16)
 
-ssize_t jo_strncpyd(jo_t j,void*dst, size_t dlen, uint8_t bits, const char *alphabet);
+ssize_t jo_strncpyd(jo_t j, void *dst, size_t dlen, uint8_t bits, const char *alphabet);
 #define	jo_strncpy64(j,d,dl) jo_strncpyd(j,d,dl,6,JO_BASE64)
 #define	jo_strncpy32(j,d,dl) jo_strncpyd(j,d,dl,5,JO_BASE32)
 #define	jo_strncpy16(j,d,dl) jo_strncpyd(j,d,dl,4,JO_BASE16)

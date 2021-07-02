@@ -22,6 +22,7 @@ struct jo_s {                   // cursor to JSON object
    uint8_t alloc:1;             // buf is malloced space
    uint8_t comma:1;             // Set if comma needed / expected
    uint8_t tagok:1;             // We have skipped an expected tag already in parsing
+   uint8_t null:1;              // We have a null termination
    uint8_t level;               // Current level
    uint8_t o[(JO_MAX + 7) / 8]; // Bit set at each level if level is object, else it is array
 };
@@ -57,7 +58,7 @@ static void *saferealloc(void *m, size_t len)
    return n;
 }
 
-static inline void jo_write(jo_t j, uint8_t c)
+static inline void jo_store(jo_t j, uint8_t c)
 {                               // Write out byte
    if (!j || j->err)
       return;
@@ -71,7 +72,15 @@ static inline void jo_write(jo_t j, uint8_t c)
       j->err = "Out of space";
       return;
    }
-   j->buf[j->ptr++] = c;
+   j->buf[j->ptr] = c;
+   j->null = (c ? 0 : 1);
+}
+
+static inline void jo_write(jo_t j, uint8_t c)
+{                               // Write a byte and advance
+   jo_store(j, c);
+   if (j && !j->err)
+      j->ptr++;
 }
 
 static inline int jo_peek(jo_t j)
@@ -173,7 +182,9 @@ jo_t jo_parse_str(const char *buf)
 {                               // Start parsing a null terminated JSON object string
    if (!buf)
       return NULL;
-   return jo_parse_mem(buf, strlen(buf));
+   jo_t j = jo_parse_mem(buf, strlen(buf));
+   j->null = 1;                 // We know a null is at the end
+   return j;
 }
 
 jo_t jo_parse_mem(const void *buf, size_t len)
@@ -236,16 +247,17 @@ jo_t jo_copy(jo_t j)
    return n;
 }
 
-void jo_rewind(jo_t j)
+const char *jo_rewind(jo_t j)
 {                               // Move to start for parsing. If was writing, closed and set up to read instead. Clears error is reading.
    if (!j)
-      return;
+      return NULL;
    if (!j->parse)
    {                            // Finish, if possible
       while (j->level)
          jo_close(j);
+      jo_store(j, 0);
       if (j->err)
-         return;
+         return NULL;
       j->len = j->ptr;
       j->parse = 1;
    }
@@ -254,6 +266,9 @@ void jo_rewind(jo_t j)
    j->comma = 0;
    j->level = 0;
    j->tagok = 0;
+   if (!j->null)
+      return NULL;
+   return j->buf;
 }
 
 int jo_level(jo_t j)
@@ -297,7 +312,7 @@ char *jo_finish(jo_t * jp)
    *jp = NULL;
    while (j->level)
       jo_close(j);
-   jo_write(j, 0);
+   jo_store(j, 0);
    char *res = j->buf;
    if (j->err || j->alloc)
       res = NULL;
@@ -318,7 +333,7 @@ char *jo_finisha(jo_t * jp)
    *jp = NULL;
    while (j->level)
       jo_close(j);
-   jo_write(j, 0);
+   jo_store(j, 0);
    char *res = j->buf;
    if (j->err || !j->alloc)
       res = NULL;
@@ -899,10 +914,10 @@ const char *jo_debug(jo_t j)
       return "No j";
    if (!j->parse)
    {                            // Where we are up to creating
-      jo_write(j, 0);           // add null
-      if (!j->err && j->ptr)
-         j->ptr--;              // undo null
-      return j->buf ? : "No buffer";
+      jo_store(j, 0);           // add null
+      if (j->null)
+         return j->buf;
+      return NULL;
    }
    return j->buf + j->ptr;      // Where we are (note, may not be 0 terminated)
 }
