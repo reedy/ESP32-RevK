@@ -2099,7 +2099,7 @@ const char *revk_setting(const char *tag, jo_t j)
    }
    const char *er = NULL;
    jo_type_t t = jo_next(j);    // Start object
-   while (t == JO_TAG)
+   while (t == JO_TAG && !er)
    {
 #ifdef SETTING_DEBUG
       ESP_LOGI(TAG, "Setting: %.10s", jo_debug(j));
@@ -2118,9 +2118,7 @@ const char *revk_setting(const char *tag, jo_t j)
          for (s = setting; s && match(s, tag); s = s->next);
          if (!s)
          {
-#ifdef SETTING_DEBUG
-            ESP_LOGI(TAG, "Unknown %s len=%d: %.20s", tag, l, jo_debug(j));
-#endif
+            ESP_LOGI(TAG, "Unknown %s %.20s", tag, jo_debug(j));
             er = "Unknown setting";
          } else
          {
@@ -2196,8 +2194,10 @@ const char *revk_setting(const char *tag, jo_t j)
                         t = jo_next(j); // To value
                         for (q = setting; q && (!q->child || strcmp(q->name, tag2)); q = q->next);
                         if (!q)
+                        {
+                           ESP_LOGI(TAG, "Unknown %s %.20s", tag2, jo_debug(j));
                            er = "Unknown setting";
-                        else
+                        } else
                         {
                            q->used = 1;
                            store(q);
