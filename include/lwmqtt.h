@@ -22,25 +22,27 @@ typedef struct lwmqtt_config_s lwmqtt_config_t;
 
 // Config for connection
 struct lwmqtt_config_s {
-   const char *host;            // Name or IP
-   const char *port;            // Name or port number
    lwmqtt_callback_t *callback;
    void *arg;
    char *client;
    char *username;
    char *password;
+   const char *host;            // Name or IP
+   unsigned short port;		// Port 0=auto
+   unsigned short keepalive;	// 0=default
+   // Will
    const char *topic;           // Will topic
    int plen;                    // Will payload len (-1 does strlen)
    const unsigned char *payload;        // Will payload
-   unsigned short keepalive;
+   uint8_t retain:1;            // Will retain
+   // TLS
    void *cert_pem;              // For checking server
    int cert_len;
    void *client_cert_pem;       // For client auth
    int client_cert_len;
    void *client_key_pem;        // For client auth
    int client_key_len;
-   // TLS settings TODO
-   uint8_t retain:1;            // Will retain
+   esp_err_t (*crt_bundle_attach)(void *conf);
 };
 
 // Handle for connection

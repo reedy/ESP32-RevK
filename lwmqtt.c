@@ -38,17 +38,17 @@ static const char
 #include "lwmqtt.h"
 
 struct lwmqtt_handle_s {        // mallocd copies
-   char *host;
-   char *port;
    lwmqtt_callback_t *callback;
    void *arg;
-   int connectlen;
+   char *host;
+   unsigned short port;
+   unsigned short connectlen;
    unsigned char *connect;
    SemaphoreHandle_t mutex;     // atomic send mutex
-   esp_tls_t *tls;              // Connection
+   esp_tls_t *tls;              // Connection handle
    unsigned short keepalive;
    unsigned short seq;
-   time_t ka;
+   time_t ka;                   // Keep alive next ping
    uint8_t running:1;
    void *cert_pem;              // For checking server
    int cert_len;
@@ -56,7 +56,7 @@ struct lwmqtt_handle_s {        // mallocd copies
    int client_cert_len;
    void *client_key_pem;        // For client auth
    int client_key_len;
-   // TODO CA Bundle
+    esp_err_t(*crt_bundle_attach) (void *conf);
 };
 
 #define freez(x) do{if(x)free(x);}while(0)
@@ -65,7 +65,6 @@ static void *handle_free(lwmqtt_handle_t handle)
    if (handle)
    {
       freez(handle->host);
-      freez(handle->port);
       freez(handle->connect);
       freez(handle->cert_pem);
       freez(handle->client_cert_pem);
@@ -93,8 +92,7 @@ lwmqtt_handle_t lwmqtt_init(lwmqtt_config_t * config)
    handle->keepalive = config->keepalive ? : 60;
    if (!(handle->host = strdup(config->host)))
       return handle_free(handle);
-   if (!(handle->port = strdup(config->port ? : config->cert_len ? "8883" : "1883")))
-      return handle_free(handle);
+   handle->port = (config->port ? : config->cert_len ? 8883 : 1883);
    // Make connection message
    int mlen = 6 + 1 + 1 + 2 + strlen(config->client ? : "");
    if (config->plen < 0)
@@ -123,7 +121,7 @@ lwmqtt_handle_t lwmqtt_init(lwmqtt_config_t * config)
          return handle_free(handle);
       memcpy(handle->client_key_pem, config->client_key_pem, handle->client_key_len = config->client_key_len);
    }
-
+   handle->crt_bundle_attach = config->crt_bundle_attach;
    if (mlen >= 128 * 128)
       return handle_free(handle);       // Nope
    mlen += 2;                   // keepalive
@@ -338,7 +336,7 @@ static void task(void *pvParameters)
    while (handle->running)
    {
       // Connect
-      ESP_LOGD(TAG, "Connecting %s:%s", handle->host, handle->port);
+      ESP_LOGD(TAG, "Connecting %s:%d", handle->host, handle->port);
       esp_tls_cfg_t cfg = {
        cacert_buf:handle->cert_pem,
        cacert_bytes:handle->cert_len,
@@ -346,10 +344,11 @@ static void task(void *pvParameters)
        clientcert_bytes:handle->client_cert_len,
        clientkey_buf:handle->client_key_pem,
        clientkey_bytes:handle->client_key_len,
+       crt_bundle_attach:handle->crt_bundle_attach,
        is_plain_tcp:handle->cert_len ? 0 : 1,
       };
       esp_tls_t *tls = esp_tls_init();
-      if (!tls || esp_tls_conn_new_sync(handle->host, strlen(handle->host), atoi(handle->port), &cfg, tls) != 1)
+      if (!tls || esp_tls_conn_new_sync(handle->host, strlen(handle->host), handle->port, &cfg, tls) != 1)
          ESP_LOGI(TAG, "Cannot connect");
       else
       {
@@ -400,7 +399,6 @@ static void task(void *pvParameters)
                      FD_ZERO(&r);
                      FD_SET(sock, &r);
                      struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
-                     time_t now = time(0);
                      int sel = select(sock + 1, &r, NULL, NULL, &to);
                      if (sel < 0)
                         break;

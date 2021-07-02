@@ -65,7 +65,7 @@ static const char
 		s(mqtthost,CONFIG_REVK_MQTTHOST);	\
 		s(mqttuser,CONFIG_REVK_MQTTUSER);	\
 		sp(mqttpass,CONFIG_REVK_MQTTPASS);	\
-		s(mqttport,CONFIG_REVK_MQTTPORT);	\
+		u16(mqttport,CONFIG_REVK_MQTTPORT);	\
 		bd(mqttcert,CONFIG_REVK_MQTTCERT);	\
 
 #define	wifisettings	\
@@ -499,7 +499,8 @@ static void mqtt_init(void)
    {
       config.cert_pem = (void *) mqttcert->data;
       config.cert_len = mqttcert->len;
-   }
+   } else if (mqttport == 8883)
+      config.crt_bundle_attach = esp_crt_bundle_attach;
    if (clientkey->len && clientcert->len)
    {
       config.client_cert_pem = (void *) clientcert->data;
@@ -511,8 +512,7 @@ static void mqtt_init(void)
       config.username = mqttuser;
    if (*mqttpass)
       config.password = mqttpass;
-   if (*mqttport)
-      config.port = mqttport;
+   config.port = mqttport;
    mqtt_client = lwmqtt_init(&config);
    free(topic);
 }
