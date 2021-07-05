@@ -6,17 +6,22 @@
 // Simple callback for incoming messages
 // Automatic reconnect
 
-// Callback function.
+// Callback function for a connection (client or server)
 // Called for incoming message
 // - Topic is NULL terminated string, even if zero length topic has been used
 // - Payload is also NULL terminated at len, for convenience
 // Called for connect
 // - Topic is NULL
-// - Payload is server name (for server this is JSON containing client info)
+// - Payload is server/client name
 // Called for disconnect
 // - Topic is NULL
 // - Payload is NULL
 typedef void lwmqtt_callback_t(void *arg, const char *topic, unsigned short len, const unsigned char *payload);
+
+// For server operation
+// TODO server config
+// TODO server handle or global?
+// TODO server callback or use connect callback with arg being the mqtt_t for the connection?
 
 typedef struct lwmqtt_config_s lwmqtt_config_t;
 
