@@ -513,7 +513,7 @@ static void mqtt_init(void)
    if (*mqttpass)
       config.password = mqttpass;
    config.port = mqttport;
-   mqtt_client = lwmqtt_init(&config);
+   mqtt_client = lwmqtt_client(&config);
    free(topic);
 }
 #endif

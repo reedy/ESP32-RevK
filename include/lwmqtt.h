@@ -48,8 +48,8 @@ struct lwmqtt_config_s {
 // Handle for connection
 typedef struct lwmqtt_s *lwmqtt_t;
 
-// Create a connection (NULL if failed)
-lwmqtt_t lwmqtt_init(lwmqtt_config_t *);
+// Create a client connection (NULL if failed)
+lwmqtt_t lwmqtt_client(lwmqtt_config_t *);
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call

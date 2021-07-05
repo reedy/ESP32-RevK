@@ -81,7 +81,7 @@ static void *handle_free(lwmqtt_t handle)
 static void task(void *pvParameters);
 
 // Create a connection
-lwmqtt_t lwmqtt_init(lwmqtt_config_t * config)
+lwmqtt_t lwmqtt_client(lwmqtt_config_t * config)
 {
    if (!config || !config->host)
       return NULL;
