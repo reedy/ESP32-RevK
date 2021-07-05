@@ -480,7 +480,7 @@ static void mqtt_init(void)
       return;
    esp_netif_ip_info_t info;
    static char gw[16] = "";
-   if (*wifimqtt && (esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
+   if (*wifimqtt && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
       return;
    char *topic;
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
