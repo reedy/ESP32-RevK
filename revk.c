@@ -79,7 +79,7 @@ static const char
 		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
 
 #define wifimqttsettings		\
- 		s(wifimqtt, CONFIG_REVK_MQTTTLSNAME);	\
+ 		s(wifimqtt, NULL);	\
 
 #define	apsettings	\
 		s(apssid,CONFIG_REVK_APSSID);		\
@@ -497,7 +497,7 @@ static void mqtt_init(void)
    if (*wifimqtt)
    {                            // Special case - server is gateway IP
       config.tlsname = wifimqtt;        // The device name of the host if using TLS
-      sprintf(gw, "%d.%d.%d.%d", info.gw.addr >> 24, (info.gw.addr >> 16) & 255, (info.gw.addr >> 8) & 255, info.gw.addr & 255);
+      sprintf(gw, "%d.%d.%d.%d",  info.gw.addr & 255, (info.gw.addr >> 8) & 255,(info.gw.addr >> 16) & 255,info.gw.addr >> 24);
       config.hostname = gw;     // safe on stack as lwmqtt_client copies it
    }
    ESP_LOGI(TAG, "MQTT %s", config.hostname);
