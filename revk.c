@@ -500,7 +500,7 @@ static void mqtt_init(void)
       sprintf(gw, "%d.%d.%d.%d", info.gw.addr >> 24, (info.gw.addr >> 16) & 255, (info.gw.addr >> 8) & 255, info.gw.addr & 255);
       config.hostname = gw;     // safe on stack as lwmqtt_client copies it
    }
-   ESP_LOGI(TAG, "MQTT %s", mqtthost);
+   ESP_LOGI(TAG, "MQTT %s", config.hostname);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
    if (mqttport == 8883 && !mqttcert->len)
