@@ -336,7 +336,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
    int pos = 0;
    handle->ka = time(0) + handle->keepalive;
    while (handle->running)
-   {
+   { // Loop handling messages received, and timeouts
       int need = 0;
       if (pos < 2)
          need = 2;
@@ -492,7 +492,7 @@ static void task(void *pvParameters)
    }
    handle->backoff = 1;
    while (handle->running)
-   {
+   { // Loop connecting and trying repeatedly
       // Connect
       ESP_LOGD(TAG, "Connecting %s:%d", handle->host, handle->port);
       esp_tls_cfg_t cfg = {
