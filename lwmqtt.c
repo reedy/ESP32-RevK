@@ -511,7 +511,7 @@ static void task(void *pvParameters)
       };
       esp_tls_t *tls = esp_tls_init();
       if (!tls || esp_tls_conn_new_sync(handle->hostname, strlen(handle->hostname), handle->port, &cfg, tls) != 1)
-         ESP_LOGI(TAG, "Cannot connect");
+         ESP_LOGI(TAG, "Cannot connect %s:%d",handle->hostname, handle->port);
       else
       {
          int len = esp_tls_conn_write(tls, handle->connect, handle->connectlen);
