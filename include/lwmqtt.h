@@ -12,7 +12,7 @@
 // - Payload is also NULL terminated at len, for convenience
 // Called for connect
 // - Topic is NULL
-// - Payload is server name
+// - Payload is server name (for server this is JSON containing client info)
 // Called for disconnect
 // - Topic is NULL
 // - Payload is NULL
