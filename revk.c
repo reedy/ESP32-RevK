@@ -79,7 +79,7 @@ static const char
 		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
 
 #define wifimqttsettings		\
- 		s(wifimqtt, NULL);	\
+ 		s(wifimqtt, CONFIG_REVK_MQTTTLSNAME);	\
 
 #define	apsettings	\
 		s(apssid,CONFIG_REVK_APSSID);		\
