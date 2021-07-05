@@ -151,6 +151,13 @@ menu "RevK"
 	help
 		This defines the factory reset default MQTT host
 
+	config REVK_MQTTTLDNAME
+	string "Default MQTT common name in TLS cert"
+	default "mqtt.iot"
+	depends on REVK_MQTT
+	help
+		This defines the factory reset default MQTT TLS validation common name if not host name
+
 	config REVK_MQTTUSER
 	string "Default MQTT username"
 	default ""

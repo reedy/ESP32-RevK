@@ -29,10 +29,11 @@ typedef struct lwmqtt_config_s lwmqtt_config_t;
 struct lwmqtt_config_s {
    lwmqtt_callback_t *callback;
    void *arg;
-   char *client;
-   char *username;
-   char *password;
-   const char *host;            // Name or IP
+   const char *client;
+   const char *hostname;        // Name or IP
+   const char *username;
+   const char *password;
+   const char *tlsname;         // Name of cert if not host name
    unsigned short port;         // Port 0=auto
    unsigned short keepalive;    // 0=default
    // Will

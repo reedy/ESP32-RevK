@@ -111,10 +111,13 @@ static const char
 settings
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
     wifisettings
+#ifdef  CONFIG_REVK_MQTT
+ s(wifimqtt, NULL);             // Set gateway device ID for mqtt
+#endif
 #ifdef	CONFIG_REVK_MESH
-    meshsettings
+meshsettings
 #else
-    apsettings
+apsettings
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
@@ -473,13 +476,17 @@ static void mqtt_init(void)
 {
    if (mqtt_client)
       return;
-   if (!*mqtthost)              /* No MQTT */
+   if (!*mqtthost && !*wifimqtt)        /* No MQTT */
+      return;
+   esp_netif_ip_info_t info;
+   static char gw[16] = "";
+   if (*wifimqtt && (esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
       return;
    char *topic;
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
       return;
    lwmqtt_config_t config = {
-      .host = mqtthost,
+      .hostname = mqtthost,
       .topic = topic,
       .retain = 1,
       .payload = (void *) "{\"up\":false}",
@@ -487,6 +494,12 @@ static void mqtt_init(void)
       .keepalive = 30,
       .callback = &mqtt_rx,
    };
+   if (*wifimqtt)
+   {                            // Special case - server is gateway IP
+      config.tlsname = wifimqtt;        // The device name of the host if using TLS
+      sprintf(gw, "%d.%d.%d.%d", info.gw.addr >> 24, (info.gw.addr >> 16) & 255, (info.gw.addr >> 8) & 255, info.gw.addr & 255);
+      config.hostname = gw;     // safe on stack as lwmqtt_client copies it
+   }
    ESP_LOGI(TAG, "MQTT %s", mqtthost);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
