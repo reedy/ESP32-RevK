@@ -49,8 +49,9 @@ struct lwmqtt_s {               // mallocd copies
    unsigned short keepalive;
    unsigned short seq;
    time_t ka;                   // Keep alive next ping
-   uint8_t backoff;
-   uint8_t running:1;
+   uint8_t backoff;             // Reconnect backoff
+   uint8_t running:1;           // Should still run
+   uint8_t server:1;            // This is a server
    void *cert_pem;              // For checking server
    int cert_len;
    void *client_cert_pem;       // For client auth
@@ -199,6 +200,8 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
    const char *ret = NULL;
    if (!handle)
       ret = "No handle";
+   else if (handle->server)
+      ret = "We are server";
    else
    {
       int tlen = strlen(topic ? : "");
@@ -311,8 +314,8 @@ const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int p
                   p += plen;
                   if (esp_tls_conn_write(handle->tls, buf, mlen) < mlen)
                      ret = "Failed to send";
-                  else
-                     handle->ka = time(0) + handle->keepalive;
+                  else if (!handle->server)
+                     handle->ka = time(0) + handle->keepalive; // client KA refresh
                }
                xSemaphoreGive(handle->mutex);
             }
@@ -353,10 +356,13 @@ static void lwmqtt_loop(lwmqtt_t handle)
          time_t now = time(0);
          if (now >= handle->ka)
          {
+            if (handle->server)
+               break;           // timeout
+            // client, so send ping
             uint8_t b[] = { 0xC0, 0x00 };       // Ping
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
             if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b))
-               handle->ka = time(0) + handle->keepalive;
+               handle->ka = time(0) + handle->keepalive; // Client KA refresh
             xSemaphoreGive(handle->mutex);
          }
          if (esp_tls_get_bytes_avail(handle->tls) <= 0)
@@ -389,6 +395,8 @@ static void lwmqtt_loop(lwmqtt_t handle)
          pos += got;
          continue;
       }
+      if (handle->server)
+         handle->ka = time(0) + handle->keepalive * 3 / 2;      // timeout for client resent on message received
       unsigned char *p = buf + 1,
           *e = buf + pos;
       while (p < e && (*p & 0x80))
@@ -396,6 +404,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       p++;
       switch (*buf >> 4)
       {
+         // TODO con as server
       case 2:                  // conack
          ESP_LOGD(TAG, "Connected");
          handle->backoff = 1;
@@ -423,8 +432,8 @@ static void lwmqtt_loop(lwmqtt_t handle)
             {                   // reply
                uint8_t b[4] = { (*buf & 0x4) ? 0x50 : 0x40, 2, id >> 8, id };
                xSemaphoreTake(handle->mutex, portMAX_DELAY);
-               if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b))
-                  handle->ka = time(0) + handle->keepalive;
+               if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b) && !handle->server)
+                  handle->ka = time(0) + handle->keepalive; // KA client refresh
                xSemaphoreGive(handle->mutex);
             }
             int plen = e - p;
@@ -447,17 +456,19 @@ static void lwmqtt_loop(lwmqtt_t handle)
          {
             uint8_t b[4] = { 0x60, p[0], p[1] };
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
-            if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b))
-               handle->ka = time(0) + handle->keepalive;
+            if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b) && !handle->server)
+               handle->ka = time(0) + handle->keepalive; // KA client refresh
             xSemaphoreGive(handle->mutex);
          }
          break;
       case 6:                  // pubcomp - not expected
          break;
+         // TODO sub/unsub as server (we just confirm, we don't actually log subscriptions);
       case 9:                  // suback - ok
          break;
       case 11:                 // unsuback - ok
          break;
+         // TODO ping for server...
       case 13:                 // pingresp - ok
          break;
       default:
@@ -516,8 +527,7 @@ static void task(void *pvParameters)
             ESP_LOGD(TAG, "Close cleanly");
             uint8_t b[] = { 0xE0, 0x00 };       // Disconnect cleanly
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
-            if (esp_tls_conn_write(tls, b, sizeof(b)) == sizeof(b))
-               handle->ka = time(0) + handle->keepalive;
+            esp_tls_conn_write(tls, b, sizeof(b));
             xSemaphoreGive(handle->mutex);
             if (handle->callback)
                handle->callback(handle->arg, NULL, 0, NULL);
