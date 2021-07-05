@@ -49,6 +49,7 @@ struct lwmqtt_s {               // mallocd copies
    unsigned short keepalive;
    unsigned short seq;
    time_t ka;                   // Keep alive next ping
+   uint8_t backoff;
    uint8_t running:1;
    void *cert_pem;              // For checking server
    int cert_len;
@@ -324,6 +325,152 @@ const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int p
    return ret;
 }
 
+static void lwmqtt_loop(lwmqtt_t handle)
+{
+   // Handle rx messages
+   unsigned char *buf = 0;
+   int buflen = 0;
+   int pos = 0;
+   handle->ka = time(0) + handle->keepalive;
+   while (handle->running)
+   {
+      int need = 0;
+      if (pos < 2)
+         need = 2;
+      else if (!(buf[1] & 0x80))
+         need = 2 + buf[1];     // One byte len
+      else if (pos < 3)
+         need = 3;
+      else if (!(buf[2] & 0x80))
+         need = 3 + (buf[2] << 7) + (buf[1] & 0x7F);    // Two byte len
+      else
+      {
+         ESP_LOGI(TAG, "Silly len %02X %02X %02X", buf[0], buf[1], buf[2]);
+         break;
+      }
+      if (pos < need)
+      {
+         time_t now = time(0);
+         if (now >= handle->ka)
+         {
+            uint8_t b[] = { 0xC0, 0x00 };       // Ping
+            xSemaphoreTake(handle->mutex, portMAX_DELAY);
+            if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b))
+               handle->ka = time(0) + handle->keepalive;
+            xSemaphoreGive(handle->mutex);
+         }
+         if (esp_tls_get_bytes_avail(handle->tls) <= 0)
+         {
+            int sock = -1;
+            if (esp_tls_get_conn_sockfd(handle->tls, &sock))
+               break;
+            fd_set r;
+            FD_ZERO(&r);
+            FD_SET(sock, &r);
+            struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
+            int sel = select(sock + 1, &r, NULL, NULL, &to);
+            if (sel < 0)
+               break;
+            if (!sel)
+               continue;
+         }
+         if (need > buflen)
+         {
+            buf = realloc(buf, (buflen = need) + 1);    // One more to allow extra null on end in all cases
+            if (!buf)
+            {
+               ESP_LOGE(TAG, "realloc fail %d", need);
+               break;
+            }
+         }
+         int got = esp_tls_conn_read(handle->tls, buf + pos, need - pos);
+         if (got <= 0)
+            break;              // Error or close
+         pos += got;
+         continue;
+      }
+      unsigned char *p = buf + 1,
+          *e = buf + pos;
+      while (p < e && (*p & 0x80))
+         p++;
+      p++;
+      switch (*buf >> 4)
+      {
+      case 2:                  // conack
+         ESP_LOGD(TAG, "Connected");
+         handle->backoff = 1;
+         if (handle->callback)
+            handle->callback(handle->arg, NULL, strlen(handle->host), (void *) handle->host);
+         break;
+      case 3:                  // pub
+         {                      // Topic
+            int tlen = (p[0] << 8) + p[1];
+            p += 2;
+            char *topic = (char *) p;
+            p += tlen;
+            unsigned short id = 0;
+            if (*buf & 0x06)
+            {
+               id = (p[0] << 8) + p[1];
+               p += 2;
+            }
+            if (p > e)
+            {
+               ESP_LOGE(TAG, "Bad msg");
+               break;
+            }
+            if (*buf & 0x06)
+            {                   // reply
+               uint8_t b[4] = { (*buf & 0x4) ? 0x50 : 0x40, 2, id >> 8, id };
+               xSemaphoreTake(handle->mutex, portMAX_DELAY);
+               if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b))
+                  handle->ka = time(0) + handle->keepalive;
+               xSemaphoreGive(handle->mutex);
+            }
+            int plen = e - p;
+            if (handle->callback)
+            {
+               if (plen && !(*buf & 0x06))
+               {                // Move back a byte for null termination to be added without hitting payload
+                  memmove(topic - 1, topic, tlen);
+                  topic--;
+               }
+               topic[tlen] = 0;
+               p[plen] = 0;
+               handle->callback(handle->arg, topic, plen, p);
+            }
+         }
+         break;
+      case 4:                  // puback - not expected
+         break;
+      case 5:                  // pubrec - not expected
+         {
+            uint8_t b[4] = { 0x60, p[0], p[1] };
+            xSemaphoreTake(handle->mutex, portMAX_DELAY);
+            if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b))
+               handle->ka = time(0) + handle->keepalive;
+            xSemaphoreGive(handle->mutex);
+         }
+         break;
+      case 6:                  // pubcomp - not expected
+         break;
+      case 9:                  // suback - ok
+         break;
+      case 11:                 // unsuback - ok
+         break;
+      case 13:                 // pingresp - ok
+         break;
+      default:
+         ESP_LOGI(TAG, "Unknown MQTT %02X", *buf);
+      }
+      pos = 0;
+   }
+   if (buf)
+      free(buf);
+   if (handle->callback)
+      handle->callback(handle->arg, NULL, 0, NULL);
+}
+
 static void task(void *pvParameters)
 {
    lwmqtt_t handle = pvParameters;
@@ -332,7 +479,7 @@ static void task(void *pvParameters)
       vTaskDelete(NULL);
       return;
    }
-   int backoff = 1;
+   handle->backoff = 1;
    while (handle->running)
    {
       // Connect
@@ -358,148 +505,9 @@ static void task(void *pvParameters)
          else
          {
             handle->tls = tls;
-            // Handle rx messages
-            unsigned char *buf = 0;
-            int buflen = 0;
-            int pos = 0;
-            handle->ka = time(0) + handle->keepalive;
-            while (handle->running)
-            {
-               int need = 0;
-               if (pos < 2)
-                  need = 2;
-               else if (!(buf[1] & 0x80))
-                  need = 2 + buf[1];    // One byte len
-               else if (pos < 3)
-                  need = 3;
-               else if (!(buf[2] & 0x80))
-                  need = 3 + (buf[2] << 7) + (buf[1] & 0x7F);   // Two byte len
-               else
-               {
-                  ESP_LOGI(TAG, "Silly len %02X %02X %02X", buf[0], buf[1], buf[2]);
-                  break;
-               }
-               if (pos < need)
-               {
-                  time_t now = time(0);
-                  if (now >= handle->ka)
-                  {
-                     uint8_t b[] = { 0xC0, 0x00 };      // Ping
-                     xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                     if (esp_tls_conn_write(tls, b, sizeof(b)) == sizeof(b))
-                        handle->ka = time(0) + handle->keepalive;
-                     xSemaphoreGive(handle->mutex);
-                  }
-                  if (esp_tls_get_bytes_avail(tls) <= 0)
-                  {
-                     int sock = -1;
-                     if (esp_tls_get_conn_sockfd(tls, &sock))
-                        break;
-                     fd_set r;
-                     FD_ZERO(&r);
-                     FD_SET(sock, &r);
-                     struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
-                     int sel = select(sock + 1, &r, NULL, NULL, &to);
-                     if (sel < 0)
-                        break;
-                     if (!sel)
-                        continue;
-                  }
-                  if (need > buflen)
-                  {
-                     buf = realloc(buf, (buflen = need) + 1);   // One more to allow extra null on end in all cases
-                     if (!buf)
-                     {
-                        ESP_LOGE(TAG, "realloc fail %d", need);
-                        break;
-                     }
-                  }
-                  int got = esp_tls_conn_read(tls, buf + pos, need - pos);
-                  if (got <= 0)
-                     break;     // Error or close
-                  pos += got;
-                  continue;
-               }
-               unsigned char *p = buf + 1,
-                   *e = buf + pos;
-               while (p < e && (*p & 0x80))
-                  p++;
-               p++;
-               switch (*buf >> 4)
-               {
-               case 2:         // conack
-                  ESP_LOGD(TAG, "Connected");
-                  backoff = 1;
-                  if (handle->callback)
-                     handle->callback(handle->arg, NULL, strlen(handle->host), (void *) handle->host);
-                  break;
-               case 3:         // pub
-                  {             // Topic
-                     int tlen = (p[0] << 8) + p[1];
-                     p += 2;
-                     char *topic = (char *) p;
-                     p += tlen;
-                     unsigned short id = 0;
-                     if (*buf & 0x06)
-                     {
-                        id = (p[0] << 8) + p[1];
-                        p += 2;
-                     }
-                     if (p > e)
-                     {
-                        ESP_LOGE(TAG, "Bad msg");
-                        break;
-                     }
-                     if (*buf & 0x06)
-                     {          // reply
-                        uint8_t b[4] = { (*buf & 0x4) ? 0x50 : 0x40, 2, id >> 8, id };
-                        xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                        if (esp_tls_conn_write(tls, b, sizeof(b)) == sizeof(b))
-                           handle->ka = time(0) + handle->keepalive;
-                        xSemaphoreGive(handle->mutex);
-                     }
-                     int plen = e - p;
-                     if (handle->callback)
-                     {
-                        if (plen && !(*buf & 0x06))
-                        {       // Move back a byte for null termination to be added without hitting payload
-                           memmove(topic - 1, topic, tlen);
-                           topic--;
-                        }
-                        topic[tlen] = 0;
-                        p[plen] = 0;
-                        handle->callback(handle->arg, topic, plen, p);
-                     }
-                  }
-                  break;
-               case 4:         // puback - not expected
-                  break;
-               case 5:         // pubrec - not expected
-                  {
-                     uint8_t b[4] = { 0x60, p[0], p[1] };
-                     xSemaphoreTake(handle->mutex, portMAX_DELAY);
-                     if (esp_tls_conn_write(tls, b, sizeof(b)) == sizeof(b))
-                        handle->ka = time(0) + handle->keepalive;
-                     xSemaphoreGive(handle->mutex);
-                  }
-                  break;
-               case 6:         // pubcomp - not expected
-                  break;
-               case 9:         // suback - ok
-                  break;
-               case 11:        // unsuback - ok
-                  break;
-               case 13:        // pingresp - ok
-                  break;
-               default:
-                  ESP_LOGI(TAG, "Unknown MQTT %02X", *buf);
-               }
-               pos = 0;
-            }
-            if (buf)
-               free(buf);
-            if (handle->callback)
-               handle->callback(handle->arg, NULL, 0, NULL);
+
+            lwmqtt_loop(handle);
+
          }
          // Close connection
          xSemaphoreTake(handle->mutex, portMAX_DELAY);
@@ -519,10 +527,10 @@ static void task(void *pvParameters)
       }
       if (tls)
          esp_tls_conn_destroy(tls);
-      if (backoff < 60)
-         backoff *= 2;
-      ESP_LOGD(TAG, "Waiting %d", backoff);
-      sleep(backoff);
+      if (handle->backoff < 60)
+         handle->backoff *= 2;
+      ESP_LOGD(TAG, "Waiting %d", handle->backoff);
+      sleep(handle->backoff);
    }
    handle_free(handle);
    vTaskDelete(NULL);
