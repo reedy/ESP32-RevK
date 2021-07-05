@@ -78,6 +78,9 @@ static const char
 		u8(wifichan,CONFIG_REVK_WIFICHAN);	\
 		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
 
+#define wifimqttsettings		\
+ 		s(wifimqtt, NULL);	\
+
 #define	apsettings	\
 		s(apssid,CONFIG_REVK_APSSID);		\
 		sp(appass,CONFIG_REVK_APPASS);		\
@@ -112,7 +115,7 @@ settings
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
     wifisettings
 #ifdef  CONFIG_REVK_MQTT
- s(wifimqtt, NULL);             // Set gateway device ID for mqtt
+    wifimqttsettings
 #endif
 #ifdef	CONFIG_REVK_MESH
 meshsettings
@@ -465,9 +468,6 @@ static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const uns
       } else
          ESP_LOGI(TAG, "MQTT failed (mem:%d)", esp_get_free_heap_size());
    }
-
-
-
 }
 #endif
 
@@ -478,7 +478,7 @@ static void mqtt_init(void)
       return;
    if (!*mqtthost && !*wifimqtt)        /* No MQTT */
       return;
-   esp_netif_ip_info_t info;
+   esp_netif_ip_info_t info={};
    static char gw[16] = "";
    if (*wifimqtt && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
       return;
@@ -782,6 +782,9 @@ void revk_init(app_command_t * app_command_cb)
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
    revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);        // Parent
    wifisettings;
+#ifdef  CONFIG_REVK_MQTT
+   wifimqttsettings;
+#endif
 #ifdef	CONFIG_WIFI_MESH
    revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINDATA | SETTING_HEX | SETTING_SECRET);    // Parent
    meshsettings;
