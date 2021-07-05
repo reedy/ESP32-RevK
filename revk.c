@@ -118,9 +118,9 @@ settings
     wifimqttsettings
 #endif
 #ifdef	CONFIG_REVK_MESH
-meshsettings
+    meshsettings
 #else
-apsettings
+    apsettings
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
@@ -433,7 +433,7 @@ static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const uns
       ESP_LOGI(TAG, "MQTT connected %s", (char *) payload);
       xEventGroupSetBits(revk_group, GROUP_MQTT);
       void sub(const char *prefix) {
-         char *topic;
+         char *topic = NULL;
          if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
             return;
          lwmqtt_subscribe(mqtt_client, topic);
@@ -478,11 +478,11 @@ static void mqtt_init(void)
       return;
    if (!*mqtthost && !*wifimqtt)        /* No MQTT */
       return;
-   esp_netif_ip_info_t info={};
+   esp_netif_ip_info_t info = { };
    static char gw[16] = "";
    if (*wifimqtt && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
       return;
-   char *topic=NULL;
+   char *topic = NULL;
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
       return;
    lwmqtt_config_t config = {
@@ -870,7 +870,7 @@ void revk_init(app_command_t * app_command_cb)
    xEventGroupSetBits(revk_group, GROUP_OFFLINE);
    wifi_init();
    /* DHCP */
-   char *id;
+   char *id = NULL;
    if (*hostname)
       asprintf(&id, "%s-%s", appname, hostname);
    else
@@ -905,7 +905,7 @@ void revk_mqtt_ap(const char *prefix, int retain, const char *tag, const char *f
       topic = NULL;
    if (!topic)
       return;
-   char *buf=NULL;
+   char *buf = NULL;
    int l;
    if ((l = vasprintf(&buf, fmt, ap)) < 0)
    {
