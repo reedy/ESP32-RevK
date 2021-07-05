@@ -482,7 +482,7 @@ static void mqtt_init(void)
    static char gw[16] = "";
    if (*wifimqtt && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
       return;
-   char *topic;
+   char *topic=NULL;
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
       return;
    lwmqtt_config_t config = {
@@ -905,7 +905,7 @@ void revk_mqtt_ap(const char *prefix, int retain, const char *tag, const char *f
       topic = NULL;
    if (!topic)
       return;
-   char *buf;
+   char *buf=NULL;
    int l;
    if ((l = vasprintf(&buf, fmt, ap)) < 0)
    {
