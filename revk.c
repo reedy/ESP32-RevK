@@ -77,7 +77,8 @@ static const char
 		bd(mqttcert,CONFIG_REVK_MQTTCERT);	\
 
 #define	wifisettings	\
-		u32(wifireset,CONFIG_REVK_WIFIRESET);			\
+		u16(wifireset,CONFIG_REVK_WIFIRESET);	\
+    		u16(wifiretry,CONFIG_REVK_WIFIRETRY);			\
 		s(wifissid,CONFIG_REVK_WIFISSID);	\
 		s(wifiip,CONFIG_REVK_WIFIIP);		\
 		s(wifigw,CONFIG_REVK_WIFIGW);		\
@@ -183,6 +184,10 @@ uint64_t revk_binid = 0;        /* Binary chip ID */
 /* Local */
 static EventGroupHandle_t revk_group;
 static volatile uint64_t offline = 1;   // When we first went off line
+static volatile uint64_t offline_try = 1;       // When we last tried to get on line
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVKMESH) || defined(CONFIG_MQTT)
+static char wifimqttbackup = 0;
+#endif
 const static int GROUP_OFFLINE = BIT0;  // We are off line (IP not set)
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVKMESH)
 const static int GROUP_WIFI = BIT1;     // We are WiFi connected
@@ -278,18 +283,22 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void wifi_init(void)
 {
-   REVK_ERR_CHECK(esp_event_loop_create_default());
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+   if (!sta_netif)
+   {
+      REVK_ERR_CHECK(esp_event_loop_create_default());
+      REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+      REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
 
-   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-   REVK_ERR_CHECK(esp_wifi_init(&cfg));
-   REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-   REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-   sta_netif = esp_netif_create_default_wifi_sta();
-   ap_netif = esp_netif_create_default_wifi_ap();
+      wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+      REVK_ERR_CHECK(esp_wifi_init(&cfg));
+      REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+      REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+      sta_netif = esp_netif_create_default_wifi_sta();
+      ap_netif = esp_netif_create_default_wifi_ap();
+   }
    if (*apssid)
    {                            // AP config
+      esp_wifi_set_mode(WIFI_MODE_APSTA);
       wifi_config_t wifi_config = { 0, };
       if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
       {
@@ -303,7 +312,7 @@ static void wifi_init(void)
       if (*appass)
       {
          strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
-         wifi_config.ap.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
+         wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
       }
       wifi_config.ap.ssid_hidden = aphide;
       wifi_config.ap.max_connection = 255;
@@ -314,14 +323,17 @@ static void wifi_init(void)
       REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
       REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
       REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-      esp_wifi_set_mode(WIFI_MODE_APSTA);
+      ESP_LOGI(TAG, "WIFiAP [%s]%s%s", apssid, aphide ? " (hidden)" : "", aplr ? " (LR)" : "");
    } else
    {                            /* station only */
       esp_wifi_set_mode(WIFI_MODE_STA);
    }
    REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
    REVK_ERR_CHECK(esp_wifi_start());
-   ESP_LOGI(TAG, "WIFi [%s]", wifissid);
+   const char *ssid = wifissid;
+   if (*wifimqtt && !wifimqttbackup)
+      ssid = wifimqtt;
+   ESP_LOGI(TAG, "WIFi [%s]", ssid);
    wifi_config_t wifi_config = { 0, };
    if (wifibssid[0] || wifibssid[1] || wifibssid[2])
    {
@@ -330,7 +342,7 @@ static void wifi_init(void)
    }
    wifi_config.sta.channel = wifichan;
    wifi_config.sta.scan_method = ((esp_reset_reason() == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
-   strncpy((char *) wifi_config.sta.ssid, wifissid, sizeof(wifi_config.sta.ssid));
+   strncpy((char *) wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
    strncpy((char *) wifi_config.sta.password, wifipass, sizeof(wifi_config.sta.password));
    REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
    void dns(const char *ip, esp_netif_dns_type_t type) {
@@ -488,7 +500,7 @@ static void mqtt_init(void)
       return;
    esp_netif_ip_info_t info = { };
    static char gw[16] = "";
-   if (*wifimqtt && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
+   if (*wifimqtt && !wifimqttbackup && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
       return;
    char *topic = NULL;
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
@@ -502,7 +514,7 @@ static void mqtt_init(void)
       .keepalive = 30,
       .callback = &mqtt_rx,
    };
-   if (*wifimqtt)
+   if (*wifimqtt && !wifimqttbackup)
    {                            // Special case - server is gateway IP
       config.tlsname = wifimqtt;        // The device name of the host if using TLS
       sprintf(gw, "%d.%d.%d.%d", info.gw.addr & 255, (info.gw.addr >> 8) & 255, (info.gw.addr >> 16) & 255, info.gw.addr >> 24);
@@ -557,7 +569,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits(revk_group, GROUP_OFFLINE);
          if (!offline)
-            offline = esp_timer_get_time();
+            offline_try = offline = esp_timer_get_time();
          break;
       case WIFI_EVENT_STA_CONNECTED:
          ESP_LOGI(TAG, "STA Connected");
@@ -569,7 +581,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits(revk_group, GROUP_OFFLINE);
          if (!offline)
-            offline = esp_timer_get_time();
+            offline_try = offline = esp_timer_get_time();
          esp_wifi_connect();
          break;
          // AP
@@ -603,7 +615,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case IP_EVENT_STA_LOST_IP:
          ESP_LOGI(TAG, "Lost IP");
          if (!offline)
-            offline = esp_timer_get_time();
+            offline_try = offline = esp_timer_get_time();
          break;
       case IP_EVENT_STA_GOT_IP:
          ESP_LOGI(TAG, "Got IP");
@@ -708,13 +720,21 @@ static void task(void *pvParameters)
       }
 #endif
 #ifdef	CONFIG_REVK_WIFI
-      if (wifireset && offline && now - offline > wifireset)
+      if (wifireset && offline && (now - offline) > 1000000LL * wifireset)
          revk_restart("Offline too long", 1);
+      if (*wifimqtt && wifiretry && offline && (now - offline_try) > 1000000LL * wifiretry)
+      {
+         offline_try = esp_timer_get_time();
+         wifimqttbackup = 1 - wifimqttbackup;
+         revk_mqtt_close("backup flip");
+         mqtt_init();
+         wifi_init();
+      }
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-                          || (apwait && (revk_offline() > apwait))
+                          || (apwait && (now - offline_try) > 1000000LL * apwait)
 #endif
 #ifdef	CONFIG_REVK_WIFI
                           || !*wifissid
@@ -1290,7 +1310,7 @@ static void ap_task(void *pvParameters)
       //Send reply maybe...
       REVK_ERR_CHECK(httpd_stop(server));
    }
-   offline = esp_timer_get_time();      // Don't retry instantly
+   offline_try = esp_timer_get_time();  // Don't retry instantly
    xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE);
    if (!*apssid)
    {
@@ -1749,7 +1769,6 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
             else
                ESP_LOGI(TAG, "Setting %s erased", tag);
 #endif
-
          } else
          {
             if (nvs_set(s, tag, n) != ERR_OK && (nvs_erase_key(s->nvs, tag) != ERR_OK || nvs_set(s, tag, n) != ERR_OK))
@@ -2527,7 +2546,7 @@ void revk_mqtt_close(const char *reason)
    jo_string(j, "reason", reason);
    revk_statej(NULL, &j, NULL);
    lwmqtt_end(&mqtt_client);
-   // We could wait close...
+   // TODO We could wait close...
    ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif

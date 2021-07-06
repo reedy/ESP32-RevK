@@ -96,6 +96,13 @@ menu "RevK"
 	help
 		This defines the factory reset default WiFi client DNS
 
+	config REVK_WIFIRETRY
+	int "When using wifimqtt slave config, flip between this and normal"
+	default 30
+	depends on REVK_WIFI
+	help
+		Number of seconds switching between slave and normal
+
 	config REVK_WIFIRESET
 	int "Reset if we are offline too long"
 	default 0
