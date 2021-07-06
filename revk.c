@@ -521,8 +521,8 @@ static void mqtt_init(void)
       config.hostname = gw;     // safe on stack as lwmqtt_client copies it
       sntp_setservername(0, gw);
 
-   }else
-	      sntp_setservername(0, ntphost);
+   } else
+      sntp_setservername(0, ntphost);
    ESP_LOGI(TAG, "MQTT %s", config.hostname);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
@@ -621,19 +621,31 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             offline_try = offline = esp_timer_get_time();
          break;
       case IP_EVENT_STA_GOT_IP:
-         ESP_LOGI(TAG, "Got IP");
-         xEventGroupSetBits(revk_group, GROUP_IP);
-         offline = 0;
-         sntp_stop();
-         sntp_init();
+         {
+            ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
+            ESP_LOGI(TAG, "Got IP");
+            xEventGroupSetBits(revk_group, GROUP_IP);
+            offline = 0;
+            sntp_stop();
+            sntp_init();
 #ifdef	CONFIG_REVK_MQTT
-         mqtt_init();
+            mqtt_init();
 #endif
 #ifdef  CONFIG_REVK_WIFI
-         xEventGroupSetBits(revk_group, GROUP_WIFI);
-         if (app_command)
-            app_command("wifi", NULL);
+            xEventGroupSetBits(revk_group, GROUP_WIFI);
+            if (app_command)
+            {
+               jo_t j = jo_create_alloc();
+               jo_string(j, "ssid", (*wifimqtt && !wifimqttbackup) ? wifimqtt : wifissid);
+               jo_stringf(j, "ip", IPSTR, IP2STR(&event->ip_info.ip));
+               jo_stringf(j, "gw", IPSTR, IP2STR(&event->ip_info.gw));
+               if (*wifimqtt && !wifimqttbackup)
+                  jo_bool(j, "slave", 1);
+               app_command("wifi", j);
+               jo_free(&j);
+            }
 #endif
+         }
          break;
       case IP_EVENT_GOT_IP6:
          ESP_LOGI(TAG, "Got IPv6");
