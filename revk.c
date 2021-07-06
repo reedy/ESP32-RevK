@@ -326,10 +326,9 @@ static void wifi_init(void)
       ESP_LOGI(TAG, "WIFiAP [%s]%s%s", apssid, aphide ? " (hidden)" : "", aplr ? " (LR)" : "");
    } else
    {                            /* station only */
-      esp_wifi_set_mode(WIFI_MODE_STA);
+      REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
    }
    REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
-   REVK_ERR_CHECK(esp_wifi_start());
    const char *ssid = wifissid;
    if (*wifimqtt && !wifimqttbackup)
       ssid = wifimqtt;
@@ -382,7 +381,8 @@ static void wifi_init(void)
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
    dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
    dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
-   esp_wifi_connect();
+   REVK_ERR_CHECK(esp_wifi_start());
+   REVK_ERR_CHECK(esp_wifi_connect());
 }
 #endif
 
