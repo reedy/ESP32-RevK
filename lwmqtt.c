@@ -54,11 +54,11 @@ struct lwmqtt_s {               // mallocd copies
    uint8_t backoff;             // Reconnect backoff
    uint8_t running:1;           // Should still run
    uint8_t server:1;            // This is a server
-   void *ca_cert_pem;              // For checking server
+   void *ca_cert_pem;           // For checking server
    int ca_cert_len;
-   void *our_cert_pem;       // For auth
+   void *our_cert_pem;          // For auth
    int our_cert_len;
-   void *our_key_pem;        // For auth
+   void *our_key_pem;           // For auth
    int our_key_len;
     esp_err_t(*crt_bundle_attach) (void *conf);
 };
@@ -84,7 +84,8 @@ static void *handle_free(lwmqtt_t handle)
    return NULL;
 }
 
-static void task(void *pvParameters);
+static void client_task(void *pvParameters);
+static void server_task(void *pvParameters);
 
 // Create a connection
 lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
@@ -188,12 +189,12 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    xSemaphoreGive(handle->mutex);
    TaskHandle_t task_id = NULL;
    handle->running = 1;
-   xTaskCreate(task, "mqtt", 8 * 1024, (void *) handle, 2, &task_id);
+   xTaskCreate(client_task, "mqtt", 2 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
 
 // Start a server
-lwmqtt_t lwmqtt_server(lwmqtt_server_config_t *config)
+lwmqtt_t lwmqtt_server(lwmqtt_server_config_t * config)
 {
    if (!config)
       return NULL;
@@ -202,8 +203,29 @@ lwmqtt_t lwmqtt_server(lwmqtt_server_config_t *config)
       return handle_free(handle);
    memset(handle, 0, sizeof(*handle));
    handle->callback = config->callback;
-   // TODO
-	return NULL;
+   handle->port = (config->port ? : config->ca_cert_len ? 8883 : 1883);
+   if (config->ca_cert_len && config->ca_cert_pem)
+   {
+      if (!(handle->ca_cert_pem = malloc(config->ca_cert_len)))
+         return handle_free(handle);
+      memcpy(handle->ca_cert_pem, config->ca_cert_pem, handle->ca_cert_len = config->ca_cert_len);
+   }
+   if (config->server_cert_len && config->server_cert_pem)
+   {
+      if (!(handle->our_cert_pem = malloc(config->server_cert_len)))
+         return handle_free(handle);
+      memcpy(handle->our_cert_pem, config->server_cert_pem, handle->our_cert_len = config->server_cert_len);
+   }
+   if (config->server_key_len && config->server_key_pem)
+   {
+      if (!(handle->our_key_pem = malloc(config->server_key_len)))
+         return handle_free(handle);
+      memcpy(handle->our_key_pem, config->server_key_pem, handle->our_key_len = config->server_key_len);
+   }
+   TaskHandle_t task_id = NULL;
+   handle->running = 1;
+   xTaskCreate(server_task, "mqtt", 2 * 1024, (void *) handle, 2, &task_id);
+   return handle;
 }
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
@@ -501,7 +523,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       handle->callback(handle->arg, NULL, 0, NULL);
 }
 
-static void task(void *pvParameters)
+static void client_task(void *pvParameters)
 {
    lwmqtt_t handle = pvParameters;
    if (!handle)
@@ -566,6 +588,26 @@ static void task(void *pvParameters)
          handle->backoff *= 2;
       ESP_LOGD(TAG, "Waiting %d", handle->backoff);
       sleep(handle->backoff);
+   }
+   handle_free(handle);
+   vTaskDelete(NULL);
+}
+
+static void server_task(void *pvParameters)
+{
+   lwmqtt_t handle = pvParameters;
+   if (!handle)
+   {
+      vTaskDelete(NULL);
+      return;
+   }
+   handle->backoff = 1;
+   // Set up listen
+   // TODO
+   while (handle->running)
+   {                            // Loop connecting and trying repeatedly
+      // TODO
+      sleep(1);
    }
    handle_free(handle);
    vTaskDelete(NULL);
