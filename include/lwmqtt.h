@@ -7,6 +7,8 @@
 // Automatic reconnect
 
 // Callback function for a connection (client or server)
+// For client, the arg passed is as specified in the client config
+// For server, the arg passed is the lwmqtt_t for the new connection
 // Called for incoming message
 // - Topic is NULL terminated string, even if zero length topic has been used
 // - Payload is also NULL terminated at len, for convenience
@@ -17,11 +19,6 @@
 // - Topic is NULL
 // - Payload is NULL
 typedef void lwmqtt_callback_t(void *arg, const char *topic, unsigned short len, const unsigned char *payload);
-
-// For server operation
-// TODO server config
-// TODO server handle or global?
-// TODO server callback or use connect callback with arg being the mqtt_t for the connection?
 
 typedef struct lwmqtt_client_config_s lwmqtt_client_config_t;
 
@@ -42,8 +39,8 @@ struct lwmqtt_client_config_s {
    const unsigned char *payload;        // Will payload
    uint8_t retain:1;            // Will retain
    // TLS
-   void *cert_pem;              // For checking server
-   int cert_len;
+   void *ca_cert_pem;              // For checking server
+   int ca_cert_len;
    void *client_cert_pem;       // For client auth
    int client_cert_len;
    void *client_key_pem;        // For client auth
@@ -58,8 +55,8 @@ struct lwmqtt_server_config_s {
    lwmqtt_callback_t *callback;
    unsigned short port;         // Port 0=auto
    // TLS
-   void *cert_pem;              // For checking server
-   int cert_len;
+   void *ca_cert_pem;              // For checking server
+   int ca_cert_len;
    void *server_cert_pem;       // For server auth
    int server_cert_len;
    void *server_key_pem;        // For server auth
@@ -72,10 +69,8 @@ typedef struct lwmqtt_s *lwmqtt_t;
 // Create a client connection (NULL if failed)
 lwmqtt_t lwmqtt_client(lwmqtt_client_config_t *);
 
-// Start a server
-void lwmqtt_server(lwmqtt_server_config_t *);
-// TODO how to stop server?
-// TODO how to close or reject connections?
+// Start a server (the return value is only usable in lwmqtt_end)
+lwmqtt_t lwmqtt_server(lwmqtt_server_config_t *);
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call

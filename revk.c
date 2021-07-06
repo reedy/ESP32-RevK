@@ -518,8 +518,8 @@ static void mqtt_init(void)
 #endif
    if (mqttcert->len)
    {
-      config.cert_pem = (void *) mqttcert->data;
-      config.cert_len = mqttcert->len;
+      config.ca_cert_pem = (void *) mqttcert->data;
+      config.ca_cert_len = mqttcert->len;
    } else if (mqttport == 8883)
       config.crt_bundle_attach = esp_crt_bundle_attach;
    if (clientkey->len && clientcert->len)
