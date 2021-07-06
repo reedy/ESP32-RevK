@@ -189,7 +189,7 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    xSemaphoreGive(handle->mutex);
    TaskHandle_t task_id = NULL;
    handle->running = 1;
-   xTaskCreate(client_task, "mqtt", 2 * 1024, (void *) handle, 2, &task_id);
+   xTaskCreate(client_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
 
@@ -224,7 +224,7 @@ lwmqtt_t lwmqtt_server(lwmqtt_server_config_t * config)
    }
    TaskHandle_t task_id = NULL;
    handle->running = 1;
-   xTaskCreate(server_task, "mqtt", 2 * 1024, (void *) handle, 2, &task_id);
+   xTaskCreate(server_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
 
