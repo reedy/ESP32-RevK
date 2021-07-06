@@ -519,7 +519,10 @@ static void mqtt_init(void)
       config.tlsname = wifimqtt;        // The device name of the host if using TLS
       sprintf(gw, "%d.%d.%d.%d", info.gw.addr & 255, (info.gw.addr >> 8) & 255, (info.gw.addr >> 16) & 255, info.gw.addr >> 24);
       config.hostname = gw;     // safe on stack as lwmqtt_client copies it
-   }
+      sntp_setservername(0, gw);
+
+   }else
+	      sntp_setservername(0, ntphost);
    ESP_LOGI(TAG, "MQTT %s", config.hostname);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
@@ -879,7 +882,6 @@ void revk_init(app_command_t * app_command_cb)
    if (d)
       asprintf((char **) &revk_version, "%.*s%s", d - revk_version, app->version, app->time);
    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-   sntp_setservername(0, ntphost);
    setenv("TZ", tz, 1);
    tzset();
    app_command = app_command_cb;
