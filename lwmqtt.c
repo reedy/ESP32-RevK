@@ -47,6 +47,7 @@ struct lwmqtt_s {               // mallocd copies
    unsigned char *connect;
    SemaphoreHandle_t mutex;     // atomic send mutex
    esp_tls_t *tls;              // Connection handle
+   int sock;                    // Connection socket
    unsigned short keepalive;
    unsigned short seq;
    time_t ka;                   // Keep alive next ping
@@ -61,6 +62,9 @@ struct lwmqtt_s {               // mallocd copies
    int client_key_len;
     esp_err_t(*crt_bundle_attach) (void *conf);
 };
+
+#define	hwrite(handle,buf,len)	(handle->tls?esp_tls_conn_write(handle->tls,buf,len):write(handle->sock,buf,len))
+#define	hread(handle,buf,len)	(handle->tls?esp_tls_conn_read(handle->tls,buf,len):read(handle->sock,buf,len))
 
 #define freez(x) do{if(x)free(x);}while(0)
 static void *handle_free(lwmqtt_t handle)
@@ -228,7 +232,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
                ret = "Failed to get lock";
             else
             {
-               if (!handle->tls)
+               if (handle->sock < 0)
                   ret = "Not connected";
                else
                {
@@ -250,7 +254,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
                   p += tlen;
                   if (!unsubscribe)
                      *p++ = 0x00;       // QoS requested
-                  if (esp_tls_conn_write(handle->tls, buf, mlen) < mlen)
+                  if (hwrite(handle, buf, mlen) < mlen)
                      ret = "Failed to send";
                   else
                      handle->ka = time(0) + handle->keepalive;
@@ -296,7 +300,7 @@ const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int p
                ret = "Failed to get lock";
             else
             {
-               if (!handle->tls)
+               if (handle->sock < 0)
                   ret = "Not connected";
                else
                {
@@ -316,7 +320,7 @@ const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int p
                   if (plen && payload)
                      memcpy(p, payload, plen);
                   p += plen;
-                  if (esp_tls_conn_write(handle->tls, buf, mlen) < mlen)
+                  if (hwrite(handle, buf, mlen) < mlen)
                      ret = "Failed to send";
                   else if (!handle->server)
                      handle->ka = time(0) + handle->keepalive;  // client KA refresh
@@ -365,20 +369,17 @@ static void lwmqtt_loop(lwmqtt_t handle)
             // client, so send ping
             uint8_t b[] = { 0xC0, 0x00 };       // Ping
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
-            if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b))
+            if (hwrite(handle, b, sizeof(b)) == sizeof(b))
                handle->ka = time(0) + handle->keepalive;        // Client KA refresh
             xSemaphoreGive(handle->mutex);
          }
-         if (esp_tls_get_bytes_avail(handle->tls) <= 0)
+         if (!handle->tls || esp_tls_get_bytes_avail(handle->tls) <= 0)
          {
-            int sock = -1;
-            if (esp_tls_get_conn_sockfd(handle->tls, &sock))
-               break;
             fd_set r;
             FD_ZERO(&r);
-            FD_SET(sock, &r);
+            FD_SET(handle->sock, &r);
             struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
-            int sel = select(sock + 1, &r, NULL, NULL, &to);
+            int sel = select(handle->sock + 1, &r, NULL, NULL, &to);
             if (sel < 0)
                break;
             if (!sel)
@@ -393,7 +394,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
                break;
             }
          }
-         int got = esp_tls_conn_read(handle->tls, buf + pos, need - pos);
+         int got = hread(handle, buf + pos, need - pos);
          if (got <= 0)
             break;              // Error or close
          pos += got;
@@ -436,7 +437,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
             {                   // reply
                uint8_t b[4] = { (*buf & 0x4) ? 0x50 : 0x40, 2, id >> 8, id };
                xSemaphoreTake(handle->mutex, portMAX_DELAY);
-               if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b) && !handle->server)
+               if (hwrite(handle, b, sizeof(b)) == sizeof(b) && !handle->server)
                   handle->ka = time(0) + handle->keepalive;     // KA client refresh
                xSemaphoreGive(handle->mutex);
             }
@@ -460,7 +461,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
          {
             uint8_t b[4] = { 0x60, p[0], p[1] };
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
-            if (esp_tls_conn_write(handle->tls, b, sizeof(b)) == sizeof(b) && !handle->server)
+            if (hwrite(handle, b, sizeof(b)) == sizeof(b) && !handle->server)
                handle->ka = time(0) + handle->keepalive;        // KA client refresh
             xSemaphoreGive(handle->mutex);
          }
@@ -499,6 +500,8 @@ static void task(void *pvParameters)
    {                            // Loop connecting and trying repeatedly
       // Connect
       ESP_LOGD(TAG, "Connecting %s:%d", handle->hostname, handle->port);
+      esp_tls_t *tls = NULL;
+      // Can connect using TLS or non TLS with just sock set instead
       esp_tls_cfg_t cfg = {
        cacert_buf:handle->cert_pem,
        cacert_bytes:handle->cert_len,
@@ -507,23 +510,20 @@ static void task(void *pvParameters)
        clientkey_buf:handle->client_key_pem,
        clientkey_bytes:handle->client_key_len,
        crt_bundle_attach:handle->crt_bundle_attach,
-       is_plain_tcp:handle->cert_len ? 0 : 1,
+       is_plain_tcp:(handle->cert_len || handle->crt_bundle_attach) ? 0 : 1,
       };
-      esp_tls_t *tls = esp_tls_init();
+      tls = esp_tls_init();
       if (!tls || esp_tls_conn_new_sync(handle->hostname, strlen(handle->hostname), handle->port, &cfg, tls) != 1)
-         ESP_LOGI(TAG, "Cannot connect %s:%d",handle->hostname, handle->port);
+         ESP_LOGI(TAG, "Cannot connect %s:%d", handle->hostname, handle->port);
       else
       {
-         int len = esp_tls_conn_write(tls, handle->connect, handle->connectlen);
-         if (len < 0)
-            ESP_LOGE(TAG, "Failed to send connect");
-         else
+         if (tls)
          {
             handle->tls = tls;
-
-            lwmqtt_loop(handle);
-
+            esp_tls_get_conn_sockfd(handle->tls, &handle->sock);
          }
+         if (hwrite(handle, handle->connect, handle->connectlen) == handle->connectlen)
+            lwmqtt_loop(handle);
          // Close connection
          xSemaphoreTake(handle->mutex, portMAX_DELAY);
          if (!handle->running)
@@ -531,16 +531,23 @@ static void task(void *pvParameters)
             ESP_LOGD(TAG, "Close cleanly");
             uint8_t b[] = { 0xE0, 0x00 };       // Disconnect cleanly
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
-            esp_tls_conn_write(tls, b, sizeof(b));
+            hwrite(handle, b, sizeof(b));
             xSemaphoreGive(handle->mutex);
             if (handle->callback)
                handle->callback(handle->arg, NULL, 0, NULL);
          }
-         handle->tls = NULL;
          xSemaphoreGive(handle->mutex);
       }
       if (tls)
+      {                         // TLS
+         handle->sock = -1;
+         handle->tls = NULL;
          esp_tls_conn_destroy(tls);
+      } else
+      {                         // Non TLS
+         handle->sock = -1;
+         close(handle->sock);
+      }
       if (handle->backoff < 60)
          handle->backoff *= 2;
       ESP_LOGD(TAG, "Waiting %d", handle->backoff);

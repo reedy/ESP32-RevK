@@ -25,8 +25,16 @@ static const char
 #endif
 #include <driver/gpio.h>
 
+#ifndef	CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER
+#warning CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER recommended
+#endif
+
+#ifndef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
+#warning CONFIG_MBEDTLS_DYNAMIC_BUFFER recommended
+#endif
+
 #if CONFIG_FREERTOS_HZ != 1000
-#warn Reccomend CONFIG_FREERTOS_HZ set to 1000
+#warning Reccomend CONFIG_FREERTOS_HZ set to 1000
 #endif
 
 #ifndef CONFIG_TASK_WDT_PANIC
