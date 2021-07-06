@@ -351,6 +351,7 @@ static void wifi_init(void)
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
    dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
    dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
+   // Doing AP mode after STA mode - seems to fail is not
    if (*apssid)
    {                            // AP config
       wifi_config_t wifi_config = { 0, };
