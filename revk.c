@@ -34,11 +34,11 @@ static const char
 #endif
 
 #if CONFIG_FREERTOS_HZ != 1000
-#warning Reccomend CONFIG_FREERTOS_HZ set to 1000
+#warning CONFIG_FREERTOS_HZ recommend set to 1000
 #endif
 
 #ifndef CONFIG_TASK_WDT_PANIC
-#warning Set CONFIG_TASK_WDT_PANIC
+#warning CONFIG_TASK_WDT_PANIC recommended
 #endif
 
 #ifndef CONFIG_MQTT_BUFFER_SIZE
@@ -505,7 +505,7 @@ static void mqtt_init(void)
    if (*wifimqtt)
    {                            // Special case - server is gateway IP
       config.tlsname = wifimqtt;        // The device name of the host if using TLS
-      sprintf(gw, "%d.%d.%d.%d",  info.gw.addr & 255, (info.gw.addr >> 8) & 255,(info.gw.addr >> 16) & 255,info.gw.addr >> 24);
+      sprintf(gw, "%d.%d.%d.%d", info.gw.addr & 255, (info.gw.addr >> 8) & 255, (info.gw.addr >> 16) & 255, info.gw.addr >> 24);
       config.hostname = gw;     // safe on stack as lwmqtt_client copies it
    }
    ESP_LOGI(TAG, "MQTT %s", config.hostname);

@@ -51,11 +51,31 @@ struct lwmqtt_client_config_s {
     esp_err_t(*crt_bundle_attach) (void *conf);
 };
 
+typedef struct lwmqtt_server_config_s lwmqtt_server_config_t;
+
+// Config for connection
+struct lwmqtt_server_config_s {
+   lwmqtt_callback_t *callback;
+   unsigned short port;         // Port 0=auto
+   // TLS
+   void *cert_pem;              // For checking server
+   int cert_len;
+   void *server_cert_pem;       // For server auth
+   int server_cert_len;
+   void *server_key_pem;        // For server auth
+   int server_key_len;
+};
+
 // Handle for connection
 typedef struct lwmqtt_s *lwmqtt_t;
 
 // Create a client connection (NULL if failed)
 lwmqtt_t lwmqtt_client(lwmqtt_client_config_t *);
+
+// Start a server
+void lwmqtt_server(lwmqtt_server_config_t *);
+// TODO how to stop server?
+// TODO how to close or reject connections?
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call

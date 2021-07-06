@@ -192,6 +192,12 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    return handle;
 }
 
+// Start a server
+void lwmqtt_server(lwmqtt_server_config_t *config)
+{
+   // TODO
+}
+
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call
 void lwmqtt_end(lwmqtt_t * handle)
