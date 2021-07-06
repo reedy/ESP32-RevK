@@ -23,10 +23,10 @@ typedef void lwmqtt_callback_t(void *arg, const char *topic, unsigned short len,
 // TODO server handle or global?
 // TODO server callback or use connect callback with arg being the mqtt_t for the connection?
 
-typedef struct lwmqtt_config_s lwmqtt_config_t;
+typedef struct lwmqtt_client_config_s lwmqtt_client_config_t;
 
 // Config for connection
-struct lwmqtt_config_s {
+struct lwmqtt_client_config_s {
    lwmqtt_callback_t *callback;
    void *arg;
    const char *client;
@@ -55,7 +55,7 @@ struct lwmqtt_config_s {
 typedef struct lwmqtt_s *lwmqtt_t;
 
 // Create a client connection (NULL if failed)
-lwmqtt_t lwmqtt_client(lwmqtt_config_t *);
+lwmqtt_t lwmqtt_client(lwmqtt_client_config_t *);
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call

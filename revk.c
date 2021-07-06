@@ -493,7 +493,7 @@ static void mqtt_init(void)
    char *topic = NULL;
    if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
       return;
-   lwmqtt_config_t config = {
+   lwmqtt_client_config_t config = {
       .hostname = mqtthost,
       .topic = topic,
       .retain = 1,
