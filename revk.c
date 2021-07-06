@@ -296,38 +296,8 @@ static void wifi_init(void)
       sta_netif = esp_netif_create_default_wifi_sta();
       ap_netif = esp_netif_create_default_wifi_ap();
    }
-   if (*apssid)
-   {                            // AP config
-      esp_wifi_set_mode(WIFI_MODE_APSTA);
-      wifi_config_t wifi_config = { 0, };
-      if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
-      {
-         memcpy((char *) wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
-         wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
-      } else
-      {
-         strcpy((char *) wifi_config.ap.ssid, apssid);
-         wifi_config.ap.ssid_len = strlen(apssid);
-      }
-      if (*appass)
-      {
-         strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
-         wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
-      }
-      wifi_config.ap.ssid_hidden = aphide;
-      wifi_config.ap.max_connection = 255;
-      esp_netif_ip_info_t info = { 0, };
-      makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
-      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
-      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
-      REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
-      REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
-      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-      ESP_LOGI(TAG, "WIFiAP [%s]%s%s", apssid, aphide ? " (hidden)" : "", aplr ? " (LR)" : "");
-   } else
-   {                            /* station only */
-      REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-   }
+   esp_wifi_set_mode(*apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA);
+   // Client
    REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
    const char *ssid = wifissid;
    if (*wifimqtt && !wifimqttbackup)
@@ -381,6 +351,35 @@ static void wifi_init(void)
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
    dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
    dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
+   if (*apssid)
+   {                            // AP config
+      wifi_config_t wifi_config = { 0, };
+      wifi_config.ap.channel = wifichan;
+      if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
+      {
+         memcpy((char *) wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+         wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
+      } else
+      {
+         strcpy((char *) wifi_config.ap.ssid, apssid);
+         wifi_config.ap.ssid_len = strlen(apssid);
+      }
+      if (*appass)
+      {
+         strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
+         wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+      }
+      wifi_config.ap.ssid_hidden = aphide;
+      wifi_config.ap.max_connection = 64;
+      esp_netif_ip_info_t info = { 0, };
+      makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
+      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
+      REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
+      REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
+      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+      ESP_LOGI(TAG, "WIFiAP [%s]%s%s", apssid, aphide ? " (hidden)" : "", aplr ? " (LR)" : "");
+   }
    REVK_ERR_CHECK(esp_wifi_start());
    REVK_ERR_CHECK(esp_wifi_connect());
 }
