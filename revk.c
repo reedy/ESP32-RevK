@@ -689,6 +689,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                jo_stringf(j, "gw", IPSTR, IP2STR(&event->ip_info.gw));
                if (*wifimqtt && !wifimqttbackup)
                   jo_bool(j, "slave", 1);
+               jo_rewind(j);
                app_callback(prefixcommand, NULL, "wifi", j);
                jo_free(&j);
             }
@@ -754,6 +755,7 @@ static void task(void *pvParameters)
          {
             jo_t j = jo_create_alloc();
             jo_string(j, NULL, restart_reason);
+            jo_rewind(j);
             app_callback(prefixcommand, NULL, "shutdown", j);
             jo_free(&j);
          }
@@ -1162,6 +1164,7 @@ const char *revk_restart(const char *reason, int delay)
       {
          jo_t j = jo_create_alloc();
          jo_string(j, NULL, reason);
+         jo_rewind(j);
          app_callback(prefixcommand, NULL, "restart", j);
          jo_free(&j);
       }
