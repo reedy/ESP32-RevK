@@ -45,6 +45,10 @@ static const char
 #define	CONFIG_MQTT_BUFFER_SIZE 2048
 #endif
 
+#ifndef	CONFIG_ESP_TLS_SERVER
+#error	CONFIG_ESP_TLS_SERVER needed
+#endif
+
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		bd(otacert,CONFIG_REVK_OTACERT);		\
@@ -102,23 +106,23 @@ static const char
 		h(meshid,6,CONFIG_REVK_MESHID);		\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 
-#define s(n,d)		static char *n;
-#define sp(n,d)		static char *n;
-#define snl(n,d)	static char *n;
-#define sa(n,a,d)	static char *n[a];
-#define sap(n,a,d)	static char *n[a];
-#define fh(n,a,s,d)	static char n[a][s];
-#define	u32(n,d)	static uint32_t n;
-#define	u16(n,d)	static uint16_t n;
-#define	i16(n)		static int16_t n;
-#define	u8a(n,a,d)	static uint8_t n[a];
-#define	u8(n,d)		static uint8_t n;
-#define	b(n,d)		static uint8_t n;
-#define	s8(n,d)		static int8_t n;
-#define	io(n)		static uint8_t n;
-#define	ioa(n,a)	static uint8_t n[a];
+#define s(n,d)		char *n;
+#define sp(n,d)		char *n;
+#define snl(n,d)	char *n;
+#define sa(n,a,d)	char *n[a];
+#define sap(n,a,d)	char *n[a];
+#define fh(n,a,s,d)	char n[a][s];
+#define	u32(n,d)	uint32_t n;
+#define	u16(n,d)	uint16_t n;
+#define	i16(n)		int16_t n;
+#define	u8a(n,a,d)	uint8_t n[a];
+#define	u8(n,d)		uint8_t n;
+#define	b(n,d)		uint8_t n;
+#define	s8(n,d)		int8_t n;
+#define	io(n)		uint8_t n;
+#define	ioa(n,a)	uint8_t n[a];
 #define p(n)		char *prefix##n;
-#define h(n,l,d)	static char n[l];
+#define h(n,l,d)	char n[l];
 #define bd(n,d)		revk_bindata_t *n;
 #define bdp(n,d)	revk_bindata_t *n;
 settings
@@ -289,8 +293,9 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void wifi_init(void)
 {
+   REVK_ERR_CHECK(esp_wifi_stop());
    if (!sta_netif)
-   { // Init
+   {                            // Init
       REVK_ERR_CHECK(esp_event_loop_create_default());
       REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -581,16 +586,16 @@ static void mqtt_init(void)
 #endif
    if (mqttcert->len)
    {
-      config.ca_cert_pem = (void *) mqttcert->data;
-      config.ca_cert_len = mqttcert->len;
+      config.ca_cert_buf = (void *) mqttcert->data;
+      config.ca_cert_bytes = mqttcert->len;
    } else if (mqttport == 8883)
       config.crt_bundle_attach = esp_crt_bundle_attach;
    if (clientkey->len && clientcert->len)
    {
-      config.client_cert_pem = (void *) clientcert->data;
-      config.client_cert_len = clientcert->len;
-      config.client_key_pem = (void *) clientkey->data;
-      config.client_key_len = clientkey->len;
+      config.client_cert_buf = (void *) clientcert->data;
+      config.client_cert_bytes = clientcert->len;
+      config.client_key_buf = (void *) clientkey->data;
+      config.client_key_bytes = clientkey->len;
    }
    if (*mqttuser)
       config.username = mqttuser;

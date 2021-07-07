@@ -55,12 +55,12 @@ struct lwmqtt_s {               // mallocd copies
    uint8_t running:1;           // Should still run
    uint8_t server:1;            // This is a server
    uint8_t connected:1;         // Login sent/received
-   void *ca_cert_pem;           // For checking server
-   int ca_cert_len;
-   void *our_cert_pem;          // For auth
-   int our_cert_len;
-   void *our_key_pem;           // For auth
-   int our_key_len;
+   void *ca_cert_buf;           // For checking server
+   int ca_cert_bytes;
+   void *our_cert_buf;          // For auth
+   int our_cert_bytes;
+   void *our_key_buf;           // For auth
+   int our_key_bytes;
     esp_err_t(*crt_bundle_attach) (void *conf);
 };
 
@@ -75,9 +75,9 @@ static void *handle_free(lwmqtt_t handle)
       freez(handle->hostname);
       freez(handle->tlsname);
       freez(handle->connect);
-      freez(handle->ca_cert_pem);
-      freez(handle->our_cert_pem);
-      freez(handle->our_key_pem);
+      freez(handle->ca_cert_buf);
+      freez(handle->our_cert_buf);
+      freez(handle->our_key_buf);
       if (handle->mutex)
          vSemaphoreDelete(handle->mutex);
       freez(handle);
@@ -102,7 +102,7 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    handle->keepalive = config->keepalive ? : 60;
    if (!(handle->hostname = strdup(config->hostname)))
       return handle_free(handle);
-   handle->port = (config->port ? : (config->ca_cert_len || config->crt_bundle_attach) ? 8883 : 1883);
+   handle->port = (config->port ? : (config->ca_cert_bytes || config->crt_bundle_attach) ? 8883 : 1883);
    if (config->tlsname && *config->tlsname && !(handle->tlsname = strdup(config->tlsname)))
       return handle_free(handle);
    // Make connection message
@@ -115,23 +115,23 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
       mlen += 2 + strlen(config->username);
    if (config->password)
       mlen += 2 + strlen(config->password);
-   if (config->ca_cert_len && config->ca_cert_pem)
+   if (config->ca_cert_bytes && config->ca_cert_buf)
    {
-      if (!(handle->ca_cert_pem = malloc(config->ca_cert_len)))
+      if (!(handle->ca_cert_buf = malloc(config->ca_cert_bytes)))
          return handle_free(handle);
-      memcpy(handle->ca_cert_pem, config->ca_cert_pem, handle->ca_cert_len = config->ca_cert_len);
+      memcpy(handle->ca_cert_buf, config->ca_cert_buf, handle->ca_cert_bytes = config->ca_cert_bytes);
    }
-   if (config->client_cert_len && config->client_cert_pem)
+   if (config->client_cert_bytes && config->client_cert_buf)
    {
-      if (!(handle->our_cert_pem = malloc(config->client_cert_len)))
+      if (!(handle->our_cert_buf = malloc(config->client_cert_bytes)))
          return handle_free(handle);
-      memcpy(handle->our_cert_pem, config->client_cert_pem, handle->our_cert_len = config->client_cert_len);
+      memcpy(handle->our_cert_buf, config->client_cert_buf, handle->our_cert_bytes = config->client_cert_bytes);
    }
-   if (config->client_key_len && config->client_key_pem)
+   if (config->client_key_bytes && config->client_key_buf)
    {
-      if (!(handle->our_key_pem = malloc(config->client_key_len)))
+      if (!(handle->our_key_buf = malloc(config->client_key_bytes)))
          return handle_free(handle);
-      memcpy(handle->our_key_pem, config->client_key_pem, handle->our_key_len = config->client_key_len);
+      memcpy(handle->our_key_buf, config->client_key_buf, handle->our_key_bytes = config->client_key_bytes);
    }
    handle->crt_bundle_attach = config->crt_bundle_attach;
    if (mlen >= 128 * 128)
@@ -204,24 +204,24 @@ lwmqtt_t lwmqtt_server(lwmqtt_server_config_t * config)
       return handle_free(handle);
    memset(handle, 0, sizeof(*handle));
    handle->callback = config->callback;
-   handle->port = (config->port ? : config->ca_cert_len ? 8883 : 1883);
-   if (config->ca_cert_len && config->ca_cert_pem)
+   handle->port = (config->port ? : config->ca_cert_bytes ? 8883 : 1883);
+   if (config->ca_cert_bytes && config->ca_cert_buf)
    {
-      if (!(handle->ca_cert_pem = malloc(config->ca_cert_len)))
+      if (!(handle->ca_cert_buf = malloc(config->ca_cert_bytes)))
          return handle_free(handle);
-      memcpy(handle->ca_cert_pem, config->ca_cert_pem, handle->ca_cert_len = config->ca_cert_len);
+      memcpy(handle->ca_cert_buf, config->ca_cert_buf, handle->ca_cert_bytes = config->ca_cert_bytes);
    }
-   if (config->server_cert_len && config->server_cert_pem)
+   if (config->server_cert_bytes && config->server_cert_buf)
    {
-      if (!(handle->our_cert_pem = malloc(config->server_cert_len)))
+      if (!(handle->our_cert_buf = malloc(config->server_cert_bytes)))
          return handle_free(handle);
-      memcpy(handle->our_cert_pem, config->server_cert_pem, handle->our_cert_len = config->server_cert_len);
+      memcpy(handle->our_cert_buf, config->server_cert_buf, handle->our_cert_bytes = config->server_cert_bytes);
    }
-   if (config->server_key_len && config->server_key_pem)
+   if (config->server_key_bytes && config->server_key_buf)
    {
-      if (!(handle->our_key_pem = malloc(config->server_key_len)))
+      if (!(handle->our_key_buf = malloc(config->server_key_bytes)))
          return handle_free(handle);
-      memcpy(handle->our_key_pem, config->server_key_pem, handle->our_key_len = config->server_key_len);
+      memcpy(handle->our_key_buf, config->server_key_buf, handle->our_key_bytes = config->server_key_bytes);
    }
    handle->running = 1;
    TaskHandle_t task_id = NULL;
@@ -310,7 +310,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
 // Send (return is non null error message if failed)
 const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait)
 {
-   // TODO how to nowait with TLS?
+   // TODO how to nowait with TLS? SCrap nowait maybe?
    const char *ret = NULL;
    if (!handle)
       ret = "No handle";
@@ -452,7 +452,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
          if (!handle->server)
             break;
          handle->connected = 1;
-         ESP_LOGI(TAG, "Connected incoming");
+         ESP_LOGI(TAG, "Connected incoming %d", handle->port);
          // TODO
          handle->keepalive = 10;        // TODO get from message
          uint8_t b[4] = { 0x20 };       // conn ack
@@ -577,15 +577,16 @@ static void client_task(void *pvParameters)
       ESP_LOGD(TAG, "Connecting %s:%d", handle->hostname, handle->port);
       esp_tls_t *tls = NULL;
       // Can connect using TLS or non TLS with just sock set instead
+      // TODO non TLS connect if non TLS...
       esp_tls_cfg_t cfg = {
-       cacert_buf:handle->ca_cert_pem,
-       cacert_bytes:handle->ca_cert_len,
-       clientcert_buf:handle->our_cert_pem,
-       clientcert_bytes:handle->our_cert_len,
-       clientkey_buf:handle->our_key_pem,
-       clientkey_bytes:handle->our_key_len,
-       crt_bundle_attach:handle->crt_bundle_attach,
-       is_plain_tcp:(handle->ca_cert_len || handle->crt_bundle_attach) ? 0 : 1,
+         .cacert_buf = handle->ca_cert_buf,
+         .cacert_bytes = handle->ca_cert_bytes,
+         .clientcert_buf = handle->our_cert_buf,
+         .clientcert_bytes = handle->our_cert_bytes,
+         .clientkey_buf = handle->our_key_buf,
+         .clientkey_bytes = handle->our_key_bytes,
+         .crt_bundle_attach = handle->crt_bundle_attach,
+         .is_plain_tcp = (handle->ca_cert_bytes || handle->crt_bundle_attach) ? 0 : 1,
       };
       tls = esp_tls_init();
       if (!tls || esp_tls_conn_new_sync(handle->hostname, strlen(handle->hostname), handle->port, &cfg, tls) != 1)
@@ -642,7 +643,10 @@ static void server_task(void *pvParameters)
       handle->sock = -1;
       esp_tls_t *tls = handle->tls;
       handle->tls = NULL;
-      esp_tls_conn_destroy(tls);
+      if (handle->server)
+         esp_tls_server_session_delete(tls);
+      else
+         esp_tls_conn_destroy(tls);
    } else
    {                            // Non TLS
       int sock = handle->sock;
@@ -678,20 +682,50 @@ static void listen_task(void *pvParameters)
                int s = accept(sock, (void *) &addr, &addrlen);
                if (s < 0)
                   break;
-               // TODO TLS one at a time before starting loop task
-               // Probably means no need to copy TLS stuff to handle
+               ESP_LOGI(TAG, "Connect on MQTT %d", handle->port);
                lwmqtt_t h = malloc(sizeof(*h));
                if (!h)
                   break;
                memset(h, 0, sizeof(*h));
+               h->port = handle->port;  // Only for debugging
                h->callback = handle->callback;
                h->arg = h;
                h->mutex = xSemaphoreCreateBinary();
                h->server = 1;
                h->sock = s;
                h->running = 1;
-               TaskHandle_t task_id = NULL;
-               xTaskCreate(server_task, "mqtt", 5 * 1024, (void *) h, 2, &task_id);
+               if (handle->ca_cert_bytes)
+               {                // TLS
+                  esp_tls_cfg_server_t config = {
+                     .cacert_buf = handle->ca_cert_buf,
+                     .cacert_bytes = handle->ca_cert_bytes,
+                     .servercert_buf = handle->our_cert_buf,
+                     .servercert_bytes = handle->our_cert_bytes,
+                     .serverkey_buf = handle->our_key_buf,
+                     .serverkey_bytes = handle->our_key_bytes,
+                  };
+                  h->tls = esp_tls_init();
+                  if (h->tls || esp_tls_server_session_create(&config, s, h->tls))
+                     handle->running = 0;
+                  else
+                  {             // Check client name? Do login callback
+                     // TODO
+                  }
+                  ESP_LOGI(TAG, "TLS %p", h->tls);
+               }
+               if (handle->running)
+               {
+                  TaskHandle_t task_id = NULL;
+                  xTaskCreate(server_task, "mqtt", 5 * 1024, (void *) h, 2, &task_id);
+               } else
+               {                // Close
+                  ESP_LOGI(TAG, "MQTT aborted");
+                  if (h->tls)
+                     esp_tls_server_session_delete(h->tls);
+                  else
+                     close(h->sock);
+               }
+
             }
          }
       }

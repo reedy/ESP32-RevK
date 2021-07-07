@@ -42,12 +42,12 @@ struct lwmqtt_client_config_s {
    const unsigned char *payload;        // Will payload
    uint8_t retain:1;            // Will retain
    // TLS
-   void *ca_cert_pem;           // For checking server
-   int ca_cert_len;
-   void *client_cert_pem;       // For client auth
-   int client_cert_len;
-   void *client_key_pem;        // For client auth
-   int client_key_len;
+   void *ca_cert_buf;           // For checking server
+   int ca_cert_bytes;
+   void *client_cert_buf;       // For client auth
+   int client_cert_bytes;
+   void *client_key_buf;        // For client auth
+   int client_key_bytes;
     esp_err_t(*crt_bundle_attach) (void *conf);
 };
 
@@ -58,12 +58,12 @@ struct lwmqtt_server_config_s {
    lwmqtt_callback_t *callback;
    unsigned short port;         // Port 0=auto
    // TLS
-   void *ca_cert_pem;           // For checking server
-   int ca_cert_len;
-   void *server_cert_pem;       // For server auth
-   int server_cert_len;
-   void *server_key_pem;        // For server auth
-   int server_key_len;
+   void *ca_cert_buf;           // For checking server
+   int ca_cert_bytes;
+   void *server_cert_buf;       // For server auth
+   int server_cert_bytes;
+   void *server_key_buf;        // For server auth
+   int server_key_bytes;
 };
 
 // Handle for connection
