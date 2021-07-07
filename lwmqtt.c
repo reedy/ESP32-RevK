@@ -54,6 +54,7 @@ struct lwmqtt_s {               // mallocd copies
    uint8_t backoff;             // Reconnect backoff
    uint8_t running:1;           // Should still run
    uint8_t server:1;            // This is a server
+   uint8_t connected:1;         // Login sent/received
    void *ca_cert_pem;           // For checking server
    int ca_cert_len;
    void *our_cert_pem;          // For auth
@@ -85,7 +86,7 @@ static void *handle_free(lwmqtt_t handle)
 }
 
 static void client_task(void *pvParameters);
-static void server_task(void *pvParameters);
+static void listen_task(void *pvParameters);
 
 // Create a connection
 lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
@@ -187,8 +188,8 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    handle->connectlen = mlen;
    handle->mutex = xSemaphoreCreateBinary();
    xSemaphoreGive(handle->mutex);
-   TaskHandle_t task_id = NULL;
    handle->running = 1;
+   TaskHandle_t task_id = NULL;
    xTaskCreate(client_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
@@ -222,9 +223,9 @@ lwmqtt_t lwmqtt_server(lwmqtt_server_config_t * config)
          return handle_free(handle);
       memcpy(handle->our_key_pem, config->server_key_pem, handle->our_key_len = config->server_key_len);
    }
-   TaskHandle_t task_id = NULL;
    handle->running = 1;
-   xTaskCreate(server_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);
+   TaskHandle_t task_id = NULL;
+   xTaskCreate(listen_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
 
@@ -378,7 +379,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
    unsigned char *buf = 0;
    int buflen = 0;
    int pos = 0;
-   handle->ka = time(0) + handle->keepalive;
+   handle->ka = time(0) + (handle->server ? 5 : handle->keepalive);
    while (handle->running)
    {                            // Loop handling messages received, and timeouts
       int need = 0;
@@ -410,7 +411,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
             xSemaphoreGive(handle->mutex);
          }
          if (!handle->tls || esp_tls_get_bytes_avail(handle->tls) <= 0)
-         {
+         {                      // Wait for data to arrive
             fd_set r;
             FD_ZERO(&r);
             FD_SET(handle->sock, &r);
@@ -419,10 +420,10 @@ static void lwmqtt_loop(lwmqtt_t handle)
             if (sel < 0)
                break;
             if (!sel)
-               continue;
+               continue;        // Nothing waiting
          }
          if (need > buflen)
-         {
+         {                      // Make sure we have enough space
             buf = realloc(buf, (buflen = need) + 1);    // One more to allow extra null on end in all cases
             if (!buf)
             {
@@ -443,11 +444,27 @@ static void lwmqtt_loop(lwmqtt_t handle)
       while (p < e && (*p & 0x80))
          p++;
       p++;
+      if (handle->server && !handle->connected && (*buf >> 4) != 1)
+         break;                 // Expect login as first message
       switch (*buf >> 4)
       {
-         // TODO con as server
+      case 1:
+         if (!handle->server)
+            break;
+         handle->connected = 1;
+         ESP_LOGI(TAG, "Connected incoming");
+         // TODO
+         handle->keepalive = 10;        // TODO get from message
+         uint8_t b[4] = { 0x20 };       // conn ack
+         xSemaphoreTake(handle->mutex, portMAX_DELAY);
+         if (hwrite(handle, b, sizeof(b)) == sizeof(b) && !handle->server)
+            handle->ka = time(0) + handle->keepalive;   // KA client refresh
+         xSemaphoreGive(handle->mutex);
+         break;
       case 2:                  // conack
-         ESP_LOGD(TAG, "Connected");
+         if (handle->server)
+            break;
+         ESP_LOGD(TAG, "Connected outgoing");
          handle->backoff = 1;
          if (handle->callback)
             handle->callback(handle->arg, NULL, strlen(handle->hostname), (void *) handle->hostname);
@@ -492,8 +509,12 @@ static void lwmqtt_loop(lwmqtt_t handle)
          }
          break;
       case 4:                  // puback - not expected
+         if (!handle->server)
+            break;
          break;
       case 5:                  // pubrec - not expected
+         if (handle->server)
+            break;
          {
             uint8_t b[4] = { 0x60, p[0], p[1] };
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
@@ -503,14 +524,32 @@ static void lwmqtt_loop(lwmqtt_t handle)
          }
          break;
       case 6:                  // pubcomp - not expected
+         if (!handle->server)
+            break;
          break;
-         // TODO sub/unsub as server (we just confirm, we don't actually log subscriptions);
+      case 8:                  // sub
+         if (!handle->server)
+            break;
+         break;
       case 9:                  // suback - ok
+         if (handle->server)
+            break;
+         break;
+      case 10:                 // unsub
+         if (!handle->server)
+            break;
          break;
       case 11:                 // unsuback - ok
+         if (handle->server)
+            break;
          break;
-         // TODO ping for server...
+      case 12:                 // ping (no action as resets ka anyway)
+         if (handle->server)
+            break;
+         break;
       case 13:                 // pingresp - ok
+         if (handle->server)
+            break;
          break;
       default:
          ESP_LOGI(TAG, "Unknown MQTT %02X", *buf);
@@ -581,8 +620,9 @@ static void client_task(void *pvParameters)
          esp_tls_conn_destroy(tls);
       } else
       {                         // Non TLS
+         int sock = handle->sock;
          handle->sock = -1;
-         close(handle->sock);
+         close(sock);
       }
       if (handle->backoff < 60)
          handle->backoff *= 2;
@@ -596,20 +636,67 @@ static void client_task(void *pvParameters)
 static void server_task(void *pvParameters)
 {
    lwmqtt_t handle = pvParameters;
-   if (!handle)
-   {
-      vTaskDelete(NULL);
-      return;
-   }
-   handle->backoff = 1;
-   // Set up listen
-   // TODO
-   while (handle->running)
-   {                            // Loop connecting and trying repeatedly
-      // TODO
-      sleep(1);
+   lwmqtt_loop(handle);
+   if (handle->tls)
+   {                            // TLS
+      handle->sock = -1;
+      esp_tls_t *tls = handle->tls;
+      handle->tls = NULL;
+      esp_tls_conn_destroy(tls);
+   } else
+   {                            // Non TLS
+      int sock = handle->sock;
+      handle->sock = -1;
+      close(sock);
    }
    handle_free(handle);
+   vTaskDelete(NULL);
+}
+
+static void listen_task(void *pvParameters)
+{
+   lwmqtt_t handle = pvParameters;
+   if (handle)
+   {
+      struct sockaddr_in dst = {        // Yep IPv4 local
+         .sin_addr.s_addr = htonl(INADDR_ANY),
+         .sin_family = AF_INET,
+         .sin_port = htons(handle->port),
+      };
+      int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+      if (sock >= 0)
+      {
+         if (bind(sock, (void *) &dst, sizeof(dst)) < 0 || listen(sock, 1) < 0)
+            close(sock);
+         else
+         {
+            ESP_LOGI(TAG, "Listening for MQTT on %d", handle->port);
+            while (handle->running)
+            {                   // Loop connecting and trying repeatedly
+               struct sockaddr_in addr;
+               socklen_t addrlen = sizeof(addr);
+               int s = accept(sock, (void *) &addr, &addrlen);
+               if (s < 0)
+                  break;
+               // TODO TLS one at a time before starting loop task
+               // Probably means no need to copy TLS stuff to handle
+               lwmqtt_t h = malloc(sizeof(*h));
+               if (!h)
+                  break;
+               memset(h, 0, sizeof(*h));
+               h->callback = handle->callback;
+               h->arg = h;
+               h->mutex = xSemaphoreCreateBinary();
+               h->server = 1;
+               h->sock = s;
+               h->running = 1;
+               TaskHandle_t task_id = NULL;
+               xTaskCreate(server_task, "mqtt", 5 * 1024, (void *) h, 2, &task_id);
+            }
+         }
+      }
+      handle_free(handle);
+   }
    vTaskDelete(NULL);
 }
 
