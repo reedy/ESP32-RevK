@@ -418,7 +418,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             p++;
          if (*p)
          {
-            *p++=0;
+            *p++ = 0;
             suffix = p;
          }
       }
@@ -447,16 +447,21 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          jo_rewind(j);
       }
-      if (prefix && !strcmp(prefix, prefixcommand))
-         err = ((err ? : revk_command(suffix, j)) ? : "Unknown command");
-      else if (prefix && !strcmp(prefix, prefixsetting))
-      {
-	      if(!suffix&&!plen){setting_dump_requested=1;err="";}
-	      else
-         err = ((err ? : revk_setting(j)) ? : "Unknown setting");
+      if (target && (!strcmp(target, "*") || !strcmp(target, revk_id)))
+      {                         // For us (could otherwise be for app callback)
+         if (prefix && !strcmp(prefix, prefixcommand))
+            err = ((err ? : revk_command(suffix, j)) ? : "Unknown command");
+         else if (prefix && !strcmp(prefix, prefixsetting))
+         {
+            if (!suffix && !plen)
+            {
+               setting_dump_requested = 1;
+               err = "";
+            } else
+               err = ((err ? : revk_setting(j)) ? : "Unknown setting");
+         } else
+            err = (err ? : ""); // Ignore
       }
-      else
-         err = (err ? : "");    // Ignore
       if ((!err || !*err) && app_callback)
       {                         /* Pass to app, even if we handled with no error */
          jo_rewind(j);
@@ -508,7 +513,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (app_callback)
       {
          jo_t j = jo_create_alloc();
-         jo_string(j, NULL, (char*)payload);
+         jo_string(j, NULL, (char *) payload);
          app_callback(prefixcommand, NULL, "connect", j);
          jo_free(&j);
       }
