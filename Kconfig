@@ -124,6 +124,13 @@ menu "RevK"
         help
 		Passphrase for access point mode
 
+	config REVK_APMAX
+	int "Max AP connections"
+	default 10
+	depends on REVK_WIFI
+	help
+		Max concurrent AP connections
+
 	config REVK_APIP
         string "Access point IP"
         default "10.0.0.1/24"

@@ -93,6 +93,7 @@ static const char
 #define	apsettings	\
 		s(apssid,CONFIG_REVK_APSSID);		\
 		sp(appass,CONFIG_REVK_APPASS);		\
+    		u8(apmax,CONFIG_REVK_APMAX);	\
 		s(apip,CONFIG_REVK_APIP);		\
 		b(aplr,CONFIG_REVK_APLR);		\
 		b(aphide,CONFIG_REVK_APHIDE);		\
@@ -289,7 +290,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 static void wifi_init(void)
 {
    if (!sta_netif)
-   {
+   { // Init
       REVK_ERR_CHECK(esp_event_loop_create_default());
       REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -301,6 +302,7 @@ static void wifi_init(void)
       sta_netif = esp_netif_create_default_wifi_sta();
       ap_netif = esp_netif_create_default_wifi_ap();
    }
+   // Mode
    esp_wifi_set_mode(*apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA);
    // Client
    REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
@@ -376,7 +378,7 @@ static void wifi_init(void)
          wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
       }
       wifi_config.ap.ssid_hidden = aphide;
-      wifi_config.ap.max_connection = 64;
+      wifi_config.ap.max_connection = apmax;
       esp_netif_ip_info_t info = { 0, };
       makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
