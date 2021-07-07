@@ -683,7 +683,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             xEventGroupSetBits(revk_group, GROUP_WIFI);
             if (app_callback)
             {
-               jo_t j = jo_create_alloc();
+               jo_t j = jo_object_alloc();
                jo_string(j, "ssid", (*wifimqtt && !wifimqttbackup) ? wifimqtt : wifissid);
                jo_stringf(j, "ip", IPSTR, IP2STR(&event->ip_info.ip));
                jo_stringf(j, "gw", IPSTR, IP2STR(&event->ip_info.gw));
