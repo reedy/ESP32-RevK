@@ -18,6 +18,9 @@
 // Called for disconnect
 // - Topic is NULL
 // - Payload is NULL
+// Called as server for subscribe
+// - Topic is subscribe pattern
+// - Payload is NULL
 typedef void lwmqtt_callback_t(void *arg, char *topic, unsigned short len, unsigned char *payload);
 
 typedef struct lwmqtt_client_config_s lwmqtt_client_config_t;

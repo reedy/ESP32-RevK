@@ -234,8 +234,6 @@ static void mqtt_init(void);
 
 static void revk_report_state(void)
 {                               // Report state
-   wifi_ap_record_t ap = { };
-   esp_wifi_sta_get_ap_info(&ap);
    uint64_t t = esp_timer_get_time();
    jo_t j = jo_object_alloc();
    jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
@@ -250,11 +248,18 @@ static void revk_report_state(void)
    jo_string(j, "version", revk_version);
    jo_int(j, "mem", esp_get_free_heap_size());
    jo_int(j, "flash", spi_flash_get_chip_size());
+   time_t now = time(0);
+   if (now > 1000000000)
+      jo_int(j, "time", now);
    jo_int(j, "rst", esp_reset_reason());
-   jo_string(j, "ssid", (char *) ap.ssid);
-   jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
-   jo_int(j, "rssi", ap.rssi);
-   jo_int(j, "chan", ap.primary);
+   wifi_ap_record_t ap = { };
+   if (!esp_wifi_sta_get_ap_info(&ap) && ap.primary)
+   {
+      jo_string(j, "ssid", (char *) ap.ssid);
+      jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
+      jo_int(j, "rssi", ap.rssi);
+      jo_int(j, "chan", ap.primary);
+   }
    revk_statej(NULL, &j, NULL);
 }
 

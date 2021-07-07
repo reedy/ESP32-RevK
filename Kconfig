@@ -98,7 +98,7 @@ menu "RevK"
 
 	config REVK_WIFIRETRY
 	int "When using wifimqtt slave config, flip between this and normal"
-	default 30
+	default 10
 	depends on REVK_WIFI
 	help
 		Number of seconds switching between slave and normal
