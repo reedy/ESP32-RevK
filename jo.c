@@ -878,7 +878,7 @@ static ssize_t jo_cpycmp(jo_t j, void *strv, size_t max, uint8_t cmp)
       while ((c = jo_read(p)) >= 0 && c > ' ' && c != ',' && c != '[' && c != '{' && c != ']' && c != '}' && (!cmp || !result))
          process(c);
    }
-   if (str && str < end)
+   if (!cmp && str && str < end)
       *str = 0;                 // Final null...
    if (!result && cmp && str && str < end)
       result = -1;              // j ended, do str>j
