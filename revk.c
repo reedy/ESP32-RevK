@@ -205,11 +205,11 @@ static TaskHandle_t ota_task_id = NULL;
 #ifdef	CONFIG_REVK_APCONFIG
 static TaskHandle_t ap_task_id = NULL;
 #endif
-static app_command_t *app_command = NULL;
+static app_callback_t *app_callback = NULL;
 lwmqtt_t mqtt_client = NULL;
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
-static uint8_t revk_dump = 0;
+static uint8_t setting_dump_requested = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
@@ -387,40 +387,57 @@ static void wifi_init(void)
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const unsigned char *payload)
+static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload)
 {
    if (topic)
    {
       const char *err = NULL;
-      const char *p = topic;
-      const char *tag = NULL;
+      // Break up topic
+      const char *prefix = topic;
+      const char *target = NULL;
+      const char *suffix = NULL;
+      char *p = topic;
       while (*p && *p != '/')
-         p++;                   // prefix
-      if (!*p)
-         return;                // odd
-      int prefixlen = p - topic;
-      p++;
-      while (*p && *p != '/')
-         p++;                   // appname (ignore)
-      if (!*p)
-         return;                // odd
-      p++;
-      while (*p && *p != '/')
-         p++;                   // id (ignore)
-      if (*p)
-      {                         // tag
          p++;
-         tag = p;
+      if (*p)
+      {                         // Expect app name next
+         *p++ = 0;
+         char *q = p;
+         while (*q && *q != '/')
+            q++;
+         if (*q)
+            *q++ = 0;
+         if (strcmp(p, appname))
+            return;             // Nonsense, has to be to our app name
+         p = q;
+      }
+      if (*p)
+      {
+         target = p;
+         while (*p && *p != '/')
+            p++;
+         if (*p)
+         {
+            *p++=0;
+            suffix = p;
+         }
       }
       jo_t j = NULL;
       if (plen)
       {
-         if (tag && *payload != '"' && *payload != '{' && *payload != '[')
-         {
-            j = jo_object_alloc();
-            jo_stringf(j, tag, "%.*s", plen, payload);
+         if (*payload != '"' && *payload != '{' && *payload != '[')
+         {                      // Looks like non JSON
+            if (prefix && suffix && !strcmp(prefix, prefixsetting))
+            {                   // Special case for settings, the suffix is the setting
+               j = jo_object_alloc();
+               jo_stringf(j, suffix, "%.*s", plen, payload);
+            } else
+            {                   // Just JSON the argument
+               j = jo_create_alloc();
+               jo_stringf(j, NULL, "%.*s", plen, payload);
+            }
          } else
-         {                      // Parse
+         {                      // Parse JSON argument
             j = jo_parse_mem(payload, plen);
             jo_skip(j);         // Check whole JSON
             int pos;
@@ -430,23 +447,37 @@ static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const uns
          }
          jo_rewind(j);
       }
-      if (prefixlen == strlen(prefixcommand) && !memcmp(topic, prefixcommand, prefixlen))
-         err = ((err ? : revk_command(tag, j)) ? : "Unknown command");
-      else if (prefixlen == strlen(prefixsetting) && !memcmp(topic, prefixsetting, prefixlen))
-         err = ((err ? : revk_setting(tag, j)) ? : "Unknown setting");
+      if (prefix && !strcmp(prefix, prefixcommand))
+         err = ((err ? : revk_command(suffix, j)) ? : "Unknown command");
+      else if (prefix && !strcmp(prefix, prefixsetting))
+      {
+	      if(!suffix&&!plen){setting_dump_requested=1;err="";}
+	      else
+         err = ((err ? : revk_setting(j)) ? : "Unknown setting");
+      }
       else
          err = (err ? : "");    // Ignore
+      if ((!err || !*err) && app_callback)
+      {                         /* Pass to app, even if we handled with no error */
+         jo_rewind(j);
+         const char *e2 = app_callback(prefix, target, suffix, j);
+         if (e2 && (*e2 || !err))
+            err = e2;           /* Overwrite error if we did not have one */
+      }
       jo_free(&j);
       if (*err)
       {
          jo_t j = jo_object_alloc();
          jo_string(j, "description", err);
-         jo_stringf(j, "prefix", "%.*s", prefixlen, topic);
-         if (tag)
-            jo_string(j, "suffix", tag);
+         if (prefix)
+            jo_string(j, "prefix", prefix);
+         if (target)
+            jo_string(j, "target", target);
+         if (suffix)
+            jo_string(j, "suffix", suffix);
          if (plen)
             jo_stringf(j, "payload", "%s", payload);
-         revk_errorj(tag, &j, NULL);
+         revk_errorj(suffix, &j, NULL);
       }
    } else if (payload)
    {
@@ -474,16 +505,21 @@ static void mqtt_rx(void *arg, const char *topic, unsigned short plen, const uns
 
       revk_report_state();
 
-      if (app_command)
-         app_command("connect", NULL);
+      if (app_callback)
+      {
+         jo_t j = jo_create_alloc();
+         jo_string(j, NULL, (char*)payload);
+         app_callback(prefixcommand, NULL, "connect", j);
+         jo_free(&j);
+      }
    } else
    {
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
       {
          xEventGroupClearBits(revk_group, GROUP_MQTT);
          ESP_LOGI(TAG, "MQTT disconnected (mem:%d)", esp_get_free_heap_size());
-         if (app_command)
-            app_command("disconnect", NULL);
+         if (app_callback)
+            app_callback(prefixcommand, NULL, "disconnect", NULL);
          // Can we flush TCP TLS stuff somehow?
       } else
          ESP_LOGI(TAG, "MQTT failed (mem:%d)", esp_get_free_heap_size());
@@ -563,6 +599,13 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       {
       case WIFI_EVENT_AP_START:
          ESP_LOGI(TAG, "AP Start");
+         if (app_callback)
+         {
+            jo_t j = jo_create_alloc();
+            jo_string(j, "ssid", apssid);
+            app_callback(prefixcommand, NULL, "ap", j);
+            jo_free(&j);
+         }
          break;
       case WIFI_EVENT_STA_START:
          ESP_LOGI(TAG, "STA Start");
@@ -633,7 +676,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #endif
 #ifdef  CONFIG_REVK_WIFI
             xEventGroupSetBits(revk_group, GROUP_WIFI);
-            if (app_command)
+            if (app_callback)
             {
                jo_t j = jo_create_alloc();
                jo_string(j, "ssid", (*wifimqtt && !wifimqttbackup) ? wifimqtt : wifissid);
@@ -641,7 +684,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                jo_stringf(j, "gw", IPSTR, IP2STR(&event->ip_info.gw));
                if (*wifimqtt && !wifimqttbackup)
                   jo_bool(j, "slave", 1);
-               app_command("wifi", j);
+               app_callback(prefixcommand, NULL, "wifi", j);
                jo_free(&j);
             }
 #endif
@@ -693,17 +736,22 @@ static void task(void *pvParameters)
          }
          // TODO RGB LED
       }
-      if (revk_dump)
+      if (setting_dump_requested)
       {                         // Done here so not reporting from MQTT
-         revk_dump = 0;
+         setting_dump_requested = 0;
          revk_setting_dump();
       }
       if (restart_time && restart_time < now && !ota_task_id)
       {                         /* Restart */
          if (!restart_reason)
             restart_reason = "Unknown";
-         if (app_command)
-            app_command("shutdown", NULL);
+         if (app_callback)
+         {
+            jo_t j = jo_create_alloc();
+            jo_string(j, NULL, restart_reason);
+            app_callback(prefixcommand, NULL, "shutdown", j);
+            jo_free(&j);
+         }
          revk_mqtt_close(restart_reason);
          revk_wifi_close();
          REVK_ERR_CHECK(nvs_commit(nvs));
@@ -761,7 +809,7 @@ static void task(void *pvParameters)
 }
 
 /* External functions */
-void revk_init(app_command_t * app_command_cb)
+void revk_init(app_callback_t * app_callback_cb)
 {                               /* Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID */
    /* Watchdog */
 #ifdef	CONFIG_REVK_PARTITION_CHECK
@@ -896,7 +944,7 @@ void revk_init(app_command_t * app_command_cb)
    sntp_setoperatingmode(SNTP_OPMODE_POLL);
    setenv("TZ", tz, 1);
    tzset();
-   app_command = app_command_cb;
+   app_callback = app_callback_cb;
    {                            /* Chip ID from MAC */
       unsigned char mac[6];
       REVK_ERR_CHECK(esp_efuse_mac_get_default(mac));
@@ -1105,8 +1153,13 @@ const char *revk_restart(const char *reason, int delay)
    else
    {
       restart_time = esp_timer_get_time() + 1000000LL * (int64_t) delay;        /* Reboot now */
-      if (app_command)
-         app_command("restart", NULL);
+      if (app_callback)
+      {
+         jo_t j = jo_create_alloc();
+         jo_string(j, NULL, reason);
+         app_callback(prefixcommand, NULL, "restart", j);
+         jo_free(&j);
+      }
    }
    return "";                   /* Done */
 }
@@ -2119,13 +2172,8 @@ static const char *revk_setting_dump(void)
    return NULL;
 }
 
-const char *revk_setting(const char *tag, jo_t j)
+const char *revk_setting(jo_t j)
 {
-   if (!tag && !j)
-   {
-      revk_dump = 1;
-      return "";
-   }
    int index = 0;
    int match(setting_t * s, const char *tag) {
       const char *a = s->name;
@@ -2379,14 +2427,6 @@ const char *revk_command(const char *tag, jo_t j)
       return "";
    }
 #endif
-   /* App commands */
-   if ((!e || !*e) && app_command)
-   {                            /* Pass to app, even if we handled with no error */
-      jo_rewind(j);
-      const char *e2 = app_command(tag, j);
-      if (e2 && (*e2 || !e))
-         e = e2;                /* Overwrite error if we did not have one */
-   }
    return e;
 }
 
@@ -2520,9 +2560,9 @@ esp_err_t revk_err_check(esp_err_t e)
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-const char *revk_mqtt(void)
+lwmqtt_t revk_mqtt(void)
 {
-   return mqtthost;
+   return mqtt_client;
 }
 #endif
 

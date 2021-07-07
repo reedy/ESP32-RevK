@@ -32,13 +32,20 @@
 #include "jo.h"
 
 // Types
-typedef const char *app_command_t(const char *tag, jo_t);       // Return NULL=OK, empty-string=Unknown tag, string=error, does not consume jo_t
+
+        // MQTT rx callback: Do not consume jo_t! Return error or NULL. Returning "" means handled the command with no error.
+        // You will want to check prefix matches prefixcommand
+        // Target is NULL for internal commands, else typically "*" or revk_id
+        // Suffix can be NULL
+typedef const char *app_callback_t(const char *prefix, const char *target, const char *suffix, jo_t);
 
 // Data
 extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
 extern char revk_id[13];        // Chip ID hex (from MAC)
 extern uint64_t revk_binid;     // Chip ID binary
+extern char *prefixcommand;
+extern char *prefixsetting;
 extern char *prefixstate;
 extern char *prefixevent;
 extern char *prefixinfo;
@@ -50,7 +57,7 @@ typedef struct {                // Dynamic binary data
 } revk_bindata_t;
 
 // Calls
-void revk_init(app_command_t * app_command);
+void revk_init(app_callback_t * app_callback);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
 // Note, a setting that is SECRET that is a root name followed by sub names creates parent/child. Only shown if parent has value or default value (usually overlap a key child)
 void revk_register(const char *name,    // Setting name (note max 15 characters inc any number suffix)
@@ -95,13 +102,13 @@ void revk_infoj(const char *tag, jo_t *, lwmqtt_t copy);
 void revk_raw(const char *prefix, const char *tag, int len, void *data, int retain);
 #endif
 
-const char *revk_setting(const char *tag, jo_t);        // Store a setting 
-const char *revk_command(const char *tag, jo_t);        // Do a command (may call app_command if not handled internally)
+const char *revk_setting(jo_t); // Store settings
+const char *revk_command(const char *tag, jo_t);        // Do an internal command
 const char *revk_restart(const char *reason, int delay);        // Restart cleanly
 const char *revk_ota(const char *host); // OTA and restart cleanly
 
 #ifdef	CONFIG_REVK_MQTT
-const char *revk_mqtt(void);
+lwmqtt_t revk_mqtt(void);
 void revk_mqtt_close(const char *reason);       // Clean close MQTT
 int revk_wait_mqtt(int seconds);
 #endif

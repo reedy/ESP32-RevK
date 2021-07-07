@@ -10,15 +10,15 @@
 // For client, the arg passed is as specified in the client config
 // For server, the arg passed is the lwmqtt_t for the new connection
 // Called for incoming message
-// - Topic is NULL terminated string, even if zero length topic has been used
-// - Payload is also NULL terminated at len, for convenience
+// - Topic is NULL terminated string, even if zero length topic has been used, and can be overwritten in situ
+// - Payload is also NULL terminated at len, for convenience, and can be overwritten in situ
 // Called for connect
 // - Topic is NULL
 // - Payload is server/client name
 // Called for disconnect
 // - Topic is NULL
 // - Payload is NULL
-typedef void lwmqtt_callback_t(void *arg, const char *topic, unsigned short len, const unsigned char *payload);
+typedef void lwmqtt_callback_t(void *arg, char *topic, unsigned short len, unsigned char *payload);
 
 typedef struct lwmqtt_client_config_s lwmqtt_client_config_t;
 
