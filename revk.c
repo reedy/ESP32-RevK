@@ -569,7 +569,6 @@ static void mqtt_init(void)
       sprintf(gw, "%d.%d.%d.%d", info.gw.addr & 255, (info.gw.addr >> 8) & 255, (info.gw.addr >> 16) & 255, info.gw.addr >> 24);
       config.hostname = gw;     // safe on stack as lwmqtt_client copies it
       sntp_setservername(0, gw);
-
    } else
       sntp_setservername(0, ntphost);
    ESP_LOGI(TAG, "MQTT %s", config.hostname);

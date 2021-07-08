@@ -582,6 +582,7 @@ static void client_task(void *pvParameters)
       esp_tls_cfg_t cfg = {
          .cacert_buf = handle->ca_cert_buf,
          .cacert_bytes = handle->ca_cert_bytes,
+	 .common_name = handle->tlsname,
          .clientcert_buf = handle->our_cert_buf,
          .clientcert_bytes = handle->our_cert_bytes,
          .clientkey_buf = handle->our_key_buf,
