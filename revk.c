@@ -246,7 +246,7 @@ static void ap_task(void *pvParameters);
 static void mqtt_init(void);
 #endif
 
-static void revk_report_state(void)
+static void revk_report_state(int copies)
 {                               // Report state
    uint64_t t = esp_timer_get_time();
    jo_t j = jo_object_alloc();
@@ -274,7 +274,7 @@ static void revk_report_state(void)
       jo_int(j, "rssi", ap.rssi);
       jo_int(j, "chan", ap.primary);
    }
-   revk_state_copy(NULL, &j, 1);
+   revk_state_copy(NULL, &j, copies);
 }
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
@@ -537,7 +537,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          sub(prefixcommand);
          sub(prefixsetting);
 
-         revk_report_state();
+         revk_report_state(-client);
       }
 
       if (app_callback)
@@ -833,7 +833,7 @@ static void task(void *pvParameters)
             lastheap = heap;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
-            revk_report_state();
+            revk_report_state(0);
          }
       }
 #endif
@@ -1047,11 +1047,13 @@ void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int 
 {
 #ifdef	CONFIG_REVK_MQTT
    int from = 0,
-       to = 0;;
+       to = 0;
    if (copies > 0)
       to = copies;
    else
       from = to = -copies;
+   if (to >= MQTT_CLIENTS)
+      to = MQTT_CLIENTS - 1;
    for (int client = from; client <= to; client++)
       if (mqtt_client[client])
       {
@@ -1067,11 +1069,13 @@ void revk_mqtt_send_str_copy(const char *str, int retain, int copies)
    if (!str)
       return;
    int from = 0,
-       to = 0;;
+       to = 0;
    if (copies > 0)
       to = copies;
    else
       from = to = -copies;
+   if (to >= MQTT_CLIENTS)
+      to = MQTT_CLIENTS - 1;
    const char *e = str;
    while (*e && *e != ' ');
    const char *p = e;
@@ -2389,7 +2393,7 @@ const char *revk_command(const char *tag, jo_t j)
    /* My commands */
    if (!e && !strcmp(tag, "status"))
    {
-      revk_report_state();
+      revk_report_state(0);
       e = "";
    }
    if (!e && !strcmp(tag, "upgrade"))
@@ -2613,7 +2617,7 @@ void revk_mqtt_close(const char *reason)
          jo_bool(j, "up", 0);
          jo_string(j, "id", revk_id);
          jo_string(j, "reason", reason);
-         revk_state_copy(NULL, &j, 1);
+         revk_state_copy(NULL, &j, -client);
          lwmqtt_end(&mqtt_client[client]);
          ESP_LOGI(TAG, "MQTT%d Closed", client);
       }
