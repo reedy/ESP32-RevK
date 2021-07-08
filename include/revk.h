@@ -37,7 +37,7 @@
         // You will want to check prefix matches prefixcommand
         // Target is NULL for internal commands, else typically "*" or revk_id
         // Suffix can be NULL
-typedef const char *app_callback_t(int client,const char *prefix, const char *target, const char *suffix, jo_t);
+typedef const char *app_callback_t(int client, const char *prefix, const char *target, const char *suffix, jo_t);
 
 // Data
 extern const char *revk_app;    // App name
@@ -56,7 +56,7 @@ typedef struct {                // Dynamic binary data
    uint8_t data[];
 } revk_bindata_t;
 
-#define freez(x) do{if(x){free(x);x=NULL;}}while(0) // Just useful
+#define freez(x) do{if(x){free(x);x=NULL;}}while(0)     // Just useful
 
 // Calls
 void revk_init(app_callback_t * app_callback);
@@ -92,8 +92,8 @@ const char *revk_hostname(void);
 TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);
 
 // reporting via main MQTT, copy option is how many additional MQTT to copy, normally 0 or 1. Setting -N means send only to specific additional MQTT
-void revk_mqtt_send_raw(const char *topic,int retain,const char *payload,int copies);
-void revk_mqtt_send_str_copy(const char *str,int retain,int copies);
+void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int copies);
+void revk_mqtt_send_str_copy(const char *str, int retain, int copies);
 #define	revk_mqtt_send_str(s) revk_mqtt_send_str_copy(s,0,0);
 void revk_state_copy(const char *tag, jo_t *, int copy);
 #define revk_state(t,j) revk_state_copy(t,j,0)

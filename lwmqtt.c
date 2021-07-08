@@ -102,7 +102,7 @@ void handle_close(lwmqtt_t handle)
    int sock = handle->sock;
    handle->tls = NULL;
    handle->sock = -1;
-   if (handle->tls)
+   if (tls)
    {                            // TLS
       if (handle->server)
       {
@@ -164,6 +164,7 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    if (!handle)
       return handle_free(handle);
    memset(handle, 0, sizeof(*handle));
+   handle->sock = -1;
    handle->callback = config->callback;
    handle->arg = config->arg;
    handle->keepalive = config->keepalive ? : 60;
@@ -218,9 +219,11 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    *p++ = 4;                    // protocol level
    *p = 0x02;                   // connect flags (clean)
    if (config->username)
+   {
       *p |= 0x80;               // Username
-   if (config->password)
-      *p |= 0x40;               // Password
+      if (config->password)
+         *p |= 0x40;            // Password
+   }
    if (config->topic)
    {
       *p |= 0x04;               // Will
@@ -237,9 +240,11 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
       str(config->plen, (void *) config->payload);      // Payload
    }
    if (config->username)
+   {
       str(-1, config->username);
-   if (config->password)
-      str(-1, config->password);
+      if (config->password)
+         str(-1, config->password);
+   }
    assert((p - handle->connect) == mlen);
    handle->connectlen = mlen;
    handle->mutex = xSemaphoreCreateBinary();
@@ -277,9 +282,15 @@ void lwmqtt_end(lwmqtt_t * handle)
 {
    if (!handle || !*handle)
       return;
-   (*handle)->running = 0;
+   if ((*handle)->running)
+   {
+      ESP_LOGI(TAG, "Ending");
+      (*handle)->running = 0;
+   }
    *handle = NULL;
 }
+
+// TODO some of these should be LOGD when all working
 
 // Subscribe (return is non null error message if failed)
 const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscribe)
@@ -461,7 +472,10 @@ static void lwmqtt_loop(lwmqtt_t handle)
             struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
             int sel = select(handle->sock + 1, &r, NULL, NULL, &to);
             if (sel < 0)
+            {
+               ESP_LOGI(TAG, "Select failed");
                break;
+            }
             if (!sel)
                continue;        // Nothing waiting
          }
@@ -476,7 +490,10 @@ static void lwmqtt_loop(lwmqtt_t handle)
          }
          int got = hread(handle, buf + pos, need - pos);
          if (got <= 0)
+         {
+            ESP_LOGI(TAG, "Connection closed");
             break;              // Error or close
+         }
          pos += got;
          continue;
       }
@@ -572,7 +589,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
 #ifdef CONFIG_REVK_MQTT_SERVER
          if (!handle->server)
             break;
-	 // TODO
+         // TODO
 #endif
          break;
       case 9:                  // suback - no action
@@ -593,6 +610,14 @@ static void lwmqtt_loop(lwmqtt_t handle)
       pos = 0;
    }
    freez(buf);
+   if (!handle->server && !handle->running)
+   {                            // Close connection - as was clean
+      ESP_LOGI(TAG, "Close cleanly");
+      uint8_t b[] = { 0xE0, 0x00 };     // Disconnect cleanly
+      xSemaphoreTake(handle->mutex, portMAX_DELAY);
+      hwrite(handle, b, sizeof(b));
+      xSemaphoreGive(handle->mutex);
+   }
    if (handle->callback)
       handle->callback(handle->arg, NULL, 0, NULL);
 }
@@ -609,25 +634,59 @@ static void client_task(void *pvParameters)
    while (handle->running)
    {                            // Loop connecting and trying repeatedly
       // Connect
-      ESP_LOGD(TAG, "Connecting %s:%d", handle->hostname, handle->port);
+      ESP_LOGI(TAG, "Connecting %s:%d", handle->hostname, handle->port);
       esp_tls_t *tls = NULL;
       // Can connect using TLS or non TLS with just sock set instead
-      // TODO non TLS connect if non TLS...
-      esp_tls_cfg_t cfg = {
-         .cacert_buf = handle->ca_cert_buf,
-         .cacert_bytes = handle->ca_cert_bytes,
-         .common_name = handle->tlsname,
-         .clientcert_buf = handle->our_cert_buf,
-         .clientcert_bytes = handle->our_cert_bytes,
-         .clientkey_buf = handle->our_key_buf,
-         .clientkey_bytes = handle->our_key_bytes,
-         .crt_bundle_attach = handle->crt_bundle_attach,
-         .is_plain_tcp = (handle->ca_cert_bytes || handle->crt_bundle_attach) ? 0 : 1,
-      };
-      tls = esp_tls_init();
-      if (!tls || esp_tls_conn_new_sync(handle->hostname, strlen(handle->hostname), handle->port, &cfg, tls) != 1)
-         ESP_LOGI(TAG, "Cannot connect %s:%d", handle->hostname, handle->port);
-      else
+      if (handle->ca_cert_bytes || handle->crt_bundle_attach)
+      {
+         esp_tls_cfg_t cfg = {
+            .cacert_buf = handle->ca_cert_buf,
+            .cacert_bytes = handle->ca_cert_bytes,
+            .common_name = handle->tlsname,
+            .clientcert_buf = handle->our_cert_buf,
+            .clientcert_bytes = handle->our_cert_bytes,
+            .clientkey_buf = handle->our_key_buf,
+            .clientkey_bytes = handle->our_key_bytes,
+            .crt_bundle_attach = handle->crt_bundle_attach,
+            .is_plain_tcp = (handle->ca_cert_bytes || handle->crt_bundle_attach) ? 0 : 1,
+         };
+         tls = esp_tls_init();
+         if (esp_tls_conn_new_sync(handle->hostname, strlen(handle->hostname), handle->port, &cfg, tls) != 1)
+         {
+            handle->running = 0;
+            ESP_LOGI(TAG, "Could not TLS connect to %s:%d", handle->hostname, handle->port);
+         }
+
+      } else
+      {                         // Non TLS
+       struct addrinfo base = { ai_family: AF_UNSPEC, ai_socktype:SOCK_STREAM };
+         struct addrinfo *a = 0,
+             *p;
+         char sport[6];
+         snprintf(sport, sizeof(sport), "%d", handle->port);
+         if (!getaddrinfo(handle->hostname, sport, &base, &a) && a)
+            for (p = a; p; p = p->ai_next)
+            {
+               handle->sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+               if (handle->sock < 0)
+                  continue;
+               if (connect(handle->sock, p->ai_addr, p->ai_addrlen))
+               {
+                  close(handle->sock);
+                  handle->sock = -1;
+                  continue;
+               }
+               break;
+            }
+         if (a)
+            freeaddrinfo(a);
+         if (handle->sock < 0)
+         {
+            handle->running = 0;
+            ESP_LOGI(TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
+         }
+      }
+      if (handle->running)
       {
          if (tls)
          {
@@ -636,19 +695,6 @@ static void client_task(void *pvParameters)
          }
          if (hwrite(handle, handle->connect, handle->connectlen) == handle->connectlen)
             lwmqtt_loop(handle);
-         // Close connection
-         xSemaphoreTake(handle->mutex, portMAX_DELAY);
-         if (!handle->running)
-         {                      // Closed
-            ESP_LOGD(TAG, "Close cleanly");
-            uint8_t b[] = { 0xE0, 0x00 };       // Disconnect cleanly
-            xSemaphoreTake(handle->mutex, portMAX_DELAY);
-            hwrite(handle, b, sizeof(b));
-            xSemaphoreGive(handle->mutex);
-            if (handle->callback)
-               handle->callback(handle->arg, NULL, 0, NULL);
-         }
-         xSemaphoreGive(handle->mutex);
       }
       handle_close(handle);
       if (handle->backoff < 60)
@@ -729,8 +775,8 @@ static void listen_task(void *pvParameters)
                      // TODO
                   }
 #else
-		  ESP_LOGE(TAG,"Not built for TLS server");
-		  h->running=0;
+                  ESP_LOGE(TAG, "Not built for TLS server");
+                  h->running = 0;
 #endif
                }
                if (h->running)
