@@ -95,6 +95,24 @@ static void *handle_free(lwmqtt_t handle)
    return NULL;
 }
 
+void handle_close(lwmqtt_t handle)
+{
+   esp_tls_t *tls = handle->tls;
+   int sock = handle->sock;
+   handle->tls = NULL;
+   handle->sock = -1;
+   if (handle->tls)
+   {                            // TLS
+      if (handle->server)
+      {
+         esp_tls_server_session_delete(tls);
+         close(sock);
+      } else
+         esp_tls_conn_destroy(tls);
+   } else if (sock >= 0)
+      close(sock);
+}
+
 static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void *ca_cert_buf, uint8_t our_cert_ref, int our_cert_bytes, void *our_cert_buf, uint8_t our_key_ref, int our_key_bytes, void *our_key_buf)
 {
    int fail = 0;
@@ -638,17 +656,7 @@ static void client_task(void *pvParameters)
          }
          xSemaphoreGive(handle->mutex);
       }
-      if (tls)
-      {                         // TLS
-         handle->sock = -1;
-         handle->tls = NULL;
-         esp_tls_conn_destroy(tls);
-      } else
-      {                         // Non TLS
-         int sock = handle->sock;
-         handle->sock = -1;
-         close(sock);
-      }
+      handle_close(handle);
       if (handle->backoff < 60)
          handle->backoff *= 2;
       ESP_LOGD(TAG, "Waiting %d", handle->backoff);
@@ -663,21 +671,7 @@ static void server_task(void *pvParameters)
 {
    lwmqtt_t handle = pvParameters;
    lwmqtt_loop(handle);
-   if (handle->tls)
-   {                            // TLS
-      handle->sock = -1;
-      esp_tls_t *tls = handle->tls;
-      handle->tls = NULL;
-      if (handle->server)
-         esp_tls_server_session_delete(tls);
-      else
-         esp_tls_conn_destroy(tls);
-   } else
-   {                            // Non TLS
-      int sock = handle->sock;
-      handle->sock = -1;
-      close(sock);
-   }
+   handle_close(handle);
    handle_free(handle);
    vTaskDelete(NULL);
 }
@@ -749,8 +743,7 @@ static void listen_task(void *pvParameters)
                   ESP_LOGI(TAG, "MQTT aborted");
                   if (h->tls)
                      esp_tls_server_session_delete(h->tls);
-                  else
-                     close(h->sock);
+                  close(h->sock);
                }
 
             }
