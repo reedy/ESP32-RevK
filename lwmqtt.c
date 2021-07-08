@@ -72,7 +72,7 @@ struct lwmqtt_s {               // mallocd copies
 #define	hwrite(handle,buf,len)	(handle->tls?esp_tls_conn_write(handle->tls,buf,len):write(handle->sock,buf,len))
 #define	hread(handle,buf,len)	(handle->tls?esp_tls_conn_read(handle->tls,buf,len):read(handle->sock,buf,len))
 
-#define freez(x) do{if(x)free(x);}while(0)
+#define freez(x) do{if(x){free(x);x=NULL;}}while(0)
 static void *handle_free(lwmqtt_t handle)
 {
    if (handle)

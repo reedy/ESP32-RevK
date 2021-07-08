@@ -1543,12 +1543,12 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          if (s->flags & SETTING_HEX)
          {
             l = jo_strncpy16(j, NULL, 0);
-            if (l >= 0)
+            if (l > 0)
                jo_strncpy16(j, temp = malloc(l), l);
          } else
          {
             l = jo_strncpy64(j, NULL, 0);
-            if (l >= 0)
+            if (l > 0)
                jo_strncpy64(j, temp = malloc(l), l);
          }
          value = temp;          // temp gets freed at end
