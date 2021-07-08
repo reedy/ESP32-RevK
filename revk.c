@@ -515,7 +515,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       ESP_LOGI(TAG, "MQTT%d connected %s", client, (char *) payload);
       xEventGroupSetBits(revk_group, (GROUP_MQTT << client));
       if (!client)
-      {                         // main MQTT
+      {                         // main MQTT - subscribes
          void sub(const char *prefix) {
             char *topic = NULL;
             if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
@@ -536,9 +536,8 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          sub(prefixcommand);
          sub(prefixsetting);
-
-         revk_report_state(-client);
       }
+      revk_report_state(-client);
 
       if (app_callback)
       {
