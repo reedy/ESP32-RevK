@@ -787,7 +787,7 @@ static void task(void *pvParameters)
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info(&ap);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap > heap + 1000)
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap / 10240 != heap / 10240)
          {
             lastheap = heap;
             lastch = ap.primary;
