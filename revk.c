@@ -213,6 +213,7 @@ const static int GROUP_APCONFIG_NONE = BIT5;    // No stations connected
 #endif
 #ifdef	CONFIG_REVK_MQTT
 const static int GROUP_MQTT = BIT6 /*7... */ ;  // We are MQTT connected - and MORE BITS (MQTT_CLIENTS)
+const static int GROUP_MQTT_DOWN = (GROUP_MQTT << MQTT_CLIENTS);        /*... */
 #endif
 static TaskHandle_t ota_task_id = NULL;
 #ifdef	CONFIG_REVK_APCONFIG
@@ -514,6 +515,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
    {
       ESP_LOGI(TAG, "MQTT%d connected %s", client, (char *) payload);
       xEventGroupSetBits(revk_group, (GROUP_MQTT << client));
+      xEventGroupClearBits(revk_group, (GROUP_MQTT_DOWN << client));
       if (!client)
       {                         // main MQTT - subscribes
          void sub(const char *prefix) {
@@ -550,6 +552,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
    {
       if (xEventGroupGetBits(revk_group) & (GROUP_MQTT << client))
       {
+         xEventGroupSetBits(revk_group, (GROUP_MQTT_DOWN << client));
          xEventGroupClearBits(revk_group, (GROUP_MQTT << client));
          ESP_LOGI(TAG, "MQTT%d disconnected (mem:%d)", client, esp_get_free_heap_size());
          if (app_callback)
@@ -573,6 +576,8 @@ static void mqtt_init(void)
        )                        /* No MQTT */
       return;
    for (int client = 0; client < MQTT_CLIENTS; client++)
+   {
+      xEventGroupSetBits(revk_group, (GROUP_MQTT_DOWN << client));
       if (*mqtthost[client])
       {
 #ifdef	CONFIG_REVK_MQTT_SERVER
@@ -633,6 +638,7 @@ static void mqtt_init(void)
          mqtt_client[client] = lwmqtt_client(&config);
          freez(topic);
       }
+   }
 }
 #endif
 
@@ -2619,6 +2625,7 @@ void revk_mqtt_close(const char *reason)
          revk_state_copy(NULL, &j, -client);
          lwmqtt_end(&mqtt_client[client]);
          ESP_LOGI(TAG, "MQTT%d Closed", client);
+         xEventGroupWaitBits(revk_group, GROUP_MQTT_DOWN << client, false, true, 2 * 1000 / portTICK_PERIOD_MS);
       }
 }
 #endif

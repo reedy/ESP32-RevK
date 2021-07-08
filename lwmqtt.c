@@ -474,7 +474,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
             fd_set r;
             FD_ZERO(&r);
             FD_SET(handle->sock, &r);
-            struct timeval to = { (now < handle->ka) ? (handle->ka - now) : 1, 0 };
+            struct timeval to = { 1, 0 };       // Keeps us checking running but is light load at once a second
             int sel = select(handle->sock + 1, &r, NULL, NULL, &to);
             if (sel < 0)
             {
@@ -482,11 +482,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
                break;
             }
             if (!sel)
-            {
-               if (handle->server)
-                  break;        // Expected something within KA
                continue;        // Nothing waiting
-            }
          }
          if (need > buflen)
          {                      // Make sure we have enough space
@@ -627,6 +623,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       hwrite(handle, b, sizeof(b));
       xSemaphoreGive(handle->mutex);
    }
+   handle_close(handle);
    if (handle->callback)
       handle->callback(handle->arg, NULL, 0, NULL);
 }
@@ -702,10 +699,10 @@ static void client_task(void *pvParameters)
             handle->tls = tls;
             esp_tls_get_conn_sockfd(handle->tls, &handle->sock);
          }
-         if (hwrite(handle, handle->connect, handle->connectlen) == handle->connectlen)
-            lwmqtt_loop(handle);
+         if (hwrite(handle, handle->connect, handle->connectlen) != handle->connectlen)
+            handle->running = 0;
       }
-      handle_close(handle);
+      lwmqtt_loop(handle);
       if (handle->backoff < 60)
          handle->backoff *= 2;
       ESP_LOGD(TAG, "Waiting %d", handle->backoff);
@@ -720,7 +717,6 @@ static void server_task(void *pvParameters)
 {
    lwmqtt_t handle = pvParameters;
    lwmqtt_loop(handle);
-   handle_close(handle);
    handle_free(handle);
    vTaskDelete(NULL);
 }
