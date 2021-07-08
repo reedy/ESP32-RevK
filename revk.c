@@ -33,8 +33,11 @@ static const char
 #warning CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER recommended
 #endif
 
-#ifndef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
-#warning CONFIG_MBEDTLS_DYNAMIC_BUFFER recommended
+//#ifndef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
+//#warning CONFIG_MBEDTLS_DYNAMIC_BUFFER recommended
+//#endif
+#ifdef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
+#warning CONFIG_MBEDTLS_DYNAMIC_BUFFER is buggy, sadly
 #endif
 
 #if CONFIG_FREERTOS_HZ != 1000
