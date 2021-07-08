@@ -38,6 +38,11 @@ static const char
 
 #include "lwmqtt.h"
 
+static uint32_t uptime(void)
+{
+   return esp_timer_get_time() / 1000000LL;
+}
+
 struct lwmqtt_s {               // mallocd copies
    lwmqtt_callback_t *callback;
    void *arg;
@@ -51,7 +56,7 @@ struct lwmqtt_s {               // mallocd copies
    int sock;                    // Connection socket
    unsigned short keepalive;
    unsigned short seq;
-   time_t ka;                   // Keep alive next ping
+   uint32_t ka;                 // Keep alive next ping
    uint8_t backoff;             // Reconnect backoff
    uint8_t running:1;           // Should still run
    uint8_t server:1;            // This is a server
@@ -348,7 +353,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
                   if (hwrite(handle, buf, mlen) < mlen)
                      ret = "Failed to send";
                   else
-                     handle->ka = time(0) + handle->keepalive;
+                     handle->ka = uptime() + handle->keepalive;
                }
                xSemaphoreGive(handle->mutex);
             }
@@ -414,7 +419,7 @@ const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int p
                   if (hwrite(handle, buf, mlen) < mlen)
                      ret = "Failed to send";
                   else if (!handle->server)
-                     handle->ka = time(0) + handle->keepalive;  // client KA refresh
+                     handle->ka = uptime() + handle->keepalive; // client KA refresh
                }
                xSemaphoreGive(handle->mutex);
             }
@@ -433,7 +438,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
    unsigned char *buf = 0;
    int buflen = 0;
    int pos = 0;
-   handle->ka = time(0) + (handle->server ? 5 : handle->keepalive);
+   handle->ka = uptime() + (handle->server ? 5 : handle->keepalive);    // Server does not know KA initially
    while (handle->running)
    {                            // Loop handling messages received, and timeouts
       int need = 0;
@@ -452,7 +457,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       }
       if (pos < need)
       {
-         time_t now = time(0);
+         uint32_t now = uptime();
          if (now >= handle->ka)
          {
             if (handle->server)
@@ -461,7 +466,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
             uint8_t b[] = { 0xC0, 0x00 };       // Ping
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
             if (hwrite(handle, b, sizeof(b)) == sizeof(b))
-               handle->ka = time(0) + handle->keepalive;        // Client KA refresh
+               handle->ka = uptime() + handle->keepalive;       // Client KA refresh
             xSemaphoreGive(handle->mutex);
          }
          if (!handle->tls || esp_tls_get_bytes_avail(handle->tls) <= 0)
@@ -477,7 +482,11 @@ static void lwmqtt_loop(lwmqtt_t handle)
                break;
             }
             if (!sel)
+            {
+               if (handle->server)
+                  break;        // Expected something within KA
                continue;        // Nothing waiting
+            }
          }
          if (need > buflen)
          {                      // Make sure we have enough space
@@ -498,7 +507,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
          continue;
       }
       if (handle->server)
-         handle->ka = time(0) + handle->keepalive * 3 / 2;      // timeout for client resent on message received
+         handle->ka = uptime() + handle->keepalive * 3 / 2;     // timeout for client resent on message received
       unsigned char *p = buf + 1,
           *e = buf + pos;
       while (p < e && (*p & 0x80))
@@ -519,7 +528,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
          uint8_t b[4] = { 0x20 };       // conn ack
          xSemaphoreTake(handle->mutex, portMAX_DELAY);
          if (hwrite(handle, b, sizeof(b)) == sizeof(b) && !handle->server)
-            handle->ka = time(0) + handle->keepalive;   // KA client refresh
+            handle->ka = uptime() + handle->keepalive;  // KA client refresh
          xSemaphoreGive(handle->mutex);
 #endif
          break;
@@ -553,7 +562,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
                uint8_t b[4] = { (*buf & 0x4) ? 0x50 : 0x40, 2, id >> 8, id };
                xSemaphoreTake(handle->mutex, portMAX_DELAY);
                if (hwrite(handle, b, sizeof(b)) == sizeof(b) && !handle->server)
-                  handle->ka = time(0) + handle->keepalive;     // KA client refresh
+                  handle->ka = uptime() + handle->keepalive;    // KA client refresh
                xSemaphoreGive(handle->mutex);
             }
             int plen = e - p;
@@ -579,7 +588,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
             uint8_t b[4] = { 0x60, p[0], p[1] };
             xSemaphoreTake(handle->mutex, portMAX_DELAY);
             if (hwrite(handle, b, sizeof(b)) == sizeof(b) && !handle->server)
-               handle->ka = time(0) + handle->keepalive;        // KA client refresh
+               handle->ka = uptime() + handle->keepalive;       // KA client refresh
             xSemaphoreGive(handle->mutex);
          }
          break;
