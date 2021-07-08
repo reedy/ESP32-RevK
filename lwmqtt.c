@@ -221,6 +221,7 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
       str(-1, config->username);
    if (config->password)
       str(-1, config->password);
+   assert((p - handle->connect) == mlen);
    handle->connectlen = mlen;
    handle->mutex = xSemaphoreCreateBinary();
    xSemaphoreGive(handle->mutex);
@@ -313,6 +314,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
                   p += tlen;
                   if (!unsubscribe)
                      *p++ = 0x00;       // QoS requested
+                  assert((p - buf) == mlen);
                   if (hwrite(handle, buf, mlen) < mlen)
                      ret = "Failed to send";
                   else
@@ -378,6 +380,7 @@ const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int p
                   if (plen && payload)
                      memcpy(p, payload, plen);
                   p += plen;
+                  assert((p - buf) == mlen);
                   if (hwrite(handle, buf, mlen) < mlen)
                      ret = "Failed to send";
                   else if (!handle->server)
