@@ -102,9 +102,9 @@ static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void
    {
       h->ca_cert_bytes = ca_cert_bytes;
       if ((h->ca_cert_ref = ca_cert_ref))
-         h->ca_cert_buf = ca_cert_buf; // No malloc as reference will stay valid
+         h->ca_cert_buf = ca_cert_buf;  // No malloc as reference will stay valid
       else if (!(h->ca_cert_buf = malloc(ca_cert_bytes)))
-         fail++; // malloc failed
+         fail++;                // malloc failed
       else
          memcpy(h->ca_cert_buf, ca_cert_buf, ca_cert_bytes);
    }
@@ -112,9 +112,9 @@ static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void
    {
       h->our_cert_bytes = our_cert_bytes;
       if ((h->our_cert_ref = our_cert_ref))
-         h->our_cert_buf = our_cert_buf; // No malloc as reference will stay valid
+         h->our_cert_buf = our_cert_buf;        // No malloc as reference will stay valid
       else if (!(h->our_cert_buf = malloc(our_cert_bytes)))
-         fail++; // malloc failed
+         fail++;                // malloc failed
       else
          memcpy(h->our_cert_buf, our_cert_buf, our_cert_bytes);
    }
@@ -122,9 +122,9 @@ static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void
    {
       h->our_key_bytes = our_key_bytes;
       if ((h->our_key_ref = our_cert_ref))
-         h->our_key_buf = our_key_buf; // No malloc as reference will stay valid
+         h->our_key_buf = our_key_buf;  // No malloc as reference will stay valid
       else if (!(h->our_key_buf = malloc(our_key_bytes)))
-         fail++; // malloc failed
+         fail++;                // malloc failed
       else
          memcpy(h->our_key_buf, our_key_buf, our_key_bytes);
    }
@@ -322,7 +322,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
                }
                xSemaphoreGive(handle->mutex);
             }
-            free(buf);
+            freez(buf);
          }
       }
    }
@@ -388,7 +388,7 @@ const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int p
                }
                xSemaphoreGive(handle->mutex);
             }
-            free(buf);
+            freez(buf);
          }
       }
    }
@@ -580,8 +580,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       }
       pos = 0;
    }
-   if (buf)
-      free(buf);
+   freez(buf);
    if (handle->callback)
       handle->callback(handle->arg, NULL, 0, NULL);
 }
@@ -722,7 +721,7 @@ static void listen_task(void *pvParameters)
                h->running = 1;
                if (handle->ca_cert_bytes)
                {                // TLS
-                  esp_tls_cfg_server_t config = {
+                  esp_tls_cfg_server_t cfg = {
                      .cacert_buf = handle->ca_cert_buf,
                      .cacert_bytes = handle->ca_cert_bytes,
                      .servercert_buf = handle->our_cert_buf,
@@ -732,7 +731,7 @@ static void listen_task(void *pvParameters)
                   };
                   h->tls = esp_tls_init();
                   esp_err_t e = 0;
-                  if (!h->tls || (e = esp_tls_server_session_create(&config, s, h->tls)))
+                  if (!h->tls || (e = esp_tls_server_session_create(&cfg, s, h->tls)))
                   {
                      ESP_LOGI(TAG, "Server failed %s", h->tls ? esp_err_to_name(e) : "No TLS");
                      h->running = 0;

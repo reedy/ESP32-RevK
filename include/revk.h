@@ -56,6 +56,8 @@ typedef struct {                // Dynamic binary data
    uint8_t data[];
 } revk_bindata_t;
 
+#define freez(x) do{if(x){free(x);x=NULL;}}while(0) // Just useful
+
 // Calls
 void revk_init(app_callback_t * app_callback);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes

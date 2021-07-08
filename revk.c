@@ -285,7 +285,7 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
       info->gw = info->ip;
    else
       REVK_ERR_CHECK(esp_netif_str_to_ip4(gw, &info->gw));
-   free(i);
+   freez(i);
 }
 #endif
 
@@ -347,7 +347,7 @@ static void wifi_init(void)
          ESP_LOGE(TAG, "Bad DNS %s", i);
       else
          ESP_LOGI(TAG, "Set DNS IP %s", i);
-      free(i);
+      freez(i);
    }
    if (*wifiip)
    {
@@ -505,17 +505,18 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
             return;
          lwmqtt_subscribe(mqtt_client, topic);
-         free(topic);
+         freez(topic);
          if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
             return;
          lwmqtt_subscribe(mqtt_client, topic);
-         if (*hostname)
+         freez(topic);
+         if (*hostname && strcmp(hostname, revk_id))
          {
             if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
                return;
             lwmqtt_subscribe(mqtt_client, topic);
+            freez(topic);
          }
-         free(topic);
       }
       sub(prefixcommand);
       sub(prefixsetting);
@@ -606,7 +607,7 @@ static void mqtt_init(void)
       config.password = mqttpass;
    config.port = mqttport;
    mqtt_client = lwmqtt_client(&config);
-   free(topic);
+   freez(topic);
 }
 #endif
 
@@ -862,7 +863,7 @@ void revk_init(app_callback_t * app_callback_cb)
       REVK_ERR_CHECK(spi_flash_write(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
       esp_restart();
    }
-   free(mem);
+   freez(mem);
 #endif
    nvs_flash_init();
    nvs_flash_init_partition(TAG);
@@ -989,7 +990,7 @@ void revk_init(app_callback_t * app_callback_cb)
       asprintf(&id, "%s-%06llX", appname, revk_binid & 0xFFFFFF);
    esp_netif_set_hostname(sta_netif, id);
    esp_netif_create_ip6_linklocal(sta_netif);
-   free(id);
+   freez(id);
    revk_task(TAG, task, NULL);
 }
 
@@ -1007,17 +1008,17 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
 void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t * jp, lwmqtt_t copy)
 {
 #ifdef	CONFIG_REVK_MQTT
-   if (!jp)
-      return;
-   int pos;
-   const char *err = jo_error(*jp, &pos);
-   char *res = jo_finisha(jp);
-   if (!res)
+   char *res = NULL;
+   if (jp)
    {
-      if (err)
+      int pos = 0;
+      const char *err = jo_error(*jp, &pos);
+      res = jo_finisha(jp);
+      if (!res && err)
          ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", tag ? : "", err, pos);
-      res = strdup("");
    }
+   if (!res)
+      res = strdup("");         // Messy
    if (mqtt_client)
    {
       char *topic = NULL;
@@ -1027,7 +1028,7 @@ void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t *
          topic = NULL;
       if (!topic)
       {
-         free(res);
+         freez(res);
          return;
       }
       ESP_LOGD(TAG, "MQTT publish %s (%s)", topic ? : "-", res);
@@ -1036,9 +1037,9 @@ void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t *
       if (copy)
          lwmqtt_send_full(copy, -1, topic, -1, (void *) res, retain);
       if (topic != tag)
-         free(topic);
+         freez(topic);
    }
-   free(res);
+   freez(res);
 #endif
 }
 
@@ -1361,7 +1362,7 @@ static void ota_task(void *pvParameters)
       esp_err_t err = REVK_ERR_CHECK(esp_http_client_perform(client));
       int status = esp_http_client_get_status_code(client);
       esp_http_client_cleanup(client);
-      free(url);
+      freez(url);
       if (!err && status / 100 != 2)
       {
          jo_t j = jo_object_alloc();
@@ -1753,8 +1754,8 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          unsigned char *d = malloc(l);
          if (nvs_get(s, tag, d, l) != o)
          {
-            free(n);
-            free(d);
+            freez(n);
+            freez(d);
             return "Bad setting get";
          }
          if (memcmp(n, d, o))
@@ -1764,7 +1765,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
 #endif
             o = -1;             /* Different content */
          }
-         free(d);
+         freez(d);
       }
       if (o < 0)
       {                         /* Flash changed */
@@ -1781,7 +1782,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
          {
             if (nvs_set(s, tag, n) != ERR_OK && (nvs_erase_key(s->nvs, tag) != ERR_OK || nvs_set(s, tag, n) != ERR_OK))
             {
-               free(n);
+               freez(n);
                return "Unable to store";
             }
 #if defined(SETTING_DEBUG) || defined(SETTING_CHANGED)
@@ -1802,10 +1803,9 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
             if (!o || ((flags & SETTING_BINDATA) ? memcmp(o, n, len) : strcmp(o, (char *) n)))
             {
                *((void **) data) = n;
-               if (o)
-                  free(o);
+               freez(o);
             } else
-               free(n);         /* No change */
+               freez(n);        /* No change */
          } else
          {                      /* Static (try and make update atomic) */
             if (s->size == 1)
@@ -1818,15 +1818,14 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
                *(uint64_t *) data = *(uint64_t *) n;
             else
                memcpy(data, n, s->size);
-            free(n);
+            freez(n);
          }
       } else if (o < 0)
          revk_restart("Settings changed", 5);
       return NULL;
    }
    const char *fail = parse();
-   if (temp)
-      free(temp);
+   freez(temp);
    return fail;                 /* OK */
 }
 
@@ -2096,7 +2095,7 @@ static const char *revk_setting_dump(void)
                         jo_string(j, "reason", err);
                      revk_error(TAG, &j);
                   }
-                  free(tag);
+                  freez(tag);
                }
             }
          }
@@ -2219,8 +2218,7 @@ const char *revk_setting(jo_t j)
                   er = revk_setting_internal(s, 0, NULL, index, 0);     // Factory
                else
                   er = "Bad data type";
-               if (val)
-                  free(val);
+               freez(val);
             }
             void zap(setting_t * s) {   // Erasing
                if (s->dup)
@@ -2257,7 +2255,7 @@ const char *revk_setting(jo_t j)
                            q->used = 1;
                            store(q);
                         }
-                        free(tag2);
+                        freez(tag2);
                      }
                   }
                   t = jo_skip(j);
@@ -2303,7 +2301,7 @@ const char *revk_setting(jo_t j)
             } else
                store(s);
          }
-         free(tag);
+         freez(tag);
          t = jo_next(j);
       }
    }
