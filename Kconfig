@@ -200,6 +200,13 @@ menu "RevK"
 	help
 		This defines the factory reset MQTT packet size
 
+	config REVK_MQTT_SERVER
+	bool "MQTT server"
+	default n
+	depends on REVK_MQTT
+	help
+		Build with LWMQTT server module
+
 	config REVK_OTAHOST
 	string "Default OTA host"
 	default "ota.iot"

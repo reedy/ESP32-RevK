@@ -56,7 +56,7 @@ struct lwmqtt_client_config_s {
    uint8_t client_key_ref:1;    // The _buf above is fixed and so we do not need to make a copy
 };
 
-#ifdef	CONFIG_ESP_TLS_SERVER
+#ifdef	CONFIG_REVK_MQTT_SERVER
 typedef struct lwmqtt_server_config_s lwmqtt_server_config_t;
 
 // Config for connection
@@ -82,7 +82,7 @@ typedef struct lwmqtt_s *lwmqtt_t;
 // Create a client connection (NULL if failed)
 lwmqtt_t lwmqtt_client(lwmqtt_client_config_t *);
 
-#ifdef	CONFIG_ESP_TLS_SERVER
+#ifdef	CONFIG_REVK_MQTT_SERVER
 // Start a server (the return value is only usable in lwmqtt_end)
 lwmqtt_t lwmqtt_server(lwmqtt_server_config_t *);
 #endif

@@ -6,6 +6,7 @@
 static const char
     __attribute__((unused)) * TAG = "LWMQTT";
 
+#include "config.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -150,7 +151,7 @@ static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void
 }
 
 static void client_task(void *pvParameters);
-#ifdef  CONFIG_ESP_TLS_SERVER
+#ifdef  CONFIG_REVK_MQTT_SERVER
 static void listen_task(void *pvParameters);
 #endif
 
@@ -249,7 +250,7 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    return handle;
 }
 
-#ifdef	CONFIG_ESP_TLS_SERVER
+#ifdef	CONFIG_REVK_MQTT_SERVER
 // Start a server
 lwmqtt_t lwmqtt_server(lwmqtt_server_config_t * config)
 {
@@ -491,6 +492,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       switch (*buf >> 4)
       {
       case 1:
+#ifdef CONFIG_REVK_MQTT_SERVER
          if (!handle->server)
             break;
          handle->connected = 1;
@@ -502,6 +504,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
          if (hwrite(handle, b, sizeof(b)) == sizeof(b) && !handle->server)
             handle->ka = time(0) + handle->keepalive;   // KA client refresh
          xSemaphoreGive(handle->mutex);
+#endif
          break;
       case 2:                  // conack
          if (handle->server)
@@ -550,11 +553,9 @@ static void lwmqtt_loop(lwmqtt_t handle)
             }
          }
          break;
-      case 4:                  // puback - not expected
-         if (!handle->server)
-            break;
+      case 4:                  // puback - no action as we don't use non QoS 0
          break;
-      case 5:                  // pubrec - not expected
+      case 5:                  // pubrec - not expected as we don't use non QoS 0
          if (handle->server)
             break;
          {
@@ -565,33 +566,26 @@ static void lwmqtt_loop(lwmqtt_t handle)
             xSemaphoreGive(handle->mutex);
          }
          break;
-      case 6:                  // pubcomp - not expected
-         if (!handle->server)
-            break;
+      case 6:                  // pubcomp - no action as we don't use non QoS 0
          break;
       case 8:                  // sub
+#ifdef CONFIG_REVK_MQTT_SERVER
          if (!handle->server)
             break;
+	 // TODO
+#endif
          break;
-      case 9:                  // suback - ok
-         if (handle->server)
-            break;
+      case 9:                  // suback - no action
          break;
-      case 10:                 // unsub
-         if (!handle->server)
-            break;
+      case 10:                 // unsub - no action
          break;
       case 11:                 // unsuback - ok
          if (handle->server)
             break;
          break;
       case 12:                 // ping (no action as resets ka anyway)
-         if (handle->server)
-            break;
          break;
-      case 13:                 // pingresp - ok
-         if (handle->server)
-            break;
+      case 13:                 // pingresp - no action - though we could use lack of reply to indicate broken connection I guess
          break;
       default:
          ESP_LOGI(TAG, "Unknown MQTT %02X", *buf);
@@ -666,7 +660,7 @@ static void client_task(void *pvParameters)
    vTaskDelete(NULL);
 }
 
-#ifdef	CONFIG_ESP_TLS_SERVER
+#ifdef	CONFIG_REVK_MQTT_SERVER
 static void server_task(void *pvParameters)
 {
    lwmqtt_t handle = pvParameters;
@@ -715,6 +709,7 @@ static void listen_task(void *pvParameters)
                h->running = 1;
                if (handle->ca_cert_bytes)
                {                // TLS
+#ifdef CONFIG_ESP_TLS_SERVER
                   esp_tls_cfg_server_t cfg = {
                      .cacert_buf = handle->ca_cert_buf,
                      .cacert_bytes = handle->ca_cert_bytes,
@@ -733,6 +728,10 @@ static void listen_task(void *pvParameters)
                   {             // Check client name? Do login callback
                      // TODO
                   }
+#else
+		  ESP_LOGE(TAG,"Not built for TLS server");
+		  h->running=0;
+#endif
                }
                if (h->running)
                {
