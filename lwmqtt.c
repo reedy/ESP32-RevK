@@ -86,7 +86,9 @@ static void *handle_free(lwmqtt_t handle)
 }
 
 static void client_task(void *pvParameters);
+#ifdef  CONFIG_ESP_TLS_SERVER
 static void listen_task(void *pvParameters);
+#endif
 
 // Create a connection
 lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
