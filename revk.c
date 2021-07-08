@@ -566,6 +566,7 @@ static void mqtt_init(void)
    if (*wifimqtt && !wifimqttbackup)
    {                            // Special case - server is gateway IP
       config.tlsname = wifimqtt;        // The device name of the host if using TLS
+      config.tlsname_ref = 1;   // No need to duplicate
       sprintf(gw, "%d.%d.%d.%d", info.gw.addr & 255, (info.gw.addr >> 8) & 255, (info.gw.addr >> 16) & 255, info.gw.addr >> 24);
       config.hostname = gw;     // safe on stack as lwmqtt_client copies it
       sntp_setservername(0, gw);
@@ -581,14 +582,17 @@ static void mqtt_init(void)
 #endif
    if (mqttcert->len)
    {
+      config.ca_cert_ref = 1;   // No need to duplicate
       config.ca_cert_buf = (void *) mqttcert->data;
       config.ca_cert_bytes = mqttcert->len;
    } else if (mqttport == 8883)
       config.crt_bundle_attach = esp_crt_bundle_attach;
    if (clientkey->len && clientcert->len)
    {
+      config.client_cert_ref = 1;       // No need to duplicate
       config.client_cert_buf = (void *) clientcert->data;
       config.client_cert_bytes = clientcert->len;
+      config.client_key_ref = 1;        // No need to duplicate
       config.client_key_buf = (void *) clientkey->data;
       config.client_key_bytes = clientkey->len;
    }
