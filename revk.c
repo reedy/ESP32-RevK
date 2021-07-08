@@ -289,7 +289,6 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void wifi_init(void)
 {
-   REVK_ERR_CHECK(esp_wifi_stop());
    if (!sta_netif)
    {                            // Init
       REVK_ERR_CHECK(esp_event_loop_create_default());
@@ -302,7 +301,8 @@ static void wifi_init(void)
       REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
       sta_netif = esp_netif_create_default_wifi_sta();
       ap_netif = esp_netif_create_default_wifi_ap();
-   }
+   } else
+      REVK_ERR_CHECK(esp_wifi_stop());
    // Mode
    esp_wifi_set_mode(*apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA);
    // Client

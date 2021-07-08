@@ -707,9 +707,12 @@ static void listen_task(void *pvParameters)
                      .serverkey_bytes = handle->our_key_bytes,
                   };
                   h->tls = esp_tls_init();
-                  if (h->tls || esp_tls_server_session_create(&config, s, h->tls))
+                  esp_err_t e = 0;
+                  if (!h->tls || (e = esp_tls_server_session_create(&config, s, h->tls)))
+                  {
+                     ESP_LOGI(TAG, "Server failed %s", h->tls ? esp_err_to_name(e) : "No TLS");
                      handle->running = 0;
-                  else
+                  } else
                   {             // Check client name? Do login callback
                      // TODO
                   }
