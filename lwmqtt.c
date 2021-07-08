@@ -194,6 +194,7 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    return handle;
 }
 
+#ifdef	CONFIG_ESP_TLS_SERVER
 // Start a server
 lwmqtt_t lwmqtt_server(lwmqtt_server_config_t * config)
 {
@@ -228,6 +229,7 @@ lwmqtt_t lwmqtt_server(lwmqtt_server_config_t * config)
    xTaskCreate(listen_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
+#endif
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call
@@ -308,9 +310,8 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
 }
 
 // Send (return is non null error message if failed)
-const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait)
+const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
-   // TODO how to nowait with TLS? SCrap nowait maybe?
    const char *ret = NULL;
    if (!handle)
       ret = "No handle";
@@ -333,7 +334,7 @@ const char *lwmqtt_send_full(lwmqtt_t handle, int tlen, const char *topic, int p
             ret = "Malloc";
          else
          {
-            if (!xSemaphoreTake(handle->mutex, nowait ? 1 : portMAX_DELAY))
+            if (!xSemaphoreTake(handle->mutex, portMAX_DELAY))
                ret = "Failed to get lock";
             else
             {
@@ -634,6 +635,7 @@ static void client_task(void *pvParameters)
    vTaskDelete(NULL);
 }
 
+#ifdef	CONFIG_ESP_TLS_SERVER
 static void server_task(void *pvParameters)
 {
    lwmqtt_t handle = pvParameters;
@@ -733,6 +735,7 @@ static void listen_task(void *pvParameters)
    }
    vTaskDelete(NULL);
 }
+#endif
 
 // Simple send - non retained no wait topic ends on space then payload
 const char *lwmqtt_send_str(lwmqtt_t handle, const char *msg)
@@ -746,5 +749,5 @@ const char *lwmqtt_send_str(lwmqtt_t handle, const char *msg)
    int tlen = p - msg;
    if (*p)
       p++;
-   return lwmqtt_send_full(handle, tlen, msg, strlen(p), (void *) p, 0, 1);
+   return lwmqtt_send_full(handle, tlen, msg, strlen(p), (void *) p, 0);
 }

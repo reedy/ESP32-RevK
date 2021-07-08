@@ -51,6 +51,7 @@ struct lwmqtt_client_config_s {
     esp_err_t(*crt_bundle_attach) (void *conf);
 };
 
+#ifdef	CONFIG_ESP_TLS_SERVER
 typedef struct lwmqtt_server_config_s lwmqtt_server_config_t;
 
 // Config for connection
@@ -65,6 +66,7 @@ struct lwmqtt_server_config_s {
    void *server_key_buf;        // For server auth
    int server_key_bytes;
 };
+#endif
 
 // Handle for connection
 typedef struct lwmqtt_s *lwmqtt_t;
@@ -72,8 +74,10 @@ typedef struct lwmqtt_s *lwmqtt_t;
 // Create a client connection (NULL if failed)
 lwmqtt_t lwmqtt_client(lwmqtt_client_config_t *);
 
+#ifdef	CONFIG_ESP_TLS_SERVER
 // Start a server (the return value is only usable in lwmqtt_end)
 lwmqtt_t lwmqtt_server(lwmqtt_server_config_t *);
+#endif
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call
@@ -85,7 +89,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t, const char *topic, char unsubscribe);
 #define lwmqtt_unsubscribe(h,t) lwmqtt_subscribeub(h,t,0);
 
 // Send (return is non null error message if failed) (-1 tlen or plen do strlen)
-const char *lwmqtt_send_full(lwmqtt_t, int tlen, const char *topic, int plen, const unsigned char *payload, char retain, char nowait);
+const char *lwmqtt_send_full(lwmqtt_t, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 // Simpler
 #define lwmqtt_send(h,t,l,p) lwmqtt_send_full(h,-1,t,l,p,0,0);
 

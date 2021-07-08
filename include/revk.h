@@ -90,17 +90,17 @@ const char *revk_hostname(void);
 TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);
 
 // reporting (normally MQTT)
-void revk_state(const char *tag, const char *fmt, ...); // Send status
-void revk_statej(const char *tag, jo_t *, lwmqtt_t copy);
-void revk_event(const char *tag, const char *fmt, ...); // Send event
-void revk_eventj(const char *tag, jo_t *, lwmqtt_t copy);
-void revk_error(const char *tag, const char *fmt, ...); // Send error
-void revk_errorj(const char *tag, jo_t *, lwmqtt_t copy);
-void revk_info(const char *tag, const char *fmt, ...);  // Send info
-void revk_infoj(const char *tag, jo_t *, lwmqtt_t copy);
-#ifdef	CONFIG_REVK_MQTT
-void revk_raw(const char *prefix, const char *tag, int len, void *data, int retain);
-#endif
+void revk_state_copy(const char *tag, jo_t *, lwmqtt_t copy);
+#define revk_state(t,j) revk_state_copy(t,j,NULL)
+void revk_event_copy(const char *tag, jo_t *, lwmqtt_t copy);
+#define revk_event(t,j) revk_event_copy(t,j,NULL)
+void revk_error_copy(const char *tag, jo_t *, lwmqtt_t copy);
+#define revk_error(t,j) revk_error_copy(t,j,NULL)
+void revk_info_copy(const char *tag, jo_t *, lwmqtt_t copy);
+#define revk_info(t,j) revk_info_copy(t,j,NULL)
+
+void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t * jp, lwmqtt_t copy);
+#define revk_mqtt_send(p,r,t,j) revk_mqtt_send_copy(p,r,t,j,NULL)
 
 const char *revk_setting(jo_t); // Store settings
 const char *revk_command(const char *tag, jo_t);        // Do an internal command

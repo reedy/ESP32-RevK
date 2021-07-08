@@ -45,10 +45,6 @@ static const char
 #define	CONFIG_MQTT_BUFFER_SIZE 2048
 #endif
 
-#ifndef	CONFIG_ESP_TLS_SERVER
-#error	CONFIG_ESP_TLS_SERVER needed
-#endif
-
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		bd(otacert,CONFIG_REVK_OTACERT);		\
@@ -265,7 +261,7 @@ static void revk_report_state(void)
       jo_int(j, "rssi", ap.rssi);
       jo_int(j, "chan", ap.primary);
    }
-   revk_statej(NULL, &j, NULL);
+   revk_state(NULL, &j);
 }
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
@@ -494,7 +490,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             jo_string(j, "suffix", suffix);
          if (plen)
             jo_stringf(j, "payload", "%s", payload);
-         revk_errorj(suffix, &j, NULL);
+         revk_error(suffix, &j);
       }
    } else if (payload)
    {
@@ -1001,38 +997,9 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
    return task_id;
 }
 
-#ifdef	CONFIG_REVK_MQTT
-/* MQTT reporting */
-void revk_mqtt_ap(const char *prefix, int retain, const char *tag, const char *fmt, va_list ap)
-{                               /* Send formatted mqtt message */
-   if (!mqtt_client)
-      return;
-   char *topic = NULL;
-   if (!prefix)
-      topic = (char *) tag;     /* Set fixed topic */
-   if (asprintf(&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, tag) < 0)
-      topic = NULL;
-   if (!topic)
-      return;
-   char *buf = NULL;
-   int l;
-   if ((l = vasprintf(&buf, fmt, ap)) < 0)
-   {
-      free(topic);
-      return;
-   }
-   ESP_LOGD(TAG, "MQTT publish %s %s", topic ? : "-", buf);
-   if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-      lwmqtt_send_full(mqtt_client, -1, topic, l, (void *) buf, retain, 0);
-   free(buf);
-   if (topic != tag)
-      free(topic);
-}
-#endif
-
-#ifdef	CONFIG_REVK_MQTT
-void revk_mqtt_apj(const char *prefix, int retain, const char *tag, jo_t * jp, lwmqtt_t copy)
+void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t * jp, lwmqtt_t copy)
 {
+#ifdef	CONFIG_REVK_MQTT
    if (!jp)
       return;
    int pos;
@@ -1058,108 +1025,39 @@ void revk_mqtt_apj(const char *prefix, int retain, const char *tag, jo_t * jp, l
       }
       ESP_LOGD(TAG, "MQTT publish %s (%s)", topic ? : "-", res);
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-         lwmqtt_send_full(mqtt_client, -1, topic, -1, (void *) res, retain, 0);
+         lwmqtt_send_full(mqtt_client, -1, topic, -1, (void *) res, retain);
       if (copy)
-         lwmqtt_send_full(copy, -1, topic, -1, (void *) res, retain, 0);
+         lwmqtt_send_full(copy, -1, topic, -1, (void *) res, retain);
       if (topic != tag)
          free(topic);
    }
    free(res);
-}
-#endif
-
-#ifdef	CONFIG_REVK_MQTT
-void revk_raw(const char *prefix, const char *tag, int len, void *data, int retain)
-{                               /* Send raw MQTT message */
-   if (!mqtt_client)
-      return;
-   char *topic;
-   if (!prefix)
-      topic = (char *) tag;     /* Set fixed topic */
-   else if (asprintf(&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, tag) < 0)
-      topic = NULL;
-   if (!topic)
-      return;
-   ESP_LOGD(TAG, "MQTT publish %s (%d)", topic ? : "-", len);
-   if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-      lwmqtt_send_full(mqtt_client, -1, topic, len, data, retain, 0);
-   if (topic != tag)
-      free(topic);
-}
-#endif
-
-void revk_state(const char *tag, const char *fmt, ...)
-{                               /* Send status */
-#ifdef	CONFIG_REVK_MQTT
-   va_list ap;
-   va_start(ap, fmt);
-   revk_mqtt_ap(prefixstate, 1, tag, fmt, ap);
-   va_end(ap);
 #endif
 }
 
-void revk_statej(const char *tag, jo_t * jp, lwmqtt_t copy)
-{
-#ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixstate, 1, tag, jp, copy);
-#endif
+void revk_state_copy(const char *tag, jo_t * jp, lwmqtt_t copy)
+{                               // State message (retained)
+   revk_mqtt_send_copy(prefixstate, 1, tag, jp, copy);
 }
 
-void revk_event(const char *tag, const char *fmt, ...)
-{                               /* Send event */
-#ifdef	CONFIG_REVK_MQTT
-   va_list ap;
-   va_start(ap, fmt);
-   revk_mqtt_ap(prefixevent, 0, tag, fmt, ap);
-   va_end(ap);
-#endif
+void revk_event_copy(const char *tag, jo_t * jp, lwmqtt_t copy)
+{                               // Event message (may one day create log entries)
+   revk_mqtt_send_copy(prefixevent, 0, tag, jp, copy);
 }
 
-void revk_eventj(const char *tag, jo_t * jp, lwmqtt_t copy)
-{
-#ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixevent, 0, tag, jp, copy);
-#endif
-}
-
-void revk_error(const char *tag, const char *fmt, ...)
-{                               /* Send error */
-#ifdef	CONFIG_REVK_MQTT
+void revk_error_copy(const char *tag, jo_t * jp, lwmqtt_t copy)
+{                               // Error message, waits a while for connection if possible before sending
    xEventGroupWaitBits(revk_group,
 #ifdef	CONFIG_REVK_WIFI
                        GROUP_WIFI |
 #endif
                        GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);
-   /* Chance of reporting issues */
-   va_list ap;
-   va_start(ap, fmt);
-   revk_mqtt_ap(prefixerror, 0, tag, fmt, ap);
-   va_end(ap);
-#endif
+   revk_mqtt_send_copy(prefixerror, 0, tag, jp, copy);
 }
 
-void revk_errorj(const char *tag, jo_t * jp, lwmqtt_t copy)
-{
-#ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixerror, 0, tag, jp, copy);
-#endif
-}
-
-void revk_info(const char *tag, const char *fmt, ...)
-{                               /* Send info */
-#ifdef	CONFIG_REVK_MQTT
-   va_list ap;
-   va_start(ap, fmt);
-   revk_mqtt_ap(prefixinfo, 0, tag, fmt, ap);
-   va_end(ap);
-#endif
-}
-
-void revk_infoj(const char *tag, jo_t * jp, lwmqtt_t copy)
-{
-#ifdef	CONFIG_REVK_MQTT
-   revk_mqtt_apj(prefixinfo, 0, tag, jp, copy);
-#endif
+void revk_info_copy(const char *tag, jo_t * jp, lwmqtt_t copy)
+{                               // Info message, nothing special
+   revk_mqtt_send_copy(prefixinfo, 0, tag, jp, copy);
 }
 
 const char *revk_restart(const char *reason, int delay)
@@ -1222,7 +1120,9 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             ota_partition = esp_ota_get_next_update_partition(ota_partition);
             if (!ota_partition)
             {
-               revk_error("upgrade", "No OTA partition available");     /* If running in OTA, boot to factory to allow OTA */
+               jo_t j = jo_object_alloc();
+               jo_string(j, "description", "No OTA partition available");
+               revk_error("upgrade", &j);
                ota_size = 0;
             } else
             {
@@ -1234,7 +1134,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                {
                   jo_t j = jo_object_alloc();
                   jo_int(j, "size", ota_size);
-                  revk_infoj("upgrade", &j, NULL);
+                  revk_info("upgrade", &j);
                   ota_running = 1;
                   next = now + 5000000LL;
                }
@@ -1255,7 +1155,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   jo_int(j, "progress", ota_progress = percent);
                   jo_int(j, "loaded", ota_running - 1);
                   jo_int(j, "size", ota_size);
-                  revk_infoj("upgrade", &j, NULL);
+                  revk_info("upgrade", &j);
                   next = now + 5000000LL;
                }
             }
@@ -1264,7 +1164,13 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       break;
    case HTTP_EVENT_ON_FINISH:
       if (!ota_running && esp_http_client_get_status_code(evt->client) / 100 > 3)
-         revk_error("Upgrade", "Failed to start %d (%d)", esp_http_client_get_status_code(evt->client), ota_size);
+      {
+         jo_t j = jo_object_alloc();
+         jo_string(j, "description", "Failed to start");
+         jo_int(j, "code", esp_http_client_get_status_code(evt->client));
+         jo_int(j, "size", ota_size);
+         revk_error("Upgrade", &j);
+      }
       if (ota_running)
       {
          if (!REVK_ERR_CHECK(esp_ota_end(ota_handle)))
@@ -1272,7 +1178,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             jo_t j = jo_object_alloc();
             jo_string(j, "complete", ota_partition->label);
             jo_int(j, "size", ota_size);
-            revk_infoj("upgrade", &j, NULL);
+            revk_info("upgrade", &j);
             esp_ota_set_boot_partition(ota_partition);
             revk_restart("OTA", 5);
          }
@@ -1415,7 +1321,7 @@ static void ota_task(void *pvParameters)
    char *url = pvParameters;
    jo_t j = jo_object_alloc();
    jo_string(j, "url", url);
-   revk_infoj("upgrade", &j, NULL);
+   revk_info("upgrade", &j);
    esp_http_client_config_t config = {
       .url = url,.event_handler = ota_handler,
    };
@@ -1439,15 +1345,23 @@ static void ota_task(void *pvParameters)
    }
    esp_http_client_handle_t client = esp_http_client_init(&config);
    if (!client)
-      revk_error("upgrade", "HTTP client failed");
-   else
+   {
+      jo_t j = jo_object_alloc();
+      jo_string(j, "description", "HTTP client failed");
+      revk_error("upgrade", &j);
+   } else
    {
       esp_err_t err = REVK_ERR_CHECK(esp_http_client_perform(client));
       int status = esp_http_client_get_status_code(client);
       esp_http_client_cleanup(client);
       free(url);
       if (!err && status / 100 != 2)
-         revk_error("upgrade", "HTTP code %d", status);
+      {
+         jo_t j = jo_object_alloc();
+         jo_string(j, "description", "HTTP failed");
+         jo_int(j, "code", status);
+         revk_error("upgrade", &j);
+      }
    }
    ota_task_id = NULL;
    vTaskDelete(NULL);
@@ -1916,9 +1830,7 @@ static const char *revk_setting_dump(void)
    void send(void) {
       if (!j)
          return;
-      char *v = jo_finish(&j);
-      if (v)
-         revk_raw(prefixsetting, NULL, strlen(v), v, 0);
+      revk_mqtt_send(prefixsetting, 0, NULL, &j);
    }
    char buf[CONFIG_MQTT_BUFFER_SIZE - 100];
    const char *hasdef(setting_t * s) {
@@ -2169,7 +2081,14 @@ static const char *revk_setting_dump(void)
                      jo_free(&j);
                      j = p;
                   } else
-                     revk_error(TAG, "Setting did not fit %s (%s)", tag, err ? : "?");
+                  {
+                     jo_t j = jo_object_alloc();
+                     jo_string(j, "description", "Setting did not fit");
+                     jo_string(j, "setting", tag);
+                     if (err)
+                        jo_string(j, "reason", err);
+                     revk_error(TAG, &j);
+                  }
                   free(tag);
                }
             }
@@ -2183,8 +2102,12 @@ static const char *revk_setting_dump(void)
             }
          } else
          {
-            ESP_LOGI(TAG, "Setting did not fit %s (%s)", s->name, err ? : "?");
-            revk_error(TAG, "Setting did not fit %s (%s)", s->name, err ? : "?");
+            jo_t j = jo_object_alloc();
+            jo_string(j, "description", "Setting did not fit");
+            jo_string(j, "setting", s->name);
+            if (err)
+               jo_string(j, "reason", err);
+            revk_error(TAG, &j);
          }
       }
    }
@@ -2434,12 +2357,6 @@ const char *revk_command(const char *tag, jo_t j)
          revk_restart("Factory reset", 5);
       return "";
    }
-   if (!e && !strcmp(tag, "uptime"))
-   {
-      uint64_t t = esp_timer_get_time();
-      revk_info(tag, "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
-      return "";
-   }
 #ifdef	CONFIG_REVK_APCONFIG
    if (!e && !strcmp(tag, "apconfig") && !ap_task_id)
    {
@@ -2560,7 +2477,7 @@ esp_err_t revk_err_check(esp_err_t e, const char *file, int line, const char *fu
       jo_int(j, "line", line);
       jo_string(j, "function", func);
       jo_string(j, "command", cmd);
-      revk_errorj(NULL, &j, NULL);
+      revk_error(NULL, &j);
    }
    return e;
 }
@@ -2573,7 +2490,7 @@ esp_err_t revk_err_check(esp_err_t e)
       jo_t j = jo_object_alloc();
       jo_int(j, "code", e);
       jo_string(j, "description", esp_err_to_name(e));
-      revk_errorj(NULL, &j, NULL);
+      revk_error(NULL, &j);
    }
    return e;
 }
@@ -2618,7 +2535,7 @@ void revk_mqtt_close(const char *reason)
    jo_bool(j, "up", 0);
    jo_string(j, "id", revk_id);
    jo_string(j, "reason", reason);
-   revk_statej(NULL, &j, NULL);
+   revk_state(NULL, &j);
    lwmqtt_end(&mqtt_client);
    // TODO We could wait close...
    ESP_LOGI(TAG, "MQTT Closed");
