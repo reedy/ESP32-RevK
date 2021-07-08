@@ -55,6 +55,11 @@ struct lwmqtt_s {               // mallocd copies
    uint8_t running:1;           // Should still run
    uint8_t server:1;            // This is a server
    uint8_t connected:1;         // Login sent/received
+   uint8_t hostname_ref;        // The buf below is not malloc'd
+   uint8_t tlsname_ref;         // The buf below is not malloc'd
+   uint8_t ca_cert_ref:1;       // The _buf below is not malloc'd
+   uint8_t our_cert_ref:1;      // The _buf below is not malloc'd
+   uint8_t our_key_ref:1;       // The _buf below is not malloc'd
    void *ca_cert_buf;           // For checking server
    int ca_cert_bytes;
    void *our_cert_buf;          // For auth
@@ -72,17 +77,58 @@ static void *handle_free(lwmqtt_t handle)
 {
    if (handle)
    {
-      freez(handle->hostname);
-      freez(handle->tlsname);
       freez(handle->connect);
-      freez(handle->ca_cert_buf);
-      freez(handle->our_cert_buf);
-      freez(handle->our_key_buf);
+      if (!handle->hostname_ref)
+         freez(handle->hostname);
+      if (!handle->tlsname_ref)
+         freez(handle->tlsname);
+      if (!handle->ca_cert_ref)
+         freez(handle->ca_cert_buf);
+      if (!handle->our_cert_ref)
+         freez(handle->our_cert_buf);
+      if (!handle->our_key_ref)
+         freez(handle->our_key_buf);
       if (handle->mutex)
          vSemaphoreDelete(handle->mutex);
       freez(handle);
    }
    return NULL;
+}
+
+static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void *ca_cert_buf, uint8_t our_cert_ref, int our_cert_bytes, void *our_cert_buf, uint8_t our_key_ref, int our_key_bytes, void *our_key_buf)
+{
+   int fail = 0;
+   if (ca_cert_bytes && ca_cert_buf)
+   {
+      h->ca_cert_bytes = ca_cert_bytes;
+      if ((h->ca_cert_ref = ca_cert_ref))
+         h->ca_cert_buf = ca_cert_buf;
+      else if (!(h->ca_cert_buf = malloc(ca_cert_bytes)))
+         fail++;
+      else
+         memcpy(h->ca_cert_buf, ca_cert_buf, ca_cert_bytes);
+   }
+   if (our_cert_bytes && our_cert_buf)
+   {
+      h->our_cert_bytes = our_cert_bytes;
+      if ((h->our_cert_ref = our_cert_ref))
+         h->our_cert_buf = our_cert_buf;
+      else if (!(h->our_cert_buf = malloc(our_cert_bytes)))
+         fail++;
+      else
+         memcpy(h->our_cert_buf, our_cert_buf, our_cert_bytes);
+   }
+   if (our_key_bytes && our_key_buf)
+   {
+      h->our_key_bytes = our_key_bytes;
+      if ((h->our_key_ref = our_cert_ref))
+         h->our_key_buf = our_key_buf;
+      else if (!(h->our_key_buf = malloc(our_key_bytes)))
+         fail++;
+      else
+         memcpy(h->our_key_buf, our_key_buf, our_key_bytes);
+   }
+   return fail;
 }
 
 static void client_task(void *pvParameters);
@@ -102,10 +148,14 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
    handle->callback = config->callback;
    handle->arg = config->arg;
    handle->keepalive = config->keepalive ? : 60;
-   if (!(handle->hostname = strdup(config->hostname)))
+   if ((handle->hostname_ref = config->hostname_ref))
+      handle->hostname = (void *) config->hostname;
+   else if (!(handle->hostname = strdup(config->hostname)))
       return handle_free(handle);
    handle->port = (config->port ? : (config->ca_cert_bytes || config->crt_bundle_attach) ? 8883 : 1883);
-   if (config->tlsname && *config->tlsname && !(handle->tlsname = strdup(config->tlsname)))
+   if ((handle->tlsname_ref = config->tlsname_ref))
+      handle->tlsname = (void *) config->tlsname;
+   else if (config->tlsname && *config->tlsname && !(handle->tlsname = strdup(config->tlsname)))
       return handle_free(handle);
    // Make connection message
    int mlen = 6 + 1 + 1 + 2 + strlen(config->client ? : "");
@@ -117,24 +167,8 @@ lwmqtt_t lwmqtt_client(lwmqtt_client_config_t * config)
       mlen += 2 + strlen(config->username);
    if (config->password)
       mlen += 2 + strlen(config->password);
-   if (config->ca_cert_bytes && config->ca_cert_buf)
-   {
-      if (!(handle->ca_cert_buf = malloc(config->ca_cert_bytes)))
-         return handle_free(handle);
-      memcpy(handle->ca_cert_buf, config->ca_cert_buf, handle->ca_cert_bytes = config->ca_cert_bytes);
-   }
-   if (config->client_cert_bytes && config->client_cert_buf)
-   {
-      if (!(handle->our_cert_buf = malloc(config->client_cert_bytes)))
-         return handle_free(handle);
-      memcpy(handle->our_cert_buf, config->client_cert_buf, handle->our_cert_bytes = config->client_cert_bytes);
-   }
-   if (config->client_key_bytes && config->client_key_buf)
-   {
-      if (!(handle->our_key_buf = malloc(config->client_key_bytes)))
-         return handle_free(handle);
-      memcpy(handle->our_key_buf, config->client_key_buf, handle->our_key_bytes = config->client_key_bytes);
-   }
+   if (handle_certs(handle, config->ca_cert_ref, config->ca_cert_bytes, config->ca_cert_buf, config->client_cert_ref, config->client_cert_bytes, config->client_cert_buf, config->client_key_ref, config->client_key_bytes, config->client_key_buf))
+      return handle_free(handle);       // Nope
    handle->crt_bundle_attach = config->crt_bundle_attach;
    if (mlen >= 128 * 128)
       return handle_free(handle);       // Nope
@@ -208,24 +242,8 @@ lwmqtt_t lwmqtt_server(lwmqtt_server_config_t * config)
    memset(handle, 0, sizeof(*handle));
    handle->callback = config->callback;
    handle->port = (config->port ? : config->ca_cert_bytes ? 8883 : 1883);
-   if (config->ca_cert_bytes && config->ca_cert_buf)
-   {
-      if (!(handle->ca_cert_buf = malloc(config->ca_cert_bytes)))
-         return handle_free(handle);
-      memcpy(handle->ca_cert_buf, config->ca_cert_buf, handle->ca_cert_bytes = config->ca_cert_bytes);
-   }
-   if (config->server_cert_bytes && config->server_cert_buf)
-   {
-      if (!(handle->our_cert_buf = malloc(config->server_cert_bytes)))
-         return handle_free(handle);
-      memcpy(handle->our_cert_buf, config->server_cert_buf, handle->our_cert_bytes = config->server_cert_bytes);
-   }
-   if (config->server_key_bytes && config->server_key_buf)
-   {
-      if (!(handle->our_key_buf = malloc(config->server_key_bytes)))
-         return handle_free(handle);
-      memcpy(handle->our_key_buf, config->server_key_buf, handle->our_key_bytes = config->server_key_bytes);
-   }
+   if (handle_certs(handle, config->ca_cert_ref, config->ca_cert_bytes, config->ca_cert_buf, config->server_cert_ref, config->server_cert_bytes, config->server_cert_buf, config->server_key_ref, config->server_key_bytes, config->server_key_buf))
+      return handle_free(handle);
    handle->running = 1;
    TaskHandle_t task_id = NULL;
    xTaskCreate(listen_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);

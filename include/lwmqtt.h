@@ -42,13 +42,18 @@ struct lwmqtt_client_config_s {
    const unsigned char *payload;        // Will payload
    uint8_t retain:1;            // Will retain
    // TLS
-   void *ca_cert_buf;           // For checking server
+   void *ca_cert_buf;           // For checking server - assumed we need to make a copy
    int ca_cert_bytes;
    void *client_cert_buf;       // For client auth
    int client_cert_bytes;
    void *client_key_buf;        // For client auth
    int client_key_bytes;
     esp_err_t(*crt_bundle_attach) (void *conf);
+   uint8_t hostname_ref:1;      // The _buf above is fixed and so we do not need to make a copy
+   uint8_t tlsname_ref:1;       // The _buf above is fixed and so we do not need to make a copy
+   uint8_t ca_cert_ref:1;       // The _buf above is fixed and so we do not need to make a copy
+   uint8_t client_cert_ref:1;   // The _buf above is fixed and so we do not need to make a copy
+   uint8_t client_key_ref:1;    // The _buf above is fixed and so we do not need to make a copy
 };
 
 #ifdef	CONFIG_ESP_TLS_SERVER
@@ -65,6 +70,9 @@ struct lwmqtt_server_config_s {
    int server_cert_bytes;
    void *server_key_buf;        // For server auth
    int server_key_bytes;
+   uint8_t ca_cert_ref:1;       // The _buf above is fixed and so we do not need to make a copy
+   uint8_t server_cert_ref:1;   // The _buf above is fixed and so we do not need to make a copy
+   uint8_t server_key_ref:1;    // The _buf above is fixed and so we do not need to make a copy
 };
 #endif
 
