@@ -37,7 +37,7 @@
         // You will want to check prefix matches prefixcommand
         // Target is NULL for internal commands, else typically "*" or revk_id
         // Suffix can be NULL
-typedef const char *app_callback_t(const char *prefix, const char *target, const char *suffix, jo_t);
+typedef const char *app_callback_t(int client,const char *prefix, const char *target, const char *suffix, jo_t);
 
 // Data
 extern const char *revk_app;    // App name
@@ -91,18 +91,21 @@ const char *revk_hostname(void);
 // Make a task
 TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);
 
-// reporting (normally MQTT)
-void revk_state_copy(const char *tag, jo_t *, lwmqtt_t copy);
-#define revk_state(t,j) revk_state_copy(t,j,NULL)
-void revk_event_copy(const char *tag, jo_t *, lwmqtt_t copy);
-#define revk_event(t,j) revk_event_copy(t,j,NULL)
-void revk_error_copy(const char *tag, jo_t *, lwmqtt_t copy);
-#define revk_error(t,j) revk_error_copy(t,j,NULL)
-void revk_info_copy(const char *tag, jo_t *, lwmqtt_t copy);
-#define revk_info(t,j) revk_info_copy(t,j,NULL)
+// reporting via main MQTT, copy option is how many additional MQTT to copy, normally 0 or 1. Setting -N means send only to specific additional MQTT
+void revk_mqtt_send_raw(const char *topic,int retain,const char *payload,int copies);
+void revk_mqtt_send_str_copy(const char *str,int retain,int copies);
+#define	revk_mqtt_send_str(s) revk_mqtt_send_str_copy(s,0,0);
+void revk_state_copy(const char *tag, jo_t *, int copy);
+#define revk_state(t,j) revk_state_copy(t,j,0)
+void revk_event_copy(const char *tag, jo_t *, int copy);
+#define revk_event(t,j) revk_event_copy(t,j,0)
+void revk_error_copy(const char *tag, jo_t *, int copy);
+#define revk_error(t,j) revk_error_copy(t,j,0)
+void revk_info_copy(const char *tag, jo_t *, int copy);
+#define revk_info(t,j) revk_info_copy(t,j,0)
 
-void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t * jp, lwmqtt_t copy);
-#define revk_mqtt_send(p,r,t,j) revk_mqtt_send_copy(p,r,t,j,NULL)
+void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t * jp, int copy);
+#define revk_mqtt_send(p,r,t,j) revk_mqtt_send_copy(p,r,t,j,0)
 
 const char *revk_setting(jo_t); // Store settings
 const char *revk_command(const char *tag, jo_t);        // Do an internal command
@@ -110,7 +113,7 @@ const char *revk_restart(const char *reason, int delay);        // Restart clean
 const char *revk_ota(const char *host); // OTA and restart cleanly
 
 #ifdef	CONFIG_REVK_MQTT
-lwmqtt_t revk_mqtt(void);
+lwmqtt_t revk_mqtt(int);
 void revk_mqtt_close(const char *reason);       // Clean close MQTT
 int revk_wait_mqtt(int seconds);
 #endif

@@ -33,7 +33,7 @@ static const char
 #warning CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER recommended
 #endif
 
-//#ifndef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
+//#ifndef       CONFIG_MBEDTLS_DYNAMIC_BUFFER
 //#warning CONFIG_MBEDTLS_DYNAMIC_BUFFER recommended
 //#endif
 #ifdef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
@@ -52,6 +52,7 @@ static const char
 #define	CONFIG_MQTT_BUFFER_SIZE 2048
 #endif
 
+#define	MQTT_CLIENTS	2
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		bd(otacert,CONFIG_REVK_OTACERT);		\
@@ -77,11 +78,11 @@ static const char
 		io(apgpio);		\
 
 #define	mqttsettings	\
-		s(mqtthost,CONFIG_REVK_MQTTHOST);	\
-		s(mqttuser,CONFIG_REVK_MQTTUSER);	\
-		sp(mqttpass,CONFIG_REVK_MQTTPASS);	\
-		u16(mqttport,CONFIG_REVK_MQTTPORT);	\
-		bd(mqttcert,CONFIG_REVK_MQTTCERT);	\
+		sa(mqtthost,MQTT_CLIENTS,CONFIG_REVK_MQTTHOST);	\
+		sa(mqttuser,MQTT_CLIENTS,CONFIG_REVK_MQTTUSER);	\
+		sap(mqttpass,MQTT_CLIENTS,CONFIG_REVK_MQTTPASS);	\
+		u16a(mqttport,MQTT_CLIENTS,CONFIG_REVK_MQTTPORT);	\
+		bad(mqttcert,MQTT_CLIENTS,CONFIG_REVK_MQTTCERT);	\
 
 #define	wifisettings	\
 		u16(wifireset,CONFIG_REVK_WIFIRESET);	\
@@ -117,6 +118,7 @@ static const char
 #define fh(n,a,s,d)	char n[a][s];
 #define	u32(n,d)	uint32_t n;
 #define	u16(n,d)	uint16_t n;
+#define	u16a(n,a,d)	uint16_t n[a];
 #define	i16(n)		int16_t n;
 #define	u8a(n,a,d)	uint8_t n[a];
 #define	u8(n,d)		uint8_t n;
@@ -127,6 +129,7 @@ static const char
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
 #define bd(n,d)		revk_bindata_t *n;
+#define bad(n,a,d)	revk_bindata_t *n[a];
 #define bdp(n,d)	revk_bindata_t *n;
 settings
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
@@ -154,6 +157,7 @@ settings
 #undef fh
 #undef u32
 #undef u16
+#undef u16a
 #undef i16
 #undef u8
 #undef b
@@ -164,6 +168,7 @@ settings
 #undef p
 #undef h
 #undef bd
+#undef bad
 #undef bdp
 /* Local types */
 typedef struct setting_s setting_t;
@@ -201,20 +206,21 @@ const static int GROUP_OFFLINE = BIT0;  // We are off line (IP not set)
 const static int GROUP_WIFI = BIT1;     // We are WiFi connected
 const static int GROUP_IP = BIT2;       // We have IP address
 #endif
-#ifdef	CONFIG_REVK_MQTT
-const static int GROUP_MQTT = BIT3;     // We are MQTT connected
-#endif
 #ifdef	CONFIG_REVK_APCONFIG
-const static int GROUP_APCONFIG = BIT4; // We are running AP config
-const static int GROUP_APCONFIG_DONE = BIT5;    // Config done
-const static int GROUP_APCONFIG_NONE = BIT6;    // No stations connected
+const static int GROUP_APCONFIG = BIT3; // We are running AP config
+const static int GROUP_APCONFIG_DONE = BIT4;    // Config done
+const static int GROUP_APCONFIG_NONE = BIT5;    // No stations connected
+#endif
+#ifdef	CONFIG_REVK_MQTT
+const static int GROUP_MQTT = BIT6 /*7... */ ;  // We are MQTT connected - and MORE BITS (MQTT_CLIENTS)
 #endif
 static TaskHandle_t ota_task_id = NULL;
 #ifdef	CONFIG_REVK_APCONFIG
 static TaskHandle_t ap_task_id = NULL;
 #endif
 static app_callback_t *app_callback = NULL;
-lwmqtt_t mqtt_client = NULL;
+lwmqtt_t mqtt_client[MQTT_CLIENTS] = { };
+
 static int64_t restart_time = 0;
 static int64_t nvs_time = 0;
 static uint8_t setting_dump_requested = 0;
@@ -406,6 +412,7 @@ static void wifi_init(void)
 #ifdef	CONFIG_REVK_MQTT
 static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload)
 {
+   int client = (int) arg;
    if (topic)
    {
       const char *err = NULL;
@@ -464,7 +471,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          jo_rewind(j);
       }
-      if (target && (!strcmp(target, "*") || !strcmp(target, revk_id)))
+      if (!client && target && (!strcmp(target, "*") || !strcmp(target, revk_id)))
       {                         // For us (could otherwise be for app callback)
          if (prefix && !strcmp(prefix, prefixcommand))
             err = ((err ? : revk_command(suffix, j)) ? : "Unknown command");
@@ -482,7 +489,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if ((!err || !*err) && app_callback)
       {                         /* Pass to app, even if we handled with no error */
          jo_rewind(j);
-         const char *e2 = app_callback(prefix, target, suffix, j);
+         const char *e2 = app_callback(client, prefix, target, suffix, j);
          if (e2 && (*e2 || !err))
             err = e2;           /* Overwrite error if we did not have one */
       }
@@ -503,49 +510,52 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       }
    } else if (payload)
    {
-      ESP_LOGI(TAG, "MQTT connected %s", (char *) payload);
-      xEventGroupSetBits(revk_group, GROUP_MQTT);
-      void sub(const char *prefix) {
-         char *topic = NULL;
-         if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
-            return;
-         lwmqtt_subscribe(mqtt_client, topic);
-         freez(topic);
-         if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
-            return;
-         lwmqtt_subscribe(mqtt_client, topic);
-         freez(topic);
-         if (*hostname && strcmp(hostname, revk_id))
-         {
-            if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
+      ESP_LOGI(TAG, "MQTT%d connected %s", client, (char *) payload);
+      xEventGroupSetBits(revk_group, (GROUP_MQTT << client));
+      if (!client)
+      {                         // main MQTT
+         void sub(const char *prefix) {
+            char *topic = NULL;
+            if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
                return;
-            lwmqtt_subscribe(mqtt_client, topic);
+            lwmqtt_subscribe(mqtt_client[client], topic);
             freez(topic);
+            if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
+               return;
+            lwmqtt_subscribe(mqtt_client[client], topic);
+            freez(topic);
+            if (*hostname && strcmp(hostname, revk_id))
+            {
+               if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
+                  return;
+               lwmqtt_subscribe(mqtt_client[client], topic);
+               freez(topic);
+            }
          }
-      }
-      sub(prefixcommand);
-      sub(prefixsetting);
+         sub(prefixcommand);
+         sub(prefixsetting);
 
-      revk_report_state();
+         revk_report_state();
+      }
 
       if (app_callback)
       {
          jo_t j = jo_create_alloc();
          jo_string(j, NULL, (char *) payload);
-         app_callback(prefixcommand, NULL, "connect", j);
+         app_callback(client, prefixcommand, NULL, "connect", j);
          jo_free(&j);
       }
    } else
    {
-      if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
+      if (xEventGroupGetBits(revk_group) & (GROUP_MQTT << client))
       {
-         xEventGroupClearBits(revk_group, GROUP_MQTT);
-         ESP_LOGI(TAG, "MQTT disconnected (mem:%d)", esp_get_free_heap_size());
+         xEventGroupClearBits(revk_group, (GROUP_MQTT << client));
+         ESP_LOGI(TAG, "MQTT%d disconnected (mem:%d)", client, esp_get_free_heap_size());
          if (app_callback)
-            app_callback(prefixcommand, NULL, "disconnect", NULL);
+            app_callback(client, prefixcommand, NULL, "disconnect", NULL);
          // Can we flush TCP TLS stuff somehow?
       } else
-         ESP_LOGI(TAG, "MQTT failed (mem:%d)", esp_get_free_heap_size());
+         ESP_LOGI(TAG, "MQTT%d failed (mem:%d)", client, esp_get_free_heap_size());
    }
 }
 #endif
@@ -553,74 +563,81 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
 #ifdef	CONFIG_REVK_MQTT
 static void mqtt_init(void)
 {
-   if (mqtt_client)
-      return;
-   if (!*mqtthost
+   if (mqtt_client[0])
+      return;                   // Already set up
+   if (!*mqtthost[0]
 #ifdef	CONFIG_REVK_MQTT_SERVER
-		   && !*wifimqtt
+       && !*wifimqtt
 #endif
-		   )        /* No MQTT */
+       )                        /* No MQTT */
       return;
+   for (int client = 0; client < MQTT_CLIENTS; client++)
+   {
 #ifdef	CONFIG_REVK_MQTT_SERVER
-   esp_netif_ip_info_t info = { };
-   static char gw[16] = "";
-   if (*wifimqtt && !wifimqttbackup && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
-      return;
+      if (!client)
+      {
+         esp_netif_ip_info_t info = { };
+         static char gw[16] = "";
+         if (*wifimqtt && !wifimqttbackup && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
+            return;
+      }
 #endif
-   char *topic = NULL;
-   if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
-      return;
-   lwmqtt_client_config_t config = {
-      .hostname = mqtthost,
-      .topic = topic,
-      .retain = 1,
-      .payload = (void *) "{\"up\":false}",
-      .plen = -1,
-      .keepalive = 30,
-      .callback = &mqtt_rx,
-   };
+      char *topic = NULL;
+      if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
+         return;
+      lwmqtt_client_config_t config = {
+         .arg = (void *) client,
+         .hostname = mqtthost[client],
+         .topic = topic,
+         .retain = 1,
+         .payload = (void *) "{\"up\":false}",
+         .plen = -1,
+         .keepalive = 30,
+         .callback = &mqtt_rx,
+      };
 #ifdef	CONFIG_REVK_MQTT_SERVER
-   if (*wifimqtt && !wifimqttbackup)
-   {                            // Special case - server is gateway IP
-      config.tlsname = wifimqtt;        // The device name of the host if using TLS
-      config.tlsname_ref = 1;   // No need to duplicate
-      sprintf(gw, "%d.%d.%d.%d", info.gw.addr & 255, (info.gw.addr >> 8) & 255, (info.gw.addr >> 16) & 255, info.gw.addr >> 24);
-      config.hostname = gw;     // safe on stack as lwmqtt_client copies it
-      sntp_setservername(0, gw);
-   } else
+      if (!client && *wifimqtt && !wifimqttbackup)
+      {                         // Special case - server is gateway IP
+         config.tlsname = wifimqtt;     // The device name of the host if using TLS
+         config.tlsname_ref = 1;        // No need to duplicate
+         sprintf(gw, "%d.%d.%d.%d", info.gw.addr & 255, (info.gw.addr >> 8) & 255, (info.gw.addr >> 16) & 255, info.gw.addr >> 24);
+         config.hostname = gw;  // safe on stack as lwmqtt_client copies it
+         sntp_setservername(0, gw);
+      } else
+         sntp_setservername(0, ntphost);
 #endif
-      sntp_setservername(0, ntphost);
-   ESP_LOGI(TAG, "MQTT %s", config.hostname);
+      ESP_LOGI(TAG, "MQTT%d %s", client, config.hostname);
 #if 0                           /* When MQTT supports this! */
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-   if (mqttport == 8883 && !mqttcert->len)
-      config.crt_bundle_attach = esp_crt_bundle_attach;
-   else
+      if (mqttport == 8883 && !mqttcert->len)
+         config.crt_bundle_attach = esp_crt_bundle_attach;
+      else
 #endif
 #endif
-   if (mqttcert->len)
-   {
-      config.ca_cert_ref = 1;   // No need to duplicate
-      config.ca_cert_buf = (void *) mqttcert->data;
-      config.ca_cert_bytes = mqttcert->len;
-   } else if (mqttport == 8883)
-      config.crt_bundle_attach = esp_crt_bundle_attach;
-   if (clientkey->len && clientcert->len)
-   {
-      config.client_cert_ref = 1;       // No need to duplicate
-      config.client_cert_buf = (void *) clientcert->data;
-      config.client_cert_bytes = clientcert->len;
-      config.client_key_ref = 1;        // No need to duplicate
-      config.client_key_buf = (void *) clientkey->data;
-      config.client_key_bytes = clientkey->len;
+      if (mqttcert[client]->len)
+      {
+         config.ca_cert_ref = 1;        // No need to duplicate
+         config.ca_cert_buf = (void *) mqttcert[client]->data;
+         config.ca_cert_bytes = mqttcert[client]->len;
+      } else if (mqttport[client] == 8883)
+         config.crt_bundle_attach = esp_crt_bundle_attach;
+      if (clientkey->len && clientcert->len)
+      {
+         config.client_cert_ref = 1;    // No need to duplicate
+         config.client_cert_buf = (void *) clientcert->data;
+         config.client_cert_bytes = clientcert->len;
+         config.client_key_ref = 1;     // No need to duplicate
+         config.client_key_buf = (void *) clientkey->data;
+         config.client_key_bytes = clientkey->len;
+      }
+      if (*mqttuser[client])
+         config.username = mqttuser[client];
+      if (*mqttpass)
+         config.password = mqttpass[client];
+      config.port = mqttport[client];
+      mqtt_client[client] = lwmqtt_client(&config);
+      freez(topic);
    }
-   if (*mqttuser)
-      config.username = mqttuser;
-   if (*mqttpass)
-      config.password = mqttpass;
-   config.port = mqttport;
-   mqtt_client = lwmqtt_client(&config);
-   freez(topic);
 }
 #endif
 
@@ -637,7 +654,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          {
             jo_t j = jo_create_alloc();
             jo_string(j, "ssid", apssid);
-            app_callback(prefixcommand, NULL, "ap", j);
+            app_callback(0, prefixcommand, NULL, "ap", j);
             jo_free(&j);
          }
          break;
@@ -715,9 +732,9 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                jo_t j = jo_object_alloc();
                jo_string(j, "ssid",
 #ifdef	CONFIG_REVK_MQTT_SERVER
-			       (*wifimqtt && !wifimqttbackup) ? wifimqtt :
+                         (*wifimqtt && !wifimqttbackup) ? wifimqtt :
 #endif
-			       wifissid);
+                         wifissid);
                jo_stringf(j, "ip", IPSTR, IP2STR(&event->ip_info.ip));
                jo_stringf(j, "gw", IPSTR, IP2STR(&event->ip_info.gw));
 #ifdef	CONFIG_REVK_MQTT_SERVER
@@ -725,7 +742,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                   jo_bool(j, "slave", 1);
 #endif
                jo_rewind(j);
-               app_callback(prefixcommand, NULL, "wifi", j);
+               app_callback(0, prefixcommand, NULL, "wifi", j);
                jo_free(&j);
             }
 #endif
@@ -791,7 +808,7 @@ static void task(void *pvParameters)
             jo_t j = jo_create_alloc();
             jo_string(j, NULL, restart_reason);
             jo_rewind(j);
-            app_callback(prefixcommand, NULL, "shutdown", j);
+            app_callback(0, prefixcommand, NULL, "shutdown", j);
             jo_free(&j);
          }
          revk_mqtt_close(restart_reason);
@@ -807,7 +824,7 @@ static void task(void *pvParameters)
       }
 #ifdef	CONFIG_REVK_MQTT
       if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-      {                         // Online and on MQTT, check for any changes and report status
+      {                         // Online and on main MQTT, check for any changes and report status
          static int lastch = 0;
          static uint8_t lastbssid[6];
          static uint32_t lastheap = 0;
@@ -902,6 +919,7 @@ void revk_init(app_callback_t * app_callback_cb)
 #define fh(n,a,s,d)	revk_register(#n,a,s,&n,d,SETTING_BINDATA|SETTING_HEX)
 #define	u32(n,d)	revk_register(#n,0,4,&n,str(d),0)
 #define	u16(n,d)	revk_register(#n,0,2,&n,str(d),0)
+#define	u16a(n,a,d)	revk_register(#n,a,2,&n,str(d),0)
 #define	i16(n)		revk_register(#n,0,2,&n,0,SETTING_SIGNED)
 #define	u8a(n,a,d)	revk_register(#n,a,1,&n,str(d),0)
 #define	u8(n,d)		revk_register(#n,0,1,&n,str(d),0)
@@ -912,6 +930,7 @@ void revk_init(app_callback_t * app_callback_cb)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
 #define bd(n,d)		revk_register(#n,0,0,&n,d,SETTING_BINDATA)
+#define bad(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_BINDATA)
 #define bdp(n,d)	revk_register(#n,0,0,&n,d,SETTING_BINDATA|SETTING_SECRET)
    settings;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
@@ -952,6 +971,7 @@ void revk_init(app_callback_t * app_callback_cb)
 #undef str
 #undef h
 #undef bd
+#undef bad
 #undef bdp
    if (watchdogtime)
       esp_task_wdt_init(watchdogtime, true);
@@ -988,6 +1008,7 @@ void revk_init(app_callback_t * app_callback_cb)
    sntp_setoperatingmode(SNTP_OPMODE_POLL);
    setenv("TZ", tz, 1);
    tzset();
+   sntp_setservername(0, ntphost);
    app_callback = app_callback_cb;
    {                            /* Chip ID from MAC */
       unsigned char mac[6];
@@ -1026,67 +1047,102 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
    return task_id;
 }
 
-void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t * jp, lwmqtt_t copy)
+void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int copies)
 {
 #ifdef	CONFIG_REVK_MQTT
-   char *res = NULL;
+   int from = 0,
+       to = 0;;
+   if (copies > 0)
+      to = copies;
+   else
+      from = to = -copies;
+   for (int client = from; client <= to; client++)
+      if (mqtt_client[client])
+      {
+         ESP_LOGD(TAG, "MQTT%d publish %s (%s)", client, topic ? : "-", payload);
+         lwmqtt_send_full(mqtt_client[client], -1, topic, -1, (void *) payload, retain);
+      }
+#endif
+}
+
+void revk_mqtt_send_str_copy(const char *str, int retain, int copies)
+{
+#ifdef	CONFIG_REVK_MQTT
+   if (!str)
+      return;
+   int from = 0,
+       to = 0;;
+   if (copies > 0)
+      to = copies;
+   else
+      from = to = -copies;
+   const char *e = str;
+   while (*e && *e != ' ');
+   const char *p = e;
+   if (*p)
+      p++;
+   for (int client = from; client <= to; client++)
+      if (mqtt_client[client])
+      {
+         ESP_LOGD(TAG, "MQTT%d publish %.*s (%s)", client, e - str, str, p);
+         lwmqtt_send_full(mqtt_client[client], e - str, str, -1, (void *) p, retain);
+      }
+#endif
+}
+
+
+void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t * jp, int copies)
+{                               // Send to main, and N additional MQTT servers, or only to extra server N if copies -ve
+#ifdef	CONFIG_REVK_MQTT
+   char *payload = NULL;
    if (jp)
    {
       int pos = 0;
       const char *err = jo_error(*jp, &pos);
-      res = jo_finisha(jp);
-      if (!res && err)
+      payload = jo_finisha(jp);
+      if (!payload && err)
          ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", tag ? : "", err, pos);
    }
-   if (!res)
-      res = strdup("");         // Messy
-   if (mqtt_client)
+   char *topic = NULL;
+   if (!prefix)
+      topic = (char *) tag;     /* Set fixed topic */
+   else if (asprintf(&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, tag) < 0)
+      topic = NULL;
+   if (!topic)
    {
-      char *topic = NULL;
-      if (!prefix)
-         topic = (char *) tag;  /* Set fixed topic */
-      else if (asprintf(&topic, tag ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, tag) < 0)
-         topic = NULL;
-      if (!topic)
-      {
-         freez(res);
-         return;
-      }
-      ESP_LOGD(TAG, "MQTT publish %s (%s)", topic ? : "-", res);
-      if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-         lwmqtt_send_full(mqtt_client, -1, topic, -1, (void *) res, retain);
-      if (copy)
-         lwmqtt_send_full(copy, -1, topic, -1, (void *) res, retain);
-      if (topic != tag)
-         freez(topic);
+      freez(payload);
+      return;
    }
-   freez(res);
+   revk_mqtt_send_raw(topic, retain, payload, copies);
+   if (topic != tag)
+      freez(topic);
+   freez(payload);
 #endif
 }
 
-void revk_state_copy(const char *tag, jo_t * jp, lwmqtt_t copy)
+void revk_state_copy(const char *tag, jo_t * jp, int copies)
 {                               // State message (retained)
-   revk_mqtt_send_copy(prefixstate, 1, tag, jp, copy);
+   revk_mqtt_send_copy(prefixstate, 1, tag, jp, copies);
 }
 
-void revk_event_copy(const char *tag, jo_t * jp, lwmqtt_t copy)
+void revk_event_copy(const char *tag, jo_t * jp, int copies)
 {                               // Event message (may one day create log entries)
-   revk_mqtt_send_copy(prefixevent, 0, tag, jp, copy);
+   revk_mqtt_send_copy(prefixevent, 0, tag, jp, copies);
 }
 
-void revk_error_copy(const char *tag, jo_t * jp, lwmqtt_t copy)
+void revk_error_copy(const char *tag, jo_t * jp, int copies)
 {                               // Error message, waits a while for connection if possible before sending
    xEventGroupWaitBits(revk_group,
 #ifdef	CONFIG_REVK_WIFI
                        GROUP_WIFI |
 #endif
                        GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);
-   revk_mqtt_send_copy(prefixerror, 0, tag, jp, copy);
+   revk_mqtt_send_copy(prefixerror, 0, tag, jp, copies);
 }
 
-void revk_info_copy(const char *tag, jo_t * jp, lwmqtt_t copy)
+void revk_info_copy(const char *tag, jo_t * jp, int copies)
 {                               // Info message, nothing special
-   revk_mqtt_send_copy(prefixinfo, 0, tag, jp, copy);
+   revk_mqtt_send_copy(prefixinfo, 0, tag, jp, copies);
 }
 
 const char *revk_restart(const char *reason, int delay)
@@ -1104,7 +1160,7 @@ const char *revk_restart(const char *reason, int delay)
          jo_t j = jo_create_alloc();
          jo_string(j, NULL, reason);
          jo_rewind(j);
-         app_callback(prefixcommand, NULL, "restart", j);
+         app_callback(0, prefixcommand, NULL, "restart", j);
          jo_free(&j);
       }
    }
@@ -1274,8 +1330,6 @@ static void ap_task(void *pvParameters)
    xEventGroupSetBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_NONE);
    if (!*apssid)
    {                            // If we are not running an AP already
-      if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-         revk_mqtt_close("AP mode start");
       if (xEventGroupGetBits(revk_group) & GROUP_WIFI)
       {
          esp_wifi_disconnect();
@@ -2523,9 +2577,11 @@ esp_err_t revk_err_check(esp_err_t e)
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-lwmqtt_t revk_mqtt(void)
+lwmqtt_t revk_mqtt(int client)
 {
-   return mqtt_client;
+   if (client >= MQTT_CLIENTS)
+      return NULL;
+   return mqtt_client[client];
 }
 #endif
 
@@ -2554,17 +2610,18 @@ uint32_t revk_offline(void)
 #ifdef	CONFIG_REVK_MQTT
 void revk_mqtt_close(const char *reason)
 {
-   if (!mqtt_client)
-      return;
-   ESP_LOGI(TAG, "MQTT Close");
-   jo_t j = jo_object_alloc();
-   jo_bool(j, "up", 0);
-   jo_string(j, "id", revk_id);
-   jo_string(j, "reason", reason);
-   revk_state(NULL, &j);
-   lwmqtt_end(&mqtt_client);
-   // TODO We could wait close...
-   ESP_LOGI(TAG, "MQTT Closed");
+   for (int client = 0; client < MQTT_CLIENTS; client++)
+      if (mqtt_client[client])
+      {
+         ESP_LOGI(TAG, "MQTT%d Close", client);
+         jo_t j = jo_object_alloc();
+         jo_bool(j, "up", 0);
+         jo_string(j, "id", revk_id);
+         jo_string(j, "reason", reason);
+         revk_state(NULL, &j);
+         lwmqtt_end(&mqtt_client[client]);
+         ESP_LOGI(TAG, "MQTT%d Closed", client);
+      }
 }
 #endif
 
