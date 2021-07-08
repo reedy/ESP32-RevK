@@ -102,9 +102,9 @@ static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void
    {
       h->ca_cert_bytes = ca_cert_bytes;
       if ((h->ca_cert_ref = ca_cert_ref))
-         h->ca_cert_buf = ca_cert_buf;
+         h->ca_cert_buf = ca_cert_buf; // No malloc as reference will stay valid
       else if (!(h->ca_cert_buf = malloc(ca_cert_bytes)))
-         fail++;
+         fail++; // malloc failed
       else
          memcpy(h->ca_cert_buf, ca_cert_buf, ca_cert_bytes);
    }
@@ -112,9 +112,9 @@ static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void
    {
       h->our_cert_bytes = our_cert_bytes;
       if ((h->our_cert_ref = our_cert_ref))
-         h->our_cert_buf = our_cert_buf;
+         h->our_cert_buf = our_cert_buf; // No malloc as reference will stay valid
       else if (!(h->our_cert_buf = malloc(our_cert_bytes)))
-         fail++;
+         fail++; // malloc failed
       else
          memcpy(h->our_cert_buf, our_cert_buf, our_cert_bytes);
    }
@@ -122,9 +122,9 @@ static int handle_certs(lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void
    {
       h->our_key_bytes = our_key_bytes;
       if ((h->our_key_ref = our_cert_ref))
-         h->our_key_buf = our_key_buf;
+         h->our_key_buf = our_key_buf; // No malloc as reference will stay valid
       else if (!(h->our_key_buf = malloc(our_key_bytes)))
-         fail++;
+         fail++; // malloc failed
       else
          memcpy(h->our_key_buf, our_key_buf, our_key_bytes);
    }

@@ -25,6 +25,10 @@ static const char
 #endif
 #include <driver/gpio.h>
 
+#ifndef	CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS
+#warning CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS recommended
+#endif
+
 #ifndef	CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER
 #warning CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER recommended
 #endif
