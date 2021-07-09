@@ -227,14 +227,14 @@ jo_t jo_object_alloc(void)
 }
 
 static jo_t jo_link(jo_t j)
-{                               // Copy control without copying the allocated content - copied object has to stay valid
+{                               // Internal use: Copy control without copying the allocated content - copied object has to stay valid
    if (!j || j->err)
       return NULL;              // No j
    jo_t n = jo_new();
    if (!n)
       return n;                 // malloc fail
    memcpy(n, j, sizeof(*j));
-   j->alloc = 0;
+   n->alloc = 0;
    return n;
 }
 
