@@ -584,6 +584,16 @@ ssize_t jo_strncpyd(jo_t j, void *dstv, size_t dlen, uint8_t bits, const char *a
    return ptr;
 }
 
+char *jo_strdup(jo_t j)
+{                               // Malloc copy of string
+   ssize_t len = jo_strlen(j);
+   if (len < 0)
+      return NULL;
+   char *str = malloc(len + 1);
+   jo_strncpy(j, str, len + 1);
+   return str;
+}
+
 void jo_int(jo_t j, const char *tag, int64_t val)
 {                               // Add an integer
    jo_litf(j, tag, "%lld", val);
