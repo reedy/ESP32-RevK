@@ -421,7 +421,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       const char *err = NULL;
       // Break up topic
       const char *prefix = topic;
-      const char *target = NULL;
+      const char *target = "?";
       const char *suffix = NULL;
       char *p = topic;
       while (*p && *p != '/')
@@ -474,7 +474,9 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          jo_rewind(j);
       }
-      if (!client && target && (!strcmp(target, "*") || !strcmp(target, revk_id)))
+      if (!strcmp(target, "*") || !strcmp(target, revk_id))
+         target = NULL;         // Mark as us for simple testing by app_command, etc
+      if (!client && !target)
       {                         // For us (could otherwise be for app callback)
          if (prefix && !strcmp(prefix, prefixcommand))
             err = ((err ? : revk_command(suffix, j)) ? : "Unknown command");

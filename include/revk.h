@@ -35,7 +35,7 @@
 
         // MQTT rx callback: Do not consume jo_t! Return error or NULL. Returning "" means handled the command with no error.
         // You will want to check prefix matches prefixcommand
-        // Target is NULL for internal commands, else typically "*" or revk_id
+	// Target can be something not for us if extra subscribes done, but if it is for us, or internal, it is passes as NULL
         // Suffix can be NULL
 typedef const char *app_callback_t(int client, const char *prefix, const char *target, const char *suffix, jo_t);
 
