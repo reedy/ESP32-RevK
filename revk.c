@@ -500,6 +500,8 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             err = e2;           /* Overwrite error if we did not have one */
       }
       jo_free(&j);
+      if (!err)
+         err = "Unknown";
       if (*err)
       {
          jo_t j = jo_object_alloc();
