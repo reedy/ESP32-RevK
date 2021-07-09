@@ -365,10 +365,12 @@ char *jo_finisha(jo_t * jp)
 // Creating
 // Note that tag is required if in an object and must be null if not
 
-static void jo_write_str(jo_t j, const char *s)
+static void jo_write_str(jo_t j, const char *s, ssize_t len)
 {
    jo_write(j, '"');
-   while (*s)
+   if (len < 0)
+      len = strlen(s);
+   while (len--)
    {
       uint8_t c = *s++;
 #define esc(a,b) if(c==b){jo_write(j,'\\');jo_write(j,b);continue;}
@@ -412,7 +414,7 @@ static const char *jo_write_check(jo_t j, const char *tag)
    j->comma = 1;
    if (tag)
    {
-      jo_write_str(j, tag);
+      jo_write_str(j, tag, -1);
       jo_write(j, ':');
    }
    return j->err;
@@ -470,7 +472,7 @@ void jo_close(jo_t j)
    jo_write(j, (j->o[j->level / 8] & (1 << (j->level & 7))) ? '}' : ']');
 }
 
-void jo_string(jo_t j, const char *tag, const char *string)
+void jo_stringn(jo_t j, const char *tag, const char *string, ssize_t len)
 {                               // Add a string
    if (!string)
    {
@@ -479,7 +481,7 @@ void jo_string(jo_t j, const char *tag, const char *string)
    }
    if (jo_write_check(j, tag))
       return;
-   jo_write_str(j, string);
+   jo_write_str(j, string, len);
 }
 
 void jo_stringf(jo_t j, const char *tag, const char *format, ...)
@@ -489,13 +491,13 @@ void jo_stringf(jo_t j, const char *tag, const char *format, ...)
    char *v = NULL;
    va_list ap;
    va_start(ap, format);
-   vasprintf(&v, format, ap);
+   ssize_t len = vasprintf(&v, format, ap);
    if (!v)
    {
       j->err = "malloc for printf";
       return;
    }
-   jo_write_str(j, v);
+   jo_write_str(j, v, len);
    free(v);
 }
 
