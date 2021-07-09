@@ -111,7 +111,9 @@ void handle_close(lwmqtt_t handle)
    {                            // TLS
       if (handle->server)
       {
+#ifdef CONFIG_ESP_TLS_SERVER
          esp_tls_server_session_delete(tls);
+#endif
          close(sock);
       } else
          esp_tls_conn_destroy(tls);
@@ -791,8 +793,10 @@ static void listen_task(void *pvParameters)
                } else
                {                // Close
                   ESP_LOGI(TAG, "MQTT aborted");
+#ifdef CONFIG_ESP_TLS_SERVER
                   if (h->tls)
                      esp_tls_server_session_delete(h->tls);
+#endif
                   close(h->sock);
                }
 
