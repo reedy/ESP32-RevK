@@ -291,7 +291,7 @@ void lwmqtt_end(lwmqtt_t * handle)
       return;
    if ((*handle)->running)
    {
-      ESP_LOGI(TAG, "Ending");
+      ESP_LOGD(TAG, "Ending");
       (*handle)->running = 0;
    }
    *handle = NULL;
@@ -364,7 +364,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
       }
    }
    if (ret)
-      ESP_LOGI(TAG, "Sub/unsub: %s", ret);
+      ESP_LOGE(TAG, "Sub/unsub: %s", ret);
    return ret;
 }
 
@@ -454,7 +454,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
          need = 3 + (buf[2] << 7) + (buf[1] & 0x7F);    // Two byte len
       else
       {
-         ESP_LOGI(TAG, "Silly len %02X %02X %02X", buf[0], buf[1], buf[2]);
+         ESP_LOGE(TAG, "Silly len %02X %02X %02X", buf[0], buf[1], buf[2]);
          break;
       }
       if (pos < need)
@@ -480,7 +480,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
             int sel = select(handle->sock + 1, &r, NULL, NULL, &to);
             if (sel < 0)
             {
-               ESP_LOGI(TAG, "Select failed");
+               ESP_LOGE(TAG, "Select failed");
                break;
             }
             if (!sel)
@@ -498,7 +498,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
          int got = hread(handle, buf + pos, need - pos);
          if (got <= 0)
          {
-            ESP_LOGI(TAG, "Connection closed");
+            ESP_LOGD(TAG, "Connection closed");
             break;              // Error or close
          }
          pos += got;
@@ -533,7 +533,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       case 2:                  // conack
          if (handle->server)
             break;
-         ESP_LOGD(TAG, "Connected outgoing");
+         ESP_LOGD(TAG, "Connected %s:%d", handle->hostname, handle->port);
          handle->backoff = 1;
          if (handle->callback)
             handle->callback(handle->arg, NULL, strlen(handle->hostname), (void *) handle->hostname);
@@ -612,14 +612,14 @@ static void lwmqtt_loop(lwmqtt_t handle)
       case 13:                 // pingresp - no action - though we could use lack of reply to indicate broken connection I guess
          break;
       default:
-         ESP_LOGI(TAG, "Unknown MQTT %02X", *buf);
+         ESP_LOGE(TAG, "Unknown MQTT %02X", *buf);
       }
       pos = 0;
    }
    freez(buf);
    if (!handle->server && !handle->running)
    {                            // Close connection - as was clean
-      ESP_LOGI(TAG, "Close cleanly");
+      ESP_LOGD(TAG, "Close cleanly");
       uint8_t b[] = { 0xE0, 0x00 };     // Disconnect cleanly
       xSemaphoreTake(handle->mutex, portMAX_DELAY);
       hwrite(handle, b, sizeof(b));
@@ -642,7 +642,7 @@ static void client_task(void *pvParameters)
    while (handle->running)
    {                            // Loop connecting and trying repeatedly
       // Connect
-      ESP_LOGI(TAG, "Connecting %s:%d", handle->hostname, handle->port);
+      ESP_LOGD(TAG, "Connecting %s:%d", handle->hostname, handle->port);
       esp_tls_t *tls = NULL;
       // Can connect using TLS or non TLS with just sock set instead
       if (handle->ca_cert_bytes || handle->crt_bundle_attach)
@@ -662,7 +662,7 @@ static void client_task(void *pvParameters)
          if (esp_tls_conn_new_sync(handle->hostname, strlen(handle->hostname), handle->port, &cfg, tls) != 1)
          {
             handle->running = 0;
-            ESP_LOGI(TAG, "Could not TLS connect to %s:%d", handle->hostname, handle->port);
+            ESP_LOGE(TAG, "Could not TLS connect to %s:%d", handle->hostname, handle->port);
          }
 
       } else
@@ -691,7 +691,7 @@ static void client_task(void *pvParameters)
          if (handle->sock < 0)
          {
             handle->running = 0;
-            ESP_LOGI(TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
+            ESP_LOGD(TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
          }
       }
       if (handle->running)
@@ -740,7 +740,7 @@ static void listen_task(void *pvParameters)
             close(sock);
          else
          {
-            ESP_LOGI(TAG, "Listening for MQTT on %d", handle->port);
+            ESP_LOGD(TAG, "Listening for MQTT on %d", handle->port);
             while (handle->running)
             {                   // Loop connecting and trying repeatedly
                struct sockaddr_in addr;
@@ -748,7 +748,7 @@ static void listen_task(void *pvParameters)
                int s = accept(sock, (void *) &addr, &addrlen);
                if (s < 0)
                   break;
-               ESP_LOGI(TAG, "Connect on MQTT %d", handle->port);
+               ESP_LOGD(TAG, "Connect on MQTT %d", handle->port);
                lwmqtt_t h = malloc(sizeof(*h));
                if (!h)
                   break;
@@ -775,7 +775,7 @@ static void listen_task(void *pvParameters)
                   esp_err_t e = 0;
                   if (!h->tls || (e = esp_tls_server_session_create(&cfg, s, h->tls)))
                   {
-                     ESP_LOGI(TAG, "Server failed %s", h->tls ? esp_err_to_name(e) : "No TLS");
+                     ESP_LOGE(TAG, "TLS server failed %s", h->tls ? esp_err_to_name(e) : "No TLS");
                      h->running = 0;
                   } else
                   {             // Check client name? Do login callback
