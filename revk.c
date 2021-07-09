@@ -1295,9 +1295,10 @@ static esp_err_t ap_get(httpd_req_t * req)
             if (!httpd_query_key_value(query, "ssid", ssid, sizeof(ssid)) && *ssid && !httpd_query_key_value(query, "pass", pass, sizeof(pass)))
             {
                jo_t j = jo_object_alloc();
-               jo_string(j, "wifissid", ssid);
-               jo_string(j, "wifipass", pass);
-               revk_setting(NULL, j);
+               jo_object(j, "wifi");
+               jo_string(j, "ssid", ssid);
+               jo_string(j, "pass", pass);
+               revk_setting(j);
                jo_free(&j);
             }
          }
@@ -1306,12 +1307,9 @@ static esp_err_t ap_get(httpd_req_t * req)
             if (!httpd_query_key_value(query, "host", host, sizeof(host)) && *host)
             {
                jo_t j = jo_object_alloc();
-               jo_string(j, "mqtthost", host);
-               jo_string(j, "mqttuser", "");
-               jo_string(j, "mqttpass", "");
-               jo_string(j, "mqttcert", "");
-               jo_string(j, "mqttport", "");
-               revk_setting(NULL, j);
+               jo_object(j, "mqtt");
+               jo_string(j, "host", host);
+               revk_setting(j);
                jo_free(&j);
             }
          }
