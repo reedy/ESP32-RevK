@@ -480,7 +480,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (!client && !target)
       {                         // For us (could otherwise be for app callback)
          if (prefix && !strcmp(prefix, prefixcommand))
-            err = ((err ? : revk_command(suffix, j)) ? : "Unknown command");
+            err = (err ? : revk_command(suffix, j));
          else if (prefix && !strcmp(prefix, prefixsetting))
          {
             if (!suffix && !plen)
