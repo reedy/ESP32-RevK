@@ -237,6 +237,7 @@ static esp_netif_t *ap_netif = NULL;
 static char wdt_test = 0;
 static uint8_t blink_on = 0,
     blink_off = 0;
+static char blink_colour = 'Y';
 static const char *revk_setting_dump(void);
 
 /* Local functions */
@@ -793,9 +794,16 @@ static void task(void *pvParameters)
             lit = 1 - lit;
             count = (lit ? on : off);
             if (count)
-               gpio_set_level(blink[0] & 0x3F, lit ^ ((blink[0] & 0x40) ? 1 : 0));
+            {
+               if (blink[1])
+               {                // RGB
+                  gpio_set_level(blink[0] & 0x3F, (lit && (blink_colour == 'R' || blink_colour == 'Y' || blink_colour == 'M' || blink_colour == 'W')) ^ ((blink[0] & 0x40) ? 1 : 0));   // Red LED
+                  gpio_set_level(blink[1] & 0x3F, (lit && (blink_colour == 'G' || blink_colour == 'Y' || blink_colour == 'C' || blink_colour == 'W')) ^ ((blink[1] & 0x40) ? 1 : 0));   // Green LED
+                  gpio_set_level(blink[2] & 0x3F, (lit && (blink_colour == 'B' || blink_colour == 'C' || blink_colour == 'M' || blink_colour == 'W')) ^ ((blink[2] & 0x40) ? 1 : 0));   // Blue LED
+               } else
+                  gpio_set_level(blink[0] & 0x3F, lit ^ ((blink[0] & 0x40) ? 1 : 0));   // Single LED
+            }
          }
-         // TODO RGB LED
       }
       if (setting_dump_requested)
       {                         // Done here so not reporting from MQTT
@@ -2597,10 +2605,11 @@ const char *revk_wifi(void)
 }
 #endif
 
-void revk_blink(uint8_t on, uint8_t off)
+void revk_blink(uint8_t on, uint8_t off, char colour)
 {
    blink_on = on;
    blink_off = off;
+   blink_colour = colour ? : 'Y';
 }
 
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)

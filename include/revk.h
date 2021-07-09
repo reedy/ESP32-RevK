@@ -125,6 +125,6 @@ int revk_wait_wifi(int seconds);
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
 uint32_t revk_offline(void);    // How long we have been offline (seconds), or 0 if online
 #endif
-void revk_blink(uint8_t on, uint8_t off);       // Set LED blink rate (0,0) for default
+void revk_blink(uint8_t on, uint8_t off,char colour);       // Set LED blink rate (0,0) for default
 
 #endif
