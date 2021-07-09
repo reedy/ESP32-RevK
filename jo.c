@@ -226,6 +226,18 @@ jo_t jo_object_alloc(void)
    return j;
 }
 
+static jo_t jo_link(jo_t j)
+{                               // Copy control without copying the allocated content - copied object has to stay valid
+   if (!j || j->err)
+      return NULL;              // No j
+   jo_t n = jo_new();
+   if (!n)
+      return n;                 // malloc fail
+   memcpy(n, j, sizeof(*j));
+   j->alloc = 0;
+   return n;
+}
+
 jo_t jo_copy(jo_t j)
 {                               // Copy object - copies the object, and if allocating memory, makes copy of the allocated memory too
    if (!j || j->err)
@@ -542,7 +554,7 @@ ssize_t jo_strncpyd(jo_t j, void *dstv, size_t dlen, uint8_t bits, const char *a
       return -1;
    if (jo_peek(j) != '"')
       return -1;                // Not a string
-   jo_t p = jo_copy(j);
+   jo_t p = jo_link(j);
    jo_read(p);                  // skip "
    int b = 0,
        v = 0,
@@ -802,7 +814,7 @@ static ssize_t jo_cpycmp(jo_t j, void *strv, size_t max, uint8_t cmp)
          return 0;              // null==null?
       return 1;                 // str>null
    }
-   jo_t p = jo_copy(j);
+   jo_t p = jo_link(j);
    int c = jo_peek(p);
    ssize_t result = 0;
    void process(int c) {        // Compare or copy or count, etc
