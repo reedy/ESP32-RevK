@@ -285,7 +285,7 @@ static void revk_report_state(int copies)
    revk_state_copy(NULL, &j, copies);
 }
 
-#ifdef	CONFIG_REVK_WIFI
+#if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 {
    char *i = strdup(ip);
@@ -303,6 +303,60 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
    else
       REVK_ERR_CHECK(esp_netif_str_to_ip4(gw, &info->gw));
    freez(i);
+}
+#endif
+
+#if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+static void setup_ip(void)
+{                               // Set up DHCPC / fixed IP
+   void dns(const char *ip, esp_netif_dns_type_t type) {
+      if (!ip || !*ip)
+         return;
+      char *i = strdup(ip);
+      char *c = strrchr(i, '/');
+      if (c)
+         *c = 0;
+      esp_netif_dns_info_t dns = { };
+      if (!esp_netif_str_to_ip4(i, &dns.ip.u_addr.ip4))
+         dns.ip.type = AF_INET;
+      else if (!esp_netif_str_to_ip6(i, &dns.ip.u_addr.ip6))
+         dns.ip.type = AF_INET6;
+      else
+      {
+         ESP_LOGE(TAG, "Bad DNS IP %s", i);
+         return;
+      }
+      if (esp_netif_set_dns_info(sta_netif, type, &dns))
+         ESP_LOGE(TAG, "Bad DNS %s", i);
+      else
+         ESP_LOGI(TAG, "Set DNS IP %s", i);
+      freez(i);
+   }
+   if (*wifiip)
+   {
+      esp_netif_dhcpc_stop(sta_netif);
+      esp_netif_ip_info_t info = { 0, };
+      makeip(&info, wifiip, wifigw);
+      REVK_ERR_CHECK(esp_netif_set_ip_info(sta_netif, &info));
+      ESP_LOGI(TAG, "Fixed IP %s GW %s", wifiip, wifigw);
+      if (!*wifidns[0])
+         dns(wifiip, ESP_NETIF_DNS_MAIN);       /* Fallback to using gateway for DNS */
+   } else
+      esp_netif_dhcpc_start(sta_netif); /* Dynamic IP */
+   dns(wifidns[0], ESP_NETIF_DNS_MAIN);
+   dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
+   dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
+#ifdef  CONFIG_REVK_MQTT
+   if (*wifiip)
+      mqtt_init();              // Won't start on GOT_IP
+#endif
+}
+#endif
+
+#if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+static void stop_ip(void)
+{
+   esp_netif_dhcpc_stop(sta_netif);
 }
 #endif
 
@@ -344,43 +398,7 @@ static void wifi_init(void)
    strncpy((char *) wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
    strncpy((char *) wifi_config.sta.password, wifipass, sizeof(wifi_config.sta.password));
    REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-   void dns(const char *ip, esp_netif_dns_type_t type) {
-      if (!ip || !*ip)
-         return;
-      char *i = strdup(ip);
-      char *c = strrchr(i, '/');
-      if (c)
-         *c = 0;
-      esp_netif_dns_info_t dns = { };
-      if (!esp_netif_str_to_ip4(i, &dns.ip.u_addr.ip4))
-         dns.ip.type = AF_INET;
-      else if (!esp_netif_str_to_ip6(i, &dns.ip.u_addr.ip6))
-         dns.ip.type = AF_INET6;
-      else
-      {
-         ESP_LOGE(TAG, "Bad DNS IP %s", i);
-         return;
-      }
-      if (esp_netif_set_dns_info(sta_netif, type, &dns))
-         ESP_LOGE(TAG, "Bad DNS %s", i);
-      else
-         ESP_LOGI(TAG, "Set DNS IP %s", i);
-      freez(i);
-   }
-   if (*wifiip)
-   {
-      esp_netif_dhcpc_stop(sta_netif);
-      esp_netif_ip_info_t info = { 0, };
-      makeip(&info, wifiip, wifigw);
-      REVK_ERR_CHECK(esp_netif_set_ip_info(sta_netif, &info));
-      ESP_LOGI(TAG, "Fixed IP %s GW %s", wifiip, wifigw);
-      if (!*wifidns[0])
-         dns(wifiip, ESP_NETIF_DNS_MAIN);       /* Fallback to using gateway for DNS */
-   } else
-      esp_netif_dhcpc_start(sta_netif); /* Dynamic IP */
-   dns(wifidns[0], ESP_NETIF_DNS_MAIN);
-   dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
-   dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
+   setup_ip();
    // Doing AP mode after STA mode - seems to fail is not
    if (*apssid)
    {                            // AP config
@@ -820,12 +838,15 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
          break;
       case MESH_EVENT_PARENT_CONNECTED:
-	 // TODO Static IP stuff?
-	 REVK_ERR_CHECK(esp_netif_dhcpc_start(sta_netif));
+         ESP_LOGI(TAG, "Parent connected");
+         setup_ip();
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
+         ESP_LOGI(TAG, "Parent disconnected");
+         stop_ip();
          break;
       case MESH_EVENT_NO_PARENT_FOUND:
+         ESP_LOGI(TAG, "No parent found");
          break;
       case MESH_EVENT_LAYER_CHANGE:
          break;
