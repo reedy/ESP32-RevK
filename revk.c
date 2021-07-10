@@ -351,10 +351,10 @@ static void root_task(void *pvParameters)
       {
          ESP_LOGI(TAG, "Sending time %u", now);
          was = now;
-         mesh_data_t data = {.data = (void *) &now,.size = sizeof(now),.proto = MESH_PROTO_BIN };
+         mesh_data_t data = {.data = (void *) &now,.size = sizeof(now) };
          mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
          };
-         REVK_ERR_CHECK(esp_mesh_send(&addr, &data, MESH_DATA_FROMDS, NULL, 0));
+         REVK_ERR_CHECK(esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0));
       }
    }
    count--;
@@ -1319,6 +1319,7 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
    if (!mqtt_client[client] && esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
       ESP_LOGI(TAG, "Send via mesh");
+      // TODO limit MESH_MPS
       // esp_mesh_send(constmesh_addr_t *to, constmesh_data_t *data, int flag, constmesh_opt_topt[], int opt_count)
    }
 #endif
