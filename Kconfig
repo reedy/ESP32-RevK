@@ -47,6 +47,13 @@ menu "RevK"
         help
 		Total nodes allowed
 
+	config REVK_MESHLR
+        bool "Mesh LR mode"
+        default n
+	depends on REVK_MESH
+        help
+		Run mesh in LR mode
+
 	config REVK_WIFISSID
 	string "Default WiFi SSID"
 	default "IoT"

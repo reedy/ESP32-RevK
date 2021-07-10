@@ -114,6 +114,7 @@ static const char
     		u16(meshwidth,CONFIG_REVK_MESHWIDTH);	\
     		u16(meshmax,CONFIG_REVK_MESHMAX);	\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
+		b(meshlr,CONFIG_REVK_MESHLR);		\
 
 #define s(n,d)		char *n;
 #define sp(n,d)		char *n;
@@ -324,59 +325,48 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 
 
 #ifdef CONFIG_REVK_MESH
-static void root_task(void *pvParameters)
+static void mesh_task(void *pvParameters)
 {                               // Mesh root
    pvParameters = pvParameters;
-   ESP_LOGI(TAG, "Mesh root task started");
    uint32_t was = 0;
-   while (esp_mesh_is_root())
+   mesh_data_t data = { };
+   data.data = malloc(MESH_MPS);
+   while (1)
    {
-      mesh_addr_t from;
-      mesh_data_t data;
-      int flag;
+      if (!esp_mesh_is_device_active())
+      {
+         sleep(1);
+         continue;
+      }
+      mesh_rx_pending_t p = { };
+      esp_mesh_get_rx_pending(&p);
+      if (p.toDS || p.toSelf)
+         ESP_LOGI(TAG, "Pending %d %d", p.toDS, p.toSelf);
+
+      mesh_addr_t from = { };
+      data.size = MESH_MPS;
+      int flag = 0;
       if (!esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0))
       {
-         ESP_LOGI(TAG, "Mesh rx root size=%d proto=%d tos=%d flag=%d", data.size, data.proto, data.tos, flag);
-         // TODO MQTT outbound
+         ESP_LOGI(TAG, "Mesh rx size=%d proto=%d tos=%d flag=%d", data.size, data.proto, data.tos, flag);
+
       }
-      // Periodic time updates
-      uint32_t now = time(0);
-      if (now > 1000000000 && now / 60 != was / 60)
-      {
-         ESP_LOGI(TAG, "Sending time %u", now);
-         was = now;
-         mesh_data_t data = {.data = (void *) &now,.size = sizeof(now) };
-         mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
-         };
-         REVK_ERR_CHECK(esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0));
-      // TODO This API is not reentrant.!
+      if (esp_mesh_is_root())
+      {                         // Root jobs
+         // Periodic time updates
+         uint32_t now = time(0);
+         if (now > 1000000000 && now / 60 != was / 60)
+         {
+            ESP_LOGI(TAG, "Sending time %u", now);
+            was = now;
+            mesh_data_t data = {.data = (void *) &now,.size = sizeof(now) };
+            mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+            };
+            REVK_ERR_CHECK(esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0));
+            // TODO This API is not reentrant.!
+         }
       }
    }
-   ESP_LOGI(TAG, "Mesh root task ended");
-   vTaskDelete(NULL);
-}
-#endif
-
-
-#ifdef CONFIG_REVK_MESH
-static void child_task(void *pvParameters)
-{                               // Mesh child
-   pvParameters = pvParameters;
-   ESP_LOGI(TAG, "Mesh child task started");
-   while (!esp_mesh_is_root())
-   {
-      mesh_addr_t from;
-      mesh_data_t data;
-      int flag;
-      if (!esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0))
-      {
-         ESP_LOGI(TAG, "Mesh rx child size=%d proto=%d tos=%d flag=%d", data.size, data.proto, data.tos, flag);
-         // TODO time
-         // TODO MQTT
-      }
-      // TODO ending child task? or are we better with just one task for root and child maybe?
-   }
-   ESP_LOGI(TAG, "Mesh child task ended");
    vTaskDelete(NULL);
 }
 #endif
@@ -518,6 +508,9 @@ static void mesh_init(void)
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
       //REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif)); // We stop when child connects
       REVK_ERR_CHECK(esp_wifi_start());
+      REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
+      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
@@ -535,6 +528,7 @@ static void mesh_init(void)
       if (meshmax)
          REVK_ERR_CHECK(esp_mesh_set_capacity_num(meshmax));
       REVK_ERR_CHECK(esp_mesh_disable_ps());
+      revk_task("Mesh", mesh_task, NULL);
    }
    REVK_ERR_CHECK(esp_mesh_start());
 }
@@ -674,7 +668,6 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          sub(prefixsetting);
       }
       revk_report_state(-client);
-
       if (app_callback)
       {
          jo_t j = jo_create_alloc();
@@ -923,12 +916,10 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             {
                ESP_LOGI(TAG, "Mesh root");
                setup_ip();
-               revk_task("Mesh", root_task, NULL);
             } else
             {
                ESP_LOGI(TAG, "Mesh child");
                stop_ip();
-               revk_task("Mesh", child_task, NULL);
             }
          }
          break;
