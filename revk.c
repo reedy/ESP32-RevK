@@ -873,12 +873,14 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case MESH_EVENT_LAYER_CHANGE:
          break;
       case MESH_EVENT_TODS_STATE:
+	 ESP_LOGI(TAG,"toDS state");
          break;
       case MESH_EVENT_VOTE_STARTED:
          break;
       case MESH_EVENT_VOTE_STOPPED:
          break;
       case MESH_EVENT_ROOT_ADDRESS:
+	 ESP_LOGI(TAG,"Root has IP");
          break;
       case MESH_EVENT_ROOT_SWITCH_REQ:
          break;
