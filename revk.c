@@ -262,7 +262,8 @@ static void mqtt_init(void);
 #endif
 
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
-
+static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload);
+void make_mesh_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 
 static void revk_report_state(int copies)
 {                               // Report state
@@ -393,58 +394,66 @@ static void mesh_task(void *pvParameters)
       {
          ESP_LOGD(TAG, "Mesh rx size=%d proto=%d tos=%d flag=%d %02X%02X%02X%02X%02X%02X", data.size, data.proto, data.tos, flag, from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
          mesh_decode(&data);
-         if (data.proto != MESH_PROTO_MQTT)
-            continue;
-         // Extract topic and payload
-         // Topic prefix digit for client
-         // Topic then prefix + for retain
-         char retain = 0;
-         int client = 0;
-         const char *e = (char *) data.data + data.size;
-         const char *topic = (char *) data.data;
-         if (*topic >= '0' && *topic <= '9')
-            client = *topic++ - '0';
-         if (*topic == '+')
-            retain = (*topic++ == '+');
-         const char *payload = topic;
-         while (payload < e && *payload)
-            payload++;
-         if (payload == e)
-            continue;           // We expect topic ending in NULL
-         payload++;
-         const char *target = topic;
-         while (*target && *target != '/')
-            target++;           // clear the command
-         if (!*target)
-            continue;           // Uh
-         target++;
-         while (*target && *target != '/')
-            target++;           // clear the appname
-         if (!*target)
-            continue;           // Uh
-         target++;
-         const char *suffix = target;
-         while (*suffix && *suffix != '/')
-            suffix++;
-         if (*suffix)
-            suffix++;
-         else
-            suffix = NULL;
-         jo_t j = NULL;
-         if (e > payload)
-            j = jo_parse_mem(payload, e - payload);
-         ESP_LOGD(TAG, "client=%d retain=%d topic=%s target=%s suffix=%s", client, retain, topic, target ? : "", suffix ? : "");
-         if (isroot)
+         // We use MESH_PROTO_MQTT to relay
+         // We use MESH_PROTO_JSON for messages internally
+         if (data.proto == MESH_PROTO_MQTT)
          {
-            if (!client && *target == '*')
-               revk_command(suffix, j); // Internal
-            else if (client < MQTT_CLIENTS)
-               lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, retain);
-         } else
-         {                      // child - should be for us...
-            // TODO - Mesh child rx
+            // Extract topic and payload
+            // Topic prefix digit for client
+            // Topic then prefix + for retain
+            char retain = 0;
+            int client = 0;
+            char *e = (char *) data.data + data.size;
+            char *topic = (char *) data.data;
+            if (*topic >= '0' && *topic < '0' + MQTT_CLIENTS)
+               client = *topic++ - '0';
+            if (*topic == '+')
+               retain = (*topic++ == '+');
+            char *payload = topic;
+            while (payload < e && *payload)
+               payload++;
+            if (payload == e)
+               continue;        // We expect topic ending in NULL
+            payload++;
+            char *target = topic;
+            while (*target && *target != '/')
+               target++;        // clear the command
+            if (!*target)
+               continue;        // Uh
+            target++;
+            while (*target && *target != '/')
+               target++;        // clear the appname
+            if (!*target)
+               continue;        // Uh
+            target++;
+            char *suffix = target;
+            while (*suffix && *suffix != '/')
+               suffix++;
+            if (*suffix)
+               suffix++;
+            else
+               suffix = NULL;
+            jo_t j = NULL;
+            if (e > payload)
+               j = jo_parse_mem(payload, e - payload);
+            ESP_LOGD(TAG, "client=%d retain=%d topic=%s target=%s suffix=%s", client, retain, topic, target ? : "", suffix ? : "");
+            if (isroot)
+               lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, retain); // Out
+            else
+               mqtt_rx((void *) client, topic, e - payload, (void *) payload);  // In
+            jo_free(&j);
+         } else if (data.proto == MESH_PROTO_JSON)
+         {                      // Internal message
+            if (isroot)
+            {
+               // TODO - Mesh control to root
+
+            } else
+            {
+               // TODO - Mesh control to child
+
+            }
          }
-         jo_free(&j);
       }
    }
    vTaskDelete(NULL);
@@ -618,7 +627,7 @@ static void mesh_init(void)
 
 #ifdef	CONFIG_REVK_MQTT
 static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload)
-{
+{                               // Expects to be able to write over topic
    int client = (int) arg;
    if (client < 0 || client >= MQTT_CLIENTS)
       return;
@@ -626,35 +635,27 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
    {
       const char *err = NULL;
       // Break up topic
-      const char *prefix = topic;
-      const char *target = "?";
-      const char *suffix = NULL;
+      char *prefix = topic;
+      char *target = "?";
+      char *suffix = NULL;
+      char *appname = NULL;
       char *p = topic;
       while (*p && *p != '/')
          p++;
       if (*p)
       {                         // Expect app name next
-         *p++ = 0;
-         char *q = p;
-         while (*q && *q != '/')
-            q++;
-         if (*q)
-            *q++ = 0;
-         if (strcmp(p, appname))
-            return;             // Nonsense, has to be to our app name
-         p = q;
+         appname = ++p;
+         while (*p && *p != '/')
+            p++;
       }
       if (*p)
       {
-         target = p;
+         target = ++p;
          while (*p && *p != '/')
             p++;
-         if (*p)
-         {
-            *p++ = 0;
-            suffix = p;
-         }
       }
+      if (*p)
+         suffix = ++p;
       jo_t j = NULL;
       if (plen)
       {
@@ -680,6 +681,27 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          jo_rewind(j);
       }
+#ifdef	CONFIG_REVK_MESH
+      if (*target == '*' || strncmp(target, revk_id, strlen(revk_id)))
+      {                         // pass on to clients
+         mesh_data_t data = {.proto = MESH_PROTO_MQTT };
+         make_mesh_mqtt(&data, client, -1, topic, plen, payload, 0);
+         mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+         };
+         if (*target != '*')
+            for (int n = 0; n < sizeof(addr); n++)
+               addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
+         esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0);   // TODO - re-entrant issue?
+         free(data.data);
+      }
+#endif
+      // Break up topic
+      if (appname)
+         appname[-1] = 0;
+      if (target)
+         target[-1] = 0;
+      if (suffix)
+         suffix[-1] = 0;
       if (!strcmp(target, "*") || !strcmp(target, revk_id))
          target = NULL;         // Mark as us for simple testing by app_command, etc
       if (!client && !target)
@@ -1026,7 +1048,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_ROOT_ADDRESS:
          ESP_LOGI(TAG, "Root has IP");
-	 // TODO a root mqtt connect message?
+         // TODO a root mqtt connect message?
          child_init();
          break;
       case MESH_EVENT_ROOT_SWITCH_REQ:
@@ -1151,7 +1173,7 @@ static void task(void *pvParameters)
          };
          esp_wifi_sta_get_ap_info(&ap);
          uint32_t now = time(0);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap / 10240 != heap / 10240 || now > was + 3600)
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap / 10240 != heap / 10240 || now > was + 300)
          {
             if (now > 1000000000 && was <= 1000000000)
                ESP_LOGD(TAG, "Clock set %u", now);
@@ -1379,39 +1401,46 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
 }
 
 #ifdef	CONFIG_REVK_MQTT
+void make_mesh_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
+{
+   memset(data, 0, sizeof(*data));
+   data->proto = MESH_PROTO_MQTT;
+   if (plen < 0)
+      plen = strlen((char *) payload);
+   if (tlen < 0)
+      tlen = strlen(topic);
+   data->size = tlen + 1 + plen;
+   if (client)
+      data->size++;
+   if (retain)
+      data->size++;
+   data->data = malloc(data->size);
+   char *p = (char *) data->data;
+   if (client)
+      *p++ = '0' + client;
+   if (retain)
+      *p++ = '+';
+   strcpy(p, topic);
+   p += tlen + 1;
+   if (plen)
+      memcpy(p, payload, plen);
+   p += plen;
+}
+#endif
+
+#ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
 #ifdef	CONFIG_REVK_MESH
    if (!mqtt_client[client] && esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-      if (plen < 0)
-         plen = strlen((char *) payload);
-      if (tlen < 0)
-         tlen = strlen(topic);
-      data.size = tlen + 1 + plen;
-      if (client)
-         data.size++;
-      if (retain)
-         data.size++;
-      data.data = malloc(data.size);
-      char *p = (char *) data.data;
-      if (client)
-         *p++ = '0' + client;
-      if (retain)
-         *p++ = '+';
-      strcpy(p, topic);
-      p += tlen + 1;
-      if (plen)
-         memcpy(p, payload, plen);
-      p += plen;
+      make_mesh_mqtt(&data, client, tlen, topic, plen, payload, retain);
       ESP_LOGD(TAG, "Sending MQTT via mesh");
-      esp_mesh_send(NULL, &data, 0, NULL, 0);
-      // TODO re-entrant issue? Mutex?
+      esp_mesh_send(NULL, &data, 0, NULL, 0);   // TODO - re-entrant issue?
       free(data.data);
       return NULL;
    }
-   // TODO sending to other devices from root
 #endif
    return lwmqtt_send_full(mqtt_client[client], tlen, topic, plen, payload, retain);
 }
