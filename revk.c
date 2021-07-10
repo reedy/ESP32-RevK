@@ -349,6 +349,7 @@ static void root_task(void *pvParameters)
          mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
          };
          REVK_ERR_CHECK(esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0));
+      // TODO This API is not reentrant.!
       }
    }
    ESP_LOGI(TAG, "Mesh root task ended");
@@ -1308,6 +1309,7 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
       ESP_LOGI(TAG, "Send via mesh");
       // TODO limit MESH_MPS
       // esp_mesh_send(constmesh_addr_t *to, constmesh_data_t *data, int flag, constmesh_opt_topt[], int opt_count)
+      // TODO This API is not reentrant.!
    }
 #endif
    return lwmqtt_send_full(mqtt_client[client], tlen, topic, plen, payload, retain);
