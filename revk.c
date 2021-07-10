@@ -389,7 +389,7 @@ static void mesh_task(void *pvParameters)
       int flag = 0;
       if (!esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0))
       {
-         ESP_LOGI(TAG, "Mesh rx size=%d proto=%d tos=%d flag=%d %02X%02X%02X%02X%02X%02X", data.size, data.proto, data.tos, flag, from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
+         ESP_LOGD(TAG, "Mesh rx size=%d proto=%d tos=%d flag=%d %02X%02X%02X%02X%02X%02X", data.size, data.proto, data.tos, flag, from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
          mesh_decode(&data);
          if (data.proto != MESH_PROTO_MQTT)
             continue;
@@ -428,7 +428,10 @@ static void mesh_task(void *pvParameters)
             suffix++;
          else
             suffix = NULL;
-         jo_t j = jo_parse_mem(payload, e - payload);
+         jo_t j = NULL;
+         if (e > payload)
+            j = jo_parse_mem(payload, e - payload);
+         ESP_LOGI(TAG, "client=%d retain=%d topic=%s target=%s suffix=%s", client, retain, topic, target ? : "", suffix ? : "");
          if (isroot)
          {
             if (!client && *target == '*')
@@ -743,7 +746,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          sub(prefixcommand);
          sub(prefixsetting);
-         // TODO connected clients over mesh?
+	 // TODO We need subscribes for all mesh connected devices as well...
       }
       revk_report_state(-client);
       if (app_callback)
@@ -984,8 +987,10 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_ROUTING_TABLE_ADD:
          ESP_LOGI(TAG, "Routing update");
+	 // TODO subscribe if root
          break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
+	 // TODO unsubscribe if root
          ESP_LOGI(TAG, "Routing remove");
          break;
       case MESH_EVENT_PARENT_CONNECTED:
@@ -998,14 +1003,12 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             {
                ESP_LOGI(TAG, "Mesh child");
                stop_ip();
-               child_init();
             }
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
          ESP_LOGI(TAG, "Mesh disconnected");
          stop_ip();
-         // TODO stopping tasks?
          break;
       case MESH_EVENT_NO_PARENT_FOUND:
          ESP_LOGI(TAG, "No mesh found");
@@ -1014,6 +1017,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_TODS_STATE:
          ESP_LOGI(TAG, "toDS state");
+         child_init();
          break;
       case MESH_EVENT_VOTE_STARTED:
          break;
@@ -1148,7 +1152,7 @@ static void task(void *pvParameters)
          if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap / 10240 != heap / 10240 || now > was + 3600)
          {
             if (now > 1000000000 && was <= 1000000000)
-               ESP_LOGI(TAG, "Clock set %u", now);
+               ESP_LOGD(TAG, "Clock set %u", now);
             was = now;
             lastheap = heap;
             lastch = ap.primary;
@@ -1378,7 +1382,6 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
 #ifdef	CONFIG_REVK_MESH
    if (!mqtt_client[client] && esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
-      ESP_LOGI(TAG, "Send via mesh");
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
       if (plen < 0)
          plen = strlen((char *) payload);
@@ -1400,6 +1403,7 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
       if (plen)
          memcpy(p, payload, plen);
       p += plen;
+      ESP_LOGD(TAG,"Sending MQTT via mesh");
       esp_mesh_send(NULL, &data, 0, NULL, 0);
       // TODO re-entrant issue? Mutex?
       free(data.data);
