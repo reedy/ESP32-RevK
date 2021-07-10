@@ -55,6 +55,12 @@ static const char
 #define	CONFIG_MQTT_BUFFER_SIZE 2048
 #endif
 
+#ifdef	CONFIG_REVK_MESH
+#define	MQTT_MAX MESH_MPS
+#else
+#define	MQTT_MAX CONFIG_MQTT_BUFFER_SIZE
+#endif
+
 #define	MQTT_CLIENTS	2
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
@@ -111,6 +117,7 @@ static const char
 
 #define	meshsettings	\
 		h(meshid,6,CONFIG_REVK_MESHID);		\
+		hs(meshkey,16,NULL);		\
     		u16(meshwidth,CONFIG_REVK_MESHWIDTH);	\
     		u16(meshmax,CONFIG_REVK_MESHMAX);	\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
@@ -134,6 +141,7 @@ static const char
 #define	ioa(n,a)	uint8_t n[a];
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
+#define hs(n,l,d)	char n[l];
 #define bd(n,d)		revk_bindata_t *n;
 #define bad(n,a,d)	revk_bindata_t *n[a];
 #define bdp(n,d)	revk_bindata_t *n;
@@ -173,6 +181,7 @@ settings
 #undef ioa
 #undef p
 #undef h
+#undef hs
 #undef bd
 #undef bad
 #undef bdp
@@ -323,6 +332,14 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 }
 #endif
 
+#ifdef CONFIG_REVK_MESH
+static void child_init(void)
+{                               // We are a child, send login details, etc.
+   uint32_t now = time(0);
+   mesh_data_t data = {.data = (void *) &now,.size = sizeof(now) };
+   REVK_ERR_CHECK(esp_mesh_send(NULL, &data, 0, NULL, 0));
+}
+#endif
 
 #ifdef CONFIG_REVK_MESH
 static void mesh_task(void *pvParameters)
@@ -338,17 +355,12 @@ static void mesh_task(void *pvParameters)
          sleep(1);
          continue;
       }
-      mesh_rx_pending_t p = { };
-      esp_mesh_get_rx_pending(&p);
-      if (p.toDS || p.toSelf)
-         ESP_LOGI(TAG, "Pending %d %d", p.toDS, p.toSelf);
-
       mesh_addr_t from = { };
       data.size = MESH_MPS;
       int flag = 0;
       if (!esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0))
       {
-         ESP_LOGI(TAG, "Mesh rx size=%d proto=%d tos=%d flag=%d", data.size, data.proto, data.tos, flag);
+         ESP_LOGI(TAG, "Mesh rx size=%d proto=%d tos=%d flag=%d %02X%02X%02X%02X%02X%02X", data.size, data.proto, data.tos, flag, from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
 
       }
       if (esp_mesh_is_root())
@@ -920,6 +932,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             {
                ESP_LOGI(TAG, "Mesh child");
                stop_ip();
+               child_init();
             }
          }
          break;
@@ -1166,6 +1179,7 @@ void revk_init(app_callback_t * app_callback_cb)
 #define ioa(n,a)	revk_register(#n,a,sizeof(*n),&n,"-",SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
+#define hs(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX|SETTING_SECRET)
 #define bd(n,d)		revk_register(#n,0,0,&n,d,SETTING_BINDATA)
 #define bad(n,a,d)	revk_register(#n,a,0,&n,d,SETTING_BINDATA)
 #define bdp(n,d)	revk_register(#n,0,0,&n,d,SETTING_BINDATA|SETTING_SECRET)
@@ -1209,6 +1223,7 @@ void revk_init(app_callback_t * app_callback_cb)
 #undef p
 #undef str
 #undef h
+#undef hs
 #undef bd
 #undef bad
 #undef bdp
@@ -2175,7 +2190,7 @@ static const char *revk_setting_dump(void)
          return;
       revk_mqtt_send(prefixsetting, 0, NULL, &j);
    }
-   char buf[CONFIG_MQTT_BUFFER_SIZE - 100];
+   char buf[MQTT_MAX - 100];
    const char *hasdef(setting_t * s) {
       const char *d = s->defval;
       if (!d)
