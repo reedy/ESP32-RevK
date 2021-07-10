@@ -389,7 +389,7 @@ static void wifi_init(void)
       wifi_config_t wifi_config = { 0, };
       wifi_config.ap.channel = wifichan;
       wifi_config.ap.ssid_len = strlen(apssid);
-      if (wifi_config.ap.ssid_lenl > sizeof(wifi_config.ap.ssid))
+      if (wifi_config.ap.ssid_len > sizeof(wifi_config.ap.ssid))
          wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
       memcpy((char *) wifi_config.ap.ssid, apssid, wifi_config.ap.ssid_len);
       if (*appass)
