@@ -269,7 +269,21 @@ static void revk_report_state(int copies)
    jo_string(j, "id", revk_id);
    jo_string(j, "app", appname);
    jo_string(j, "version", revk_version);
-   jo_stringf(j, "build", "%sT%s", app->date, app->time);
+   const char *v = app->date;
+   if (v && strlen(v) == 11)
+   {                            // Stupid format Jul 10 2021
+      char date[11];
+      sprintf(date, "%s-xx-%.2s", v + 7, v);
+      const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+      for (int m = 0; m < 12; m++)
+         if (!strncmp(mname + m * 3, v, 3))
+         {
+            date[6] = '0' + (m + 1) / 10;
+            date[7] = '0' + (m + 1) % 10;
+            break;
+         }
+      jo_stringf(j, "build", "%sT%s", date, app->time);
+   }
    jo_int(j, "mem", esp_get_free_heap_size());
    jo_int(j, "flash", spi_flash_get_chip_size());
    time_t now = time(0);
