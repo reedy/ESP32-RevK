@@ -273,7 +273,7 @@ static void revk_report_state(int copies)
    if (v && strlen(v) == 11)
    {                            // Stupid format Jul 10 2021
       char date[11];
-      sprintf(date, "%s-xx-%.2s", v + 7, v);
+      sprintf(date, "%s-xx-%.2s", v + 7, v + 4);
       const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
       for (int m = 0; m < 12; m++)
          if (!strncmp(mname + m * 3, v, 3))
