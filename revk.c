@@ -774,7 +774,9 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case IP_EVENT_STA_GOT_IP:
          {
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
-            ESP_LOGI(TAG, "Got IP " IPSTR, IP2STR(&event->ip_info.ip));
+            wifi_ap_record_t ap = { };
+            REVK_ERR_CHECK(esp_wifi_sta_get_ap_info(&ap));
+            ESP_LOGI(TAG, "Got IP " IPSTR " from %s", IP2STR(&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits(revk_group, GROUP_IP);
             offline = 0;
 #ifdef	CONFIG_REVK_MQTT
