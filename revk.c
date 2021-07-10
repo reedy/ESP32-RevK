@@ -89,7 +89,6 @@ static const char
 
 #define	wifisettings	\
 		u16(wifireset,CONFIG_REVK_WIFIRESET);	\
-    		u16(wifiretry,CONFIG_REVK_WIFIRETRY);			\
 		s(wifissid,CONFIG_REVK_WIFISSID);	\
 		s(wifiip,CONFIG_REVK_WIFIIP);		\
 		s(wifigw,CONFIG_REVK_WIFIGW);		\
@@ -99,6 +98,7 @@ static const char
 		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
 
 #define wifimqttsettings		\
+    		u16(wifiretry,CONFIG_REVK_WIFIRETRY);			\
  		s(wifimqtt, NULL);	\
 
 #define	apsettings	\
@@ -820,6 +820,8 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
          break;
       case MESH_EVENT_PARENT_CONNECTED:
+	 // TODO Static IP stuff?
+	 REVK_ERR_CHECK(esp_netif_dhcpc_start(sta_netif));
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
          break;
@@ -2765,6 +2767,7 @@ void revk_wifi_close(void)
    ESP_LOGI(TAG, "WIFi Close");
 #ifdef	CONFIG_REVK_MESH
    esp_mesh_stop();
+   esp_mesh_deinit();
 #endif
    esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_deinit();
