@@ -80,7 +80,7 @@ void jo_object(jo_t, const char *tag);
 void jo_close(jo_t);
 // Close current array or object
 
-void jo_stringn(jo_t, const char *tag, const char *string,ssize_t len);
+void jo_stringn(jo_t, const char *tag, const char *string, ssize_t len);
 #define jo_string(j,t,s) jo_stringn(j,t,s,-1)
 // Add a string
 

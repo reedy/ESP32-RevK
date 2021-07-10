@@ -35,7 +35,7 @@
 
         // MQTT rx callback: Do not consume jo_t! Return error or NULL. Returning "" means handled the command with no error.
         // You will want to check prefix matches prefixcommand
-	// Target can be something not for us if extra subscribes done, but if it is for us, or internal, it is passes as NULL
+        // Target can be something not for us if extra subscribes done, but if it is for us, or internal, it is passes as NULL
         // Suffix can be NULL
 typedef const char *app_callback_t(int client, const char *prefix, const char *target, const char *suffix, jo_t);
 
@@ -125,6 +125,6 @@ int revk_wait_wifi(int seconds);
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
 uint32_t revk_offline(void);    // How long we have been offline (seconds), or 0 if online
 #endif
-void revk_blink(uint8_t on, uint8_t off,const char *colours);       // Set LED blink rate (0,0) for default
+void revk_blink(uint8_t on, uint8_t off, const char *colours);  // Set LED blink rate (0,0) for default
 
 #endif

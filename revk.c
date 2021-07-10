@@ -415,33 +415,33 @@ static void wifi_init(void)
 static void mesh_init(void)
 {
    // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_mesh.html
-    if(!sta_netif)
-    {
+   if (!sta_netif)
+   {
       sta_netif = esp_netif_create_default_wifi_sta();
-     ap_netif = esp_netif_create_default_wifi_ap();
-   REVK_ERR_CHECK(tcpip_adapter_dhcps_stop(ap_netif));
-   REVK_ERR_CHECK(tcpip_adapter_dhcpc_stop(sta_netif));
-   REVK_ERR_CHECK(esp_event_loop_create_default());
-   wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
-   REVK_ERR_CHECK(esp_wifi_init(&config));
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-   REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
-   REVK_ERR_CHECK(esp_wifi_start());
-   REVK_ERR_CHECK(esp_mesh_init());
-   REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-   mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
-   memcpy((uint8_t *) & cfg.mesh_id, meshid, 6);
-   cfg.channel = wifichan;
-   if (!wifichan)
-      cfg.allow_channel_switch = 1;
-   cfg.router.ssid_len = strlen(wifissid);
-   strncpy((char *) cfg.router.ssid, wifissid, sizeof(cfg.router.ssid));
-   if (*wifipass)
-      strncpy((char *) &cfg.router.password, wifipass, strlen(wifipass));
-   cfg.mesh_ap.max_connection = meshwidth;
-   strncpy((char *) &cfg.mesh_ap.password, meshpass, sizeof(cfg.mesh_ap.password));
-   REVK_ERR_CHECK(esp_mesh_set_config(&cfg));
-    }
+      ap_netif = esp_netif_create_default_wifi_ap();
+      REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
+      REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif));
+      REVK_ERR_CHECK(esp_event_loop_create_default());
+      wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
+      REVK_ERR_CHECK(esp_wifi_init(&config));
+      REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+      REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
+      REVK_ERR_CHECK(esp_wifi_start());
+      REVK_ERR_CHECK(esp_mesh_init());
+      REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+      mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
+      memcpy((uint8_t *) & cfg.mesh_id, meshid, 6);
+      cfg.channel = wifichan;
+      if (!wifichan)
+         cfg.allow_channel_switch = 1;
+      cfg.router.ssid_len = strlen(wifissid);
+      strncpy((char *) cfg.router.ssid, wifissid, sizeof(cfg.router.ssid));
+      if (*wifipass)
+         strncpy((char *) &cfg.router.password, wifipass, strlen(wifipass));
+      cfg.mesh_ap.max_connection = meshwidth;
+      strncpy((char *) &cfg.mesh_ap.password, meshpass, sizeof(cfg.mesh_ap.password));
+      REVK_ERR_CHECK(esp_mesh_set_config(&cfg));
+   }
    REVK_ERR_CHECK(esp_mesh_start());
 }
 #endif
