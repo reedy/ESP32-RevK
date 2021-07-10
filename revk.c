@@ -256,6 +256,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 
 static void revk_report_state(int copies)
 {                               // Report state
+   const esp_app_desc_t *app = esp_ota_get_app_description();
    uint64_t t = esp_timer_get_time();
    jo_t j = jo_object_alloc();
    jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
@@ -268,6 +269,7 @@ static void revk_report_state(int copies)
    jo_string(j, "id", revk_id);
    jo_string(j, "app", appname);
    jo_string(j, "version", revk_version);
+   jo_stringf(j, "build", "%sT%s", app->date, app->time);
    jo_int(j, "mem", esp_get_free_heap_size());
    jo_int(j, "flash", spi_flash_get_chip_size());
    time_t now = time(0);
