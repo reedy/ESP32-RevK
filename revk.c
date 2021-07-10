@@ -235,9 +235,7 @@ static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static esp_netif_t *sta_netif = NULL;
-#ifndef	CONFIG_REVK_MESH
 static esp_netif_t *ap_netif = NULL;
-#endif
 #endif
 static char wdt_test = 0;
 static uint8_t blink_on = 0,
@@ -417,9 +415,12 @@ static void wifi_init(void)
 static void mesh_init(void)
 {
    // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_mesh.html
-   //REVK_ERR_CHECK(tcpip_adapter_init()); // deprecated
-   REVK_ERR_CHECK(tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP));
-   REVK_ERR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
+    if(!sta_netif)
+    {
+      sta_netif = esp_netif_create_default_wifi_sta();
+     ap_netif = esp_netif_create_default_wifi_ap();
+   REVK_ERR_CHECK(tcpip_adapter_dhcps_stop(ap_netif));
+   REVK_ERR_CHECK(tcpip_adapter_dhcpc_stop(sta_netif));
    REVK_ERR_CHECK(esp_event_loop_create_default());
    wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
    REVK_ERR_CHECK(esp_wifi_init(&config));
@@ -440,6 +441,7 @@ static void mesh_init(void)
    cfg.mesh_ap.max_connection = meshwidth;
    strncpy((char *) &cfg.mesh_ap.password, meshpass, sizeof(cfg.mesh_ap.password));
    REVK_ERR_CHECK(esp_mesh_set_config(&cfg));
+    }
    REVK_ERR_CHECK(esp_mesh_start());
 }
 #endif
