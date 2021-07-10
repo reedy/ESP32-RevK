@@ -701,7 +701,7 @@ static void client_task(void *pvParameters)
          break;                 // client was stopped
       if (handle->backoff < 60)
          handle->backoff *= 2;
-      ESP_LOGD(TAG, "Waiting %d", handle->backoff);
+      ESP_LOGI(TAG, "Waiting %d", handle->backoff);
       sleep(handle->backoff);
    }
    handle_free(handle);

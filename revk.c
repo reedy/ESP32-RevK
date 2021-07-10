@@ -598,10 +598,10 @@ static void mesh_init(void)
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
       //REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif)); // We stop when child connects
-      REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
+      REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
