@@ -1012,6 +1012,7 @@ static void task(void *pvParameters)
          {
             if (now > 1000000000 && was < 1000000000)
                ESP_LOGI(TAG, "Clock set");
+            was = now;
             lastheap = heap;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
