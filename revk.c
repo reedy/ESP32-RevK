@@ -307,6 +307,8 @@ static void revk_report_state(int copies)
       jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
       jo_int(j, "rssi", ap.rssi);
       jo_int(j, "chan", ap.primary);
+      if (ap.phy_lr)
+         jo_bool(j, "lr", 1);
    }
    revk_state_copy(NULL, &j, copies);
 }
@@ -342,14 +344,14 @@ static void child_init(void)
 #ifdef CONFIG_REVK_MESH
 void mesh_decode(mesh_data_t * data)
 {                               // Security - decode mesh message
-   // TODO
+   // TODO - mesh decode
 }
 #endif
 
 #ifdef CONFIG_REVK_MESH
 void mesh_encode(mesh_data_t * data)
 {                               // Security - encode mesh message
-   // TODO
+   // TODO - mesh encode
 }
 #endif
 
@@ -431,7 +433,7 @@ static void mesh_task(void *pvParameters)
          jo_t j = NULL;
          if (e > payload)
             j = jo_parse_mem(payload, e - payload);
-         ESP_LOGI(TAG, "client=%d retain=%d topic=%s target=%s suffix=%s", client, retain, topic, target ? : "", suffix ? : "");
+         ESP_LOGD(TAG, "client=%d retain=%d topic=%s target=%s suffix=%s", client, retain, topic, target ? : "", suffix ? : "");
          if (isroot)
          {
             if (!client && *target == '*')
@@ -440,7 +442,7 @@ static void mesh_task(void *pvParameters)
                lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, retain);
          } else
          {                      // child - should be for us...
-            // TODO
+            // TODO - Mesh child rx
          }
          jo_free(&j);
       }
@@ -746,7 +748,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          sub(prefixcommand);
          sub(prefixsetting);
-	 // TODO We need subscribes for all mesh connected devices as well...
+         // TODO We need subscribes for all mesh connected devices as well...
       }
       revk_report_state(-client);
       if (app_callback)
@@ -943,7 +945,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                jo_t j = jo_object_alloc();
                jo_string(j, "ssid", (char *) ap.ssid);
                if (ap.phy_lr)
-                  jo_true(j, "lr");
+                  jo_bool(j, "lr", 1);
                jo_stringf(j, "ip", IPSTR, IP2STR(&event->ip_info.ip));
                jo_stringf(j, "gw", IPSTR, IP2STR(&event->ip_info.gw));
 #ifdef	CONFIG_REVK_MQTT_SERVER
@@ -987,10 +989,10 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_ROUTING_TABLE_ADD:
          ESP_LOGI(TAG, "Routing update");
-	 // TODO subscribe if root
+         // TODO subscribe if root
          break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
-	 // TODO unsubscribe if root
+         // TODO unsubscribe if root
          ESP_LOGI(TAG, "Routing remove");
          break;
       case MESH_EVENT_PARENT_CONNECTED:
@@ -1017,7 +1019,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_TODS_STATE:
          ESP_LOGI(TAG, "toDS state");
-         child_init();
          break;
       case MESH_EVENT_VOTE_STARTED:
          break;
@@ -1025,6 +1026,8 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_ROOT_ADDRESS:
          ESP_LOGI(TAG, "Root has IP");
+	 // TODO a root mqtt connect message?
+         child_init();
          break;
       case MESH_EVENT_ROOT_SWITCH_REQ:
          break;
@@ -1138,8 +1141,7 @@ static void task(void *pvParameters)
          nvs_time = 0;
       }
 #ifdef	CONFIG_REVK_MQTT
-      if (xEventGroupGetBits(revk_group) & GROUP_MQTT)
-      {                         // Online and on main MQTT, check for any changes and report status
+      {                         // Report even if not on-line as mesh works anyway
          static int lastch = 0;
          static uint8_t lastbssid[6];
          static uint32_t lastheap = 0;
@@ -1403,7 +1405,7 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
       if (plen)
          memcpy(p, payload, plen);
       p += plen;
-      ESP_LOGD(TAG,"Sending MQTT via mesh");
+      ESP_LOGD(TAG, "Sending MQTT via mesh");
       esp_mesh_send(NULL, &data, 0, NULL, 0);
       // TODO re-entrant issue? Mutex?
       free(data.data);

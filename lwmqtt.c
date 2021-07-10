@@ -297,8 +297,6 @@ void lwmqtt_end(lwmqtt_t * handle)
    *handle = NULL;
 }
 
-// TODO some of these should be LOGD when all working
-
 // Subscribe (return is non null error message if failed)
 const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscribe)
 {
@@ -521,7 +519,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
             break;
          handle->connected = 1;
          ESP_LOGI(TAG, "Connected incoming %d", handle->port);
-         // TODO
+         // TODO incoming connect
          handle->keepalive = 10;        // TODO get from message
          uint8_t b[4] = { 0x20 };       // conn ack
          xSemaphoreTake(handle->mutex, portMAX_DELAY);
@@ -775,7 +773,7 @@ static void listen_task(void *pvParameters)
                      h->running = 0;
                   } else
                   {             // Check client name? Do login callback
-                     // TODO
+                     // TODO server client name check
                   }
 #else
                   ESP_LOGE(TAG, "Not built for TLS server");
