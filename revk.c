@@ -278,8 +278,8 @@ static void revk_report_state(int copies)
       for (int m = 0; m < 12; m++)
          if (!strncmp(mname + m * 3, v, 3))
          {
-            date[6] = '0' + (m + 1) / 10;
-            date[7] = '0' + (m + 1) % 10;
+            date[5] = '0' + (m + 1) / 10;
+            date[6] = '0' + (m + 1) % 10;
             break;
          }
       jo_stringf(j, "build", "%sT%s", date, app->time);
