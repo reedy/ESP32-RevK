@@ -772,7 +772,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       }
 #ifdef	CONFIG_REVK_MESH
       if (*target == '*' || strncmp(target, revk_id, strlen(revk_id)))
-      {                         // pass on to clients
+      {                         // pass on to clients as global or not for us
          mesh_data_t data = {.proto = MESH_PROTO_MQTT };
          make_mesh_mqtt(&data, client, -1, topic, plen, payload, 0);
          mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
@@ -780,8 +780,11 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          if (*target != '*')
             for (int n = 0; n < sizeof(addr); n++)
                addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
+ESP_LOGI(TAG,"Sending to %02X%02X%02X%02X%02X%02X", addr.addr[0], addr.addr[1], addr.addr[2], addr.addr[3], addr.addr[4], addr.addr[5]); //TODO
+
          esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0);   // TODO - re-entrant issue?
          free(data.data);
+	 if(!err&&*target!='*')err=""; // No error here
       }
 #endif
       // Break up topic
@@ -843,13 +846,11 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          if (esp_mesh_is_root())
          {
             int size = esp_mesh_get_routing_table_size();
-            ESP_LOGI(TAG, "Routing table %d", size);
             if (size > 0)
             {
                mesh_addr_t *mac = malloc(size * sizeof(*mac));
                if (!esp_mesh_get_routing_table(mac, size * sizeof(*mac), &size))
                {
-                  ESP_LOGI(TAG, "Routing table %d", size);
                   for (int a = 0; a < size; a++)
                   {
                      char dev[13];
@@ -1118,6 +1119,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             {
                ESP_LOGI(TAG, "Mesh child");
                stop_ip();
+	       child_init();
             }
          }
          break;
@@ -1139,7 +1141,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_ROOT_ADDRESS:
          ESP_LOGI(TAG, "Root has IP");
-         child_init();
          break;
       case MESH_EVENT_ROOT_SWITCH_REQ:
          break;
