@@ -334,7 +334,7 @@ static void setup_ip(void)
    }
    if (*wifiip)
    {
-      esp_netif_dhcpc_stop(sta_netif);
+      REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif));
       esp_netif_ip_info_t info = { 0, };
       makeip(&info, wifiip, wifigw);
       REVK_ERR_CHECK(esp_netif_set_ip_info(sta_netif, &info));
@@ -342,7 +342,7 @@ static void setup_ip(void)
       if (!*wifidns[0])
          dns(wifiip, ESP_NETIF_DNS_MAIN);       /* Fallback to using gateway for DNS */
    } else
-      esp_netif_dhcpc_start(sta_netif); /* Dynamic IP */
+      REVK_ERR_CHECK(esp_netif_dhcpc_start(sta_netif)); /* Dynamic IP */
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
    dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
    dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
@@ -360,22 +360,26 @@ static void stop_ip(void)
 }
 #endif
 
+#if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+static void sta_init(void)
+{
+   REVK_ERR_CHECK(esp_event_loop_create_default());
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+   REVK_ERR_CHECK(esp_wifi_init(&cfg));
+   REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+   REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+   sta_netif = esp_netif_create_default_wifi_sta();
+   ap_netif = esp_netif_create_default_wifi_ap();
+}
+#endif
+
 #ifdef	CONFIG_REVK_WIFI
 static void wifi_init(void)
 {
    if (!sta_netif)
-   {                            // Init
-      REVK_ERR_CHECK(esp_event_loop_create_default());
-      REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-      REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-
-      wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-      REVK_ERR_CHECK(esp_wifi_init(&cfg));
-      REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-      REVK_ERR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-      sta_netif = esp_netif_create_default_wifi_sta();
-      ap_netif = esp_netif_create_default_wifi_ap();
-   } else
+      sta_init();
+   else
       REVK_ERR_CHECK(esp_wifi_stop());
    // Mode
    esp_wifi_set_mode(*apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA);
@@ -435,15 +439,9 @@ static void mesh_init(void)
    // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_mesh.html
    if (!sta_netif)
    {
-      sta_netif = esp_netif_create_default_wifi_sta();
-      ap_netif = esp_netif_create_default_wifi_ap();
+      sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
       REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif));
-      REVK_ERR_CHECK(esp_event_loop_create_default());
-      wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
-      REVK_ERR_CHECK(esp_wifi_init(&config));
-      REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-      REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
