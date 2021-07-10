@@ -242,7 +242,7 @@ static esp_netif_t *ap_netif = NULL;
 static char wdt_test = 0;
 static uint8_t blink_on = 0,
     blink_off = 0;
-static char blink_colour = 'Y';
+static const char *blink_colours = "RYGCBM";
 static const char *revk_setting_dump(void);
 
 /* Local functions */
@@ -799,64 +799,64 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       switch (event_id)
       {
       case MESH_EVENT_STARTED:
-	      break;
+         break;
       case MESH_EVENT_STOPPED:
-	               ESP_LOGI(TAG, "STA Stop");
+         ESP_LOGI(TAG, "STA Stop");
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits(revk_group, GROUP_OFFLINE);
          if (!offline)
             offline_try = offline = esp_timer_get_time();
-	 break;
+         break;
       case MESH_EVENT_CHANNEL_SWITCH:
-	 break;
+         break;
       case MESH_EVENT_CHILD_CONNECTED:
-	 break;
+         break;
       case MESH_EVENT_CHILD_DISCONNECTED:
-	 break;
+         break;
       case MESH_EVENT_ROUTING_TABLE_ADD:
-	 break;
+         break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
-	 break;
+         break;
       case MESH_EVENT_PARENT_CONNECTED:
-	 break;
+         break;
       case MESH_EVENT_PARENT_DISCONNECTED:
-	 break;
+         break;
       case MESH_EVENT_NO_PARENT_FOUND:
-	 break;
+         break;
       case MESH_EVENT_LAYER_CHANGE:
-	 break;
+         break;
       case MESH_EVENT_TODS_STATE:
-	 break;
+         break;
       case MESH_EVENT_VOTE_STARTED:
-	 break;
+         break;
       case MESH_EVENT_VOTE_STOPPED:
-	 break;
+         break;
       case MESH_EVENT_ROOT_ADDRESS:
-	 break;
+         break;
       case MESH_EVENT_ROOT_SWITCH_REQ:
-	 break;
+         break;
       case MESH_EVENT_ROOT_SWITCH_ACK:
-	 break;
+         break;
       case MESH_EVENT_ROOT_ASKED_YIELD:
-	 break;
+         break;
       case MESH_EVENT_ROOT_FIXED:
-	 break;
+         break;
       case MESH_EVENT_SCAN_DONE:
-	 break;
+         break;
       case MESH_EVENT_NETWORK_STATE:
-	 break;
+         break;
       case MESH_EVENT_STOP_RECONNECTION:
-	 break;
+         break;
       case MESH_EVENT_FIND_NETWORK:
-	 break;
+         break;
       case MESH_EVENT_ROUTER_SWITCH:
-	 break;
+         break;
       case MESH_EVENT_PS_PARENT_DUTY:
-	 break;
+         break;
       case MESH_EVENT_PS_CHILD_DUTY:
-	 break;
+         break;
       case MESH_EVENT_PS_DEVICE_DUTY:
-	 break;
+         break;
       default:
          ESP_LOGI(TAG, "Unknown mesh event %d", event_id);
       }
@@ -883,29 +883,33 @@ static void task(void *pvParameters)
       if (!wdt_test && watchdogtime)
          esp_task_wdt_reset();
       if (blink[0])
-      {
-         static uint8_t lit = 0,
-             count = 0;
-         if (count)
-            count--;
-         else
+      {                         // LED blinking
+         if (blink[1] && blink_colours)
+         {                      // Colours
+            static const char *c = "";
+            if (!*c)
+               c = blink_colours;
+            gpio_set_level(blink[0] & 0x3F, (*c == 'R' || *c == 'Y' || *c == 'M' || *c == 'W') ^ ((blink[0] & 0x40) ? 1 : 0));  // Red LED
+            gpio_set_level(blink[1] & 0x3F, (*c == 'G' || *c == 'Y' || *c == 'C' || *c == 'W') ^ ((blink[1] & 0x40) ? 1 : 0));  // Green LED
+            gpio_set_level(blink[2] & 0x3F, (*c == 'B' || *c == 'C' || *c == 'M' || *c == 'W') ^ ((blink[2] & 0x40) ? 1 : 0));  // Blue LED
+            c++;
+         } else
          {
-            uint8_t on = blink_on,
-                off = blink_off;
-#if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-            if (!on && !off)
-               on = off = (revk_offline()? 6 : 3);
-#endif
-            lit = 1 - lit;
-            count = (lit ? on : off);
+            static uint8_t lit = 0,
+                count = 0;
             if (count)
+               count--;
+            else
             {
-               if (blink[1])
-               {                // RGB
-                  gpio_set_level(blink[0] & 0x3F, (lit && (blink_colour == 'R' || blink_colour == 'Y' || blink_colour == 'M' || blink_colour == 'W')) ^ ((blink[0] & 0x40) ? 1 : 0));   // Red LED
-                  gpio_set_level(blink[1] & 0x3F, (lit && (blink_colour == 'G' || blink_colour == 'Y' || blink_colour == 'C' || blink_colour == 'W')) ^ ((blink[1] & 0x40) ? 1 : 0));   // Green LED
-                  gpio_set_level(blink[2] & 0x3F, (lit && (blink_colour == 'B' || blink_colour == 'C' || blink_colour == 'M' || blink_colour == 'W')) ^ ((blink[2] & 0x40) ? 1 : 0));   // Blue LED
-               } else
+               uint8_t on = blink_on,
+                   off = blink_off;
+#if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
+               if (!on && !off)
+                  on = off = (revk_offline()? 6 : 3);
+#endif
+               lit = 1 - lit;
+               count = (lit ? on : off);
+               if (count)
                   gpio_set_level(blink[0] & 0x3F, lit ^ ((blink[0] & 0x40) ? 1 : 0));   // Single LED
             }
          }
@@ -2719,11 +2723,11 @@ const char *revk_wifi(void)
 }
 #endif
 
-void revk_blink(uint8_t on, uint8_t off, char colour)
+void revk_blink(uint8_t on, uint8_t off, const char *colours)
 {
    blink_on = on;
    blink_off = off;
-   blink_colour = colour ? : 'Y';
+   blink_colours = colours;
 }
 
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
