@@ -795,12 +795,12 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             ESP_LOGI(TAG, "Got IP " IPSTR " from %s", IP2STR(&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits(revk_group, GROUP_IP);
             offline = 0;
+            sntp_stop();
+            sntp_init();
 #ifdef	CONFIG_REVK_MQTT
             mqtt_init();
 #endif
 #ifdef  CONFIG_REVK_WIFI
-            sntp_stop();
-            sntp_init();
             xEventGroupSetBits(revk_group, GROUP_WIFI);
             if (app_callback)
             {
@@ -855,32 +855,35 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_PARENT_CONNECTED:
          {
-            mesh_type_t type = esp_mesh_get_type();
-            ESP_LOGI(TAG, "Parent connected%s", type == MESH_ROOT ? " as root" : "");
-            if (type == MESH_ROOT || type == MESH_STA)
+            if (esp_mesh_is_root())
+            {
+               ESP_LOGI(TAG, "Mesh root");
                setup_ip();
-            else
+            } else
+            {
+               ESP_LOGI(TAG, "Mesh child");
                stop_ip();
+            }
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
-         ESP_LOGI(TAG, "Parent disconnected");
+         ESP_LOGI(TAG, "Mesh disconnected");
          stop_ip();
          break;
       case MESH_EVENT_NO_PARENT_FOUND:
-         ESP_LOGI(TAG, "No parent found");
+         ESP_LOGI(TAG, "No mesh found");
          break;
       case MESH_EVENT_LAYER_CHANGE:
          break;
       case MESH_EVENT_TODS_STATE:
-	 ESP_LOGI(TAG,"toDS state");
+         ESP_LOGI(TAG, "toDS state");
          break;
       case MESH_EVENT_VOTE_STARTED:
          break;
       case MESH_EVENT_VOTE_STOPPED:
          break;
       case MESH_EVENT_ROOT_ADDRESS:
-	 ESP_LOGI(TAG,"Root has IP");
+         ESP_LOGI(TAG, "Root has IP");
          break;
       case MESH_EVENT_ROOT_SWITCH_REQ:
          break;
@@ -999,12 +1002,16 @@ static void task(void *pvParameters)
          static int lastch = 0;
          static uint8_t lastbssid[6];
          static uint32_t lastheap = 0;
+         static uint32_t was = 0;       // Yes time_t but ESP has an odd idea of time_t
          uint32_t heap = esp_get_free_heap_size();
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info(&ap);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap / 10240 != heap / 10240)
+         uint32_t now = time(0);
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap / 10240 != heap / 10240 || now > was + 3600)
          {
+            if (now > 1000000000 && was < 1000000000)
+               ESP_LOGI(TAG, "Clock set");
             lastheap = heap;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
@@ -2811,6 +2818,11 @@ void revk_wifi_close(void)
 {
    ESP_LOGI(TAG, "WIFi Close");
 #ifdef	CONFIG_REVK_MESH
+   if (esp_mesh_is_root())
+   {                            // Give up root
+      esp_mesh_set_self_organized(1, 0);
+      sleep(1);
+   }
    esp_mesh_stop();
    esp_mesh_deinit();
 #endif
