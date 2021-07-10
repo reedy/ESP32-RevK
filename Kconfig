@@ -40,12 +40,12 @@ menu "RevK"
         help
 		Mesh network connections per node
 
-	config REVK_MESHQUORUM
-        int "Mesh quorum"
-        default 3
+	config REVK_MESHMAX
+        int "Mesh mac capacity"
+        default 0
 	depends on REVK_MESH
         help
-		Total nodes required to avoid checking other channels for rest of mesh
+		Total nodes allowed
 
 	config REVK_WIFISSID
 	string "Default WiFi SSID"

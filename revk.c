@@ -112,7 +112,7 @@ static const char
 #define	meshsettings	\
 		h(meshid,6,CONFIG_REVK_MESHID);		\
     		u16(meshwidth,CONFIG_REVK_MESHWIDTH);	\
-    		u16(meshquorum,CONFIG_REVK_MESHQUORUM);	\
+    		u16(meshmax,CONFIG_REVK_MESHMAX);	\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 
 #define s(n,d)		char *n;
@@ -322,6 +322,77 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 }
 #endif
 
+
+#ifdef CONFIG_REVK_MESH
+static void root_task(void *pvParameters)
+{                               // Mesh root
+   pvParameters = pvParameters;
+   static uint8_t count = 0;
+   if (count++)
+   {
+      count--;
+      return;
+   }
+   ESP_LOGI(TAG, "Mesh root task started");
+   uint32_t was = 0;
+   while (esp_mesh_is_root())
+   {
+      mesh_addr_t from;
+      mesh_data_t data;
+      int flag;
+      if (!esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0))
+      {
+         ESP_LOGI(TAG, "Mesh rx root size=%d proto=%d tos=%d flag=%d", data.size, data.proto, data.tos, flag);
+         // TODO MQTT outbound
+      }
+      // Periodic time updates
+      uint32_t now = time(0);
+      if (now > 1000000000 && now / 60 != was / 60)
+      {
+         ESP_LOGI(TAG, "Sending time %u", now);
+         was = now;
+         mesh_data_t data = {.data = (void *) &now,.size = sizeof(now),.proto = MESH_PROTO_BIN };
+         mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+         };
+         REVK_ERR_CHECK(esp_mesh_send(&addr, &data, MESH_DATA_FROMDS, NULL, 0));
+      }
+   }
+   count--;
+   ESP_LOGI(TAG, "Mesh root task ended");
+   vTaskDelete(NULL);
+}
+#endif
+
+
+#ifdef CONFIG_REVK_MESH
+static void child_task(void *pvParameters)
+{                               // Mesh child
+   pvParameters = pvParameters;
+   static uint8_t count = 0;
+   if (count++)
+   {
+      count--;
+      return;
+   }
+   ESP_LOGI(TAG, "Mesh child task started");
+   while (!esp_mesh_is_root() && esp_mesh_is_device_active())
+   {
+      mesh_addr_t from;
+      mesh_data_t data;
+      int flag;
+      if (!esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0))
+      {
+         ESP_LOGI(TAG, "Mesh rx child size=%d proto=%d tos=%d flag=%d", data.size, data.proto, data.tos, flag);
+         // TODO time
+         // TODO MQTT
+      }
+   }
+   count--;
+   ESP_LOGI(TAG, "Mesh child task ended");
+   vTaskDelete(NULL);
+}
+#endif
+
 #if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static void setup_ip(void)
 {                               // Set up DHCPC / fixed IP
@@ -473,6 +544,9 @@ static void mesh_init(void)
       cfg.mesh_ap.max_connection = meshwidth;
       strncpy((char *) &cfg.mesh_ap.password, meshpass, sizeof(cfg.mesh_ap.password));
       REVK_ERR_CHECK(esp_mesh_set_config(&cfg));
+      if (meshmax)
+         REVK_ERR_CHECK(esp_mesh_set_capacity_num(meshmax));
+      REVK_ERR_CHECK(esp_mesh_disable_ps());
    }
    REVK_ERR_CHECK(esp_mesh_start());
 }
@@ -831,7 +905,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
    {
       ESP_LOGI(TAG, "Mesh event %d", event_id);
       switch (event_id)
-      {
+      {                         // TODO debug level a lot of these
       case MESH_EVENT_STARTED:
          break;
       case MESH_EVENT_STOPPED:
@@ -850,8 +924,10 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGI(TAG, "Child disconnected");
          break;
       case MESH_EVENT_ROUTING_TABLE_ADD:
+         ESP_LOGI(TAG, "Routing update");
          break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
+         ESP_LOGI(TAG, "Routing remove");
          break;
       case MESH_EVENT_PARENT_CONNECTED:
          {
@@ -859,16 +935,19 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             {
                ESP_LOGI(TAG, "Mesh root");
                setup_ip();
+               revk_task("Mesh", root_task, NULL);
             } else
             {
                ESP_LOGI(TAG, "Mesh child");
                stop_ip();
+               revk_task("Mesh", child_task, NULL);
             }
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
          ESP_LOGI(TAG, "Mesh disconnected");
          stop_ip();
+         // TODO stopping tasks?
          break;
       case MESH_EVENT_NO_PARENT_FOUND:
          ESP_LOGI(TAG, "No mesh found");
@@ -1010,8 +1089,8 @@ static void task(void *pvParameters)
          uint32_t now = time(0);
          if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap / 10240 != heap / 10240 || now > was + 3600)
          {
-            if (now > 1000000000 && was < 1000000000)
-               ESP_LOGI(TAG, "Clock set");
+            if (now > 1000000000 && was <= 1000000000)
+               ESP_LOGI(TAG, "Clock set %u", now);
             was = now;
             lastheap = heap;
             lastch = ap.primary;
@@ -1233,6 +1312,20 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
    return task_id;
 }
 
+#ifdef	CONFIG_REVK_MQTT
+const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
+{
+#ifdef	CONFIG_REVK_MESH
+   if (!mqtt_client[client] && esp_mesh_is_device_active() && !esp_mesh_is_root())
+   {                            // Send via mesh
+      ESP_LOGI(TAG, "Send via mesh");
+      // esp_mesh_send(constmesh_addr_t *to, constmesh_data_t *data, int flag, constmesh_opt_topt[], int opt_count)
+   }
+#endif
+   return lwmqtt_send_full(mqtt_client[client], tlen, topic, plen, payload, retain);
+}
+#endif
+
 void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int copies)
 {
 #ifdef	CONFIG_REVK_MQTT
@@ -1248,7 +1341,7 @@ void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int 
       if (mqtt_client[client])
       {
          ESP_LOGD(TAG, "MQTT%d publish %s (%s)", client, topic ? : "-", payload);
-         lwmqtt_send_full(mqtt_client[client], -1, topic, -1, (void *) payload, retain);
+         revk_mqtt_out(client, -1, topic, -1, (void *) payload, retain);
       }
 #endif
 }
@@ -1275,7 +1368,7 @@ void revk_mqtt_send_str_copy(const char *str, int retain, int copies)
       if (mqtt_client[client])
       {
          ESP_LOGD(TAG, "MQTT%d publish %.*s (%s)", client, e - str, str, p);
-         lwmqtt_send_full(mqtt_client[client], e - str, str, -1, (void *) p, retain);
+         revk_mqtt_out(client, e - str, str, -1, (void *) p, retain);
       }
 #endif
 }
@@ -2820,8 +2913,8 @@ void revk_wifi_close(void)
    ESP_LOGI(TAG, "WIFi Close");
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_root())
-   {                            // Give up root
-      esp_mesh_set_self_organized(1, 0);
+   {
+      esp_mesh_waive_root(NULL, MESH_VOTE_REASON_ROOT_INITIATED);
       sleep(1);
    }
    esp_mesh_stop();
