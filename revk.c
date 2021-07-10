@@ -1561,7 +1561,7 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
    {                            // Send via mesh
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
       mesh_make_mqtt(&data, client, tlen, topic, plen, payload, retain);
-      ESP_LOGI(TAG, "Mesh Tx MQTT");
+      ESP_LOGI(TAG, "Mesh Tx MQTT%d",client);
       esp_mesh_send(NULL, &data, 0, NULL, 0);   // TODO - re-entrant issue?
       free(data.data);
       return NULL;
