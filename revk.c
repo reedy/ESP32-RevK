@@ -263,7 +263,7 @@ static void mqtt_init(void);
 
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload);
-void make_mesh_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
+void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 static void send_sub(int client, const char *id);
 static void send_unsub(int client, const char *id);
 static void mesh_send_json(mesh_addr_t * addr, jo_t * jp);
@@ -444,7 +444,7 @@ static void mesh_task(void *pvParameters)
             jo_t j = NULL;
             if (e > payload)
                j = jo_parse_mem(payload, e - payload);
-            ESP_LOGD(TAG, "client=%d retain=%d topic=%s target=%s suffix=%s", client, retain, topic, target ? : "", suffix ? : "");
+            ESP_LOGI(TAG, "Mesh Rx MQTT%d %s: %s %.*s", client, mac, topic, (int) (e - payload), payload);
             if (isroot)
                lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, retain); // Out
             else
@@ -452,7 +452,7 @@ static void mesh_task(void *pvParameters)
             jo_free(&j);
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
-            ESP_LOGI(TAG, "Mesh JSON %s: %.*s", mac, data.size, (char *) data.data);
+            ESP_LOGI(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
             jo_t j = jo_parse_mem(data.data, data.size);
             if (jo_here(j) == JO_OBJECT)
             {
@@ -772,17 +772,16 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (*target == '*' || strncmp(target, revk_id, strlen(revk_id)))
       {                         // pass on to clients as global or not for us
          mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-         make_mesh_mqtt(&data, client, -1, topic, plen, payload, 0);
+         mesh_make_mqtt(&data, client, -1, topic, plen, payload, 0);
          mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
          };
          if (*target != '*')
             for (int n = 0; n < sizeof(addr); n++)
                addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
-ESP_LOGI(TAG,"Sending to %02X%02X%02X%02X%02X%02X", addr.addr[0], addr.addr[1], addr.addr[2], addr.addr[3], addr.addr[4], addr.addr[5]); //TODO
-
          esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0);   // TODO - re-entrant issue?
          free(data.data);
-	 if(!err&&*target!='*')err=""; // No error here
+         if (!err && *target != '*')
+            err = "";           // No error here
       }
 #endif
       // Break up topic
@@ -1117,7 +1116,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             {
                ESP_LOGI(TAG, "Mesh child");
                stop_ip();
-	       child_init();
+               child_init();
             }
          }
          break;
@@ -1492,7 +1491,7 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
 }
 
 #ifdef	CONFIG_REVK_MQTT
-void make_mesh_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
+void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
    memset(data, 0, sizeof(*data));
    data->proto = MESH_PROTO_MQTT;
@@ -1530,9 +1529,9 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
    const char *json = jo_rewind(j);
    if (json)
    {
-      ESP_LOGI(TAG, "Mesh send JSON %s", json);
+      ESP_LOGI(TAG, "Mesh Tx JSON %s", json);
       mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen(json) };
-      esp_mesh_send(addr, &data, 0, NULL, 0);
+      esp_mesh_send(addr, &data, addr ? MESH_DATA_P2P : 0, NULL, 0);
    }
    jo_free(jp);
 }
@@ -1561,8 +1560,8 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
    if (!mqtt_client[client] && esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-      make_mesh_mqtt(&data, client, tlen, topic, plen, payload, retain);
-      ESP_LOGD(TAG, "Sending MQTT via mesh");
+      mesh_make_mqtt(&data, client, tlen, topic, plen, payload, retain);
+      ESP_LOGI(TAG, "Mesh Tx MQTT");
       esp_mesh_send(NULL, &data, 0, NULL, 0);   // TODO - re-entrant issue?
       free(data.data);
       return NULL;
