@@ -350,7 +350,7 @@ static void setup_ip(void)
    }
    if (*wifiip)
    {
-      REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif));
+      esp_netif_dhcpc_stop(sta_netif);
       esp_netif_ip_info_t info = { 0, };
       makeip(&info, wifiip, wifigw);
       REVK_ERR_CHECK(esp_netif_set_ip_info(sta_netif, &info));
@@ -358,7 +358,7 @@ static void setup_ip(void)
       if (!*wifidns[0])
          dns(wifiip, ESP_NETIF_DNS_MAIN);       /* Fallback to using gateway for DNS */
    } else
-      REVK_ERR_CHECK(esp_netif_dhcpc_start(sta_netif)); /* Dynamic IP */
+      esp_netif_dhcpc_start(sta_netif); /* Dynamic IP */
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
    dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
    dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
@@ -457,7 +457,7 @@ static void mesh_init(void)
    {
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
-      REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif));
+      //REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif)); // We stop when child connects
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -805,11 +805,9 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             if (app_callback)
             {
                jo_t j = jo_object_alloc();
-               jo_string(j, "ssid",
-#ifdef	CONFIG_REVK_MQTT_SERVER
-                         (*wifimqtt && !wifimqttbackup) ? wifimqtt :
-#endif
-                         wifissid);
+               jo_string(j, "ssid", (char *) ap.ssid);
+               if (ap.phy_lr)
+                  jo_true(j, "lr");
                jo_stringf(j, "ip", IPSTR, IP2STR(&event->ip_info.ip));
                jo_stringf(j, "gw", IPSTR, IP2STR(&event->ip_info.gw));
 #ifdef	CONFIG_REVK_MQTT_SERVER
@@ -845,17 +843,25 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_CHANNEL_SWITCH:
          break;
-      case MESH_EVENT_CHILD_CONNECTED:
+      case MESH_EVENT_CHILD_CONNECTED: // A child connected to us
+         ESP_LOGI(TAG, "Child connected");
          break;
-      case MESH_EVENT_CHILD_DISCONNECTED:
+      case MESH_EVENT_CHILD_DISCONNECTED:      // A child disconnected from us
+         ESP_LOGI(TAG, "Child disconnected");
          break;
       case MESH_EVENT_ROUTING_TABLE_ADD:
          break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
          break;
       case MESH_EVENT_PARENT_CONNECTED:
-         ESP_LOGI(TAG, "Parent connected");
-         setup_ip();
+         {
+            mesh_type_t type = esp_mesh_get_type();
+            ESP_LOGI(TAG, "Parent connected%s", type == MESH_ROOT ? " as root" : "");
+            if (type == MESH_ROOT || type == MESH_STA)
+               setup_ip();
+            else
+               stop_ip();
+         }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
          ESP_LOGI(TAG, "Parent disconnected");
