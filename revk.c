@@ -327,12 +327,6 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 static void root_task(void *pvParameters)
 {                               // Mesh root
    pvParameters = pvParameters;
-   static uint8_t count = 0;
-   if (count++)
-   {
-      count--;
-      return;
-   }
    ESP_LOGI(TAG, "Mesh root task started");
    uint32_t was = 0;
    while (esp_mesh_is_root())
@@ -357,7 +351,6 @@ static void root_task(void *pvParameters)
          REVK_ERR_CHECK(esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0));
       }
    }
-   count--;
    ESP_LOGI(TAG, "Mesh root task ended");
    vTaskDelete(NULL);
 }
@@ -368,14 +361,8 @@ static void root_task(void *pvParameters)
 static void child_task(void *pvParameters)
 {                               // Mesh child
    pvParameters = pvParameters;
-   static uint8_t count = 0;
-   if (count++)
-   {
-      count--;
-      return;
-   }
    ESP_LOGI(TAG, "Mesh child task started");
-   while (!esp_mesh_is_root() && esp_mesh_is_device_active())
+   while (!esp_mesh_is_root())
    {
       mesh_addr_t from;
       mesh_data_t data;
@@ -386,8 +373,8 @@ static void child_task(void *pvParameters)
          // TODO time
          // TODO MQTT
       }
+      // TODO ending child task? or are we better with just one task for root and child maybe?
    }
-   count--;
    ESP_LOGI(TAG, "Mesh child task ended");
    vTaskDelete(NULL);
 }
