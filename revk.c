@@ -24,6 +24,9 @@ static const char
 #include "esp_http_server.h"
 #endif
 #include <driver/gpio.h>
+#ifdef	CONFIG_REVK_MESH
+#include <esp_mesh.h>
+#endif
 
 #ifndef	CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS
 #warning CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS recommended
@@ -108,6 +111,8 @@ static const char
 
 #define	meshsettings	\
 		h(meshid,6,CONFIG_REVK_MESHID);		\
+    		u16(meshwidth,CONFIG_REVK_MESHWIDTH);	\
+    		u16(meshquorum,CONFIG_REVK_MESHQUORUM);	\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 
 #define s(n,d)		char *n;
@@ -202,7 +207,7 @@ static volatile uint64_t offline_try = 1;       // When we last tried to get on 
 static char wifimqttbackup = 0;
 #endif
 const static int GROUP_OFFLINE = BIT0;  // We are off line (IP not set)
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVKMESH)
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 const static int GROUP_WIFI = BIT1;     // We are WiFi connected
 const static int GROUP_IP = BIT2;       // We have IP address
 #endif
@@ -228,9 +233,9 @@ static uint8_t setting_dump_requested = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_WIFI_MESH)
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static esp_netif_t *sta_netif = NULL;
-#ifndef	CONFIG_WIFI_MESH
+#ifndef	CONFIG_REVK_MESH
 static esp_netif_t *ap_netif = NULL;
 #endif
 #endif
@@ -247,6 +252,9 @@ static void ap_task(void *pvParameters);
 #ifdef	CONFIG_REVK_MQTT
 static void mqtt_init(void);
 #endif
+
+static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
+
 
 static void revk_report_state(int copies)
 {                               // Report state
@@ -279,7 +287,7 @@ static void revk_report_state(int copies)
    revk_state_copy(NULL, &j, copies);
 }
 
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+#ifdef	CONFIG_REVK_WIFI
 static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 {
    char *i = strdup(ip);
@@ -300,8 +308,7 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 }
 #endif
 
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_WIFI_MESH)
-static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
+#ifdef	CONFIG_REVK_WIFI
 static void wifi_init(void)
 {
    if (!sta_netif)
@@ -381,15 +388,10 @@ static void wifi_init(void)
    {                            // AP config
       wifi_config_t wifi_config = { 0, };
       wifi_config.ap.channel = wifichan;
-      if (strlen(apssid) >= sizeof(wifi_config.ap.ssid))
-      {
-         memcpy((char *) wifi_config.ap.ssid, apssid, sizeof(wifi_config.ap.ssid));
+      wifi_config.ap.ssid_len = strlen(apssid);
+      if (wifi_config.ap.ssid_lenl > sizeof(wifi_config.ap.ssid))
          wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
-      } else
-      {
-         strcpy((char *) wifi_config.ap.ssid, apssid);
-         wifi_config.ap.ssid_len = strlen(apssid);
-      }
+      memcpy((char *) wifi_config.ap.ssid, apssid, wifi_config.ap.ssid_len);
       if (*appass)
       {
          strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
@@ -408,6 +410,37 @@ static void wifi_init(void)
    }
    REVK_ERR_CHECK(esp_wifi_start());
    REVK_ERR_CHECK(esp_wifi_connect());
+}
+#endif
+
+#ifdef	CONFIG_REVK_MESH
+static void mesh_init(void)
+{
+   // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_mesh.html
+   //REVK_ERR_CHECK(tcpip_adapter_init()); // deprecated
+   REVK_ERR_CHECK(tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP));
+   REVK_ERR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
+   REVK_ERR_CHECK(esp_event_loop_create_default());
+   wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
+   REVK_ERR_CHECK(esp_wifi_init(&config));
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+   REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
+   REVK_ERR_CHECK(esp_wifi_start());
+   REVK_ERR_CHECK(esp_mesh_init());
+   REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+   mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
+   memcpy((uint8_t *) & cfg.mesh_id, meshid, 6);
+   cfg.channel = wifichan;
+   if (!wifichan)
+      cfg.allow_channel_switch = 1;
+   cfg.router.ssid_len = strlen(wifissid);
+   strncpy((char *) cfg.router.ssid, wifissid, sizeof(cfg.router.ssid));
+   if (*wifipass)
+      strncpy((char *) &cfg.router.password, wifipass, strlen(wifipass));
+   cfg.mesh_ap.max_connection = meshwidth;
+   strncpy((char *) &cfg.mesh_ap.password, meshpass, sizeof(cfg.mesh_ap.password));
+   REVK_ERR_CHECK(esp_mesh_set_config(&cfg));
+   REVK_ERR_CHECK(esp_mesh_start());
 }
 #endif
 
@@ -723,15 +756,15 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case IP_EVENT_STA_GOT_IP:
          {
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
-            ESP_LOGI(TAG, "Got IP");
+            ESP_LOGI(TAG, "Got IP " IPSTR, IP2STR(&event->ip_info.ip));
             xEventGroupSetBits(revk_group, GROUP_IP);
             offline = 0;
-            sntp_stop();
-            sntp_init();
 #ifdef	CONFIG_REVK_MQTT
             mqtt_init();
 #endif
 #ifdef  CONFIG_REVK_WIFI
+            sntp_stop();
+            sntp_init();
             xEventGroupSetBits(revk_group, GROUP_WIFI);
             if (app_callback)
             {
@@ -759,6 +792,76 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       }
    }
+#ifdef	CONFIG_REVK_MESH
+   if (event_base == MESH_EVENT)
+   {
+      ESP_LOGI(TAG, "Mesh event %d", event_id);
+      switch (event_id)
+      {
+      case MESH_EVENT_STARTED:
+	      break;
+      case MESH_EVENT_STOPPED:
+	               ESP_LOGI(TAG, "STA Stop");
+         xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
+         xEventGroupSetBits(revk_group, GROUP_OFFLINE);
+         if (!offline)
+            offline_try = offline = esp_timer_get_time();
+	 break;
+      case MESH_EVENT_CHANNEL_SWITCH:
+	 break;
+      case MESH_EVENT_CHILD_CONNECTED:
+	 break;
+      case MESH_EVENT_CHILD_DISCONNECTED:
+	 break;
+      case MESH_EVENT_ROUTING_TABLE_ADD:
+	 break;
+      case MESH_EVENT_ROUTING_TABLE_REMOVE:
+	 break;
+      case MESH_EVENT_PARENT_CONNECTED:
+	 break;
+      case MESH_EVENT_PARENT_DISCONNECTED:
+	 break;
+      case MESH_EVENT_NO_PARENT_FOUND:
+	 break;
+      case MESH_EVENT_LAYER_CHANGE:
+	 break;
+      case MESH_EVENT_TODS_STATE:
+	 break;
+      case MESH_EVENT_VOTE_STARTED:
+	 break;
+      case MESH_EVENT_VOTE_STOPPED:
+	 break;
+      case MESH_EVENT_ROOT_ADDRESS:
+	 break;
+      case MESH_EVENT_ROOT_SWITCH_REQ:
+	 break;
+      case MESH_EVENT_ROOT_SWITCH_ACK:
+	 break;
+      case MESH_EVENT_ROOT_ASKED_YIELD:
+	 break;
+      case MESH_EVENT_ROOT_FIXED:
+	 break;
+      case MESH_EVENT_SCAN_DONE:
+	 break;
+      case MESH_EVENT_NETWORK_STATE:
+	 break;
+      case MESH_EVENT_STOP_RECONNECTION:
+	 break;
+      case MESH_EVENT_FIND_NETWORK:
+	 break;
+      case MESH_EVENT_ROUTER_SWITCH:
+	 break;
+      case MESH_EVENT_PS_PARENT_DUTY:
+	 break;
+      case MESH_EVENT_PS_CHILD_DUTY:
+	 break;
+      case MESH_EVENT_PS_DEVICE_DUTY:
+	 break;
+      default:
+         ESP_LOGI(TAG, "Unknown mesh event %d", event_id);
+      }
+   }
+#endif
 }
 
 static void task(void *pvParameters)
@@ -825,7 +928,9 @@ static void task(void *pvParameters)
             jo_free(&j);
          }
          revk_mqtt_close(restart_reason);
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
          revk_wifi_close();
+#endif
          REVK_ERR_CHECK(nvs_commit(nvs));
          esp_restart();
          restart_time = 0;
@@ -865,7 +970,7 @@ static void task(void *pvParameters)
          wifimqttbackup = 1 - wifimqttbackup;
          revk_mqtt_close("backup flip");
          mqtt_init();
-         wifi_init();
+         wifi_init();           // Must be wifi not mesh
       }
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
@@ -952,12 +1057,14 @@ void revk_init(app_callback_t * app_callback_cb)
 #ifdef	CONFIG_REVK_MQTT_SERVER
    wifimqttsettings;
 #endif
-#ifdef	CONFIG_WIFI_MESH
+#ifdef	CONFIG_REVK_MESH
    revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINDATA | SETTING_HEX | SETTING_SECRET);    // Parent
    meshsettings;
 #else
+#ifdef	CONFIG_REVK_WIFI
    revk_register("ap", 0, 0, &apssid, CONFIG_REVK_APSSID, SETTING_SECRET);      // Parent
    apsettings;
+#endif
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
@@ -1036,7 +1143,12 @@ void revk_init(app_callback_t * app_callback_cb)
    }
    revk_group = xEventGroupCreate();
    xEventGroupSetBits(revk_group, GROUP_OFFLINE);
+#ifdef	CONFIG_REVK_WIFI
    wifi_init();
+#endif
+#ifdef	CONFIG_REVK_MESH
+   mesh_init();
+#endif
    /* DHCP */
    char *id = NULL;
    if (*hostname)
@@ -2600,7 +2712,7 @@ lwmqtt_t revk_mqtt(int client)
 }
 #endif
 
-#ifdef	CONFIG_REVK_WIFI
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 const char *revk_wifi(void)
 {
    return wifissid;
@@ -2641,17 +2753,20 @@ void revk_mqtt_close(const char *reason)
 }
 #endif
 
-#ifdef	CONFIG_REVK_WIFI
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 void revk_wifi_close(void)
 {
    ESP_LOGI(TAG, "WIFi Close");
+#ifdef	CONFIG_REVK_MESH
+   esp_mesh_stop();
+#endif
    esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_deinit();
    ESP_LOGI(TAG, "WIFi Closed");
 }
 #endif
 
-#ifdef	CONFIG_REVK_WIFI
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 int revk_wait_wifi(int seconds)
 {
    ESP_LOGD(TAG, "Wait WiFi %d", seconds);

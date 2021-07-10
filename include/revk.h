@@ -117,7 +117,7 @@ lwmqtt_t revk_mqtt(int);
 void revk_mqtt_close(const char *reason);       // Clean close MQTT
 int revk_wait_mqtt(int seconds);
 #endif
-#ifdef	CONFIG_REVK_WIFI
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 const char *revk_wifi(void);
 void revk_wifi_close(void);
 int revk_wait_wifi(int seconds);

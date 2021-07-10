@@ -33,19 +33,19 @@ menu "RevK"
         help
 		Mesh network passphrase
 
-	config REVK_MESHDEPTH
-        int "Mesh network depth"
-        default 3
-	depends on REVK_MESH
-        help
-		Mesh network depth
-
 	config REVK_MESHWIDTH
         int "Mesh network connections"
         default 10
 	depends on REVK_MESH
         help
 		Mesh network connections per node
+
+	config REVK_MESHQUORUM
+        int "Mesh quorum"
+        default 3
+	depends on REVK_MESH
+        help
+		Total nodes required to avoid checking other channels for rest of mesh
 
 	config REVK_WIFISSID
 	string "Default WiFi SSID"
@@ -203,7 +203,7 @@ menu "RevK"
 	config REVK_MQTT_SERVER
 	bool "MQTT server"
 	default n
-	depends on REVK_MQTT
+	depends on REVK_MQTT && REVK_WIFI
 	help
 		Build with LWMQTT server module
 

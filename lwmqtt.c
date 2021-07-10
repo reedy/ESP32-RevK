@@ -643,10 +643,10 @@ static void client_task(void *pvParameters)
    {                            // Loop connecting and trying repeatedly
       // Connect
       ESP_LOGD(TAG, "Connecting %s:%d", handle->hostname, handle->port);
-      esp_tls_t *tls = NULL;
       // Can connect using TLS or non TLS with just sock set instead
       if (handle->ca_cert_bytes || handle->crt_bundle_attach)
       {
+         esp_tls_t *tls = NULL;
          esp_tls_cfg_t cfg = {
             .cacert_buf = handle->ca_cert_buf,
             .cacert_bytes = handle->ca_cert_bytes,
@@ -661,10 +661,13 @@ static void client_task(void *pvParameters)
          tls = esp_tls_init();
          if (esp_tls_conn_new_sync(handle->hostname, strlen(handle->hostname), handle->port, &cfg, tls) != 1)
          {
-            handle->running = 0;
             ESP_LOGE(TAG, "Could not TLS connect to %s:%d", handle->hostname, handle->port);
+            free(tls);
+         } else
+         {
+            handle->tls = tls;
+            esp_tls_get_conn_sockfd(handle->tls, &handle->sock);
          }
-
       } else
       {                         // Non TLS
        struct addrinfo base = { ai_family: AF_UNSPEC, ai_socktype:SOCK_STREAM };
@@ -689,22 +692,15 @@ static void client_task(void *pvParameters)
          if (a)
             freeaddrinfo(a);
          if (handle->sock < 0)
-         {
-            handle->running = 0;
             ESP_LOGD(TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
-         }
       }
-      if (handle->running)
+      if (handle->sock >= 0)
       {
-         if (tls)
-         {
-            handle->tls = tls;
-            esp_tls_get_conn_sockfd(handle->tls, &handle->sock);
-         }
-         if (hwrite(handle, handle->connect, handle->connectlen) != handle->connectlen)
-            handle->running = 0;
+         hwrite(handle, handle->connect, handle->connectlen);
+         lwmqtt_loop(handle);
       }
-      lwmqtt_loop(handle);
+      if (!handle->running)
+         break;                 // client was stopped
       if (handle->backoff < 60)
          handle->backoff *= 2;
       ESP_LOGD(TAG, "Waiting %d", handle->backoff);
