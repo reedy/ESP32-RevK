@@ -140,3 +140,6 @@ ssize_t jo_strncmp(jo_t, void *, size_t max);
 
 // Allocate a copy of string
 char *jo_strdup(jo_t);
+
+// Get a number
+int64_t jo_read_int(jo_t);

@@ -264,6 +264,10 @@ static void mqtt_init(void);
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload);
 void make_mesh_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
+static void send_sub(int client, const char *id);
+static void send_unsub(int client, const char *id);
+static void mesh_send_json(mesh_addr_t * addr, jo_t * jp);
+static void mesh_send_time(void);
 
 static void revk_report_state(int copies)
 {                               // Report state
@@ -338,6 +342,9 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 #ifdef CONFIG_REVK_MESH
 static void child_init(void)
 {                               // We are a child, send login details, etc.
+   jo_t j = jo_object_alloc();
+   jo_bool(j, "connected", 1);
+   mesh_send_json(NULL, &j);
    revk_report_state(MQTT_CLIENTS - 1); // Send status
 }
 #endif
@@ -372,6 +379,7 @@ static void mesh_task(void *pvParameters)
             isroot = 1;
             mqtt_init();
             // Any other init
+            // TODO Tell devices to send status
          }
       } else
       {
@@ -392,7 +400,8 @@ static void mesh_task(void *pvParameters)
       int flag = 0;
       if (!esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0))
       {
-         ESP_LOGD(TAG, "Mesh rx size=%d proto=%d tos=%d flag=%d %02X%02X%02X%02X%02X%02X", data.size, data.proto, data.tos, flag, from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
+         char mac[13];
+         sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
          mesh_decode(&data);
          // We use MESH_PROTO_MQTT to relay
          // We use MESH_PROTO_JSON for messages internally
@@ -444,14 +453,35 @@ static void mesh_task(void *pvParameters)
             jo_free(&j);
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
-            if (isroot)
+            ESP_LOGI(TAG, "Mesh JSON %s: %.*s", mac, data.size, (char *) data.data);
+            jo_t j = jo_parse_mem(data.data, data.size);
+            if (jo_here(j) == JO_OBJECT)
             {
-               // TODO - Mesh control to root
+               jo_next(j);
+               if (jo_here(j) == JO_TAG)
+               {
+                  if (isroot)
+                  {             // Root messages
+                     if (!jo_strcmp(j, "connect"))
+                        send_sub(0, mac);
+                     else if (!jo_strcmp(j, "disconnect"))
+                        send_unsub(0, mac);
+                  } else
+                  {             // Child messages
+                     if (!jo_strcmp(j, "time"))
+                     {
+                        jo_next(j);
+                        if (jo_here(j) == JO_NUMBER)
+                        {
+                           uint32_t new = jo_read_int(j);
+                           uint32_t now = time(0);
+                           struct timeval delta = { (time_t) now - (time_t) new, 0 };
+                           adjtime(&delta, NULL);
+                        }
 
-            } else
-            {
-               // TODO - Mesh control to child
-
+                     }
+                  }
+               }
             }
          }
       }
@@ -597,7 +627,7 @@ static void mesh_init(void)
    {
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
-      //REVK_ERR_CHECK(esp_netif_dhcpc_stop(sta_netif)); // We stop when child connects
+      // TODO do these work?
       REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
@@ -622,6 +652,60 @@ static void mesh_init(void)
       revk_task("Mesh", mesh_task, NULL);
    }
    REVK_ERR_CHECK(esp_mesh_start());
+}
+#endif
+
+#ifdef	CONFIG_REVK_MQTT
+static void send_unsub(int client, const char *id)
+{
+   ESP_LOGI(TAG, "Unsubscribe %s", id);
+   void sub(const char *prefix) {
+      char *topic = NULL;
+      if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, id) < 0)
+         return;
+      lwmqtt_unsubscribe(mqtt_client[client], topic);
+      freez(topic);
+      if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
+         return;
+      lwmqtt_unsubscribe(mqtt_client[client], topic);
+      freez(topic);
+      if (*hostname && strcmp(hostname, id))
+      {
+         if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
+            return;
+         lwmqtt_unsubscribe(mqtt_client[client], topic);
+         freez(topic);
+      }
+   }
+   sub(prefixcommand);
+   sub(prefixsetting);
+}
+#endif
+
+#ifdef	CONFIG_REVK_MQTT
+static void send_sub(int client, const char *id)
+{
+   ESP_LOGI(TAG, "Subscribe %s", id);
+   void sub(const char *prefix) {
+      char *topic = NULL;
+      if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, id) < 0)
+         return;
+      lwmqtt_subscribe(mqtt_client[client], topic);
+      freez(topic);
+      if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
+         return;
+      lwmqtt_subscribe(mqtt_client[client], topic);
+      freez(topic);
+      if (*hostname && strcmp(hostname, id))
+      {
+         if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
+            return;
+         lwmqtt_subscribe(mqtt_client[client], topic);
+         freez(topic);
+      }
+   }
+   sub(prefixcommand);
+   sub(prefixsetting);
 }
 #endif
 
@@ -750,27 +834,27 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       xEventGroupClearBits(revk_group, (GROUP_MQTT_DOWN << client));
       if (!client)
       {                         // main MQTT - subscribes
-         void sub(const char *prefix) {
-            char *topic = NULL;
-            if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, revk_id) < 0)
-               return;
-            lwmqtt_subscribe(mqtt_client[client], topic);
-            freez(topic);
-            if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
-               return;
-            lwmqtt_subscribe(mqtt_client[client], topic);
-            freez(topic);
-            if (*hostname && strcmp(hostname, revk_id))
+         send_sub(client, revk_id);
+#ifdef	CONFIG_REVK_MESH
+         if (esp_mesh_is_root())
+         {
+            int size = esp_mesh_get_routing_table_size();
+            if (size > 0)
             {
-               if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
-                  return;
-               lwmqtt_subscribe(mqtt_client[client], topic);
-               freez(topic);
+               mesh_addr_t *mac = malloc(size * sizeof(*mac));
+               if (!esp_mesh_get_routing_table(mac, size, &size))
+               {
+                  for (int a = 0; a < size; a++)
+                  {
+                     char dev[13];
+                     sprintf(dev, "%02X%02X%02X%02X%02X%02X", mac[a].addr[0], mac[a].addr[1], mac[a].addr[2], mac[a].addr[3], mac[a].addr[4], mac[a].addr[5]);
+                     send_sub(client, dev);
+                  }
+               }
+               free(mac);
             }
          }
-         sub(prefixcommand);
-         sub(prefixsetting);
-         // TODO We need subscribes for all mesh connected devices as well...
+#endif
       }
       revk_report_state(-client);
       if (app_callback)
@@ -1011,10 +1095,9 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_ROUTING_TABLE_ADD:
          ESP_LOGI(TAG, "Routing update");
-         // TODO subscribe if root
+         mesh_send_time();
          break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
-         // TODO unsubscribe if root
          ESP_LOGI(TAG, "Routing remove");
          break;
       case MESH_EVENT_PARENT_CONNECTED:
@@ -1048,7 +1131,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_ROOT_ADDRESS:
          ESP_LOGI(TAG, "Root has IP");
-         // TODO a root mqtt connect message?
          child_init();
          break;
       case MESH_EVENT_ROOT_SWITCH_REQ:
@@ -1177,6 +1259,8 @@ static void task(void *pvParameters)
          {
             if (now > 1000000000 && was <= 1000000000)
                ESP_LOGD(TAG, "Clock set %u", now);
+            if (now > 1000000000 && now > was + 300)
+               mesh_send_time();
             was = now;
             lastheap = heap;
             lastch = ap.primary;
@@ -1425,6 +1509,41 @@ void make_mesh_mqtt(mesh_data_t * data, int client, int tlen, const char *topic,
    if (plen)
       memcpy(p, payload, plen);
    p += plen;
+}
+#endif
+
+#ifdef	CONFIG_REVK_MQTT
+static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
+{
+   if (!jp)
+      return;
+   jo_t j = *jp;
+   if (!j)
+      return;
+   const char *json = jo_rewind(j);
+   if (json)
+   {
+      ESP_LOGI(TAG, "Mesh send JSON %s", json);
+      mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen(json) };
+      esp_mesh_send(addr, &data, 0, NULL, 0);
+   }
+   jo_free(jp);
+}
+#endif
+
+#ifdef  CONFIG_REVK_MQTT
+static void mesh_send_time(void)
+{
+   if (!esp_mesh_is_root())
+      return;
+   uint32_t now = time(0);
+   if (now < 1000000000)
+      return;
+   jo_t j = jo_object_alloc();
+   jo_int(j, "time", now);
+   mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+   };
+   mesh_send_json(&addr, &j);
 }
 #endif
 

@@ -951,3 +951,26 @@ const char *jo_debug(jo_t j)
    }
    return j->buf + j->ptr;      // Where we are (note, may not be 0 terminated)
 }
+
+int64_t jo_read_int(jo_t j)
+{
+   if (!j || !j->parse)
+      return -1;
+   int64_t n = 0,
+       c,
+       s = 1;
+   jo_t p = jo_link(j);
+   c = jo_next(p);
+   if (c == '-')
+   {
+      s = -1;
+      c = jo_next(p);
+   }
+   while (c >= '0' && c <= '9')
+   {
+      n = n * 10 + c - '0';
+      c = jo_next(p);
+   }
+   jo_free(&p);
+   return n * s;
+}
