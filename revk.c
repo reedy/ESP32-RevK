@@ -341,11 +341,10 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 
 #ifdef CONFIG_REVK_MESH
 static void child_init(void)
-{                               // We are a child, send login details, etc.
+{                               // We are a child, send connected
    jo_t j = jo_object_alloc();
    jo_bool(j, "connected", 1);
    mesh_send_json(NULL, &j);
-   revk_report_state(MQTT_CLIENTS - 1); // Send status
 }
 #endif
 
@@ -632,7 +631,6 @@ static void mesh_init(void)
    {
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
-      // TODO do these work?
       REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
