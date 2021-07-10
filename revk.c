@@ -462,9 +462,13 @@ static void mesh_task(void *pvParameters)
                {
                   if (isroot)
                   {             // Root messages
-                     if (!jo_strcmp(j, "connect"))
+                     if (!jo_strcmp(j, "connected"))
+                     {
                         send_sub(0, mac);
-                     else if (!jo_strcmp(j, "disconnect"))
+                        jo_t j = jo_object_alloc();
+                        jo_bool(j, "status", 1);
+                        mesh_send_json(&from, &j);
+                     } else if (!jo_strcmp(j, "disconnected"))
                         send_unsub(0, mac);
                   } else
                   {             // Child messages
@@ -479,7 +483,8 @@ static void mesh_task(void *pvParameters)
                            adjtime(&delta, NULL);
                         }
 
-                     }
+                     } else if (!jo_strcmp(j, "status"))
+                        revk_report_state(MQTT_CLIENTS - 1);
                   }
                }
             }
@@ -834,16 +839,17 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       xEventGroupClearBits(revk_group, (GROUP_MQTT_DOWN << client));
       if (!client)
       {                         // main MQTT - subscribes
-         send_sub(client, revk_id);
 #ifdef	CONFIG_REVK_MESH
          if (esp_mesh_is_root())
          {
             int size = esp_mesh_get_routing_table_size();
+            ESP_LOGI(TAG, "Routing table %d", size);
             if (size > 0)
             {
                mesh_addr_t *mac = malloc(size * sizeof(*mac));
-               if (!esp_mesh_get_routing_table(mac, size, &size))
+               if (!esp_mesh_get_routing_table(mac, size * sizeof(*mac), &size))
                {
+                  ESP_LOGI(TAG, "Routing table %d", size);
                   for (int a = 0; a < size; a++)
                   {
                      char dev[13];
@@ -854,6 +860,8 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
                free(mac);
             }
          }
+#else
+         send_sub(client, revk_id);     // Self
 #endif
       }
       revk_report_state(-client);
