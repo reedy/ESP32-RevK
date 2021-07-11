@@ -43,6 +43,9 @@ jo_t jo_create_alloc(void);
 jo_t jo_object_alloc(void);
 // As so common, this does jo_create_alloc(), and jo_object()
 
+jo_t jo_pad(jo_t *, int);
+// Attempt to ensure padding on jo, else free jo and return NULL
+
 jo_t jo_copy(jo_t);
 // Copy object - copies the object, and if allocating memory, makes copy of the allocated memory too
 

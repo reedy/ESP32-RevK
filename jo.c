@@ -83,6 +83,20 @@ static inline void jo_write(jo_t j, uint8_t c)
       j->ptr++;
 }
 
+jo_t jo_pad(jo_t * jp, int n)
+{                               // Ensure padding available
+   if (!jp)
+      return NULL;
+   jo_t j = *jp;
+   n += j->level + 1;           // Allow space to close and null
+   if (!j->alloc || (j->ptr + n > j->len && !(j->buf = saferealloc(j->buf, j->len = j->ptr + n))))
+   {                            // Cannot pad
+      jo_free(jp);
+      return NULL;
+   }
+   return j;
+}
+
 static inline int jo_peek(jo_t j)
 {                               // Peek next raw byte (-1 for end/fail)
    if (!j || j->err || !j->parse || j->ptr >= j->len)

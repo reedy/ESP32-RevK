@@ -26,6 +26,7 @@ static const char
 #include <driver/gpio.h>
 #ifdef	CONFIG_REVK_MESH
 #include <esp_mesh.h>
+#include "freertos/semphr.h"
 #endif
 
 #ifndef	CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS
@@ -263,11 +264,15 @@ static void mqtt_init(void);
 
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload);
-void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 static void send_sub(int client, const char *id);
 static void send_unsub(int client, const char *id);
+
+#ifdef	CONFIG_REVK_MESH
+void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 static void mesh_send_json(mesh_addr_t * addr, jo_t * jp);
 static void mesh_send_time(void);
+static SemaphoreHandle_t mesh_mutex = NULL;
+#endif
 
 static void revk_report_state(int copies)
 {                               // Report state
@@ -349,16 +354,30 @@ static void child_init(void)
 #endif
 
 #ifdef CONFIG_REVK_MESH
-void mesh_decode(mesh_data_t * data)
+esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
 {                               // Security - decode mesh message
    // TODO - mesh decode
+   return 0;
+
 }
 #endif
 
 #ifdef CONFIG_REVK_MESH
-void mesh_encode(mesh_data_t * data)
+esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int flag, const mesh_opt_t opt[], int opt_count)
+{                               // Mutex to protect non-re-entrant call
+   xSemaphoreTake(mesh_mutex, portMAX_DELAY);
+   esp_err_t e = esp_mesh_send(to, data, flag, opt, opt_count);
+   xSemaphoreGive(mesh_mutex);
+   return e;
+}
+#endif
+
+#ifdef CONFIG_REVK_MESH
+#define	MESH_PAD	24      // Max extra allocated bytes required on data
+esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 {                               // Security - encode mesh message
    // TODO - mesh encode
+   return mesh_safe_send(addr, data, flags, NULL, 0);
 }
 #endif
 
@@ -401,10 +420,42 @@ static void mesh_task(void *pvParameters)
       {
          char mac[13];
          sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
-         mesh_decode(&data);
+         // We use MESH_PROTO_BIN for flash (unencrypted)
          // We use MESH_PROTO_MQTT to relay
          // We use MESH_PROTO_JSON for messages internally
-         if (data.proto == MESH_PROTO_MQTT)
+         if (data.proto == MESH_PROTO_BIN)
+         {
+            ESP_LOGI(TAG, "Got data %d", data.size);
+            static int ota_size = 0;
+            static esp_ota_handle_t ota_handle;
+            static const esp_partition_t *ota_partition = NULL;
+            if (!ota_size && data.size == 4)
+            {                   // Start
+               ota_size = *(uint32_t *) data.data;
+               ota_partition = esp_ota_get_running_partition();
+               ota_partition = esp_ota_get_next_update_partition(ota_partition);
+               if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
+                  ota_partition = NULL; // Failed
+               else
+                  ESP_LOGI(TAG, "Flash start %d", ota_size);
+            } else if (ota_size && !data.size)
+            {                   // End
+               if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
+               {
+                  esp_ota_set_boot_partition(ota_partition);
+                  revk_restart("OTA", 5);
+               }
+               ota_partition = NULL;
+               ota_size = 0;
+            } else if (ota_size && ota_partition)
+            {                   // Data
+               if (REVK_ERR_CHECK(esp_ota_write(ota_handle, data.data, data.size)))
+                  ota_partition = NULL; // Failed
+            }
+         }
+         if (mesh_decode(&from, &data))
+            ESP_LOGE(TAG, "Failed mesh decode");
+         else if (data.proto == MESH_PROTO_MQTT)
          {
             // Extract topic and payload
             // Topic prefix digit for client
@@ -629,6 +680,8 @@ static void mesh_init(void)
    // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_mesh.html
    if (!sta_netif)
    {
+      mesh_mutex = xSemaphoreCreateBinary();
+      xSemaphoreGive(mesh_mutex);
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
       REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
@@ -688,6 +741,8 @@ static void send_unsub(int client, const char *id)
 #ifdef	CONFIG_REVK_MQTT
 static void send_sub(int client, const char *id)
 {
+   if (client >= MQTT_CLIENTS || !mqtt_client[client])
+      return;
    ESP_LOGI(TAG, "Subscribe %s", id);
    void sub(const char *prefix) {
       char *topic = NULL;
@@ -778,7 +833,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          if (*target != '*')
             for (int n = 0; n < sizeof(addr); n++)
                addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
-         esp_mesh_send(&addr, &data, MESH_DATA_P2P, NULL, 0);   // TODO - re-entrant issue?
+         mesh_encode_send(&addr, &data, MESH_DATA_P2P);
          free(data.data);
          if (!err && *target != '*')
             err = "";           // No error here
@@ -1504,7 +1559,7 @@ void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic,
       data->size++;
    if (retain)
       data->size++;
-   data->data = malloc(data->size);
+   data->data = malloc(data->size + MESH_PAD);
    char *p = (char *) data->data;
    if (client)
       *p++ = '0' + client;
@@ -1523,7 +1578,7 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
 {
    if (!jp)
       return;
-   jo_t j = *jp;
+   jo_t j = jo_pad(jp, MESH_PAD);
    if (!j)
       return;
    const char *json = jo_rewind(j);
@@ -1531,7 +1586,7 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
    {
       ESP_LOGI(TAG, "Mesh Tx JSON %s", json);
       mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen(json) };
-      esp_mesh_send(addr, &data, addr ? MESH_DATA_P2P : 0, NULL, 0);
+      mesh_encode_send(addr, &data, addr ? MESH_DATA_P2P : 0);
    }
    jo_free(jp);
 }
@@ -1561,8 +1616,8 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
    {                            // Send via mesh
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
       mesh_make_mqtt(&data, client, tlen, topic, plen, payload, retain);
-      ESP_LOGI(TAG, "Mesh Tx MQTT%d",client);
-      esp_mesh_send(NULL, &data, 0, NULL, 0);   // TODO - re-entrant issue?
+      ESP_LOGI(TAG, "Mesh Tx MQTT%d", client);
+      mesh_encode_send(NULL, &data, 0);
       free(data.data);
       return NULL;
    }
@@ -1700,6 +1755,11 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
    static int ota_progress = 0;
    static esp_ota_handle_t ota_handle;
    static const esp_partition_t *ota_partition = NULL;
+#ifdef	CONFIG_REVK_MESH
+   mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+   };
+   mesh_data_t data = {.proto = MESH_PROTO_BIN };
+#endif
    switch (evt->event_id)
    {
    case HTTP_EVENT_ERROR:
@@ -1749,6 +1809,14 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   ota_running = 1;
                   next = now + 5000000LL;
                }
+#ifdef	CONFIG_REVK_MESH
+               if (esp_mesh_is_root())
+               {
+                  data.size = 4;        // Start
+                  data.data = (void *) &ota_size;
+                  mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0); // Non re-entrant, really, but OK, hence mutex
+               }
+#endif
             }
          }
          if (ota_running && ota_size)
@@ -1769,6 +1837,21 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   revk_info("upgrade", &j);
                   next = now + 5000000LL;
                }
+#ifdef	CONFIG_REVK_MESH
+               if (esp_mesh_is_root())
+               {
+                  size_t s = evt->data_len;
+                  uint8_t *p = evt->data;
+                  while (s >= 1024)
+                  {
+                     data.data = p;
+                     data.size = (s > 1024 ? 1024 : s);
+                     s -= data.size;
+                     p += data.size;
+                     mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);      // Non re-entrant, really, but OK, hence mutex
+                  }
+               }
+#endif
             }
          }
       }
@@ -1792,6 +1875,13 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             revk_info("upgrade", &j);
             esp_ota_set_boot_partition(ota_partition);
             revk_restart("OTA", 5);
+#ifdef	CONFIG_REVK_MESH
+            if (esp_mesh_is_root())
+            {
+               data.size = 0;   // Start
+               mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);    // Non re-entrant, really, but OK, hence mutex
+            }
+#endif
          }
       }
       ota_running = 0;
