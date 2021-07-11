@@ -418,19 +418,20 @@ static void mesh_task(void *pvParameters)
          {
             if (mesh_leaves)
                for (int a = 0; a < mesh_leaves; a++)
-               {
-                  if (!mesh_leaf[a].missed1)
-                     mesh_leaf[a].missed1 = 1;
-		  else if (!mesh_leaf[a].missed2)
-                     mesh_leaf[a].missed2 = 1;
-                  else
+                  if (mesh_leaf[a].online)
                   {
-                     ESP_LOGI(TAG, "Leaf off line");
-                     mesh_leaf[a].online = 0;
-                     send_unsub(0, mesh_leaf[a].addr.addr);
-                     send_unsub(1, mesh_leaf[a].addr.addr);
+                     if (!mesh_leaf[a].missed1)
+                        mesh_leaf[a].missed1 = 1;
+                     else if (!mesh_leaf[a].missed2)
+                        mesh_leaf[a].missed2 = 1;
+                     else
+                     {
+                        ESP_LOGI(TAG, "Leaf off line");
+                        mesh_leaf[a].online = 0;
+                        send_unsub(0, mesh_leaf[a].addr.addr);
+                        send_unsub(1, mesh_leaf[a].addr.addr);
+                     }
                   }
-               }
          } else
          {                      // Period to root
             jo_t j = jo_object_alloc();
@@ -488,7 +489,7 @@ static void mesh_task(void *pvParameters)
             }
             if (d && mesh_leaves >= meshmax)
             {
-               ESP_LOGE(TAG, "Too many children to add %s", mac);
+               ESP_LOGE(TAG, "Too many children (%d) to add %s", mesh_leaves, mac);
                continue;
             }
             if (d)
@@ -524,17 +525,19 @@ static void mesh_task(void *pvParameters)
             static const esp_partition_t *ota_partition = NULL;
             mesh_flash_t *flash = (void *) data.data;
             if (data.size == sizeof(*flash) && flash->magic == MESH_FLASH_MAGIC)
-            {
+            {                   // Control packet
                if (flash->size)
                {                // Start
                   ota_data = 0;
                   ota_size = flash->size;
                   ota_partition = esp_ota_get_running_partition();
                   ota_partition = esp_ota_get_next_update_partition(ota_partition);
+		  ESP_LOGI(TAG,"Start flash %d",ota_size);
                   if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
+		  {
                      ota_partition = NULL;      // Failed
-                  else
-                     ESP_LOGI(TAG, "Flash start %d", ota_size);
+                     ESP_LOGI(TAG, "Failed to start flash");
+		  }
                } else
                {                // End
                   if (ota_data != ota_size)
@@ -783,10 +786,12 @@ static void mesh_init(void)
       xSemaphoreGive(mesh_mutex);
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
-      REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
-      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
-      REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
-      REVK_ERR_CHECK(esp_mesh_set_xon_qsize(16));       // TODO testing
+      if (meshlr)
+      {                         // Set up LR mode
+         REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+         REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
+         REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
+      }
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -818,7 +823,7 @@ static void send_unsub(int client, const uint8_t * mac)
       return;
    char id[13];
    sprintf(id, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-   ESP_LOGI(TAG, "Unsubscribe %s", id);
+   ESP_LOGI(TAG, "MQTT%d Unsubscribe %s", client, id);
    void sub(const char *prefix) {
       char *topic = NULL;
       if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, id) < 0)
@@ -850,7 +855,7 @@ static void send_sub(int client, const uint8_t * mac)
       return;
    char id[13];
    sprintf(id, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-   ESP_LOGI(TAG, "Subscribe %s", id);
+   ESP_LOGI(TAG, "MQTT%d Subscribe %s", client, id);
    void sub(const char *prefix) {
       char *topic = NULL;
       if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, id) < 0)
@@ -1845,10 +1850,16 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
    static int blockp = 0;
    void send_all(mesh_data_t * data) {  // Send to all clents
       // Broadcast for now but may be better way
-      mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 } };   // To all devices
-      mesh_safe_send(&addr, data, MESH_DATA_P2P, NULL, 0);
-      if (mesh_leaves)
-         usleep(100000);        // TODO - this is only way to be reliable - why - even direct P2P does not help
+      //if (mesh_leaves) usleep(150000);        // TODO - this is only way to be reliable - why - even direct P2P does not help
+      mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+      };                        // To all devices
+      while (1)
+      {
+         esp_err_t e = mesh_safe_send(&addr, data, MESH_DATA_P2P, NULL, 0);
+         if (!e || e != ESP_ERR_MESH_NO_MEMORY)
+            break;
+         usleep(10000);
+      }
    }
    void send_block(void) {
       if (!blockp)
@@ -1925,6 +1936,12 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
          }
          if (ota_running && ota_size)
          {
+            if (ota_running == 1)
+	    {
+		    ESP_LOGI(TAG,"Wait erase");
+               sleep(6);        // TODO test - erasing flash time?
+	       ESP_LOGI(TAG,"OK... go ahead");
+	    }
 #ifdef	CONFIG_REVK_MESH
             size_t s = evt->data_len;
             uint8_t *p = evt->data;
