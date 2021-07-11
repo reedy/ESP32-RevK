@@ -433,45 +433,43 @@ static void mesh_task(void *pvParameters)
          // We use MESH_PROTO_MQTT to relay
          // We use MESH_PROTO_JSON for messages internally
          if (data.proto == MESH_PROTO_BIN)
-         {
-            if (!esp_mesh_is_root())
+         {                      // Includes loopback to self
+            static int ota_size = 0;
+            static int ota_data = 0;
+            static esp_ota_handle_t ota_handle;
+            static const esp_partition_t *ota_partition = NULL;
+            mesh_flash_t *flash = (void *) data.data;
+            if (data.size == sizeof(*flash) && flash->magic == MESH_FLASH_MAGIC)
             {
-               static int ota_size = 0;
-               static int ota_data = 0;
-               static esp_ota_handle_t ota_handle;
-               static const esp_partition_t *ota_partition = NULL;
-               mesh_flash_t *flash = (void *) data.data;
-               if (data.size == sizeof(*flash) && flash->magic == MESH_FLASH_MAGIC)
-               {
-                  if (flash->size)
-                  {             // Start
-                     ota_data = 0;
-                     ota_size = flash->size;
-                     ota_partition = esp_ota_get_running_partition();
-                     ota_partition = esp_ota_get_next_update_partition(ota_partition);
-                     if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
-                        ota_partition = NULL;   // Failed
-                     else
-                        ESP_LOGI(TAG, "Flash start %d", ota_size);
-                  } else
-                  {             // End
-                     ESP_LOGI(TAG, "Got %d/%d", ota_data, ota_size);
-                     if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
-                     {
-                        esp_ota_set_boot_partition(ota_partition);
-                        revk_restart("OTA", 5);
-                     }
-                     ota_partition = NULL;
-                     ota_size = 0;
-                  }
-               } else if (ota_size && ota_partition)
-               {                // Data
-                  if (REVK_ERR_CHECK(esp_ota_write(ota_handle, data.data, data.size)))
+               if (flash->size)
+               {                // Start
+                  ota_data = 0;
+                  ota_size = flash->size;
+                  ota_partition = esp_ota_get_running_partition();
+                  ota_partition = esp_ota_get_next_update_partition(ota_partition);
+                  if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
                      ota_partition = NULL;      // Failed
-                  ota_data += data.size;
+                  else
+                     ESP_LOGI(TAG, "Flash start %d", ota_size);
                } else
-                  ESP_LOGI(TAG, "Data unexpected %d", data.size);
-            }
+               {                // End
+                  if (ota_data != ota_size)
+                     ESP_LOGE(TAG, "Flash missing data %d/%d", ota_data, ota_size);
+                  else if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
+                  {
+                     esp_ota_set_boot_partition(ota_partition);
+                     revk_restart("OTA", 5);
+                  }
+                  ota_partition = NULL;
+                  ota_size = 0;
+               }
+            } else if (ota_size && ota_partition)
+            {                   // Data
+               if (REVK_ERR_CHECK(esp_ota_write(ota_handle, data.data, data.size)))
+                  ota_partition = NULL; // Failed
+               ota_data += data.size;
+            } else
+               ESP_LOGI(TAG, "Data unexpected %d", data.size);
          } else if (mesh_decode(&from, &data))
             ESP_LOGE(TAG, "Failed mesh decode");
          else if (data.proto == MESH_PROTO_MQTT)
@@ -560,6 +558,7 @@ static void mesh_task(void *pvParameters)
          }
       }
    }
+
    vTaskDelete(NULL);
 }
 #endif
@@ -1335,7 +1334,7 @@ static void task(void *pvParameters)
          };
          esp_wifi_sta_get_ap_info(&ap);
          uint32_t now = time(0);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || lastheap / 10240 != heap / 10240 || now > was + 300)
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap + 1000 < lastheap || now > was + 300)
          {
             if (now > 1000000000 && was <= 1000000000)
                ESP_LOGD(TAG, "Clock set %u", now);
@@ -1772,16 +1771,22 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
    static int ota_size = 0;
    static int ota_running = 0;
    static int ota_progress = 0;
+#ifdef	CONFIG_REVK_MESH
+   mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 } };      // To all devices
+#else
    static esp_ota_handle_t ota_handle;
    static const esp_partition_t *ota_partition = NULL;
+#endif
    switch (evt->event_id)
    {
    case HTTP_EVENT_ERROR:
       break;
    case HTTP_EVENT_ON_CONNECTED:
       ota_size = 0;
+#ifndef	CONFIG_REVK_MESH
       if (ota_running)
          esp_ota_end(ota_handle);
+#endif
       ota_running = 0;
       break;
    case HTTP_EVENT_HEADER_SENT:
@@ -1799,7 +1804,12 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             ota_size = 0;       /* Failed */
          if (!ota_running && ota_size)
          {                      /* Start */
-            // Maybe nice to avoid clash with MESH flash
+#ifdef	CONFIG_REVK_MESH
+            mesh_flash_t flash = {.magic = MESH_FLASH_MAGIC,.size = ota_size };
+            mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = sizeof(flash),.data = (void *) &flash };
+            mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);       // Non re-entrant, really, but OK, hence mutex
+            ota_running = 1;
+#else
             ota_progress = 0;
             if (!ota_partition)
                ota_partition = esp_ota_get_running_partition();
@@ -1824,24 +1834,26 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   ota_running = 1;
                   next = now + 5000000LL;
                }
-#ifdef	CONFIG_REVK_MESH
-               if (esp_mesh_is_root())
-               {
-                  mesh_flash_t flash = {.magic = MESH_FLASH_MAGIC,.size = ota_size };
-                  mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
-                  };
-                  mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = sizeof(flash),.data = (void *) &flash };
-                  mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0); // Non re-entrant, really, but OK, hence mutex
-               }
-#endif
             }
+#endif
          }
          if (ota_running && ota_size)
          {
-            if (REVK_ERR_CHECK(esp_ota_write(ota_handle, evt->data, evt->data_len)))
+#ifdef	CONFIG_REVK_MESH
+            size_t s = evt->data_len;
+            uint8_t *p = evt->data;
+            while (s)
             {
+               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = (s > MESH_MPS ? MESH_MPS : s),.data = p };
+               s -= data.size;
+               p += data.size;
+               mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);    // Non re-entrant, really, but OK, hence mutex
+            }
+#else
+            if (REVK_ERR_CHECK(esp_ota_write(ota_handle, evt->data, evt->data_len)))
                ota_size = 0;
-            } else
+#endif
+            if (ota_size)
             {
                ota_running += evt->data_len;
                int percent = ota_running * 100 / ota_size;
@@ -1854,22 +1866,6 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   revk_info("upgrade", &j);
                   next = now + 5000000LL;
                }
-#ifdef	CONFIG_REVK_MESH
-               if (esp_mesh_is_root())
-               {
-                  size_t s = evt->data_len;
-                  uint8_t *p = evt->data;
-                  while (s)
-                  {
-                     mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
-                     };
-                     mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = s > MESH_MPS ? MESH_MPS : s,.data = p };
-                     s -= data.size;
-                     p += data.size;
-                     mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);      // Non re-entrant, really, but OK, hence mutex
-                  }
-               }
-#endif
             }
          }
       }
@@ -1885,6 +1881,11 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       }
       if (ota_running)
       {
+#ifdef	CONFIG_REVK_MESH
+         mesh_flash_t flash = {.magic = MESH_FLASH_MAGIC };
+         mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = sizeof(flash),.data = (void *) &flash };
+         mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);  // Non re-entrant, really, but OK, hence mutex
+#else
          if (!REVK_ERR_CHECK(esp_ota_end(ota_handle)))
          {
             jo_t j = jo_object_alloc();
@@ -1893,17 +1894,8 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             revk_info("upgrade", &j);
             esp_ota_set_boot_partition(ota_partition);
             revk_restart("OTA", 5);
-#ifdef	CONFIG_REVK_MESH
-            if (esp_mesh_is_root())
-            {
-               mesh_flash_t flash = {.magic = MESH_FLASH_MAGIC };
-               mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
-               };
-               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = sizeof(flash),.data = (void *) &flash };
-               mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);    // Non re-entrant, really, but OK, hence mutex
-            }
-#endif
          }
+#endif
       }
       ota_running = 0;
       break;
