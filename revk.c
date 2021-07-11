@@ -457,6 +457,10 @@ static void mesh_task(void *pvParameters)
                      ESP_LOGE(TAG, "Flash missing data %d/%d", ota_data, ota_size);
                   else if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
                   {
+                     jo_t j = jo_object_alloc();
+                     jo_string(j, "complete", ota_partition->label);
+                     jo_int(j, "size", ota_size);
+                     revk_info("upgrade", &j);  // Send from target device so cloud knows target is upgraded
                      esp_ota_set_boot_partition(ota_partition);
                      revk_restart("OTA", 5);
                   }
@@ -1334,7 +1338,7 @@ static void task(void *pvParameters)
          };
          esp_wifi_sta_get_ap_info(&ap);
          uint32_t now = time(0);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap + 1000 < lastheap || now > was + 300)
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 1000 < lastheap / 1000 || now > was + 300)
          {
             if (now > 1000000000 && was <= 1000000000)
                ESP_LOGD(TAG, "Clock set %u", now);
@@ -1768,11 +1772,22 @@ const char *revk_restart(const char *reason, int delay)
 
 static esp_err_t ota_handler(esp_http_client_event_t * evt)
 {
-   static int ota_size = 0;
+   static int ota_size = 0; // statics as this is called each time an event happens
    static int ota_running = 0;
    static int ota_progress = 0;
 #ifdef	CONFIG_REVK_MESH
    mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 } };      // To all devices
+   static uint8_t block[MESH_MPS - 100];
+   static int blockp = 0;
+   void send_block(void) {
+      if (!blockp)
+         return;
+      mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
+      mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);     // Non re-entrant, really, but OK, hence mutex
+      blockp = 0;
+      // Maybe sequence number?
+      usleep(100000);           // TODO
+   }
 #else
    static esp_ota_handle_t ota_handle;
    static const esp_partition_t *ota_partition = NULL;
@@ -1783,6 +1798,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       break;
    case HTTP_EVENT_ON_CONNECTED:
       ota_size = 0;
+      blockp = 0;
 #ifndef	CONFIG_REVK_MESH
       if (ota_running)
          esp_ota_end(ota_handle);
@@ -1844,10 +1860,15 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
             uint8_t *p = evt->data;
             while (s)
             {
-               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = (s > MESH_MPS ? MESH_MPS : s),.data = p };
-               s -= data.size;
-               p += data.size;
-               mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);    // Non re-entrant, really, but OK, hence mutex
+               int q = s;
+               if (q > sizeof(block) - blockp)
+                  q = sizeof(block) - blockp;
+               memcpy(block + blockp, p, q);
+               blockp += q;
+               p += q;
+               s -= q;
+               if (blockp == sizeof(block))
+                  send_block();
             }
 #else
             if (REVK_ERR_CHECK(esp_ota_write(ota_handle, evt->data, evt->data_len)))
@@ -1882,6 +1903,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       if (ota_running)
       {
 #ifdef	CONFIG_REVK_MESH
+         send_block();          // Any left
          mesh_flash_t flash = {.magic = MESH_FLASH_MAGIC };
          mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = sizeof(flash),.data = (void *) &flash };
          mesh_safe_send(&addr, &data, MESH_DATA_P2P, NULL, 0);  // Non re-entrant, really, but OK, hence mutex
@@ -2540,7 +2562,7 @@ static const char *revk_setting_dump(void)
          return;
       revk_mqtt_send(prefixsetting, 0, NULL, &j);
    }
-   char buf[MQTT_MAX - 100];
+   char buf[MQTT_MAX];
    const char *hasdef(setting_t * s) {
       const char *d = s->defval;
       if (!d)
