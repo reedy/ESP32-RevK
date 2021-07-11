@@ -362,7 +362,7 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
       }
    }
    if (ret)
-      ESP_LOGE(TAG, "Sub/unsub: %s", ret);
+      ESP_LOGD(TAG, "Sub/unsub: %s", ret);
    return ret;
 }
 
