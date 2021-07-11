@@ -494,6 +494,7 @@ static void mesh_task(void *pvParameters)
             }
             if (d)
             {                   // Not found
+               // TODO we probably want to mutex protect this
                m = l;
                ESP_LOGI(TAG, "Added leaf %s at %d/%d", mac, m, mesh_leaves);
                if (m < mesh_leaves)
