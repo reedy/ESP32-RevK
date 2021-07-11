@@ -532,12 +532,12 @@ static void mesh_task(void *pvParameters)
                   ota_size = flash->size;
                   ota_partition = esp_ota_get_running_partition();
                   ota_partition = esp_ota_get_next_update_partition(ota_partition);
-		  ESP_LOGI(TAG,"Start flash %d",ota_size);
+                  ESP_LOGI(TAG, "Start flash %d", ota_size);
                   if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
-		  {
+                  {
                      ota_partition = NULL;      // Failed
                      ESP_LOGI(TAG, "Failed to start flash");
-		  }
+                  }
                } else
                {                // End
                   if (ota_data != ota_size)
@@ -1937,11 +1937,11 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
          if (ota_running && ota_size)
          {
             if (ota_running == 1)
-	    {
-		    ESP_LOGI(TAG,"Wait erase");
+            {
+               ESP_LOGI(TAG, "Wait erase");
                sleep(6);        // TODO test - erasing flash time?
-	       ESP_LOGI(TAG,"OK... go ahead");
-	    }
+               ESP_LOGI(TAG, "OK... go ahead");
+            }
 #ifdef	CONFIG_REVK_MESH
             size_t s = evt->data_len;
             uint8_t *p = evt->data;
