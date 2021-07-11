@@ -41,8 +41,8 @@ menu "RevK"
 		Mesh network connections per node
 
 	config REVK_MESHMAX
-        int "Mesh mac capacity"
-        default 0
+        int "Mesh max capacity"
+        default 100
 	depends on REVK_MESH
         help
 		Total nodes allowed
