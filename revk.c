@@ -263,7 +263,8 @@ typedef struct mesh_flash_s {
 typedef struct mesh_leaf_s {
    mesh_addr_t addr;
    uint8_t online:1;
-   uint8_t missed:1;
+   uint8_t missed1:1;
+   uint8_t missed2:1;
 } mesh_leaf_t;
 mesh_leaf_t *mesh_leaf = NULL;
 int mesh_leaves = 0;
@@ -418,8 +419,10 @@ static void mesh_task(void *pvParameters)
             if (mesh_leaves)
                for (int a = 0; a < mesh_leaves; a++)
                {
-                  if (!mesh_leaf[a].missed)
-                     mesh_leaf[a].missed = 1;
+                  if (!mesh_leaf[a].missed1)
+                     mesh_leaf[a].missed1 = 1;
+		  else if (!mesh_leaf[a].missed2)
+                     mesh_leaf[a].missed2 = 1;
                   else
                   {
                      ESP_LOGI(TAG, "Leaf off line");
@@ -507,7 +510,8 @@ static void mesh_task(void *pvParameters)
                jo_bool(j, "status", 1);
                mesh_send_json(&mesh_leaf[m].addr, &j);
             }
-            mesh_leaf[m].missed = 0;
+            mesh_leaf[m].missed1 = 0;
+            mesh_leaf[m].missed2 = 0;
          }
          // We use MESH_PROTO_BIN for flash (unencrypted)
          // We use MESH_PROTO_MQTT to relay
@@ -782,6 +786,7 @@ static void mesh_init(void)
       REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
+      REVK_ERR_CHECK(esp_mesh_set_xon_qsize(16));       // TODO testing
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -1399,7 +1404,7 @@ static void task(void *pvParameters)
          };
          esp_wifi_sta_get_ap_info(&ap);
          uint32_t now = time(0);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 1000 < lastheap / 1000 || now > was + 300)
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > was + 300)
          {
             if (now > 1000000000 && was <= 1000000000)
                ESP_LOGD(TAG, "Clock set %u", now);
@@ -1843,7 +1848,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 } };   // To all devices
       mesh_safe_send(&addr, data, MESH_DATA_P2P, NULL, 0);
       if (mesh_leaves)
-         usleep(100000);        // TODO
+         usleep(100000);        // TODO - this is only way to be reliable - why - even direct P2P does not help
    }
    void send_block(void) {
       if (!blockp)
