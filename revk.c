@@ -1516,20 +1516,30 @@ static void task(void *pvParameters)
       }
 #ifdef	CONFIG_REVK_MQTT
       {                         // Report even if not on-line as mesh works anyway
-         static int lastch = 0;
+         static uint8_t lastch = 0;
          static uint8_t lastbssid[6];
          static uint32_t lastheap = 0;
          static uint32_t was = 0;       // Yes time_t but ESP has an odd idea of time_t
+#ifdef	CONFIG_REVK_MESH
+         static int lastnodes = 0;
+#endif
          uint32_t heap = esp_get_free_heap_size();
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info(&ap);
          uint32_t now = time(0);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > was + 300)
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > was + 300
+#ifdef	CONFIG_REVK_MESH
+             || lastnodes != mesh_leaves_online
+#endif
+             )
          {
             if (now > 1000000000 && was <= 1000000000)
                ESP_LOGD(TAG, "Clock set %u", now);
             was = now;
+#ifdef	CONFIG_REVK_MESH
+            lastnodes = mesh_leaves_online;
+#endif
             lastheap = heap;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
