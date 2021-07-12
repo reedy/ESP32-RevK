@@ -560,7 +560,7 @@ static void mesh_task(void *pvParameters)
                      ESP_LOGI(TAG, "Start flash %d", ota_size);
                      if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
                      {
-                        ota_size = 0;        // Failed
+                        ota_size = 0;   // Failed
                         ESP_LOGI(TAG, "Failed to start flash");
                      }
                   }
@@ -1901,12 +1901,12 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
       mesh_ota_ack = 0xA0 + (*block & 0x0F);    // The ACK we want
       mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
-      int to = (((*data.data >> 4) != 0xD) ? 1000 : 100);  // Start/end is slow
+      int to = (((*data.data >> 4) != 0xD) ? 1000 : 100);       // Start/end is slow
       while (!xSemaphoreTake(mesh_ota_sem, to / portTICK_PERIOD_MS) && --tries)
          mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0); // Resend if no ACK
       if (!tries)
       {
-         ESP_LOGE(TAG, "OTA send failed");
+         ESP_LOGE(TAG, "OTA send %02X %d failed", *data.data, data.size - 1);
          ota_size = ota_running = 0;
       }
       blockp = 1;
