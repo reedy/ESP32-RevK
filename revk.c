@@ -303,6 +303,10 @@ static void revk_report_state(int copies)
 #ifdef	CONFIG_NVS_ENCRYPTION
    jo_bool(j, "nvsecryption", 1);
 #endif
+#ifdef	CONFIG_REVK_MESH
+   if (esp_mesh_is_root())
+      jo_int(j, "nodes", mesh_leaves_online);
+#endif
    jo_string(j, "id", revk_id);
    jo_string(j, "app", appname);
    jo_string(j, "version", revk_version);
