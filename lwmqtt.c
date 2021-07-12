@@ -6,6 +6,10 @@
 static const char
     __attribute__((unused)) * TAG = "LWMQTT";
 
+#ifdef	CONFIG_REVK_MQTT_SERVER
+#warning MQTT server code is not complete
+#endif
+
 #include "config.h"
 #include <stdio.h>
 #include <stdint.h>

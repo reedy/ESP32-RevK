@@ -104,10 +104,6 @@ static const char
 		u8(wifichan,CONFIG_REVK_WIFICHAN);	\
 		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
 
-#define wifimqttsettings		\
-    		u16(wifiretry,CONFIG_REVK_WIFIRETRY);			\
- 		s(wifimqtt, NULL);	\
-
 #define	apsettings	\
 		s(apssid,CONFIG_REVK_APSSID);		\
 		sp(appass,CONFIG_REVK_APPASS);		\
@@ -120,6 +116,7 @@ static const char
 		h(meshid,6,CONFIG_REVK_MESHID);		\
 		hs(meshkey,16,NULL);		\
     		u16(meshwidth,CONFIG_REVK_MESHWIDTH);	\
+    		u16(meshdepth,CONFIG_REVK_MESHDEPTH);	\
     		u16(meshmax,CONFIG_REVK_MESHMAX);	\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 		b(meshlr,CONFIG_REVK_MESHLR);		\
@@ -149,9 +146,6 @@ static const char
 settings
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
     wifisettings
-#ifdef	CONFIG_REVK_MQTT_SERVER
-    wifimqttsettings
-#endif
 #ifdef	CONFIG_REVK_MESH
     meshsettings
 #else
@@ -215,9 +209,6 @@ uint8_t revk_mac[6];            // MAC
 static EventGroupHandle_t revk_group;
 static volatile uint64_t offline = 1;   // When we first went off line
 static volatile uint64_t offline_try = 1;       // When we last tried to get on line
-#ifdef	CONFIG_REVK_MQTT_SERVER
-static char wifimqttbackup = 0;
-#endif
 const static int GROUP_OFFLINE = BIT0;  // We are off line (IP not set)
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 const static int GROUP_WIFI = BIT1;     // We are WiFi connected
@@ -773,10 +764,6 @@ static void wifi_init(void)
    // Client
    REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
    const char *ssid = wifissid;
-#ifdef	CONFIG_REVK_MQTT_SERVER
-   if (*wifimqtt && !wifimqttbackup)
-      ssid = wifimqtt;
-#endif
    ESP_LOGI(TAG, "WIFi [%s]", ssid);
    wifi_config_t wifi_config = { 0, };
    if (wifibssid[0] || wifibssid[1] || wifibssid[2])
@@ -837,6 +824,7 @@ static void mesh_init(void)
          REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
          REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
       }
+      REVK_ERR_CHECK(esp_mesh_set_max_layer(meshdepth));
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -1086,26 +1074,13 @@ static void mqtt_init(void)
 {
    if (mqtt_client[0])
       return;                   // Already set up
-   if (!*mqtthost[0]
-#ifdef	CONFIG_REVK_MQTT_SERVER
-       && !*wifimqtt
-#endif
-       )                        /* No MQTT */
+   if (!*mqtthost[0])                        /* No MQTT */
       return;
    for (int client = 0; client < MQTT_CLIENTS; client++)
    {
       xEventGroupSetBits(revk_group, (GROUP_MQTT_DOWN << client));
       if (*mqtthost[client])
       {
-#ifdef	CONFIG_REVK_MQTT_SERVER
-         if (!client)
-         {
-            esp_netif_ip_info_t info = { };
-            static char gw[16] = "";
-            if (*wifimqtt && !wifimqttbackup && (!sta_netif || esp_netif_get_ip_info(sta_netif, &info) || !info.gw.addr))
-               return;
-         }
-#endif
          char *topic = NULL;
          if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
             return;
@@ -1119,17 +1094,6 @@ static void mqtt_init(void)
             .keepalive = 30,
             .callback = &mqtt_rx,
          };
-#ifdef	CONFIG_REVK_MQTT_SERVER
-         if (!client && *wifimqtt && !wifimqttbackup)
-         {                      // Special case - server is gateway IP
-            config.tlsname = wifimqtt;  // The device name of the host if using TLS
-            config.tlsname_ref = 1;     // No need to duplicate
-            sprintf(gw, "%d.%d.%d.%d", info.gw.addr & 255, (info.gw.addr >> 8) & 255, (info.gw.addr >> 16) & 255, info.gw.addr >> 24);
-            config.hostname = gw;       // safe on stack as lwmqtt_client copies it
-            sntp_setservername(0, gw);
-         } else
-            sntp_setservername(0, ntphost);
-#endif
          ESP_LOGI(TAG, "MQTT%d %s", client, config.hostname);
          if (mqttcert[client]->len)
          {
@@ -1255,10 +1219,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
                   jo_bool(j, "lr", 1);
                jo_stringf(j, "ip", IPSTR, IP2STR(&event->ip_info.ip));
                jo_stringf(j, "gw", IPSTR, IP2STR(&event->ip_info.gw));
-#ifdef	CONFIG_REVK_MQTT_SERVER
-               if (*wifimqtt && !wifimqttbackup)
-                  jo_bool(j, "slave", 1);
-#endif
                jo_rewind(j);
                app_callback(0, prefixcommand, NULL, "wifi", j);
                jo_free(&j);
@@ -1472,16 +1432,6 @@ static void task(void *pvParameters)
       if (wifireset && offline && (now - offline) > 1000000LL * wifireset)
          revk_restart("Offline too long", 1);
 #endif
-#ifdef	CONFIG_REVK_MQTT_SERVER
-      if (*wifimqtt && wifiretry && offline && (now - offline_try) > 1000000LL * wifiretry)
-      {
-         offline_try = esp_timer_get_time();
-         wifimqttbackup = 1 - wifimqttbackup;
-         revk_mqtt_close("backup flip");
-         mqtt_init();
-         wifi_init();           // Must be wifi not mesh
-      }
-#endif
 #ifdef	CONFIG_REVK_APCONFIG
       if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
@@ -1564,9 +1514,6 @@ void revk_init(app_callback_t * app_callback_cb)
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
    revk_register("wifi", 0, 0, &wifissid, CONFIG_REVK_WIFISSID, SETTING_SECRET);        // Parent
    wifisettings;
-#ifdef	CONFIG_REVK_MQTT_SERVER
-   wifimqttsettings;
-#endif
 #ifdef	CONFIG_REVK_MESH
    revk_register("mesh", 0, 6, &meshid, CONFIG_REVK_MESHID, SETTING_BINDATA | SETTING_HEX | SETTING_SECRET);    // Parent
    meshsettings;
