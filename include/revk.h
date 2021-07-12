@@ -110,7 +110,7 @@ void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t *
 const char *revk_setting(jo_t); // Store settings
 const char *revk_command(const char *tag, jo_t);        // Do an internal command
 const char *revk_restart(const char *reason, int delay);        // Restart cleanly
-const char *revk_ota(const char *host); // OTA and restart cleanly
+const char *revk_ota(const char *host,const char *target); // OTA and restart cleanly (target NULL for self as root node)
 
 #ifdef	CONFIG_REVK_MQTT
 lwmqtt_t revk_mqtt(int);

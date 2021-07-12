@@ -254,20 +254,23 @@ static uint8_t blink_on = 0,
     blink_off = 0;
 static const char *blink_colours = "RYGCBM";
 static const char *revk_setting_dump(void);
+
 #ifdef	CONFIG_REVK_MESH
-typedef struct mesh_flash_s {
-   uint32_t magic;
-   uint32_t size;
-} mesh_flash_t;
-#define	MESH_FLASH_MAGIC 0xDEADBEEF
+// OTA to mesh devices
+static mesh_addr_t mesh_ota_addr = { };
+
+static uint8_t mesh_ota_ack = 0;
+static SemaphoreHandle_t mesh_ota_sem = NULL;
+
+// Managing leaf nodes
 typedef struct mesh_leaf_s {
    mesh_addr_t addr;
    uint8_t online:1;
    uint8_t missed1:1;
    uint8_t missed2:1;
 } mesh_leaf_t;
-mesh_leaf_t *mesh_leaf = NULL;
-int mesh_leaves = 0;
+static mesh_leaf_t *mesh_leaf = NULL;
+static int mesh_leaves = 0;
 #endif
 
 /* Local functions */
@@ -282,6 +285,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload);
 static void send_sub(int client, const uint8_t *);
 static void send_unsub(int client, const uint8_t *);
+static const char *revk_upgrade(const char *target, const char *tag, jo_t j);
 
 #ifdef	CONFIG_REVK_MESH
 void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
@@ -366,6 +370,42 @@ static void child_init(void)
    jo_t j = jo_object_alloc();
    jo_bool(j, "connected", 1);
    mesh_send_json(NULL, &j);
+}
+#endif
+
+#ifdef CONFIG_REVK_MESH
+int mesh_find_child(uint8_t mac[6], char insert)
+{
+   int l = 0,
+       m = 0,
+       h = mesh_leaves - 1,
+       d = -1;
+   while (l <= h)
+   {
+      m = (l + h) / 2;
+      d = memcmp(mac, &mesh_leaf[m].addr, 6);
+      if (d < 0)
+         h = m - 1;
+      else if (d > 0)
+         l = m + 1;
+      else
+         return m;              //found
+   }
+   if (d && mesh_leaves >= meshmax)
+   {
+      ESP_LOGE(TAG, "Too many children (%d) to add %s", mesh_leaves, mac);
+      return -1;
+   }
+   if (!insert)
+      return -1;
+   // TODO we probably want to mutex protect this
+   ESP_LOGI(TAG, "Added leaf %s at %d/%d", mac, l, mesh_leaves);
+   if (l < mesh_leaves)
+      memmove(&mesh_leaf[l + 1], &mesh_leaf[l], (mesh_leaves - l) * sizeof(mesh_leaf_t));
+   mesh_leaves++;
+   memset(&mesh_leaf[l], 0, sizeof(mesh_leaf_t));
+   memcpy(&mesh_leaf[l].addr, mac, 6);
+   return l;
 }
 #endif
 
@@ -472,75 +512,77 @@ static void mesh_task(void *pvParameters)
          sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
          if (esp_mesh_is_root() && memcmp(from.addr, revk_mac, 6))
          {                      // Check client in the list
-            int l = 0,
-                m = 0,
-                h = mesh_leaves - 1,
-                d = -1;
-            while (l <= h)
+            int child = mesh_find_child(from.addr, 1);
+            if (child >= 0)
             {
-               m = (l + h) / 2;
-               d = memcmp(&from, &mesh_leaf[m].addr, sizeof(from));
-               if (d < 0)
-                  h = m - 1;
-               else if (d > 0)
-                  l = m + 1;
-               else
-                  break;
+               if (!mesh_leaf[child].online)
+               {
+                  mesh_leaf[child].online = 1;
+                  send_sub(0, mesh_leaf[child].addr.addr);
+                  send_sub(1, mesh_leaf[child].addr.addr);
+                  jo_t j = jo_object_alloc();
+                  jo_bool(j, "status", 1);
+                  mesh_send_json(&mesh_leaf[child].addr, &j);
+               }
+               mesh_leaf[child].missed1 = 0;
+               mesh_leaf[child].missed2 = 0;
             }
-            if (d && mesh_leaves >= meshmax)
-            {
-               ESP_LOGE(TAG, "Too many children (%d) to add %s", mesh_leaves, mac);
-               continue;
-            }
-            if (d)
-            {                   // Not found
-               // TODO we probably want to mutex protect this
-               m = l;
-               ESP_LOGI(TAG, "Added leaf %s at %d/%d", mac, m, mesh_leaves);
-               if (m < mesh_leaves)
-                  memmove(&mesh_leaf[m + 1], &mesh_leaf[m], (mesh_leaves - l) * sizeof(mesh_leaf_t));
-               mesh_leaves++;
-               memset(&mesh_leaf[m], 0, sizeof(mesh_leaf_t));
-               memcpy(&mesh_leaf[m].addr, &from, sizeof(from));
-            }
-            if (!mesh_leaf[m].online)
-            {
-               mesh_leaf[m].online = 1;
-               send_sub(0, mesh_leaf[m].addr.addr);
-               send_sub(1, mesh_leaf[m].addr.addr);
-               jo_t j = jo_object_alloc();
-               jo_bool(j, "status", 1);
-               mesh_send_json(&mesh_leaf[m].addr, &j);
-            }
-            mesh_leaf[m].missed1 = 0;
-            mesh_leaf[m].missed2 = 0;
          }
          // We use MESH_PROTO_BIN for flash (unencrypted)
          // We use MESH_PROTO_MQTT to relay
          // We use MESH_PROTO_JSON for messages internally
          if (data.proto == MESH_PROTO_BIN)
          {                      // Includes loopback to self
-            static int ota_size = 0;
-            static int ota_data = 0;
+            static int ota_size = 0;    // Total size
+            static int ota_data = 0;    // Data received
+            static uint8_t ota_ack = 0; // The ACK we send
             static esp_ota_handle_t ota_handle;
             static const esp_partition_t *ota_partition = NULL;
-            mesh_flash_t *flash = (void *) data.data;
-            if (data.size == sizeof(*flash) && flash->magic == MESH_FLASH_MAGIC)
-            {                   // Control packet
-               if (flash->size)
-               {                // Start
-                  ota_data = 0;
-                  ota_size = flash->size;
-                  ota_partition = esp_ota_get_running_partition();
-                  ota_partition = esp_ota_get_next_update_partition(ota_partition);
-                  ESP_LOGI(TAG, "Start flash %d", ota_size);
-                  if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
+            uint8_t type = *data.data;
+            void send_ack(void) {       // ACK (to root)
+               if (ota_ack)
+               {
+                  mesh_data_t data = {.data = &ota_ack,.size = 1,.proto = MESH_PROTO_BIN };
+                  REVK_ERR_CHECK(mesh_safe_send(&from, &data, MESH_DATA_P2P, NULL, 0));
+               }
+            }
+            switch (type >> 4)
+            {
+            case 0x5:          // Start - not checking sequence, expecting to be 0
+               if (data.size == 4)
+               {
+                  if (!ota_size)
                   {
-                     ota_partition = NULL;      // Failed
-                     ESP_LOGI(TAG, "Failed to start flash");
+                     ota_data = 0;
+                     ota_ack = 0xA0 + (*data.data & 0xF);
+                     ota_size = (data.data[1] << 16) + (data.data[2] << 8) + data.data[3];
+                     ota_partition = esp_ota_get_next_update_partition(esp_ota_get_running_partition());
+                     ESP_LOGI(TAG, "Start flash %d", ota_size);
+                     if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
+                     {
+                        ota_size = 0;        // Failed
+                        ESP_LOGI(TAG, "Failed to start flash");
+                     }
                   }
-               } else
-               {                // End
+                  send_ack();
+               }
+               break;
+            case 0xD:          // Data
+               if (ota_size && (*data.data & 0xF) == ((ota_ack + 1) & 0xF))
+               {                // Expected data
+                  ota_ack = 0xA0 + (*data.data & 0xF);
+                  if (REVK_ERR_CHECK(esp_ota_write(ota_handle, data.data + 1, data.size - 1)))
+                  {
+                     ota_size = 0;
+                     ESP_LOGE(TAG, "Flash failed at %d", ota_data);
+                  }
+                  ota_data += data.size - 1;
+               }
+               send_ack();
+               break;
+            case 0xE:          // End - not checking sequence
+               if (ota_size)
+               {
                   if (ota_data != ota_size)
                      ESP_LOGE(TAG, "Flash missing data %d/%d", ota_data, ota_size);
                   else if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
@@ -554,17 +596,19 @@ static void mesh_task(void *pvParameters)
                   }
                   ota_partition = NULL;
                   ota_size = 0;
+                  ota_ack = 0xA0 + (*data.data & 0xF);
                }
-            } else if (ota_size && ota_partition)
-            {                   // Data
-               if (REVK_ERR_CHECK(esp_ota_write(ota_handle, data.data, data.size)))
-                  ota_partition = NULL; // Failed
-               ota_data += data.size;
-            } else
-               ESP_LOGI(TAG, "Data unexpected %d", data.size);
-         } else if (mesh_decode(&from, &data))
-            ESP_LOGE(TAG, "Failed mesh decode");
-         else if (data.proto == MESH_PROTO_MQTT)
+               send_ack();
+               break;
+            case 0xA:          // Ack
+               if (esp_mesh_is_root() && !memcmp(&mesh_ota_addr, &from, sizeof(mesh_ota_addr)) && mesh_ota_ack && mesh_ota_ack == *data.data)
+               {
+                  mesh_ota_ack = 0;
+                  xSemaphoreGive(mesh_ota_sem);
+               }
+               break;
+            }
+         } else if (data.proto == MESH_PROTO_MQTT)
          {
             // Extract topic and payload
             // Topic prefix digit for client
@@ -785,6 +829,7 @@ static void mesh_init(void)
    {
       mesh_mutex = xSemaphoreCreateBinary();
       xSemaphoreGive(mesh_mutex);
+      mesh_ota_sem = xSemaphoreCreateBinary();  // Leave in taken, only given on ack received
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
       if (meshlr)
@@ -945,7 +990,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
          };
          if (*target != '*')
-            for (int n = 0; n < sizeof(addr); n++)
+            for (int n = 0; n < sizeof(addr.addr); n++)
                addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
          mesh_encode_send(&addr, &data, MESH_DATA_P2P);
          free(data.data);
@@ -962,7 +1007,9 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          suffix[-1] = 0;
       if (!strcmp(target, "*") || !strcmp(target, revk_id))
          target = NULL;         // Mark as us for simple testing by app_command, etc
-      if (!client && !target)
+      if (!client && prefix && !strcmp(prefix, prefixcommand) && suffix && !strcmp(suffix, "upgrade"))
+         err = (err ? : revk_upgrade(target, suffix, j));       // Special case as command can be to other host
+      else if (!client && !target)
       {                         // For us (could otherwise be for app callback)
          if (prefix && !strcmp(prefix, prefixcommand))
             err = (err ? : revk_command(suffix, j));
@@ -1230,13 +1277,13 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #ifdef	CONFIG_REVK_MESH
    if (event_base == MESH_EVENT)
    {
-      ESP_LOGI(TAG, "Mesh event %d", event_id);
+      ESP_LOGD(TAG, "Mesh event %d", event_id);
       switch (event_id)
-      {                         // TODO debug level a lot of these
+      {
       case MESH_EVENT_STARTED:
          break;
       case MESH_EVENT_STOPPED:
-         ESP_LOGI(TAG, "STA Stop");
+         ESP_LOGD(TAG, "STA Stop");
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits(revk_group, GROUP_OFFLINE);
          if (!offline)
@@ -1245,38 +1292,38 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case MESH_EVENT_CHANNEL_SWITCH:
          break;
       case MESH_EVENT_CHILD_CONNECTED: // A child connected to us
-         ESP_LOGI(TAG, "Child connected");
+         ESP_LOGD(TAG, "Child connected");
          break;
       case MESH_EVENT_CHILD_DISCONNECTED:      // A child disconnected from us
-         ESP_LOGI(TAG, "Child disconnected");
+         ESP_LOGD(TAG, "Child disconnected");
          break;
       case MESH_EVENT_ROUTING_TABLE_ADD:
-         ESP_LOGI(TAG, "Routing update");
+         ESP_LOGD(TAG, "Routing update");
          mesh_send_time();
          break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
-         ESP_LOGI(TAG, "Routing remove");
+         ESP_LOGD(TAG, "Routing remove");
          break;
       case MESH_EVENT_PARENT_CONNECTED:
          {
             if (esp_mesh_is_root())
             {
-               ESP_LOGI(TAG, "Mesh root");
+               ESP_LOGD(TAG, "Mesh root");
                setup_ip();
             } else
             {
-               ESP_LOGI(TAG, "Mesh child");
+               ESP_LOGD(TAG, "Mesh child");
                stop_ip();
                child_init();
             }
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
-         ESP_LOGI(TAG, "Mesh disconnected");
+         ESP_LOGD(TAG, "Mesh disconnected");
          stop_ip();
          break;
       case MESH_EVENT_NO_PARENT_FOUND:
-         ESP_LOGI(TAG, "No mesh found");
+         ESP_LOGD(TAG, "No mesh found");
          break;
       case MESH_EVENT_LAYER_CHANGE:
          break;
@@ -1849,26 +1896,21 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
 #ifdef	CONFIG_REVK_MESH
    static uint8_t block[MESH_MPS - 100];
    static int blockp = 0;
-   void send_all(mesh_data_t * data) {  // Send to all clents
-      // Broadcast for now but may be better way
-      //if (mesh_leaves) usleep(150000);        // TODO - this is only way to be reliable - why - even direct P2P does not help
-      mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
-      };                        // To all devices
-      while (1)
-      {
-         esp_err_t e = mesh_safe_send(&addr, data, MESH_DATA_P2P, NULL, 0);
-         if (!e || e != ESP_ERR_MESH_NO_MEMORY)
-            break;
-         usleep(10000);
-      }
-   }
-   void send_block(void) {
-      if (!blockp)
-         return;
+   void send_ota(void) {
+      int tries = 10;
       mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
-      send_all(&data);
-      blockp = 0;
-      // Maybe sequence number?
+      mesh_ota_ack = 0xA0 + (*block & 0x0F);    // The ACK we want
+      mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
+      int to = (((*data.data >> 4) == 5) ? 1000 : 100);  // Start is slow as erases flash
+      while (!xSemaphoreTake(mesh_ota_sem, to / portTICK_PERIOD_MS) && --tries)
+         mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0); // Resend if no ACK
+      if (!tries)
+      {
+         ESP_LOGE(TAG, "OTA send failed");
+         ota_size = ota_running = 0;
+      }
+      blockp = 1;
+      *block = 0xD0 + ((*block + 1) & 0xF);     // Next data block
    }
 #else
    static esp_ota_handle_t ota_handle;
@@ -1903,9 +1945,12 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
          if (!ota_running && ota_size)
          {                      /* Start */
 #ifdef	CONFIG_REVK_MESH
-            mesh_flash_t flash = {.magic = MESH_FLASH_MAGIC,.size = ota_size };
-            mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = sizeof(flash),.data = (void *) &flash };
-            send_all(&data);
+            blockp = 0;
+            block[blockp++] = 0x50;     // Start[0]
+            block[blockp++] = (ota_size >> 16);
+            block[blockp++] = (ota_size >> 8);
+            block[blockp++] = ota_size;
+            send_ota();
             ota_running = 1;
 #else
             ota_progress = 0;
@@ -1937,12 +1982,6 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
          }
          if (ota_running && ota_size)
          {
-            if (ota_running == 1)
-            {
-               ESP_LOGI(TAG, "Wait erase");
-               sleep(6);        // TODO test - erasing flash time?
-               ESP_LOGI(TAG, "OK... go ahead");
-            }
 #ifdef	CONFIG_REVK_MESH
             size_t s = evt->data_len;
             uint8_t *p = evt->data;
@@ -1956,7 +1995,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                p += q;
                s -= q;
                if (blockp == sizeof(block))
-                  send_block();
+                  send_ota();
             }
 #else
             if (REVK_ERR_CHECK(esp_ota_write(ota_handle, evt->data, evt->data_len)))
@@ -1991,10 +2030,11 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       if (ota_running)
       {
 #ifdef	CONFIG_REVK_MESH
-         send_block();          // Any left
-         mesh_flash_t flash = {.magic = MESH_FLASH_MAGIC };
-         mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = sizeof(flash),.data = (void *) &flash };
-         send_all(&data);
+         if (blockp > 1)
+            send_ota();         // Last data block
+         blockp = 0;
+         block[blockp++] = 0xE0 + (*block & 0xF);       // End
+         send_ota();
 #else
          if (!REVK_ERR_CHECK(esp_ota_end(ota_handle)))
          {
@@ -2185,14 +2225,6 @@ static void ota_task(void *pvParameters)
    }
    ota_task_id = NULL;
    vTaskDelete(NULL);
-}
-
-const char *revk_ota(const char *url)
-{                               /* OTA and restart cleanly */
-   if (ota_task_id)
-      return "OTA running";
-   ota_task_id = revk_task("OTA", ota_task, url);
-   return "";
 }
 
 static int nvs_get(setting_t * s, const char *tag, void *data, size_t len)
@@ -3121,6 +3153,37 @@ const char *revk_setting(jo_t j)
    return er ? : "";
 }
 
+static const char *revk_upgrade(const char *target, const char *tag, jo_t j)
+{                               // Upgrade command
+   char val[256];
+   if (jo_strncpy(j, val, sizeof(val)) < 0)
+      *val = 0;
+   char *url;                   /* Yeh, not freed, but we are rebooting */
+   if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
+      url = strdup(val);
+   else
+      asprintf(&url, "%s://%s/%s.bin",
+#ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
+               otacert->len ? "https" : "http",
+#else
+               "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
+#endif
+               *val ? val : otahost, appname);
+   if (ota_task_id)
+      return "OTA running";
+#ifdef CONFIG_REVK_MESH
+   if (!esp_mesh_is_root())
+      return "";                // OK will be done by root
+   if (target)
+      for (int n = 0; n < sizeof(mesh_ota_addr.addr); n++)
+         mesh_ota_addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
+   else
+      memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
+#endif
+   ota_task_id = revk_task("OTA", ota_task, url);
+   return "";
+}
+
 const char *revk_command(const char *tag, jo_t j)
 {
    if (!tag || !*tag)
@@ -3132,24 +3195,6 @@ const char *revk_command(const char *tag, jo_t j)
    {
       revk_report_state(0);
       e = "";
-   }
-   if (!e && !strcmp(tag, "upgrade"))
-   {
-      char val[256];
-      if (jo_strncpy(j, val, sizeof(val)) < 0)
-         *val = 0;
-      char *url;                /* Yeh, not freed, but we are rebooting */
-      if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
-         url = strdup(val);
-      else
-         asprintf(&url, "%s://%s/%s.bin",
-#ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
-                  otacert->len ? "https" : "http",
-#else
-                  "http",       /* If not signed, use http as code should be signed and this uses way less memory  */
-#endif
-                  *val ? val : otahost, appname);
-      e = revk_ota(url);
    }
    if (!e && watchdogtime && !strcmp(tag, "watchdog"))
    {                            /* Test watchdog */
