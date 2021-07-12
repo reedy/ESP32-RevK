@@ -94,7 +94,7 @@ void lwmqtt_end(lwmqtt_t *);
 // Subscribe (return is non null error message if failed)
 const char *lwmqtt_subscribeub(lwmqtt_t, const char *topic, char unsubscribe);
 #define lwmqtt_subscribe(h,t) lwmqtt_subscribeub(h,t,0);
-#define lwmqtt_unsubscribe(h,t) lwmqtt_subscribeub(h,t,0);
+#define lwmqtt_unsubscribe(h,t) lwmqtt_subscribeub(h,t,1);
 
 // Send (return is non null error message if failed) (-1 tlen or plen do strlen)
 const char *lwmqtt_send_full(lwmqtt_t, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
