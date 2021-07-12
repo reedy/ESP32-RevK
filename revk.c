@@ -284,7 +284,6 @@ static const char *revk_upgrade(const char *target, jo_t j);
 static void mesh_init(void);
 void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 static void mesh_send_json(mesh_addr_t * addr, jo_t * jp);
-static void mesh_send_time(void);
 static SemaphoreHandle_t mesh_mutex = NULL;
 #endif
 
@@ -460,7 +459,14 @@ static void mesh_task(void *pvParameters)
             for (int n = 0; n < mesh_leaves; n++)
                mesh_leaf[n].reported = 0;
             mesh_leaves_reported = 0;
-            // TODO tell app reporting cycle complete and new one starting
+            // TODO tell app reporting cycle complete and new one starting and provide outgoing periodic status
+            jo_t j = jo_object_alloc();
+            mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+            };                  // Everyone
+            uint32_t t = time(0);
+            if (t > 1000000000)
+               jo_int(j, "time", t);
+            mesh_send_json(&addr, &j);
          } else if (reporting < now)
          {                      // Time out reporting cycle
             for (int n = 0; n < mesh_leaves; n++)
@@ -475,7 +481,7 @@ static void mesh_task(void *pvParameters)
          }
       }
       if (ticker < now)
-      {                         // Periodic send - even to self
+      {                         // Periodic send  to root - even to self
          ticker = now + 1000000LL * meshcycle;
          jo_t j = jo_object_alloc();
          uint32_t t = time(0);
@@ -1313,7 +1319,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_ROUTING_TABLE_ADD:
          ESP_LOGD(TAG, "Routing update");
-         mesh_send_time();
          break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
          ESP_LOGD(TAG, "Routing remove");
@@ -1475,8 +1480,6 @@ static void task(void *pvParameters)
          {
             if (now > 1000000000 && was <= 1000000000)
                ESP_LOGD(TAG, "Clock set %u", now);
-            if (now > 1000000000 && now > was + 300)
-               mesh_send_time();
             was = now;
             lastheap = heap;
             lastch = ap.primary;
@@ -1731,22 +1734,6 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
       mesh_encode_send(addr, &data, addr ? MESH_DATA_P2P : 0);
    }
    jo_free(jp);
-}
-#endif
-
-#ifdef  CONFIG_REVK_MQTT
-static void mesh_send_time(void)
-{
-   if (!esp_mesh_is_root())
-      return;
-   uint32_t now = time(0);
-   if (now < 1000000000)
-      return;
-   jo_t j = jo_object_alloc();
-   jo_int(j, "time", now);
-   mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
-   };
-   mesh_send_json(&addr, &j);
 }
 #endif
 
