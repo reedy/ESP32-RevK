@@ -1031,7 +1031,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       jo_free(&j);
       if (!err && !target)
          err = "Unknown";
-      if (*err)
+      if (err && *err)
       {
          jo_t j = jo_object_alloc();
          jo_string(j, "description", err);
@@ -3153,6 +3153,8 @@ const char *revk_setting(jo_t j)
 static const char *revk_upgrade(const char *target, jo_t j)
 {                               // Upgrade command
    ESP_LOGI(TAG, "Revk_upgrade");       // TODO
+   if (ota_task_id)
+      return "OTA running";
    char val[256];
    if (jo_strncpy(j, val, sizeof(val)) < 0)
       *val = 0;
@@ -3167,8 +3169,6 @@ static const char *revk_upgrade(const char *target, jo_t j)
                "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
                *val ? val : otahost, appname);
-   if (ota_task_id)
-      return "OTA running";
 #ifdef CONFIG_REVK_MESH
    if (!esp_mesh_is_root())
       return "";                // OK will be done by root and sent via MESH
