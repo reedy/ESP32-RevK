@@ -257,10 +257,9 @@ static const char *revk_setting_dump(void);
 
 #ifdef	CONFIG_REVK_MESH
 // OTA to mesh devices
-static mesh_addr_t mesh_ota_addr = { };
-
 static uint8_t mesh_ota_ack = 0;
 static SemaphoreHandle_t mesh_ota_sem = NULL;
+static mesh_addr_t mesh_ota_addr = { };
 
 // Managing leaf nodes
 typedef struct mesh_leaf_s {
@@ -285,7 +284,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload);
 static void send_sub(int client, const uint8_t *);
 static void send_unsub(int client, const uint8_t *);
-static const char *revk_upgrade(const char *target, const char *tag, jo_t j);
+static const char *revk_upgrade(const char *target, jo_t j);
 
 #ifdef	CONFIG_REVK_MESH
 void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
@@ -393,13 +392,13 @@ int mesh_find_child(uint8_t mac[6], char insert)
    }
    if (d && mesh_leaves >= meshmax)
    {
-      ESP_LOGE(TAG, "Too many children (%d) to add %s", mesh_leaves, mac);
+      ESP_LOGE(TAG, "Too many children (%d)", mesh_leaves);
       return -1;
    }
    if (!insert)
       return -1;
    // TODO we probably want to mutex protect this
-   ESP_LOGI(TAG, "Added leaf %s at %d/%d", mac, l, mesh_leaves);
+   ESP_LOGI(TAG, "Added leaf %02X%02X%02X%02X%02X%02X at %d/%d", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], l, mesh_leaves);
    if (l < mesh_leaves)
       memmove(&mesh_leaf[l + 1], &mesh_leaf[l], (mesh_leaves - l) * sizeof(mesh_leaf_t));
    mesh_leaves++;
@@ -994,8 +993,6 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
                addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
          mesh_encode_send(&addr, &data, MESH_DATA_P2P);
          free(data.data);
-         if (!err && *target != '*')
-            err = "";           // No error here
       }
 #endif
       // Break up topic
@@ -1008,7 +1005,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (!strcmp(target, "*") || !strcmp(target, revk_id))
          target = NULL;         // Mark as us for simple testing by app_command, etc
       if (!client && prefix && !strcmp(prefix, prefixcommand) && suffix && !strcmp(suffix, "upgrade"))
-         err = (err ? : revk_upgrade(target, suffix, j));       // Special case as command can be to other host
+         err = (err ? : revk_upgrade(target, j));       // Special case as command can be to other host
       else if (!client && !target)
       {                         // For us (could otherwise be for app callback)
          if (prefix && !strcmp(prefix, prefixcommand))
@@ -1032,7 +1029,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             err = e2;           /* Overwrite error if we did not have one */
       }
       jo_free(&j);
-      if (!err)
+      if (!err && !target)
          err = "Unknown";
       if (*err)
       {
@@ -3153,8 +3150,9 @@ const char *revk_setting(jo_t j)
    return er ? : "";
 }
 
-static const char *revk_upgrade(const char *target, const char *tag, jo_t j)
+static const char *revk_upgrade(const char *target, jo_t j)
 {                               // Upgrade command
+   ESP_LOGI(TAG, "Revk_upgrade");       // TODO
    char val[256];
    if (jo_strncpy(j, val, sizeof(val)) < 0)
       *val = 0;
@@ -3173,10 +3171,14 @@ static const char *revk_upgrade(const char *target, const char *tag, jo_t j)
       return "OTA running";
 #ifdef CONFIG_REVK_MESH
    if (!esp_mesh_is_root())
-      return "";                // OK will be done by root
-   if (target)
+      return "";                // OK will be done by root and sent via MESH
+   if (target && strlen(target) == 12)
+   {
+      ESP_LOGI(TAG, "Mesh relay upgrade %s %s", target, url);
       for (int n = 0; n < sizeof(mesh_ota_addr.addr); n++)
          mesh_ota_addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
+   } else if (target)
+      return "Odd target";
    else
       memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
 #endif
@@ -3191,6 +3193,8 @@ const char *revk_command(const char *tag, jo_t j)
    ESP_LOGD(TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
    /* My commands */
+   if (!e && !strcmp(tag, "upgrade"))
+      e = revk_upgrade(NULL, j);        // Called internally maybe
    if (!e && !strcmp(tag, "status"))
    {
       revk_report_state(0);
