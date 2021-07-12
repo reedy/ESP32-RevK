@@ -389,7 +389,7 @@ int mesh_find_child(uint8_t mac[6], char insert)
    if (d)
    {
       m = -1;                   // Not found
-      if (!insert)
+      if (insert)
       {
          if (mesh_leaves >= meshmax)
             ESP_LOGE(TAG, "Too many children (%d)", mesh_leaves);
@@ -405,7 +405,7 @@ int mesh_find_child(uint8_t mac[6], char insert)
          }
       }
    }
-   xSemaphoreGive(mesh_mutex);
+   xSemaphoreGive(mesh_leaf_mutex);
    return m;
 }
 #endif
@@ -452,30 +452,16 @@ static void mesh_task(void *pvParameters)
    int wasonline = 0;
    while (1)
    {
+      uint64_t now = esp_timer_get_time();
       if (!esp_mesh_is_device_active())
       {
          sleep(1);
          continue;
       }
       // Periodic
-      uint64_t now = esp_timer_get_time();
       if (esp_mesh_is_root())
       {                         // Collecting reports
-         if (mesh_leaves_reported == mesh_leaves_online)
-         {                      // End of reporting cycle - no need to wait
-            reporting = now + 1000000LL * meshcycle * 2;
-            for (int n = 0; n < mesh_leaves; n++)
-               mesh_leaf[n].reported = 0;
-            mesh_leaves_reported = 0;
-            // TODO tell app reporting cycle complete and new one starting and provide outgoing periodic status
-            jo_t j = jo_object_alloc();
-            mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
-            };                  // Everyone
-            uint32_t t = time(0);
-            if (t > 1000000000)
-               jo_int(j, "time", t);
-            mesh_send_json(&addr, &j);
-         } else if (reporting < now)
+         if (mesh_leaves_reported < mesh_leaves_online && reporting < now)
          {                      // Time out reporting cycle
             for (int n = 0; n < mesh_leaves; n++)
                if (!mesh_leaf[n].reported && mesh_leaf[n].online)
@@ -484,15 +470,40 @@ static void mesh_task(void *pvParameters)
                   mesh_leaves_online--;
                   send_unsub(0, mesh_leaf[n].addr.addr);
                   send_unsub(1, mesh_leaf[n].addr.addr);
-                  // TODO tell app offline
+                  char mac[13];
+                  sprintf(mac, "%02X%02X%02X%02X%02X%02X", mesh_leaf[n].addr.addr[0], mesh_leaf[n].addr.addr[1], mesh_leaf[n].addr.addr[2], mesh_leaf[n].addr.addr[3], mesh_leaf[n].addr.addr[4], mesh_leaf[n].addr.addr[5]);
+                  if (app_callback)
+                     app_callback(0, "mesh", mac, "offline", NULL);
                }
+         }
+         if (mesh_leaves_reported == mesh_leaves_online)
+         {                      // End of reporting cycle - no need to wait
+            reporting = now + 1000000LL * meshcycle * 2;
+            for (int n = 0; n < mesh_leaves; n++)
+               mesh_leaf[n].reported = 0;
+            mesh_leaves_reported = 0;
+            jo_t j = jo_object_alloc();
+            uint32_t t = time(0);
+            if (t > 1000000000)
+               jo_int(j, "time", t);
+            if (app_callback)
+               app_callback(0, "mesh", NULL, "makesummary", j); // App to consider cycle ended and generate outgoing report to all
+            mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+            };                  // Everyone
+            mesh_send_json(&addr, &j);
          }
       }
       if (ticker < now)
       {                         // Periodic send  to root - even to self
          ticker = now + 1000000LL * meshcycle;
          jo_t j = jo_object_alloc();
-         // TODO ask app to report
+         uint32_t t = time(0);
+         if (t > 1000000000)
+            jo_int(j, "report", t);
+         else
+            jo_null(j, "report");
+         if (app_callback)
+            app_callback(0, "mesh", NULL, "makereport", j);     // App to generate report to root
          mesh_send_json(NULL, &j);
       }
       if (esp_mesh_is_root())
@@ -501,37 +512,46 @@ static void mesh_task(void *pvParameters)
          {                      // Checking was have quorum / full house
             if (wasonline != mesh_leaves_online)
             {
-               // TODO - tell app any issues...
+               wasonline = mesh_leaves_online;
                if (mesh_leaves_online < (meshmax + 1) / 2)
                {                // too few - force restart of mesh
 #if 0                           // TODO some sort of back off?
                   revk_wifi_close();
                   mesh_init();
 #endif
-                  // TODO tell app
+                  if (app_callback)
+                     app_callback(0, "mesh", NULL, "noquorum", NULL);
                } else if (mesh_leaves_online < meshmax)
                {                // Missing devices
-                  // TODO tell app
+                  if (app_callback)
+                     app_callback(0, "mesh", NULL, "quorum", NULL);
                } else
                {                // All on line
-                  // TODO tell app
+                  if (app_callback)
+                     app_callback(0, "mesh", NULL, "fullhouse", NULL);
                }
             }
          }
          if (!isroot)
          {                      // We have become root
+            if (app_callback)
+               app_callback(0, "mesh", NULL, "root", NULL);
             isroot = now;
             wasonline = 0;
             mesh_leaves = 0;
             mesh_leaves_online = 0;
             mesh_leaf = malloc(sizeof(*mesh_leaf) * meshmax);
             mesh_find_child(revk_mac, 1);       // We count as a child
+            mesh_leaf[0].online = 1;    // Us
+            mesh_leaves_online++;
             mqtt_init();
          }
       } else
       {
          if (isroot)
          {                      // We are no longer root
+            if (app_callback)
+               app_callback(0, "mesh", NULL, "leaf", NULL);
             isroot = 0;
             mesh_leaves = 0;
             revk_mqtt_close("Not root");
@@ -541,12 +561,17 @@ static void mesh_task(void *pvParameters)
       mesh_addr_t from = { };
       data.size = MESH_MPS;
       int flag = 0;
-      if (!esp_mesh_recv(&from, &data, 500, &flag, NULL, 0))
+      esp_err_t e = esp_mesh_recv(&from, &data, 500, &flag, NULL, 0);
+      if (e == ESP_ERR_MESH_TIMEOUT)
+         continue;
+      if (e)
+         ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
+      else
       {
          char mac[13];
          sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
          int child = -1;
-         if (esp_mesh_is_root() && memcmp(from.addr, revk_mac, 6))
+         if (esp_mesh_is_root())
             child = mesh_find_child(from.addr, 1);
          if (child >= 0)
          {
@@ -556,7 +581,8 @@ static void mesh_task(void *pvParameters)
                mesh_leaves_online++;
                mesh_leaf[child].reported = 1;   // Even though it has not, else may instantly go off line
                mesh_leaves_reported++;
-               // TODO tell app online
+               if (app_callback)
+                  app_callback(0, "mesh", mac, "online", NULL);
                send_sub(0, mesh_leaf[child].addr.addr);
                send_sub(1, mesh_leaf[child].addr.addr);
                jo_t j = jo_object_alloc();
@@ -712,20 +738,24 @@ static void mesh_task(void *pvParameters)
             {
                jo_next(j);
                if (isroot)
-               {                // Root messages
+               {                // To root messages
                   if (child >= 0)
                   {             // report from leaf
-                     if (!mesh_leaf[child].reported)
+                     if (jo_here(j) == JO_TAG && !jo_strcmp(j, "report"))
                      {
-                        mesh_leaf[child].reported = 1;
-                        mesh_leaves_reported++;
+                        if (!mesh_leaf[child].reported)
+                        {
+                           mesh_leaf[child].reported = 1;
+                           mesh_leaves_reported++;
+                        }
+                        if (app_callback)
+                           app_callback(0, "mesh", mac, "report", NULL);
                      }
-                     // TODO tell app report from child
                   }
                } else
                {
                   if (jo_here(j) == JO_TAG)
-                  {             // Child messages we handle
+                  {             // To child message
                      if (!jo_strcmp(j, "time"))
                      {
                         jo_next(j);
@@ -740,7 +770,8 @@ static void mesh_task(void *pvParameters)
                      } else if (!jo_strcmp(j, "status"))
                         revk_report_state(MQTT_CLIENTS - 1);
                   }
-                  // TODO tell app of message from root
+                  if (app_callback)
+                     app_callback(0, "mesh", NULL, "summary", NULL);
                }
             }
          }
