@@ -528,6 +528,8 @@ static void mesh_task(void *pvParameters)
             static uint8_t ota_ack = 0; // The ACK we send
             static esp_ota_handle_t ota_handle;
             static const esp_partition_t *ota_partition = NULL;
+            static int ota_progress = 0;
+            static int64_t next = 0;
             uint8_t type = *data.data;
             void send_ack(void) {       // ACK (to root)
                if (ota_ack)
@@ -543,6 +545,7 @@ static void mesh_task(void *pvParameters)
                {
                   if (!ota_size)
                   {
+                     ota_progress = 0;
                      ota_data = 0;
                      ota_ack = 0xA0 + (*data.data & 0xF);
                      ota_size = (data.data[1] << 16) + (data.data[2] << 8) + data.data[3];
@@ -555,6 +558,7 @@ static void mesh_task(void *pvParameters)
                      }
                   }
                   send_ack();
+                  next = now;
                }
                break;
             case 0xD:          // Data
@@ -567,6 +571,16 @@ static void mesh_task(void *pvParameters)
                      ESP_LOGE(TAG, "Flash failed at %d", ota_data);
                   }
                   ota_data += data.size - 1;
+                  int percent = ota_data * 100 / ota_size;
+                  if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
+                  {
+                     jo_t j = jo_object_alloc();
+                     jo_int(j, "progress", ota_progress = percent);
+                     jo_int(j, "loaded", ota_data);
+                     jo_int(j, "size", ota_size);
+                     revk_info("upgrade", &j);
+                     next = now + 5000000LL;
+                  }
                }
                send_ack();
                break;
@@ -1654,6 +1668,7 @@ void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic,
    if (plen)
       memcpy(p, payload, plen);
    p += plen;
+   ESP_LOGI(TAG, "Mesh Tx MQTT%d %.*s %.*s", client, tlen, topic, plen, payload);
 }
 #endif
 
@@ -1700,7 +1715,6 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
    {                            // Send via mesh
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
       mesh_make_mqtt(&data, client, tlen, topic, plen, payload, retain);
-      ESP_LOGI(TAG, "Mesh Tx MQTT%d", client);
       mesh_encode_send(NULL, &data, 0);
       free(data.data);
       return NULL;
@@ -1836,7 +1850,6 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
 {
    static int ota_size = 0;     // statics as this is called each time an event happens
    static int ota_running = 0;
-   static int ota_progress = 0;
 #ifdef	CONFIG_REVK_MESH
    static uint8_t block[MESH_MPS - 100];
    static int blockp = 0;
@@ -1857,8 +1870,10 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       *block = 0xD0 + ((*block + 1) & 0xF);     // Next data block
    }
 #else
+   static int ota_progress = 0;
    static esp_ota_handle_t ota_handle;
    static const esp_partition_t *ota_partition = NULL;
+   static int64_t next = 0;
 #endif
    switch (evt->event_id)
    {
@@ -1882,8 +1897,9 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
    case HTTP_EVENT_ON_DATA:
       if (ota_size)
       {
+#ifndef CONFIG_REVK_MESH
          int64_t now = esp_timer_get_time();
-         static int64_t next = 0;
+#endif
          if (esp_http_client_get_status_code(evt->client) / 100 != 2)
             ota_size = 0;       /* Failed */
          if (!ota_running && ota_size)
@@ -1944,10 +1960,10 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
 #else
             if (REVK_ERR_CHECK(esp_ota_write(ota_handle, evt->data, evt->data_len)))
                ota_size = 0;
-#endif
             if (ota_size)
             {
                ota_running += evt->data_len;
+               int64_t now = esp_timer_get_time();
                int percent = ota_running * 100 / ota_size;
                if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                {
@@ -1959,6 +1975,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
                   next = now + 5000000LL;
                }
             }
+#endif
          }
       }
       break;
@@ -3099,9 +3116,10 @@ const char *revk_setting(jo_t j)
 
 static const char *revk_upgrade(const char *target, jo_t j)
 {                               // Upgrade command
-   ESP_LOGI(TAG, "Revk_upgrade");       // TODO
    if (ota_task_id)
       return "OTA running";
+   if (!esp_mesh_is_root())
+      return "";                // OK will be done by root and sent via MESH
    char val[256];
    if (jo_strncpy(j, val, sizeof(val)) < 0)
       *val = 0;
@@ -3117,8 +3135,6 @@ static const char *revk_upgrade(const char *target, jo_t j)
 #endif
                *val ? val : otahost, appname);
 #ifdef CONFIG_REVK_MESH
-   if (!esp_mesh_is_root())
-      return "";                // OK will be done by root and sent via MESH
    if (target && strlen(target) == 12)
    {
       ESP_LOGI(TAG, "Mesh relay upgrade %s %s", target, url);
