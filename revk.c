@@ -1,6 +1,9 @@
 /*
  * Main control code, working with WiFi, MQTT, and managing settings and OTA Copyright Â ©2019 Adrian Kennard Andrews & Arnold Ltd
  */
+
+// TODO testing the fallback, e.g. if no internet access reboot
+
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
