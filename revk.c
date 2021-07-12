@@ -732,6 +732,7 @@ static void mesh_task(void *pvParameters)
             jo_free(&j);
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
+	   // TODO debug
             ESP_LOGI(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
             jo_t j = jo_parse_mem(data.data, data.size);
             if (jo_here(j) == JO_OBJECT)
@@ -749,7 +750,7 @@ static void mesh_task(void *pvParameters)
                            mesh_leaves_reported++;
                         }
                         if (app_callback)
-                           app_callback(0, "mesh", mac, "report", NULL);
+                           app_callback(0, "mesh", mac, "report", j);
                      }
                   }
                } else
@@ -771,7 +772,7 @@ static void mesh_task(void *pvParameters)
                         revk_report_state(MQTT_CLIENTS - 1);
                   }
                   if (app_callback)
-                     app_callback(0, "mesh", NULL, "summary", NULL);
+                     app_callback(0, "mesh", NULL, "summary", j);
                }
             }
          }
@@ -1768,6 +1769,7 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
    const char *json = jo_rewind(j);
    if (json)
    {
+	   // TODO debug
       if (addr)
          ESP_LOGI(TAG, "Mesh Tx JSON %02X%02X%02X%02X%02X%02X: %s", addr->addr[0], addr->addr[1], addr->addr[2], addr->addr[3], addr->addr[4], addr->addr[5], json);
       else

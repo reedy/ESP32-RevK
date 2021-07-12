@@ -961,7 +961,7 @@ const char *jo_debug(jo_t j)
       jo_store(j, 0);           // add null
       if (j->null)
          return j->buf;
-      return NULL;
+      return "Not terminated";
    }
    return j->buf + j->ptr;      // Where we are (note, may not be 0 terminated)
 }
