@@ -484,9 +484,6 @@ static void mesh_task(void *pvParameters)
       {                         // Periodic send  to root - even to self
          ticker = now + 1000000LL * meshcycle;
          jo_t j = jo_object_alloc();
-         uint32_t t = time(0);
-         if (t > 1000000000)
-            jo_int(j, "time", t);
          // TODO ask app to report
          mesh_send_json(NULL, &j);
       }
@@ -726,6 +723,7 @@ static void mesh_task(void *pvParameters)
                         jo_next(j);
                         if (jo_here(j) == JO_NUMBER)
                         {
+                           ESP_LOGI(TAG, "Trying to set time"); // TODO
                            uint32_t new = jo_read_int(j);
                            uint32_t now = time(0);
                            struct timeval delta = { (time_t) now - (time_t) new, 0 };
@@ -1729,7 +1727,10 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
    const char *json = jo_rewind(j);
    if (json)
    {
-      ESP_LOGI(TAG, "Mesh Tx JSON %s", json);
+      if (addr)
+         ESP_LOGI(TAG, "Mesh Tx JSON %02X%02X%02X%02X%02X%02X: %s", addr->addr[0], addr->addr[1], addr->addr[2], addr->addr[3], addr->addr[4], addr->addr[5], json);
+      else
+         ESP_LOGI(TAG, "Mesh Tx JSON to root node: %s", json);
       mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen(json) };
       mesh_encode_send(addr, &data, addr ? MESH_DATA_P2P : 0);
    }
