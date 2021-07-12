@@ -1901,7 +1901,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
       mesh_ota_ack = 0xA0 + (*block & 0x0F);    // The ACK we want
       mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
-      int to = (((*data.data >> 4) == 5) ? 1000 : 100);  // Start is slow as erases flash
+      int to = (((*data.data >> 4) != 0xD) ? 1000 : 100);  // Start/end is slow
       while (!xSemaphoreTake(mesh_ota_sem, to / portTICK_PERIOD_MS) && --tries)
          mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0); // Resend if no ACK
       if (!tries)
