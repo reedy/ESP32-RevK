@@ -252,6 +252,7 @@ static const char *revk_setting_dump(void);
 // OTA to mesh devices
 static uint8_t mesh_ota_ack = 0;
 static SemaphoreHandle_t mesh_ota_sem = NULL;
+static SemaphoreHandle_t mesh_leaf_mutex = NULL;
 static mesh_addr_t mesh_ota_addr = { };
 
 // Managing leaf nodes
@@ -369,6 +370,7 @@ static void child_init(void)
 #ifdef CONFIG_REVK_MESH
 int mesh_find_child(uint8_t mac[6], char insert)
 {
+   xSemaphoreTake(mesh_leaf_mutex, portMAX_DELAY);
    int l = 0,
        m = 0,
        h = mesh_leaves - 1,
@@ -382,23 +384,29 @@ int mesh_find_child(uint8_t mac[6], char insert)
       else if (d > 0)
          l = m + 1;
       else
-         return m;              //found
+         break;
    }
-   if (d && mesh_leaves >= meshmax)
+   if (d)
    {
-      ESP_LOGE(TAG, "Too many children (%d)", mesh_leaves);
-      return -1;
+      m = -1;                   // Not found
+      if (!insert)
+      {
+         if (mesh_leaves >= meshmax)
+            ESP_LOGE(TAG, "Too many children (%d)", mesh_leaves);
+         else
+         {                      // Insert
+            m = l;
+            ESP_LOGI(TAG, "Added leaf %02X%02X%02X%02X%02X%02X at %d/%d", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], m, mesh_leaves);
+            if (m < mesh_leaves)
+               memmove(&mesh_leaf[m + 1], &mesh_leaf[m], (mesh_leaves - m) * sizeof(mesh_leaf_t));
+            mesh_leaves++;
+            memset(&mesh_leaf[m], 0, sizeof(mesh_leaf_t));
+            memcpy(&mesh_leaf[m].addr, mac, 6);
+         }
+      }
    }
-   if (!insert)
-      return -1;
-   // TODO we probably want to mutex protect this
-   ESP_LOGI(TAG, "Added leaf %02X%02X%02X%02X%02X%02X at %d/%d", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], l, mesh_leaves);
-   if (l < mesh_leaves)
-      memmove(&mesh_leaf[l + 1], &mesh_leaf[l], (mesh_leaves - l) * sizeof(mesh_leaf_t));
-   mesh_leaves++;
-   memset(&mesh_leaf[l], 0, sizeof(mesh_leaf_t));
-   memcpy(&mesh_leaf[l].addr, mac, 6);
-   return l;
+   xSemaphoreGive(mesh_mutex);
+   return m;
 }
 #endif
 
@@ -876,6 +884,8 @@ static void mesh_init(void)
    {
       mesh_mutex = xSemaphoreCreateBinary();
       xSemaphoreGive(mesh_mutex);
+      mesh_leaf_mutex = xSemaphoreCreateBinary();
+      xSemaphoreGive(mesh_leaf_mutex);
       mesh_ota_sem = xSemaphoreCreateBinary();  // Leave in taken, only given on ack received
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
