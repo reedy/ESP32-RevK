@@ -120,6 +120,8 @@ static const char
     		u16(meshmax,CONFIG_REVK_MESHMAX);	\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 		b(meshlr,CONFIG_REVK_MESHLR);		\
+    		u8(meshcycle,CONFIG_REVK_MESHCYCLE);	\
+    		u8(meshwarmup,CONFIG_REVK_MESHWARMUP);	\
 
 #define s(n,d)		char *n;
 #define sp(n,d)		char *n;
@@ -256,11 +258,12 @@ static mesh_addr_t mesh_ota_addr = { };
 typedef struct mesh_leaf_s {
    mesh_addr_t addr;
    uint8_t online:1;
-   uint8_t missed1:1;
-   uint8_t missed2:1;
+   uint8_t reported:1;
 } mesh_leaf_t;
 static mesh_leaf_t *mesh_leaf = NULL;
 static int mesh_leaves = 0;
+static int mesh_leaves_online = 0;
+static int mesh_leaves_reported = 0;
 #endif
 
 /* Local functions */
@@ -278,6 +281,7 @@ static void send_unsub(int client, const uint8_t *);
 static const char *revk_upgrade(const char *target, jo_t j);
 
 #ifdef	CONFIG_REVK_MESH
+static void mesh_init(void);
 void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 static void mesh_send_json(mesh_addr_t * addr, jo_t * jp);
 static void mesh_send_time(void);
@@ -324,7 +328,7 @@ static void revk_report_state(int copies)
    if (!esp_wifi_sta_get_ap_info(&ap) && ap.primary)
    {
       jo_string(j, "ssid", (char *) ap.ssid);
-      jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[0], (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
+      jo_stringf(j, "bssid", "%02X%02X%02X%02X%02X%02X", (uint8_t) ap.bssid[0], (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
       jo_int(j, "rssi", ap.rssi);
       jo_int(j, "chan", ap.primary);
       if (ap.phy_lr)
@@ -435,47 +439,82 @@ static void mesh_task(void *pvParameters)
    pvParameters = pvParameters;
    mesh_data_t data = { };
    data.data = malloc(MESH_MPS);
-   char isroot = 0;
+   uint64_t isroot = 0;
    uint64_t ticker = 0;
+   uint64_t reporting = 0;
+   int wasonline = 0;
    while (1)
    {
+      if (!esp_mesh_is_device_active())
+      {
+         sleep(1);
+         continue;
+      }
       // Periodic
       uint64_t now = esp_timer_get_time();
-      if (now > ticker)
-      {
-         ticker = now + 3000000;
-         if (esp_mesh_is_root())
-         {
-            if (mesh_leaves)
-               for (int a = 0; a < mesh_leaves; a++)
-                  if (mesh_leaf[a].online)
-                  {
-                     if (!mesh_leaf[a].missed1)
-                        mesh_leaf[a].missed1 = 1;
-                     else if (!mesh_leaf[a].missed2)
-                        mesh_leaf[a].missed2 = 1;
-                     else
-                     {
-                        ESP_LOGI(TAG, "Leaf off line");
-                        mesh_leaf[a].online = 0;
-                        send_unsub(0, mesh_leaf[a].addr.addr);
-                        send_unsub(1, mesh_leaf[a].addr.addr);
-                     }
-                  }
-         } else
-         {                      // Period to root
-            jo_t j = jo_object_alloc();
-            mesh_send_json(NULL, &j);
+      if (esp_mesh_is_root())
+      {                         // Collecting reports
+         if (mesh_leaves_reported == mesh_leaves_online)
+         {                      // End of reporting cycle - no need to wait
+            reporting = now + 1000000LL * meshcycle * 2;
+            for (int n = 0; n < mesh_leaves; n++)
+               mesh_leaf[n].reported = 0;
+            mesh_leaves_reported = 0;
+            // TODO tell app reporting cycle complete and new one starting
+         } else if (reporting < now)
+         {                      // Time out reporting cycle
+            for (int n = 0; n < mesh_leaves; n++)
+               if (!mesh_leaf[n].reported && mesh_leaf[n].online)
+               {                // Gone off line
+                  mesh_leaf[n].online = 0;
+                  mesh_leaves_online--;
+                  send_unsub(0, mesh_leaf[n].addr.addr);
+                  send_unsub(1, mesh_leaf[n].addr.addr);
+                  // TODO tell app offline
+               }
          }
       }
-
+      if (ticker < now)
+      {                         // Periodic send - even to self
+         ticker = now + 1000000LL * meshcycle;
+         jo_t j = jo_object_alloc();
+         uint32_t t = time(0);
+         if (t > 1000000000)
+            jo_int(j, "time", t);
+         // TODO ask app to report
+         mesh_send_json(NULL, &j);
+      }
       if (esp_mesh_is_root())
       {
+         if (now - isroot > 1000000LL * meshwarmup)
+         {                      // Checking was have quorum / full house
+            if (wasonline != mesh_leaves_online)
+            {
+               // TODO - tell app any issues...
+               if (mesh_leaves_online < (meshmax + 1) / 2)
+               {                // too few - force restart of mesh
+#if 0                           // TODO some sort of back off?
+                  revk_wifi_close();
+                  mesh_init();
+#endif
+                  // TODO tell app
+               } else if (mesh_leaves_online < meshmax)
+               {                // Missing devices
+                  // TODO tell app
+               } else
+               {                // All on line
+                  // TODO tell app
+               }
+            }
+         }
          if (!isroot)
          {                      // We have become root
-            isroot = 1;
+            isroot = now;
+            wasonline = 0;
             mesh_leaves = 0;
+            mesh_leaves_online = 0;
             mesh_leaf = malloc(sizeof(*mesh_leaf) * meshmax);
+            mesh_find_child(revk_mac, 1);       // We count as a child
             mqtt_init();
          }
       } else
@@ -488,34 +527,30 @@ static void mesh_task(void *pvParameters)
             freez(mesh_leaf);
          }
       }
-      if (!esp_mesh_is_device_active())
-      {
-         sleep(1);
-         continue;
-      }
       mesh_addr_t from = { };
       data.size = MESH_MPS;
       int flag = 0;
-      if (!esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0))
+      if (!esp_mesh_recv(&from, &data, 500, &flag, NULL, 0))
       {
          char mac[13];
          sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
+         int child = -1;
          if (esp_mesh_is_root() && memcmp(from.addr, revk_mac, 6))
-         {                      // Check client in the list
-            int child = mesh_find_child(from.addr, 1);
-            if (child >= 0)
+            child = mesh_find_child(from.addr, 1);
+         if (child >= 0)
+         {
+            if (!mesh_leaf[child].online)
             {
-               if (!mesh_leaf[child].online)
-               {
-                  mesh_leaf[child].online = 1;
-                  send_sub(0, mesh_leaf[child].addr.addr);
-                  send_sub(1, mesh_leaf[child].addr.addr);
-                  jo_t j = jo_object_alloc();
-                  jo_bool(j, "status", 1);
-                  mesh_send_json(&mesh_leaf[child].addr, &j);
-               }
-               mesh_leaf[child].missed1 = 0;
-               mesh_leaf[child].missed2 = 0;
+               mesh_leaf[child].online = 1;
+               mesh_leaves_online++;
+               mesh_leaf[child].reported = 1;   // Even though it has not, else may instantly go off line
+               mesh_leaves_reported++;
+               // TODO tell app online
+               send_sub(0, mesh_leaf[child].addr.addr);
+               send_sub(1, mesh_leaf[child].addr.addr);
+               jo_t j = jo_object_alloc();
+               jo_bool(j, "status", 1);
+               mesh_send_json(&mesh_leaf[child].addr, &j);
             }
          }
          // We use MESH_PROTO_BIN for flash (unencrypted)
@@ -665,13 +700,21 @@ static void mesh_task(void *pvParameters)
             if (jo_here(j) == JO_OBJECT)
             {
                jo_next(j);
-               if (jo_here(j) == JO_TAG)
+               if (isroot)
+               {                // Root messages
+                  if (child >= 0)
+                  {             // report from leaf
+                     if (!mesh_leaf[child].reported)
+                     {
+                        mesh_leaf[child].reported = 1;
+                        mesh_leaves_reported++;
+                     }
+                     // TODO tell app report from child
+                  }
+               } else
                {
-                  if (isroot)
-                  {             // Root messages
-
-                  } else
-                  {             // Child messages
+                  if (jo_here(j) == JO_TAG)
+                  {             // Child messages we handle
                      if (!jo_strcmp(j, "time"))
                      {
                         jo_next(j);
@@ -680,12 +723,12 @@ static void mesh_task(void *pvParameters)
                            uint32_t new = jo_read_int(j);
                            uint32_t now = time(0);
                            struct timeval delta = { (time_t) now - (time_t) new, 0 };
-                           adjtime(&delta, NULL);
+                           adjtime(&delta, NULL);       // TODO not sure this works well if not set at all, may need checking
                         }
-
                      } else if (!jo_strcmp(j, "status"))
                         revk_report_state(MQTT_CLIENTS - 1);
                   }
+                  // TODO tell app of message from root
                }
             }
          }
@@ -1073,12 +1116,12 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       {
          xEventGroupSetBits(revk_group, (GROUP_MQTT_DOWN << client));
          xEventGroupClearBits(revk_group, (GROUP_MQTT << client));
-         ESP_LOGI(TAG, "MQTT%d disconnected (mem:%d)", client, esp_get_free_heap_size());
+         ESP_LOGI(TAG, "MQTT%d disconnected", client);
          if (app_callback)
             app_callback(client, prefixcommand, NULL, "disconnect", NULL);
          // Can we flush TCP TLS stuff somehow?
       } else
-         ESP_LOGI(TAG, "MQTT%d failed (mem:%d)", client, esp_get_free_heap_size());
+         ESP_LOGI(TAG, "MQTT%d failed", client);
    }
 }
 #endif
@@ -2172,7 +2215,6 @@ static void ota_task(void *pvParameters)
       esp_err_t err = REVK_ERR_CHECK(esp_http_client_perform(client));
       int status = esp_http_client_get_status_code(client);
       esp_http_client_cleanup(client);
-      freez(url);
       if (!err && status / 100 != 2)
       {
          jo_t j = jo_object_alloc();
@@ -2181,6 +2223,7 @@ static void ota_task(void *pvParameters)
          revk_error("upgrade", &j);
       }
    }
+   freez(url);
    ota_task_id = NULL;
    vTaskDelete(NULL);
 }
@@ -3107,7 +3150,6 @@ const char *revk_setting(jo_t j)
          t = jo_next(j);
       }
    }
-
    return er ? : "";
 }
 
@@ -3120,9 +3162,23 @@ static const char *revk_upgrade(const char *target, jo_t j)
    char val[256];
    if (jo_strncpy(j, val, sizeof(val)) < 0)
       *val = 0;
+#ifdef CONFIG_REVK_MESH
+   if (target && strlen(target) == 12)
+   {
+      ESP_LOGI(TAG, "Mesh relay upgrade %s %s", target, val);
+      for (int n = 0; n < sizeof(mesh_ota_addr.addr); n++)
+         mesh_ota_addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
+      int child = mesh_find_child(mesh_ota_addr.addr, 0);
+      if (child < 0 || !mesh_leaf[child].online)
+         return "Not on line";
+   } else if (target)
+      return "Odd target";
+   else
+      memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
+#endif
    char *url;                   /* Yeh, not freed, but we are rebooting */
    if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
-      url = strdup(val);
+      url = strdup(val);        // Freed by task
    else
       asprintf(&url, "%s://%s/%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
@@ -3131,17 +3187,6 @@ static const char *revk_upgrade(const char *target, jo_t j)
                "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
                *val ? val : otahost, appname);
-#ifdef CONFIG_REVK_MESH
-   if (target && strlen(target) == 12)
-   {
-      ESP_LOGI(TAG, "Mesh relay upgrade %s %s", target, url);
-      for (int n = 0; n < sizeof(mesh_ota_addr.addr); n++)
-         mesh_ota_addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
-   } else if (target)
-      return "Odd target";
-   else
-      memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
-#endif
    {
       jo_t j = jo_object_alloc();
       jo_string(j, "url", url);
