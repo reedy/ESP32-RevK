@@ -324,7 +324,7 @@ static void revk_report_state(int copies)
    if (!esp_wifi_sta_get_ap_info(&ap) && ap.primary)
    {
       jo_string(j, "ssid", (char *) ap.ssid);
-      jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
+      jo_stringf(j, "bssid", "%02X%02X%02X:%02X%02X%02X", (uint8_t) ap.bssid[0], (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
       jo_int(j, "rssi", ap.rssi);
       jo_int(j, "chan", ap.primary);
       if (ap.phy_lr)
@@ -1074,7 +1074,7 @@ static void mqtt_init(void)
 {
    if (mqtt_client[0])
       return;                   // Already set up
-   if (!*mqtthost[0])                        /* No MQTT */
+   if (!*mqtthost[0])           /* No MQTT */
       return;
    for (int client = 0; client < MQTT_CLIENTS; client++)
    {
