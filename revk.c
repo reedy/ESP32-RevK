@@ -2140,9 +2140,6 @@ static void ap_task(void *pvParameters)
 static void ota_task(void *pvParameters)
 {
    char *url = pvParameters;
-   jo_t j = jo_object_alloc();
-   jo_string(j, "url", url);
-   revk_info("upgrade", &j);
    esp_http_client_config_t config = {
       .url = url,.event_handler = ota_handler,
    };
@@ -3145,6 +3142,13 @@ static const char *revk_upgrade(const char *target, jo_t j)
    else
       memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
 #endif
+   {
+      jo_t j = jo_object_alloc();
+      jo_string(j, "url", url);
+      if (target)
+         jo_string(j, "device", target);
+      revk_info("upgrade", &j);
+   }
    ota_task_id = revk_task("OTA", ota_task, url);
    return "";
 }
