@@ -1777,7 +1777,7 @@ void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic,
 }
 #endif
 
-#ifdef	CONFIG_REVK_MQTT
+#ifdef	CONFIG_REVK_MESH
 static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
 {
    if (!jp)
