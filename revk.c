@@ -436,7 +436,7 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
    {
       ESP_LOGI(TAG, "Mesh send failed:%s (%d)", esp_err_to_name(e), data->size);
       if (e == ESP_ERR_MESH_NO_MEMORY)
-         revk_restart("ESP_ERR_MESH_NO_MEMORY", 1); // Messy, catch memory leak
+         revk_restart("ESP_ERR_MESH_NO_MEMORY", 1);     // Messy, catch memory leak
    }
    return e;
 }
@@ -496,7 +496,9 @@ static void mesh_task(void *pvParameters)
             jo_t j = jo_object_alloc();
             uint32_t t = time(0);
             if (t > 1000000000)
-               jo_int(j, "time", t);
+               jo_int(j, "summary", t);
+            else
+               jo_bool(j, "summary", 0);
             if (app_callback)
                app_callback(0, "mesh", NULL, "makesummary", j); // App to consider cycle ended and generate outgoing report to all
             mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
@@ -770,22 +772,31 @@ static void mesh_task(void *pvParameters)
                {
                   if (jo_here(j) == JO_TAG)
                   {             // To child message
-                     if (!jo_strcmp(j, "time"))
-                     {
+                     if (!jo_strcmp(j, "summary"))
+                     {          // Carries time
                         jo_next(j);
                         if (jo_here(j) == JO_NUMBER)
                         {
                            ESP_LOGI(TAG, "Trying to set time"); // TODO
-                           uint32_t new = jo_read_int(j);
-                           uint32_t now = time(0);
-                           struct timeval delta = { (time_t) now - (time_t) new, 0 };
-                           adjtime(&delta, NULL);       // TODO not sure this works well if not set at all, may need checking
+                           int32_t new = jo_read_int(j);
+                           int32_t now = time(0);
+                           int32_t diff = now - new;
+                           if (diff > 60 || diff < 60)
+                           {    // Big change
+                              struct timeval tv = { now, 0 };
+                              gettimeofday(&tv, NULL);
+                           } else
+                           {
+                              struct timeval delta = { diff, 0 };
+                              adjtime(&delta, NULL);    // TODO not sure this works well if not set at all, may need checking
+                           }
                         }
+                        jo_rewind(j);
+                        if (app_callback)
+                           app_callback(0, "mesh", NULL, "summary", j);
                      } else if (!jo_strcmp(j, "status"))
                         revk_report_state(MQTT_CLIENTS - 1);
                   }
-                  if (app_callback)
-                     app_callback(0, "mesh", NULL, "summary", j);
                }
             }
          }
