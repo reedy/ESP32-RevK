@@ -1165,6 +1165,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          app_callback(client, prefixcommand, NULL, "connect", j);
          jo_free(&j);
       }
+      revk_restart(NULL, -1);   // Cancel restart
    } else
    {
       if (xEventGroupGetBits(revk_group) & (GROUP_MQTT << client))
@@ -1176,7 +1177,11 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             app_callback(client, prefixcommand, NULL, "disconnect", NULL);
          // Can we flush TCP TLS stuff somehow?
       } else
+      {
          ESP_LOGI(TAG, "MQTT%d failed", client);
+         if (esp_get_free_heap_size() < 60000 && mqttcert[client]->len)
+            revk_restart("Memory issue (TLS)", 10);
+      }
    }
 }
 #endif

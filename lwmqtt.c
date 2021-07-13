@@ -696,7 +696,11 @@ static void client_task(void *pvParameters)
          if (handle->sock < 0)
             ESP_LOGD(TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
       }
-      if (handle->sock >= 0)
+      if (handle->sock < 0)
+      {                         // Failed before we even start
+         if (handle->callback)
+            handle->callback(handle->arg, NULL, 0, NULL);
+      } else
       {
          hwrite(handle, handle->connect, handle->connectlen);
          lwmqtt_loop(handle);
@@ -705,7 +709,7 @@ static void client_task(void *pvParameters)
          break;                 // client was stopped
       if (handle->backoff < 60)
          handle->backoff *= 2;
-      ESP_LOGI(TAG, "Waiting %d (mem:%d)", handle->backoff,esp_get_free_heap_size());
+      ESP_LOGI(TAG, "Waiting %d (mem:%d)", handle->backoff, esp_get_free_heap_size());
       sleep(handle->backoff);
    }
    handle_free(handle);
