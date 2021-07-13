@@ -36,10 +36,6 @@ static const char
 //#warning CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS recommended
 //#endif
 
-#ifndef	CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER
-#warning CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER recommended
-#endif
-
 //#ifndef       CONFIG_MBEDTLS_DYNAMIC_BUFFER
 //#warning CONFIG_MBEDTLS_DYNAMIC_BUFFER recommended
 //#endif
@@ -566,10 +562,7 @@ static void mesh_task(void *pvParameters)
          if (isroot)
          {                      // We are no longer root
             if (app_callback)
-            {
                app_callback(0, "mesh", NULL, "leaf", NULL);
-               app_callback(9, prefixcommand, NULL, "connect", NULL);
-            }
             isroot = 0;
             mesh_leaves = 0;
             revk_mqtt_close("Not root");
@@ -801,8 +794,11 @@ static void mesh_task(void *pvParameters)
                         if (app_callback)
                            app_callback(0, "mesh", NULL, "summary", j);
                      } else if (!jo_strcmp(j, "status"))
+                     {
                         revk_report_state(MQTT_CLIENTS - 1);
-                     else if (app_callback)
+                        if (app_callback)
+                           app_callback(0, prefixcommand, NULL, "connect", NULL);
+                     } else if (app_callback)
                         app_callback(0, "mesh", NULL, "other", j);
                   }
                }
@@ -1176,7 +1172,12 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (esp_mesh_is_root() && mesh_leaf)
          for (int a = 0; a < mesh_leaves; a++)
             if (mesh_leaf[a].online)
+            {
                send_sub(client, mesh_leaf[a].addr.addr);
+               jo_t j = jo_object_alloc();
+               jo_bool(j, "status", 1);
+               mesh_send_json(&mesh_leaf[a].addr, &j);
+            }
 #endif
       send_sub(client, revk_mac);       // Self
       revk_report_state(-client);
