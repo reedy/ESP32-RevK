@@ -32,9 +32,9 @@ static const char
 #include "freertos/semphr.h"
 #endif
 
-#ifndef	CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS
-#warning CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS recommended
-#endif
+//#ifndef       CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS
+//#warning CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS recommended
+//#endif
 
 #ifndef	CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER
 #warning CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER recommended
@@ -566,7 +566,10 @@ static void mesh_task(void *pvParameters)
          if (isroot)
          {                      // We are no longer root
             if (app_callback)
+            {
                app_callback(0, "mesh", NULL, "leaf", NULL);
+               app_callback(9, prefixcommand, NULL, "connect", NULL);
+            }
             isroot = 0;
             mesh_leaves = 0;
             revk_mqtt_close("Not root");
@@ -1888,7 +1891,6 @@ void revk_mqtt_send_str_copy(const char *str, int retain, int copies)
 #endif
 }
 
-
 void revk_mqtt_send_copy(const char *prefix, int retain, const char *tag, jo_t * jp, int copies)
 {                               // Send to main, and N additional MQTT servers, or only to extra server N if copies -ve
 #ifdef	CONFIG_REVK_MQTT
@@ -1984,7 +1986,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       {
          ESP_LOGE(TAG, "OTA send %02X %d failed", *data.data, data.size - 1);
          ota_size = ota_running = 0;
-      }
+      } else if(tries<10)ESP_LOGI(TAG,"Tries on %02X %d",*data.data,10-tries); // TODO
       blockp = 1;
       *block = 0xD0 + ((*block + 1) & 0xF);     // Next data block
    }
