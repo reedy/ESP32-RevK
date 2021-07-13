@@ -1748,7 +1748,7 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
    return task_id;
 }
 
-#ifdef	CONFIG_REVK_MQTT
+#ifdef	CONFIG_REVK_MESH
 void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
    memset(data, 0, sizeof(*data));
