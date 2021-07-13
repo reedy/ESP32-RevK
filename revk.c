@@ -583,7 +583,7 @@ static void mesh_task(void *pvParameters)
          ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
       else
       {
-         data.data[data.size] = 0;      // Just to be tidy for logging - we allowed an extra byte in malloc
+         //data.data[data.size] = 0;      // Just to be tidy for logging - we allowed an extra byte in malloc
          char mac[13];
          sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
          int child = -1;
