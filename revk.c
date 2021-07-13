@@ -10,6 +10,8 @@ static const char
 //#define       SETTING_DEBUG
 #define		SETTING_CHANGED
 
+// Note, low wifi buffers breaks mesh
+
 #include "revk.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
