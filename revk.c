@@ -462,6 +462,7 @@ static void mesh_task(void *pvParameters)
       uint64_t now = esp_timer_get_time();
       if (!esp_mesh_is_device_active())
       {
+         ESP_LOGI(TAG, "Wait"); // TODO
          sleep(1);
          continue;
       }
@@ -563,8 +564,7 @@ static void mesh_task(void *pvParameters)
          {                      // We are no longer root
             if (app_callback)
                app_callback(0, "mesh", NULL, "leaf", NULL);
-            isroot = 0;
-            mesh_leaves = 0;
+
             revk_mqtt_close("Not root");
             freez(mesh_leaf);
          }
@@ -600,7 +600,7 @@ static void mesh_task(void *pvParameters)
                send_sub(0, mesh_leaf[child].addr.addr);
                send_sub(1, mesh_leaf[child].addr.addr);
                jo_t j = jo_object_alloc();
-               jo_bool(j, "status", 1);
+               jo_bool(j, "connect", 1);
                mesh_send_json(&mesh_leaf[child].addr, &j);
             }
          }
@@ -609,9 +609,9 @@ static void mesh_task(void *pvParameters)
          // We use MESH_PROTO_JSON for messages internally
          if (data.proto == MESH_PROTO_BIN)
          {                      // Includes loopback to self
+            static uint8_t ota_ack = 0; // The ACK we send
             static int ota_size = 0;    // Total size
             static int ota_data = 0;    // Data received
-            static uint8_t ota_ack = 0; // The ACK we send
             static esp_ota_handle_t ota_handle;
             static const esp_partition_t *ota_partition = NULL;
             static int ota_progress = 0;
@@ -629,6 +629,7 @@ static void mesh_task(void *pvParameters)
             case 0x5:          // Start - not checking sequence, expecting to be 0
                if (data.size == 4)
                {
+                  send_ack();   // Sender has a sleep to allow for flash erase at this point, saves sending loads of repeat packets
                   if (!ota_size)
                   {
                      ota_progress = 0;
@@ -643,7 +644,6 @@ static void mesh_task(void *pvParameters)
                         ESP_LOGI(TAG, "Failed to start flash");
                      }
                   }
-                  send_ack();
                   next = now;
                }
                break;
@@ -667,7 +667,8 @@ static void mesh_task(void *pvParameters)
                      revk_info("upgrade", &j);
                      next = now + 5000000LL;
                   }
-               }
+               } else
+                  ESP_LOGI(TAG, "Unexpected %02X not %02X+1", *data.data, ota_ack);
                send_ack();
                break;
             case 0xE:          // End - not checking sequence
@@ -695,7 +696,8 @@ static void mesh_task(void *pvParameters)
                {
                   mesh_ota_ack = 0;
                   xSemaphoreGive(mesh_ota_sem);
-               }
+               } else
+                  ESP_LOGI(TAG, "Extra ack %02X", *data.data);
                break;
             }
          } else if (data.proto == MESH_PROTO_MQTT)
@@ -793,7 +795,7 @@ static void mesh_task(void *pvParameters)
                         jo_rewind(j);
                         if (app_callback)
                            app_callback(0, "mesh", NULL, "summary", j);
-                     } else if (!jo_strcmp(j, "status"))
+                     } else if (!jo_strcmp(j, "connect"))
                      {
                         revk_report_state(MQTT_CLIENTS - 1);
                         if (app_callback)
@@ -1968,177 +1970,6 @@ const char *revk_restart(const char *reason, int delay)
    return "";                   /* Done */
 }
 
-static esp_err_t ota_handler(esp_http_client_event_t * evt)
-{
-   static int ota_size = 0;     // statics as this is called each time an event happens
-   static int ota_running = 0;
-#ifdef	CONFIG_REVK_MESH
-   static uint8_t block[MESH_MPS - 100];
-   static int blockp = 0;
-   void send_ota(void) {
-      int tries = 10;
-      mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
-      mesh_ota_ack = 0xA0 + (*block & 0x0F);    // The ACK we want
-      mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
-      int to = (((*data.data >> 4) != 0xD) ? 1000 : 100);       // Start/end is slow
-      while (!xSemaphoreTake(mesh_ota_sem, to / portTICK_PERIOD_MS) && --tries)
-         mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0); // Resend if no ACK
-      if (!tries)
-      {
-         ESP_LOGE(TAG, "OTA send %02X %d failed", *data.data, data.size - 1);
-         ota_size = ota_running = 0;
-      }
-      blockp = 1;
-      *block = 0xD0 + ((*block + 1) & 0xF);     // Next data block
-   }
-#else
-   static int ota_progress = 0;
-   static esp_ota_handle_t ota_handle;
-   static const esp_partition_t *ota_partition = NULL;
-   static int64_t next = 0;
-#endif
-   switch (evt->event_id)
-   {
-   case HTTP_EVENT_ERROR:
-      break;
-   case HTTP_EVENT_ON_CONNECTED:
-      ota_size = 0;
-#ifndef	CONFIG_REVK_MESH
-      if (ota_running)
-         esp_ota_end(ota_handle);
-#else
-      blockp = 0;
-#endif
-      ota_running = 0;
-      break;
-   case HTTP_EVENT_HEADER_SENT:
-      break;
-   case HTTP_EVENT_ON_HEADER:
-      if (!strcmp(evt->header_key, "Content-Length"))
-         ota_size = atoi(evt->header_value);
-      break;
-   case HTTP_EVENT_ON_DATA:
-      if (ota_size)
-      {
-#ifndef CONFIG_REVK_MESH
-         int64_t now = esp_timer_get_time();
-#endif
-         if (esp_http_client_get_status_code(evt->client) / 100 != 2)
-            ota_size = 0;       /* Failed */
-         if (!ota_running && ota_size)
-         {                      /* Start */
-#ifdef	CONFIG_REVK_MESH
-            blockp = 0;
-            block[blockp++] = 0x50;     // Start[0]
-            block[blockp++] = (ota_size >> 16);
-            block[blockp++] = (ota_size >> 8);
-            block[blockp++] = ota_size;
-            send_ota();
-            ota_running = 1;
-#else
-            ota_progress = 0;
-            if (!ota_partition)
-               ota_partition = esp_ota_get_running_partition();
-            ota_partition = esp_ota_get_next_update_partition(ota_partition);
-            if (!ota_partition)
-            {
-               jo_t j = jo_object_alloc();
-               jo_string(j, "description", "No OTA partition available");
-               revk_error("upgrade", &j);
-               ota_size = 0;
-            } else
-            {
-               if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
-               {
-                  ota_size = 0;
-                  ota_partition = NULL;
-               } else
-               {
-                  jo_t j = jo_object_alloc();
-                  jo_int(j, "size", ota_size);
-                  revk_info("upgrade", &j);
-                  ota_running = 1;
-                  next = now + 5000000LL;
-               }
-            }
-#endif
-         }
-         if (ota_running && ota_size)
-         {
-#ifdef	CONFIG_REVK_MESH
-            size_t s = evt->data_len;
-            uint8_t *p = evt->data;
-            while (s)
-            {
-               int q = s;
-               if (q > sizeof(block) - blockp)
-                  q = sizeof(block) - blockp;
-               memcpy(block + blockp, p, q);
-               blockp += q;
-               p += q;
-               s -= q;
-               if (blockp == sizeof(block))
-                  send_ota();
-            }
-#else
-            if (REVK_ERR_CHECK(esp_ota_write(ota_handle, evt->data, evt->data_len)))
-               ota_size = 0;
-            if (ota_size)
-            {
-               ota_running += evt->data_len;
-               int64_t now = esp_timer_get_time();
-               int percent = ota_running * 100 / ota_size;
-               if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
-               {
-                  jo_t j = jo_object_alloc();
-                  jo_int(j, "progress", ota_progress = percent);
-                  jo_int(j, "loaded", ota_running - 1);
-                  jo_int(j, "size", ota_size);
-                  revk_info("upgrade", &j);
-                  next = now + 5000000LL;
-               }
-            }
-#endif
-         }
-      }
-      break;
-   case HTTP_EVENT_ON_FINISH:
-      if (!ota_running && esp_http_client_get_status_code(evt->client) / 100 > 3)
-      {
-         jo_t j = jo_object_alloc();
-         jo_string(j, "description", "Failed to start");
-         jo_int(j, "code", esp_http_client_get_status_code(evt->client));
-         jo_int(j, "size", ota_size);
-         revk_error("Upgrade", &j);
-      }
-      if (ota_running)
-      {
-#ifdef	CONFIG_REVK_MESH
-         if (blockp > 1)
-            send_ota();         // Last data block
-         blockp = 0;
-         block[blockp++] = 0xE0 + (*block & 0xF);       // End
-         send_ota();
-#else
-         if (!REVK_ERR_CHECK(esp_ota_end(ota_handle)))
-         {
-            jo_t j = jo_object_alloc();
-            jo_string(j, "complete", ota_partition->label);
-            jo_int(j, "size", ota_size);
-            revk_info("upgrade", &j);
-            esp_ota_set_boot_partition(ota_partition);
-            revk_restart("OTA", 5);
-         }
-#endif
-      }
-      ota_running = 0;
-      break;
-   case HTTP_EVENT_DISCONNECTED:
-      break;
-   }
-   return ESP_OK;
-}
-
 #ifdef	CONFIG_REVK_APCONFIG
 static esp_err_t ap_get(httpd_req_t * req)
 {
@@ -2264,7 +2095,7 @@ static void ota_task(void *pvParameters)
 {
    char *url = pvParameters;
    esp_http_client_config_t config = {
-      .url = url,.event_handler = ota_handler,
+      .url = url
    };
    /* Set the TLS in case redirect to TLS even if http */
    if (otacert->len)
@@ -2292,16 +2123,131 @@ static void ota_task(void *pvParameters)
       revk_error("upgrade", &j);
    } else
    {
-      esp_err_t err = REVK_ERR_CHECK(esp_http_client_perform(client));
-      int status = esp_http_client_get_status_code(client);
-      esp_http_client_cleanup(client);
-      if (!err && status / 100 != 2)
+      int status = 0;
+      int ota_size = 0;
+      esp_err_t err = REVK_ERR_CHECK(esp_http_client_open(client, 0));
+      if (!err)
+         ota_size = esp_http_client_fetch_headers(client);
+      if (!err && ota_size && (status = esp_http_client_get_status_code(client)) / 100 == 2)
       {
-         jo_t j = jo_object_alloc();
-         jo_string(j, "description", "HTTP failed");
-         jo_int(j, "code", status);
-         revk_error("upgrade", &j);
+#ifdef  CONFIG_REVK_MESH
+         int ota_data = 0;
+         uint8_t block[MESH_MPS];
+         int blockp = 0;
+         void send_ota(void) {
+            int try = 10;
+            mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
+            mesh_ota_ack = 0xA0 + (*block & 0x0F);      // The ACK we want
+            mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P | MESH_DATA_NONBLOCK, NULL, 0);
+            while (!xSemaphoreTake(mesh_ota_sem, 500 / portTICK_PERIOD_MS) && --try)
+               mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P | MESH_DATA_NONBLOCK, NULL, 0);      // Resend
+            if (!try)
+            {
+               ESP_LOGE(TAG, "Send timeout %02X", *data.data);
+	       ota_size=0;
+            }
+            blockp = 1;
+            *block = 0xD0 + ((*block + 1) & 0xF);       // Next data block
+         }
+         blockp = 0;
+         block[blockp++] = 0x50;        // Start[0]
+         block[blockp++] = (ota_size >> 16);
+         block[blockp++] = (ota_size >> 8);
+         block[blockp++] = ota_size;
+         send_ota();
+         sleep(5);              // Erase time
+         while (!err && ota_data < ota_size)
+         {
+            int len = esp_http_client_read(client, (char *) block + blockp, sizeof(block) - blockp);
+            if (len <= 0)
+               break;
+            blockp += len;
+            if (blockp == sizeof(block))
+               send_ota();
+
+         }
+         // End
+         if (blockp > 1)
+            send_ota();         // Last data block
+         blockp = 0;
+         block[blockp++] = 0xE0 + (*block & 0xF);       // End
+         send_ota();
+#else
+         esp_ota_handle_t ota_handle;
+         const esp_partition_t *ota_partition = NULL;
+         int ota_progess = 0;
+         int ota_data = 0;
+         int64_t next = 0;
+         ota_progress = 0;
+         if (!ota_partition)
+            ota_partition = esp_ota_get_running_partition();
+         ota_partition = esp_ota_get_next_update_partition(ota_partition);
+         if (!ota_partition)
+         {
+            jo_t j = jo_object_alloc();
+            jo_string(j, "description", "No OTA partition available");
+            revk_error("upgrade", &j);
+            ota_size = 0;
+         } else
+         {
+            if (!(err = REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle))))
+            {
+               jo_t j = jo_object_alloc();
+               jo_int(j, "size", ota_size);
+               revk_info("upgrade", &j);
+               next = now + 5000000LL;
+            }
+            while (!err && ota_data < ota_size)
+            {
+               uint8_t buf[1024];
+               int len = esp_http_client_read(client, buf, sizeof(buf));
+               if (len <= 0)
+                  break;
+               if ((err = REVK_ERR_CHECK(esp_ota_write(ota_handle, evt->data, evt->data_len))))
+                  break;
+               ota_data += evt->data_len;
+               int64_t now = esp_timer_get_time();
+               int percent = ota_data * 100 / ota_size;
+               if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
+               {
+                  jo_t j = jo_object_alloc();
+                  jo_int(j, "progress", ota_progress = percent);
+                  jo_int(j, "loaded", ota_data);
+                  jo_int(j, "size", ota_size);
+                  revk_info("upgrade", &j);
+                  next = now + 5000000LL;
+               }
+            }
+            // End
+            if (!err && !(err = REVK_ERR_CHECK(esp_ota_end(ota_handle))))
+            {
+               jo_t j = jo_object_alloc();
+               jo_string(j, "complete", ota_partition->label);
+               jo_int(j, "size", ota_size);
+               revk_info("upgrade", &j);
+               esp_ota_set_boot_partition(ota_partition);
+               revk_restart("OTA", 5);
+            }
+         }
+#endif
       }
+      //REVK_ERR_CHECK(esp_http_client_close(client));
+      REVK_ERR_CHECK(esp_http_client_cleanup(client));
+      if (err || status / 100 != 2 || ota_size < 0)
+         if (!err && status / 100 != 2)
+         {
+            jo_t j = jo_object_alloc();
+            if (err)
+            {
+               jo_int(j, "code", err);
+               jo_string(j, "description", esp_err_to_name(err));
+            }
+            if (status)
+               jo_int(j, "status", status);
+            if (ota_size >= 0)
+               jo_int(j, "size", ota_size);
+            revk_error("upgrade", &j);
+         }
    }
    freez(url);
    ota_task_id = NULL;
