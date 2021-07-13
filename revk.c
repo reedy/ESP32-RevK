@@ -841,7 +841,7 @@ static void setup_ip(void)
 }
 #endif
 
-#if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+#ifdef	CONFIG_REVK_MESH
 static void stop_ip(void)
 {
    esp_netif_dhcpc_stop(sta_netif);
@@ -961,7 +961,7 @@ static void mesh_init(void)
 }
 #endif
 
-#ifdef	CONFIG_REVK_MQTT
+#ifdef	CONFIG_REVK_MESH
 static void send_unsub(int client, const uint8_t * mac)
 {
    if (client >= MQTT_CLIENTS || !mqtt_client[client])
@@ -1974,8 +1974,8 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       break;
    case HTTP_EVENT_ON_CONNECTED:
       ota_size = 0;
-      blockp = 0;
 #ifndef	CONFIG_REVK_MESH
+      blockp = 0;
       if (ota_running)
          esp_ota_end(ota_handle);
 #endif
@@ -3207,8 +3207,10 @@ static const char *revk_upgrade(const char *target, jo_t j)
 {                               // Upgrade command
    if (ota_task_id)
       return "OTA running";
+#ifdef CONFIG_REVK_MESH
    if (!esp_mesh_is_root())
       return "";                // OK will be done by root and sent via MESH
+#endif
    char val[256];
    if (jo_strncpy(j, val, sizeof(val)) < 0)
       *val = 0;
