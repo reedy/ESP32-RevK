@@ -281,10 +281,10 @@ static void mqtt_init(void);
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *payload);
 static void send_sub(int client, const uint8_t *);
-static void send_unsub(int client, const uint8_t *);
 static const char *revk_upgrade(const char *target, jo_t j);
 
 #ifdef	CONFIG_REVK_MESH
+static void send_unsub(int client, const uint8_t *);
 static void mesh_init(void);
 void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 static void mesh_send_json(mesh_addr_t * addr, jo_t * jp);
@@ -1975,9 +1975,10 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
    case HTTP_EVENT_ON_CONNECTED:
       ota_size = 0;
 #ifndef	CONFIG_REVK_MESH
-      blockp = 0;
       if (ota_running)
          esp_ota_end(ota_handle);
+#else
+      blockp = 0;
 #endif
       ota_running = 0;
       break;
