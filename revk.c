@@ -1976,7 +1976,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
    static uint8_t block[MESH_MPS - 100];
    static int blockp = 0;
    void send_ota(void) {
-      int tries = 10;
+      int tries = 20;
       mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
       mesh_ota_ack = 0xA0 + (*block & 0x0F);    // The ACK we want
       mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
