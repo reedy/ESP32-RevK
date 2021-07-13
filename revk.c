@@ -249,7 +249,7 @@ static const char *revk_setting_dump(void);
 
 #ifdef	CONFIG_REVK_MESH
 // OTA to mesh devices
-static uint8_t mesh_ota_ack = 0;
+static volatile uint8_t mesh_ota_ack = 0;
 static SemaphoreHandle_t mesh_ota_sem = NULL;
 static SemaphoreHandle_t mesh_leaf_mutex = NULL;
 static mesh_addr_t mesh_ota_addr = { };
@@ -629,12 +629,12 @@ static void mesh_task(void *pvParameters)
             case 0x5:          // Start - not checking sequence, expecting to be 0
                if (data.size == 4)
                {
-                  send_ack();   // Sender has a sleep to allow for flash erase at this point, saves sending loads of repeat packets
+                  ota_ack = 0xA0 + (*data.data & 0xF);
+                  send_ack();
                   if (!ota_size)
                   {
                      ota_progress = 0;
                      ota_data = 0;
-                     ota_ack = 0xA0 + (*data.data & 0xF);
                      ota_size = (data.data[1] << 16) + (data.data[2] << 8) + data.data[3];
                      ota_partition = esp_ota_get_next_update_partition(esp_ota_get_running_partition());
                      ESP_LOGI(TAG, "Start flash %d", ota_size);
@@ -2135,16 +2135,16 @@ static void ota_task(void *pvParameters)
          uint8_t block[MESH_MPS];
          int blockp = 0;
          void send_ota(void) {
-            int try = 10;
             mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
             mesh_ota_ack = 0xA0 + (*block & 0x0F);      // The ACK we want
-            mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P | MESH_DATA_NONBLOCK, NULL, 0);
+            mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
+            int try = 10;
             while (!xSemaphoreTake(mesh_ota_sem, 500 / portTICK_PERIOD_MS) && --try)
-               mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P | MESH_DATA_NONBLOCK, NULL, 0);      // Resend
+               mesh_safe_send(&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);   // Resend
             if (!try)
             {
                ESP_LOGE(TAG, "Send timeout %02X", *data.data);
-	       ota_size=0;
+               ota_size = 0;
             }
             blockp = 1;
             *block = 0xD0 + ((*block + 1) & 0xF);       // Next data block
@@ -2155,7 +2155,7 @@ static void ota_task(void *pvParameters)
          block[blockp++] = (ota_size >> 8);
          block[blockp++] = ota_size;
          send_ota();
-         sleep(5);              // Erase time
+         sleep(5);              // Erase
          while (!err && ota_data < ota_size)
          {
             int len = esp_http_client_read(client, (char *) block + blockp, sizeof(block) - blockp);
@@ -2166,12 +2166,14 @@ static void ota_task(void *pvParameters)
                send_ota();
 
          }
-         // End
-         if (blockp > 1)
-            send_ota();         // Last data block
-         blockp = 0;
-         block[blockp++] = 0xE0 + (*block & 0xF);       // End
-         send_ota();
+         if (!err && ota_size)
+         {                      // End
+            if (blockp > 1)
+               send_ota();      // Last data block
+            blockp = 0;
+            block[blockp++] = 0xE0 + (*block & 0xF);    // End
+            send_ota();
+         }
 #else
          esp_ota_handle_t ota_handle;
          const esp_partition_t *ota_partition = NULL;
@@ -2237,6 +2239,7 @@ static void ota_task(void *pvParameters)
          if (!err && status / 100 != 2)
          {
             jo_t j = jo_object_alloc();
+            jo_string(j, "url", url);
             if (err)
             {
                jo_int(j, "code", err);
