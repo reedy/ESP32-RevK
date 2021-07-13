@@ -581,9 +581,11 @@ static void mesh_task(void *pvParameters)
          continue;
       if (e)
          ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
+      else if (data.size > MESH_MPS)
+         ESP_LOGE(TAG, "Size %d too big", data.size);
       else
       {
-         //data.data[data.size] = 0;      // Just to be tidy for logging - we allowed an extra byte in malloc
+         data.data[data.size] = 0;      // Makes logging and shit easier
          char mac[13];
          sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
          int child = -1;
@@ -1806,7 +1808,7 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
    jo_t j = jo_pad(jp, MESH_PAD);
    if (!j)
    {
-	   ESP_LOGE(TAG,"JO Pad failed");
+      ESP_LOGE(TAG, "JO Pad failed");
       return;
    }
    const char *json = jo_rewind(j);
@@ -1817,7 +1819,7 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
       else
          ESP_LOGI(TAG, "Mesh Tx JSON to root node: %s", json);
       mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen(json) };
-      mesh_encode_send(addr, &data, MESH_DATA_P2P );
+      mesh_encode_send(addr, &data, MESH_DATA_P2P);
    }
    jo_free(jp);
 }
