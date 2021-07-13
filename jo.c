@@ -974,16 +974,16 @@ int64_t jo_read_int(jo_t j)
        c,
        s = 1;
    jo_t p = jo_link(j);
-   c = jo_next(p);
+   c = jo_read(p);
    if (c == '-')
    {
       s = -1;
-      c = jo_next(p);
+      c = jo_read(p);
    }
    while (c >= '0' && c <= '9')
    {
       n = n * 10 + c - '0';
-      c = jo_next(p);
+      c = jo_read(p);
    }
    jo_free(&p);
    return n * s;

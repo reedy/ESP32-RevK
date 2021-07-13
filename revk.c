@@ -456,7 +456,7 @@ static void mesh_task(void *pvParameters)
 {                               // Mesh root
    pvParameters = pvParameters;
    mesh_data_t data = { };
-   data.data = malloc(MESH_MPS);
+   data.data = malloc(MESH_MPS + 1);
    uint64_t isroot = 0;
    uint64_t ticker = 0;
    uint64_t reporting = 0;
@@ -489,7 +489,7 @@ static void mesh_task(void *pvParameters)
          }
          if (mesh_leaves_reported == mesh_leaves_online)
          {                      // End of reporting cycle - no need to wait
-            reporting = now + 1000000LL * meshcycle * 2;
+            reporting = now + 1000000LL * meshcycle * 3;
             for (int n = 0; n < mesh_leaves; n++)
                mesh_leaf[n].reported = 0;
             mesh_leaves_reported = 0;
@@ -583,6 +583,7 @@ static void mesh_task(void *pvParameters)
          ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
       else
       {
+         data.data[data.size] = 0;      // Just to be tidy for logging - we allowed an extra byte in malloc
          char mac[13];
          sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
          int child = -1;
@@ -739,7 +740,7 @@ static void mesh_task(void *pvParameters)
             jo_t j = NULL;
             if (e > payload)
                j = jo_parse_mem(payload, e - payload);
-            ESP_LOGI(TAG, "Mesh Rx MQTT%d %s: %s %.*s", client, mac, topic, (int) (e - payload), payload);
+            ESP_LOGD(TAG, "Mesh Rx MQTT%d %s: %s %.*s", client, mac, topic, (int) (e - payload), payload);
             if (isroot)
                lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, retain); // Out
             else
@@ -777,18 +778,18 @@ static void mesh_task(void *pvParameters)
                         jo_next(j);
                         if (jo_here(j) == JO_NUMBER)
                         {
-                           ESP_LOGI(TAG, "Trying to set time"); // TODO
                            int32_t new = jo_read_int(j);
                            int32_t now = time(0);
                            int32_t diff = now - new;
-                           if (diff > 60 || diff < 60)
+                           if (diff > 60 || diff < -60)
                            {    // Big change
-                              struct timeval tv = { now, 0 };
-                              gettimeofday(&tv, NULL);
-                           } else
+                              struct timeval tv = { new, 0 };
+                              if (settimeofday(&tv, NULL))
+                                 ESP_LOGE(TAG, "Time set %d failed", new);
+                           } else if (diff)
                            {
                               struct timeval delta = { diff, 0 };
-                              adjtime(&delta, NULL);    // TODO not sure this works well if not set at all, may need checking
+                              adjtime(&delta, NULL);
                            }
                         }
                         jo_rewind(j);
@@ -1793,7 +1794,7 @@ void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic,
    if (plen)
       memcpy(p, payload, plen);
    p += plen;
-   ESP_LOGI(TAG, "Mesh Tx MQTT%d %.*s %.*s", client, tlen, topic, plen, payload);
+   ESP_LOGD(TAG, "Mesh Tx MQTT%d %.*s %.*s", client, tlen, topic, plen, payload);
 }
 #endif
 
@@ -1804,7 +1805,10 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
       return;
    jo_t j = jo_pad(jp, MESH_PAD);
    if (!j)
+   {
+	   ESP_LOGE(TAG,"JO Pad failed");
       return;
+   }
    const char *json = jo_rewind(j);
    if (json)
    {
@@ -1938,7 +1942,7 @@ void revk_info_copy(const char *tag, jo_t * jp, int copies)
 
 const char *revk_restart(const char *reason, int delay)
 {                               /* Restart cleanly */
-   if (restart_reason != reason)
+   if (restart_reason != reason && delay >= 0)
       ESP_LOGI(TAG, "Restart %d %s", delay, reason);
    restart_reason = reason;
    if (delay < 0)
@@ -2753,7 +2757,7 @@ static const char *revk_setting_dump(void)
          return;
       revk_mqtt_send(prefixsetting, 0, NULL, &j);
    }
-   char buf[MQTT_MAX];
+   char buf[MQTT_MAX - 50];     // Allows for topic, header, etc
    const char *hasdef(setting_t * s) {
       const char *d = s->defval;
       if (!d)
