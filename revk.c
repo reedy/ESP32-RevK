@@ -1986,7 +1986,7 @@ static esp_err_t ota_handler(esp_http_client_event_t * evt)
       {
          ESP_LOGE(TAG, "OTA send %02X %d failed", *data.data, data.size - 1);
          ota_size = ota_running = 0;
-      } else if(tries<10)ESP_LOGI(TAG,"Tries on %02X %d",*data.data,10-tries); // TODO
+      }
       blockp = 1;
       *block = 0xD0 + ((*block + 1) & 0xF);     // Next data block
    }
