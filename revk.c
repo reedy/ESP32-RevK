@@ -1180,7 +1180,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          app_callback(client, prefixcommand, NULL, "connect", j);
          jo_free(&j);
       }
-      revk_restart(NULL, -1);   // Cancel restart
+      revk_restart("Online", -1);       // Cancel restart
    } else
    {
       if (xEventGroupGetBits(revk_group) & (GROUP_MQTT << client))
