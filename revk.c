@@ -1797,11 +1797,10 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
    const char *json = jo_rewind(j);
    if (json)
    {
-      // TODO debug
       if (addr)
-         ESP_LOGI(TAG, "Mesh Tx JSON %02X%02X%02X%02X%02X%02X: %s", addr->addr[0], addr->addr[1], addr->addr[2], addr->addr[3], addr->addr[4], addr->addr[5], json);
+         ESP_LOGD(TAG, "Mesh Tx JSON %02X%02X%02X%02X%02X%02X: %s", addr->addr[0], addr->addr[1], addr->addr[2], addr->addr[3], addr->addr[4], addr->addr[5], json);
       else
-         ESP_LOGI(TAG, "Mesh Tx JSON to root node: %s", json);
+         ESP_LOGD(TAG, "Mesh Tx JSON to root node: %s", json);
       mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen(json) };
       mesh_encode_send(addr, &data, addr ? MESH_DATA_P2P : 0);
    }
