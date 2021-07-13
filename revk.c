@@ -1817,7 +1817,7 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp)
       else
          ESP_LOGI(TAG, "Mesh Tx JSON to root node: %s", json);
       mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen(json) };
-      mesh_encode_send(addr, &data, addr ? MESH_DATA_P2P : 0);
+      mesh_encode_send(addr, &data, MESH_DATA_P2P );
    }
    jo_free(jp);
 }
