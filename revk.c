@@ -484,6 +484,10 @@ static void mesh_task(void *pvParameters)
                   sprintf(mac, "%02X%02X%02X%02X%02X%02X", mesh_leaf[n].addr.addr[0], mesh_leaf[n].addr.addr[1], mesh_leaf[n].addr.addr[2], mesh_leaf[n].addr.addr[3], mesh_leaf[n].addr.addr[4], mesh_leaf[n].addr.addr[5]);
                   if (app_callback)
                      app_callback(0, "mesh", mac, "offline", NULL);
+                  char *topic;  // Tell IoT
+                  asprintf(&topic, "state/%s/%s", mac, appname);
+                  revk_mqtt_send_raw(topic, 1, "{\"up\":false}", -1);
+                  free(topic);
                }
          }
          if (mesh_leaves_reported == mesh_leaves_online)
@@ -669,8 +673,7 @@ static void mesh_task(void *pvParameters)
                      revk_info("upgrade", &j);
                      next = now + 5000000LL;
                   }
-               } else
-                  ESP_LOGI(TAG, "Unexpected %02X not %02X+1", *data.data, ota_ack);
+               }                // else ESP_LOGI(TAG, "Unexpected %02X not %02X+1", *data.data, ota_ack);
                send_ack();
                break;
             case 0xE:          // End - not checking sequence
@@ -698,8 +701,7 @@ static void mesh_task(void *pvParameters)
                {
                   mesh_ota_ack = 0;
                   xSemaphoreGive(mesh_ota_sem);
-               } else
-                  ESP_LOGI(TAG, "Extra ack %02X", *data.data);
+               }                // else ESP_LOGI(TAG, "Extra ack %02X", *data.data);
                break;
             }
          } else if (data.proto == MESH_PROTO_MQTT)
@@ -959,6 +961,7 @@ static void mesh_init(void)
          REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
       }
       REVK_ERR_CHECK(esp_mesh_set_max_layer(meshdepth));
+      REVK_ERR_CHECK(esp_mesh_set_xon_qsize(16));
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -2160,13 +2163,11 @@ static void ota_task(void *pvParameters)
          sleep(5);              // Erase
          while (!err && ota_data < ota_size)
          {
-            int len = esp_http_client_read(client, (char *) block + blockp, sizeof(block) - blockp);
+            int len = esp_http_client_read_response(client, (char *) block + blockp, sizeof(block) - blockp);
             if (len <= 0)
                break;
             blockp += len;
-            if (blockp == sizeof(block))
-               send_ota();
-
+            send_ota();
          }
          if (!err && ota_size)
          {                      // End

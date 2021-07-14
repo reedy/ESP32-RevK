@@ -506,6 +506,7 @@ void jo_stringf(jo_t j, const char *tag, const char *format, ...)
    va_list ap;
    va_start(ap, format);
    ssize_t len = vasprintf(&v, format, ap);
+   va_end(ap);
    if (!v)
    {
       j->err = "malloc for printf";
