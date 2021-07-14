@@ -6,7 +6,7 @@ static const char
     __attribute__((unused)) * TAG = "RevK";
 
 //#define       SETTING_DEBUG
-//#define	SETTING_CHANGED
+//#define       SETTING_CHANGED
 
 // Note, low wifi buffers breaks mesh
 
@@ -2399,7 +2399,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    }
    char tag[16];                /* Max NVS name size */
    if (snprintf(tag, sizeof(tag), s->array ? "%s%u" : "%s", s->name, index + 1) >= sizeof(tag))
+   {
+      ESP_LOGE(TAG, "Setting %s%u too long", s->name, index + 1);
       return "Setting name too long";
+   }
    ESP_LOGD(TAG, "MQTT setting %s (%d)", tag, len);
    char erase = 0;
    /* Using default, so remove from flash(as defaults may change later, don 't store the default in flash) */
