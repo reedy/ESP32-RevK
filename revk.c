@@ -5,8 +5,8 @@
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
-#define       SETTING_DEBUG
-#define		SETTING_CHANGED
+//#define       SETTING_DEBUG
+//#define	SETTING_CHANGED
 
 // Note, low wifi buffers breaks mesh
 
