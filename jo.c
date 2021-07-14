@@ -69,7 +69,7 @@ static inline void jo_store(jo_t j, uint8_t c)
    }
    if (j->ptr >= j->len && (!j->alloc || !(j->buf = saferealloc(j->buf, j->len += 100))))
    {
-      j->err = "Out of space";
+      j->err = (j->alloc ? "Cannot allocate space" : "Out of space");
       return;
    }
    j->buf[j->ptr] = c;
