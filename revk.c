@@ -440,7 +440,6 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
 #endif
 
 #ifdef CONFIG_REVK_MESH
-#define	MESH_PAD	24      // Max extra allocated bytes required on data
 esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 {                               // Security - encode mesh message and send
    // TODO - mesh encode
