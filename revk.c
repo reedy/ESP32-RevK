@@ -581,8 +581,6 @@ static void mesh_task(void *pvParameters)
          continue;
       if (e)
          ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
-      else if (data.size > MESH_MPS)
-         ESP_LOGE(TAG, "Size %d too big", data.size);
       else
       {
          data.data[data.size] = 0;      // Makes logging and shit easier
@@ -750,8 +748,7 @@ static void mesh_task(void *pvParameters)
             jo_free(&j);
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
-            // TODO debug
-            ESP_LOGI(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
+            ESP_LOGD(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
             jo_t j = jo_parse_mem(data.data, data.size);
             if (jo_here(j) == JO_OBJECT)
             {
