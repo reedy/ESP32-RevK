@@ -42,7 +42,7 @@ static const char
 
 #include "lwmqtt.h"
 
-static uint32_t uptime(void)
+uint32_t uptime(void)
 {
    return esp_timer_get_time() / 1000000LL;
 }

@@ -79,6 +79,8 @@ struct lwmqtt_server_config_s {
 // Handle for connection
 typedef struct lwmqtt_s *lwmqtt_t;
 
+uint32_t uptime(void); // Seconds uptime
+
 // Create a client connection (NULL if failed)
 lwmqtt_t lwmqtt_client(lwmqtt_client_config_t *);
 

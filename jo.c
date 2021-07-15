@@ -262,11 +262,17 @@ jo_t jo_copy(jo_t j)
    memcpy(n, j, sizeof(*j));
    if (j->alloc && j->buf)
    {
-      n->buf = malloc(j->len ? : 1);
+      j->null = 0;
+      n->buf = malloc(j->parse ? j->len + 1 : j->len ? : 1);
       if (!n->buf)
       {
          jo_free(&n);
          return NULL;           // malloc
+      }
+      if (j->parse)
+      {                         // Ensure null
+         n->buf[j->len] = 0;
+         j->null = 1;
       }
       memcpy(n->buf, j->buf, j->parse ? j->len : j->ptr);
    }
