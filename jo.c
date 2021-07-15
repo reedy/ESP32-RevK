@@ -380,7 +380,6 @@ char *jo_finisha(jo_t * jp)
       free(j->buf);
    free(j);
    return res;
-
 }
 
 // Creating

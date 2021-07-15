@@ -399,7 +399,7 @@ int mesh_find_child(uint8_t mac[6], char insert)
          else
          {                      // Insert
             m = l;
-            ESP_LOGI(TAG, "Added leaf %02X%02X%02X%02X%02X%02X at %d/%d", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], m, mesh_leaves);
+            ESP_LOGI(TAG, "Added leaf %02X%02X%02X%02X%02X%02X at %d/%d", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], m, mesh_leaves + 1);
             if (m < mesh_leaves)
                memmove(&mesh_leaf[m + 1], &mesh_leaf[m], (mesh_leaves - m) * sizeof(mesh_leaf_t));
             mesh_leaves++;
@@ -569,7 +569,6 @@ static void mesh_task(void *pvParameters)
          {                      // We are no longer root
             if (app_callback)
                app_callback(0, "mesh", NULL, "leaf", NULL);
-
             revk_mqtt_close("Not root");
             freez(mesh_leaf);
          }
@@ -738,15 +737,11 @@ static void mesh_task(void *pvParameters)
                suffix++;
             else
                suffix = NULL;
-            jo_t j = NULL;
-            if (e > payload)
-               j = jo_parse_mem(payload, e - payload);
             ESP_LOGD(TAG, "Mesh Rx MQTT%d %s: %s %.*s", client, mac, topic, (int) (e - payload), payload);
             if (isroot)
                lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, retain); // Out
             else
                mqtt_rx((void *) client, topic, e - payload, (void *) payload);  // In
-            jo_free(&j);
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
             ESP_LOGD(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
@@ -805,6 +800,7 @@ static void mesh_task(void *pvParameters)
                   }
                }
             }
+	    jo_free(&j);
          }
       }
    }
@@ -1544,6 +1540,12 @@ static void task(void *pvParameters)
       {
          REVK_ERR_CHECK(nvs_commit(nvs));
          nvs_time = 0;
+      }
+      {                         // TODO debug
+         static uint32_t last = 0;
+         uint32_t heap = esp_get_free_heap_size();
+         if (heap / 100 != last / 100)
+            ESP_LOGI(TAG, "Mem %d", last = heap);
       }
 #ifdef	CONFIG_REVK_MQTT
       {                         // Report even if not on-line as mesh works anyway
