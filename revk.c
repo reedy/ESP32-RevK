@@ -560,6 +560,8 @@ static void mesh_task(void *pvParameters)
             mesh_leaf[0].online = 1;    // Us
             mesh_leaves_online++;
             mqtt_init();
+            ticker = 0;         // Send report from us to us
+            reporting = now + 1000000LL * meshcycle * 3;        // Start reporting cycle
          }
       } else
       {
