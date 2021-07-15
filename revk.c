@@ -1920,6 +1920,7 @@ void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_
       payload = jo_finisha(jp);
       if (!payload && err)
          ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
+      revk_mqtt_send_payload_copy(prefix, retain, suffix, payload, copy);
    }
    freez(payload);
 }
