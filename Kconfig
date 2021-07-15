@@ -56,7 +56,7 @@ menu "RevK"
 
 	config REVK_MESHCYCLE
         int "Mesh reporting cycle"
-        default 3
+        default 1
 	depends on REVK_MESH
         help
 		Mesh reporting cycle (seconds)
