@@ -1541,12 +1541,14 @@ static void task(void *pvParameters)
          REVK_ERR_CHECK(nvs_commit(nvs));
          nvs_time = 0;
       }
-      {                         // TODO debug
+#if 0
+      {                         // memory leak debug
          static uint32_t last = 0;
          uint32_t heap = esp_get_free_heap_size();
          if (heap / 100 != last / 100)
             ESP_LOGI(TAG, "Mem %d", last = heap);
       }
+#endif
 #ifdef	CONFIG_REVK_MQTT
       {                         // Report even if not on-line as mesh works anyway
          static uint8_t lastch = 0;
