@@ -287,7 +287,7 @@ static void mesh_send_json(mesh_addr_t * addr, jo_t * jp);
 static SemaphoreHandle_t mesh_mutex = NULL;
 #endif
 
-static void revk_report_state(int copies)
+static void revk_report_state(int copy)
 {                               // Report state
    const esp_app_desc_t *app = esp_ota_get_app_description();
    uint64_t t = esp_timer_get_time();
@@ -337,7 +337,7 @@ static void revk_report_state(int copies)
       if (ap.phy_lr)
          jo_bool(j, "lr", 1);
    }
-   revk_state_copy(NULL, &j, copies);
+   revk_state_copy(NULL, &j, copy);
 }
 
 #if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
@@ -1849,15 +1849,15 @@ const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, con
 }
 #endif
 
-void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int copies)
+void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int copy)
 {
 #ifdef	CONFIG_REVK_MQTT
    int from = 0,
        to = 0;
-   if (copies > 0)
-      to = copies;
+   if (copy > 0)
+      to = copy;
    else
-      from = to = -copies;
+      from = to = -copy;
    if (to >= MQTT_CLIENTS)
       to = MQTT_CLIENTS - 1;
    for (int client = from; client <= to; client++)
@@ -1868,17 +1868,17 @@ void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int 
 #endif
 }
 
-void revk_mqtt_send_str_copy(const char *str, int retain, int copies)
+void revk_mqtt_send_str_copy(const char *str, int retain, int copy)
 {
 #ifdef	CONFIG_REVK_MQTT
    if (!str)
       return;
    int from = 0,
        to = 0;
-   if (copies > 0)
-      to = copies;
+   if (copy > 0)
+      to = copy;
    else
-      from = to = -copies;
+      from = to = -copy;
    if (to >= MQTT_CLIENTS)
       to = MQTT_CLIENTS - 1;
    const char *e = str;
@@ -1893,9 +1893,25 @@ void revk_mqtt_send_str_copy(const char *str, int retain, int copies)
    }
 #endif
 }
-void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_t * jp, int copies)
-{                               // Send to main, and N additional MQTT servers, or only to extra server N if copies -ve
+
+void revk_mqtt_send_payload_copy(const char *prefix, int retain, const char *suffix, const char *payload, int copy)
+{                               // Send to main, and N additional MQTT servers, or only to extra server N if copy -ve
 #ifdef	CONFIG_REVK_MQTT
+   char *topic = NULL;
+   if (!prefix)
+      topic = (char *) suffix;  /* Set fixed topic */
+   else if (asprintf(&topic, suffix ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, suffix) < 0)
+      topic = NULL;
+   if (!topic)
+      return;
+   revk_mqtt_send_raw(topic, retain, payload, copy);
+   if (topic != suffix)
+      freez(topic);
+#endif
+}
+
+void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_t * jp, int copy)
+{
    char *payload = NULL;
    if (jp)
    {
@@ -1905,46 +1921,32 @@ void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_
       if (!payload && err)
          ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
    }
-   char *topic = NULL;
-   if (!prefix)
-      topic = (char *) suffix;     /* Set fixed topic */
-   else if (asprintf(&topic, suffix ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, suffix) < 0)
-      topic = NULL;
-   if (!topic)
-   {
-      freez(payload);
-      return;
-   }
-   revk_mqtt_send_raw(topic, retain, payload, copies);
-   if (topic != suffix)
-      freez(topic);
    freez(payload);
-#endif
 }
 
-void revk_state_copy(const char *suffix, jo_t * jp, int copies)
+void revk_state_copy(const char *suffix, jo_t * jp, int copy)
 {                               // State message (retained)
-   revk_mqtt_send_copy(prefixstate, 1, suffix, jp, copies);
+   revk_mqtt_send_copy(prefixstate, 1, suffix, jp, copy);
 }
 
-void revk_event_copy(const char *suffix, jo_t * jp, int copies)
+void revk_event_copy(const char *suffix, jo_t * jp, int copy)
 {                               // Event message (may one day create log entries)
-   revk_mqtt_send_copy(prefixevent, 0, suffix, jp, copies);
+   revk_mqtt_send_copy(prefixevent, 0, suffix, jp, copy);
 }
 
-void revk_error_copy(const char *suffix, jo_t * jp, int copies)
+void revk_error_copy(const char *suffix, jo_t * jp, int copy)
 {                               // Error message, waits a while for connection if possible before sending
    xEventGroupWaitBits(revk_group,
 #ifdef	CONFIG_REVK_WIFI
                        GROUP_WIFI |
 #endif
                        GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);
-   revk_mqtt_send_copy(prefixerror, 0, suffix, jp, copies);
+   revk_mqtt_send_copy(prefixerror, 0, suffix, jp, copy);
 }
 
-void revk_info_copy(const char *suffix, jo_t * jp, int copies)
+void revk_info_copy(const char *suffix, jo_t * jp, int copy)
 {                               // Info message, nothing special
-   revk_mqtt_send_copy(prefixinfo, 0, suffix, jp, copies);
+   revk_mqtt_send_copy(prefixinfo, 0, suffix, jp, copy);
 }
 
 const char *revk_restart(const char *reason, int delay)
