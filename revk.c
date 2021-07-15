@@ -425,14 +425,13 @@ esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
 #ifdef CONFIG_REVK_MESH
 esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int flag, const mesh_opt_t opt[], int opt_count)
 {                               // Mutex to protect non-re-entrant call
-   if (!esp_mesh_is_device_active())
-      return ESP_ERR_MESH_DISCONNECTED;
    xSemaphoreTake(mesh_mutex, portMAX_DELAY);
    esp_err_t e = esp_mesh_send(to, data, flag, opt, opt_count);
    xSemaphoreGive(mesh_mutex);
    if (e)
    {
-      ESP_LOGI(TAG, "Mesh send failed:%s (%d)", esp_err_to_name(e), data->size);
+      if (e != ESP_ERR_MESH_DISCONNECTED)
+         ESP_LOGI(TAG, "Mesh send failed:%s (%d)", esp_err_to_name(e), data->size);
       if (e == ESP_ERR_MESH_NO_MEMORY)
          revk_restart("ESP_ERR_MESH_NO_MEMORY", 1);     // Messy, catch memory leak
    }
