@@ -529,7 +529,7 @@ static void mesh_task(void *pvParameters)
             if (wasonline != mesh_leaves_online)
             {
                wasonline = mesh_leaves_online;
-               if (mesh_leaves_online <= (meshmax + 1) / 2)
+               if (mesh_leaves_online <= meshmax / 2)
                {                // too few - force restart of mesh
 #if 0                           // TODO some sort of back off?
                   revk_wifi_close();
