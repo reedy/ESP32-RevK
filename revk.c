@@ -1180,7 +1180,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             {
                send_sub(client, mesh_leaf[a].addr.addr);
                jo_t j = jo_object_alloc();
-               jo_bool(j, "status", 1);
+               jo_bool(j, "connect", 1);
                mesh_send_json(&mesh_leaf[a].addr, &j);
             }
 #endif
