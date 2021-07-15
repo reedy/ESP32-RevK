@@ -50,6 +50,7 @@ extern char *prefixstate;
 extern char *prefixevent;
 extern char *prefixinfo;
 extern char *prefixerror;
+extern uint8_t meshcycle;
 
 typedef struct {                // Dynamic binary data
    uint16_t len;
