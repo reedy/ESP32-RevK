@@ -462,7 +462,6 @@ static void mesh_task(void *pvParameters)
       uint64_t now = esp_timer_get_time();
       if (!esp_mesh_is_device_active())
       {
-         ESP_LOGI(TAG, "Wait"); // TODO
          sleep(1);
          continue;
       }
