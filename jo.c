@@ -88,8 +88,9 @@ jo_t jo_pad(jo_t * jp, int n)
    if (!jp)
       return NULL;
    jo_t j = *jp;
-   n += j->level + 1;           // Allow space to close and null
-   if (!j->alloc || (j->ptr + n > j->len && !(j->buf = saferealloc(j->buf, j->len = j->ptr + n))))
+   if (!j->parse)
+      n += j->level + 1;        // Allow space to close and null
+   if (!j->alloc || ((j->parse || j->ptr + n > j->len) && !(j->buf = saferealloc(j->buf, j->len = (j->parse ? j->len : j->ptr) + n))))
    {                            // Cannot pad
       jo_free(jp);
       return NULL;
