@@ -3175,6 +3175,13 @@ int revk_wait_mqtt(int seconds)
 jo_t jo_make(void)
 {
    jo_t j = jo_object_alloc();
+   time_t now = time(0);
+   if (now > 1000000000)
+   {
+      struct tm t;
+      gmtime_r(&now, &t);
+      jo_stringf(j, "ts", "%04d-%02d-%02dT%02d:%02d:%02dZ", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
+   }
    if (*nodename)
       jo_string(j, "node", nodename);
    return j;
