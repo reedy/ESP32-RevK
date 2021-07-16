@@ -54,7 +54,7 @@ extern char *prefixinfo;
 extern char *prefixerror;
 extern char *appname;
 extern char *hostname;
-extern char *name;
+extern char *node;	// Node name
 
 typedef struct {                // Dynamic binary data
    uint16_t len;

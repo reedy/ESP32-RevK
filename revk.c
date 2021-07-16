@@ -72,7 +72,7 @@ static const char
 		s(tz,CONFIG_REVK_TZ);			\
 		u32(watchdogtime,10);			\
 		s(appname,CONFIG_REVK_APPNAME);		\
-    		s(name,NULL);				\
+    		s(node,NULL);				\
 		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
@@ -1198,8 +1198,8 @@ static void task(void *pvParameters)
          if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next)
          {
             jo_t j = jo_object_alloc();
-            if (*name)
-               jo_string(j, "name", name);
+            if (*node)
+               jo_string(j, "node", node);
             jo_string(j, "id", revk_id);
             {                   // uptime
                uint64_t t = esp_timer_get_time();
@@ -3128,8 +3128,8 @@ void revk_mqtt_close(const char *reason)
       if (mqtt_client[client])
       {
          jo_t j = jo_object_alloc();
-         if (*name)
-            jo_string(j, "name", name);
+         if (*node)
+            jo_string(j, "node", node);
          jo_string(j, "id", revk_id);
          jo_bool(j, "up", 0);
          jo_string(j, "reason", reason);
