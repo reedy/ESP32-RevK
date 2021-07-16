@@ -50,6 +50,9 @@ extern char *prefixstate;
 extern char *prefixevent;
 extern char *prefixinfo;
 extern char *prefixerror;
+extern char *appname;
+extern char *hostname;
+extern char *name;
 extern uint8_t meshcycle;
 
 typedef struct {                // Dynamic binary data
@@ -85,9 +88,6 @@ esp_err_t revk_err_check(esp_err_t, const char *file, int line, const char *func
 esp_err_t revk_err_check(esp_err_t e);
 #define	REVK_ERR_CHECK(x) revk_err_check(x)
 #endif
-
-const char *revk_appname(void);
-const char *revk_hostname(void);
 
 // Make a task
 TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);

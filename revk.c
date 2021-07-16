@@ -31,7 +31,7 @@ static const char
 #endif
 
 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_tls.html
-//#ifndef	CONFIG_ESP_TLS_USING_WOLFSSL
+//#ifndef       CONFIG_ESP_TLS_USING_WOLFSSL
 //#warning You may want to use WolfSSL: git submodule add --recursive https://github.com/espressif/esp-wolfssl.git components/esp-wolfssl
 //#endif
 
@@ -72,7 +72,8 @@ static const char
 		s(tz,CONFIG_REVK_TZ);			\
 		u32(watchdogtime,10);			\
 		s(appname,CONFIG_REVK_APPNAME);		\
-		snl(hostname,NULL);			\
+    		s(name,NULL);				\
+		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
 		p(state);				\
@@ -127,7 +128,6 @@ static const char
 
 #define s(n,d)		char *n;
 #define sp(n,d)		char *n;
-#define snl(n,d)	char *n;
 #define sa(n,a,d)	char *n[a];
 #define sap(n,a,d)	char *n[a];
 #define fh(n,a,s,d)	char n[a][s];
@@ -164,7 +164,6 @@ settings
 #endif
 #undef s
 #undef sp
-#undef snl
 #undef sa
 #undef sap
 #undef fh
@@ -210,6 +209,7 @@ uint64_t revk_binid = 0;        /* Binary chip ID */
 uint8_t revk_mac[6];            // MAC
 
 /* Local */
+static uint32_t up_next;        // next up report (uptime)
 static EventGroupHandle_t revk_group;
 static volatile uint64_t offline = 1;   // When we first went off line
 static volatile uint64_t offline_try = 1;       // When we last tried to get on line
@@ -289,59 +289,6 @@ void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic,
 static void mesh_send_json(mesh_addr_t * addr, jo_t * jp);
 static SemaphoreHandle_t mesh_mutex = NULL;
 #endif
-
-static void revk_report_state(int copy)
-{                               // Report state
-   const esp_app_desc_t *app = esp_ota_get_app_description();
-   uint64_t t = esp_timer_get_time();
-   jo_t j = jo_object_alloc();
-   jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
-#ifdef	CONFIG_SECURE_BOOT
-   jo_bool(j, "secureboot", 1);
-#endif
-#ifdef	CONFIG_NVS_ENCRYPTION
-   jo_bool(j, "nvsecryption", 1);
-#endif
-#ifdef	CONFIG_REVK_MESH
-   if (esp_mesh_is_root())
-      jo_int(j, "nodes", mesh_leaves_online);
-#endif
-   jo_string(j, "id", revk_id);
-   jo_string(j, "app", appname);
-   jo_string(j, "version", revk_version);
-   const char *v = app->date;
-   if (v && strlen(v) == 11)
-   {                            // Stupid format Jul 10 2021
-      char date[11];
-      sprintf(date, "%s-xx-%.2s", v + 7, v + 4);
-      const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
-      for (int m = 0; m < 12; m++)
-         if (!strncmp(mname + m * 3, v, 3))
-         {
-            date[5] = '0' + (m + 1) / 10;
-            date[6] = '0' + (m + 1) % 10;
-            break;
-         }
-      jo_stringf(j, "build", "%sT%s", date, app->time);
-   }
-   jo_int(j, "mem", esp_get_free_heap_size());
-   jo_int(j, "flash", spi_flash_get_chip_size());
-   time_t now = time(0);
-   if (now > 1000000000)
-      jo_int(j, "time", now);
-   jo_int(j, "rst", esp_reset_reason());
-   wifi_ap_record_t ap = { };
-   if (!esp_wifi_sta_get_ap_info(&ap) && ap.primary)
-   {
-      jo_string(j, "ssid", (char *) ap.ssid);
-      jo_stringf(j, "bssid", "%02X%02X%02X%02X%02X%02X", (uint8_t) ap.bssid[0], (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
-      jo_int(j, "rssi", ap.rssi);
-      jo_int(j, "chan", ap.primary);
-      if (ap.phy_lr)
-         jo_bool(j, "lr", 1);
-   }
-   revk_state_copy(NULL, &j, copy);
-}
 
 #if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
@@ -795,7 +742,7 @@ static void mesh_task(void *pvParameters)
                            app_callback(0, "mesh", NULL, "summary", j);
                      } else if (!jo_strcmp(j, "connect"))
                      {
-                        revk_report_state(MQTT_CLIENTS - 1);
+                        up_next = 0;
                         if (app_callback)
                            app_callback(0, prefixcommand, NULL, "connect", NULL);
                      } else if (app_callback)
@@ -803,7 +750,7 @@ static void mesh_task(void *pvParameters)
                   }
                }
             }
-	    jo_free(&j);
+            jo_free(&j);
          }
       }
    }
@@ -1182,7 +1129,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             }
 #endif
       send_sub(client, revk_mac);       // Self
-      revk_report_state(-client);
+      up_next = 0;
       if (app_callback)
       {
          jo_t j = jo_create_alloc();
@@ -1557,31 +1504,66 @@ static void task(void *pvParameters)
          static uint8_t lastch = 0;
          static uint8_t lastbssid[6];
          static uint32_t lastheap = 0;
-         static uint32_t was = 0;       // Yes time_t but ESP has an odd idea of time_t
-#ifdef	CONFIG_REVK_MESH
-         static int lastnodes = 0;
-#endif
          uint32_t heap = esp_get_free_heap_size();
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info(&ap);
-         uint32_t now = time(0);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > was + 300
-#ifdef	CONFIG_REVK_MESH
-             || lastnodes != mesh_leaves_online
-#endif
-             )
+         uint32_t now = uptime();
+         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next)
          {
-            if (now > 1000000000 && was <= 1000000000)
-               ESP_LOGD(TAG, "Clock set %u", now);
-            was = now;
-#ifdef	CONFIG_REVK_MESH
-            lastnodes = mesh_leaves_online;
+            jo_t j = jo_object_alloc();
+            if (*name)
+               jo_string(j, "name", name);
+            jo_string(j, "id", revk_id);
+            {                   // uptime
+               uint64_t t = esp_timer_get_time();
+               jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
+            }
+            if (!up_next)
+            {                   // some unchaning stuff
+#ifdef	CONFIG_SECURE_BOOT
+               jo_bool(j, "secureboot", 1);
 #endif
+#ifdef	CONFIG_NVS_ENCRYPTION
+               jo_bool(j, "nvsecryption", 1);
+#endif
+               jo_string(j, "app", appname);
+               jo_string(j, "version", revk_version);
+               const esp_app_desc_t *app = esp_ota_get_app_description();
+               const char *v = app->date;
+               if (v && strlen(v) == 11)
+               {                // Stupid format Jul 10 2021
+                  char date[11];
+                  sprintf(date, "%s-xx-%.2s", v + 7, v + 4);
+                  const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+                  for (int m = 0; m < 12; m++)
+                     if (!strncmp(mname + m * 3, v, 3))
+                     {
+                        date[5] = '0' + (m + 1) / 10;
+                        date[6] = '0' + (m + 1) % 10;
+                        break;
+                     }
+                  jo_stringf(j, "build", "%sT%s", date, app->time);
+                  jo_int(j, "flash", spi_flash_get_chip_size());
+                  jo_int(j, "rst", esp_reset_reason());
+               }
+            }
+            if (!up_next || heap / 10000 < lastheap / 10000)
+               jo_int(j, "mem", esp_get_free_heap_size());
+            if (!up_next || lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6))
+            {                   // Wifi
+               jo_string(j, "ssid", (char *) ap.ssid);
+               jo_stringf(j, "bssid", "%02X%02X%02X%02X%02X%02X", (uint8_t) ap.bssid[0], (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
+               jo_int(j, "rssi", ap.rssi);
+               jo_int(j, "chan", ap.primary);
+               if (ap.phy_lr)
+                  jo_bool(j, "lr", 1);
+            }
+            revk_state_copy(NULL, &j, MQTT_CLIENTS-1);
             lastheap = heap;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
-            revk_report_state(0);
+            up_next = now + 3600;
          }
       }
 #endif
@@ -1645,7 +1627,6 @@ void revk_init(app_callback_t * app_callback_cb)
    revk_register("prefix", 0, 0, &prefixcommand, "command", SETTING_SECRET);    // Parent
    /* Fallback if no dedicated partition */
 #define str(x) #x
-#define snl(n,d)	revk_register(#n,0,0,&n,d,0)
 #define s(n,d)		revk_register(#n,0,0,&n,d,0)
 #define sp(n,d)		revk_register(#n,0,0,&n,d,SETTING_SECRET)
 #define sa(n,a,d)	revk_register(#n,a,0,&n,d,0)
@@ -1689,7 +1670,6 @@ void revk_init(app_callback_t * app_callback_cb)
    apconfigsettings;
 #endif
 #undef s
-#undef snl
 #undef sa
 #undef fh
 #undef u32
@@ -3251,7 +3231,7 @@ const char *revk_command(const char *tag, jo_t j)
       e = revk_upgrade(NULL, j);        // Called internally maybe
    if (!e && !strcmp(tag, "status"))
    {
-      revk_report_state(0);
+      up_next = 0;
       e = "";
    }
    if (!e && watchdogtime && !strcmp(tag, "watchdog"))
@@ -3502,13 +3482,3 @@ int revk_wait_mqtt(int seconds)
    return xEventGroupWaitBits(revk_group, GROUP_MQTT, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_MQTT;
 }
 #endif
-
-const char *revk_appname(void)
-{
-   return appname;
-}
-
-const char *revk_hostname(void)
-{
-   return hostname;
-}
