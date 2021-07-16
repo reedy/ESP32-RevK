@@ -1559,7 +1559,7 @@ static void task(void *pvParameters)
                if (ap.phy_lr)
                   jo_bool(j, "lr", 1);
             }
-            revk_state_copy(NULL, &j, MQTT_CLIENTS-1);
+            revk_state_copy(NULL, &j, MQTT_CLIENTS - 1);
             lastheap = heap;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
@@ -3434,8 +3434,10 @@ void revk_mqtt_close(const char *reason)
    for (int client = 0; client < MQTT_CLIENTS; client++)
    {
       jo_t j = jo_object_alloc();
-      jo_bool(j, "up", 0);
+      if (*name)
+         jo_string(j, "name", name);
       jo_string(j, "id", revk_id);
+      jo_bool(j, "up", 0);
       jo_string(j, "reason", reason);
       revk_state_copy(NULL, &j, -client);
       if (mqtt_client[client])
