@@ -1,7 +1,5 @@
 // Main control code, working with WiFi, MQTT, and managing settings and OTA Copyright Â ©2019 Adrian Kennard Andrews & Arnold Ltd
 
-// TODO testing the fallback, e.g. if no internet access reboot
-
 static const char
     __attribute__((unused)) * TAG = "RevK";
 
@@ -31,6 +29,11 @@ static const char
 #include <esp_mesh.h>
 #include "freertos/semphr.h"
 #endif
+
+// https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_tls.html
+//#ifndef	CONFIG_ESP_TLS_USING_WOLFSSL
+//#warning You may want to use WolfSSL: git submodule add --recursive https://github.com/espressif/esp-wolfssl.git components/esp-wolfssl
+//#endif
 
 //#ifndef       CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS
 //#warning CONFIG_HEAP_ABORT_WHEN_ALLOCATION_FAILS recommended
