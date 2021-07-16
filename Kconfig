@@ -54,20 +54,6 @@ menu "RevK"
         help
 		Total nodes allowed
 
-	config REVK_MESHCYCLE
-        int "Mesh reporting cycle"
-        default 2
-	depends on REVK_MESH
-        help
-		Mesh reporting cycle (seconds)
-
-	config REVK_MESHWARMUP
-        int "Mesh startup"
-        default 30
-	depends on REVK_MESH
-        help
-		Time for mesh to converge (seconds)
-
 	config REVK_MESHLR
         bool "Mesh LR mode"
         default n

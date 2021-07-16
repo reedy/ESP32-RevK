@@ -197,8 +197,7 @@ jo_t jo_parse_str(const char *buf)
 {                               // Start parsing a null terminated JSON object string
    if (!buf)
       return NULL;
-   jo_t j = jo_parse_mem(buf, strlen(buf));
-   j->null = 1;                 // We know a null is at the end
+   jo_t j = jo_parse_mem(buf, strlen(buf) + 1); // Include the null so we set null tag
    return j;
 }
 
@@ -211,6 +210,11 @@ jo_t jo_parse_mem(const void *buf, size_t len)
       return j;                 // malloc fail
    j->parse = 1;
    j->buf = (char *) buf;
+   if (len && !j->buf[len - 1])
+   {                            // We provided a null, nice
+      len--;
+      j->null = 1;
+   }
    j->len = len;
    return j;
 }

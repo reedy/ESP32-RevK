@@ -38,11 +38,13 @@
         // Target can be something not for us if extra subscribes done, but if it is for us, or internal, it is passes as NULL
         // Suffix can be NULL
 typedef const char *app_callback_t(int client, const char *prefix, const char *target, const char *suffix, jo_t);
+typedef uint8_t mac_t[6];
 
 // Data
 extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
 extern char revk_id[13];        // Chip ID hex (from MAC)
+extern mac_t revk_mac;          // Our mac
 extern uint64_t revk_binid;     // Chip ID binary
 extern char *prefixcommand;
 extern char *prefixsetting;
@@ -53,7 +55,6 @@ extern char *prefixerror;
 extern char *appname;
 extern char *hostname;
 extern char *name;
-extern uint8_t meshcycle;
 
 typedef struct {                // Dynamic binary data
    uint16_t len;
@@ -63,7 +64,8 @@ typedef struct {                // Dynamic binary data
 #define freez(x) do{if(x){free(x);x=NULL;}}while(0)     // Just useful
 
 // Calls
-void revk_init(app_callback_t * app_callback);
+void revk_boot(app_callback_t * app_callback);
+void revk_start(void);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
 // Note, a setting that is SECRET that is a root name followed by sub names creates parent/child. Only shown if parent has value or default value (usually overlap a key child)
 void revk_register(const char *name,    // Setting name (note max 15 characters inc any number suffix)
@@ -94,7 +96,7 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);
 
 // reporting via main MQTT, copy option is how many additional MQTT to copy, normally 0 or 1. Setting -N means send only to specific additional MQTT
 void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int copies);
-void revk_mqtt_send_payload_copy(const char *prefix, int retain, const char *suffix,const char *payload,int copy);
+void revk_mqtt_send_payload_copy(const char *prefix, int retain, const char *suffix, const char *payload, int copy);
 void revk_mqtt_send_str_copy(const char *str, int retain, int copies);
 #define	revk_mqtt_send_str(s) revk_mqtt_send_str_copy(s,0,0);
 void revk_state_copy(const char *suffix, jo_t *, int copy);
@@ -112,9 +114,10 @@ void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_
 const char *revk_setting(jo_t); // Store settings
 const char *revk_command(const char *tag, jo_t);        // Do an internal command
 const char *revk_restart(const char *reason, int delay);        // Restart cleanly
-const char *revk_ota(const char *host,const char *target); // OTA and restart cleanly (target NULL for self as root node)
+const char *revk_ota(const char *host, const char *target);     // OTA and restart cleanly (target NULL for self as root node)
 
 #ifdef	CONFIG_REVK_MQTT
+void revk_mqtt_init(void);
 lwmqtt_t revk_mqtt(int);
 void revk_mqtt_close(const char *reason);       // Clean close MQTT
 int revk_wait_mqtt(int seconds);
@@ -124,6 +127,12 @@ int revk_wait_mqtt(int seconds);
 const char *revk_wifi(void);
 void revk_wifi_close(void);
 int revk_wait_wifi(int seconds);
+#endif
+#ifdef	CONFIG_REVK_MESH
+extern uint16_t meshmax;
+void revk_send_sub(int client, const mac_t);
+void revk_send_unsub(int client, const mac_t);
+void revk_mesh_send_json(const mac_t mac, jo_t * jp);
 #endif
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
 uint32_t revk_offline(void);    // How long we have been offline (seconds), or 0 if online
