@@ -1456,13 +1456,14 @@ void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic,
    if (tlen < 0)
       tlen = strlen(topic);
    data->size = tlen + 1 + plen;
-   if (client)
+   char tag = (client || (plen && (*(char *) payload >= '1' || *(char *) payload < '0' + MQTT_CLIENTS)));
+   if (tag)
       data->size++;
    if (retain)
       data->size++;
    data->data = malloc(data->size + MESH_PAD);
    char *p = (char *) data->data;
-   if (client || (plen && (*(char *) payload >= '1' || *(char *) payload < '0' + MQTT_CLIENTS)))
+   if (tag)
       *p++ = '0' + client;
    if (retain)
       *p++ = '+';
