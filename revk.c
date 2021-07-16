@@ -778,7 +778,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             int pos;
             err = jo_error(j, &pos);
             if (err)
-               ESP_LOGE(TAG, "Fail at pos %d, %s: %s (%.*s) plen=%d", pos, err, jo_debug(j), plen, payload, plen);
+               ESP_LOGE(TAG, "Fail at pos %d, %s: (%.10s...) %.*s", pos, err, jo_debug(j), plen, payload );
          }
          jo_rewind(j);
       }
