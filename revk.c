@@ -580,41 +580,44 @@ static void wifi_init(void)
    REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
    const char *ssid = wifissid;
    ESP_LOGI(TAG, "WIFi [%s]", ssid);
-   wifi_config_t wifi_config = { 0, };
+   wifi_config_t cfg = { 0, };
    if (wifibssid[0] || wifibssid[1] || wifibssid[2])
    {
-      memcpy(wifi_config.sta.bssid, wifibssid, sizeof(wifi_config.sta.bssid));
-      wifi_config.sta.bssid_set = 1;
+      memcpy(cfg.sta.bssid, wifibssid, sizeof(cfg.sta.bssid));
+      cfg.sta.bssid_set = 1;
    }
-   wifi_config.sta.channel = wifichan;
-   wifi_config.sta.scan_method = ((esp_reset_reason() == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
-   strncpy((char *) wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
-   strncpy((char *) wifi_config.sta.password, wifipass, sizeof(wifi_config.sta.password));
-   REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
+   cfg.sta.channel = wifichan;
+   cfg.sta.scan_method = ((esp_reset_reason() == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
+   strncpy((char *) cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
+   strncpy((char *) cfg.sta.password, wifipass, sizeof(cfg.sta.password));
+   REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &cfg));
    setup_ip();
    // Doing AP mode after STA mode - seems to fail is not
    if (*apssid)
    {                            // AP config
-      wifi_config_t wifi_config = { 0, };
-      wifi_config.ap.channel = wifichan;
-      wifi_config.ap.ssid_len = strlen(apssid);
-      if (wifi_config.ap.ssid_len > sizeof(wifi_config.ap.ssid))
-         wifi_config.ap.ssid_len = sizeof(wifi_config.ap.ssid);
-      memcpy((char *) wifi_config.ap.ssid, apssid, wifi_config.ap.ssid_len);
+      cfg cfg = { 0, };
+      cfg.ap.channel = wifichan;
+      int l;
+      if ((l = strlen(apssid)) > sizeof(cfg.ap.ssid))
+         l = sizeof(cfg.ap.ssid);
+      cfg.ap.ssid_len = l;
+      memcpy(cfg.ap.ssid, apssid, cfg.ap.ssid_len = l);
       if (*appass)
       {
-         strncpy((char *) wifi_config.ap.password, appass, sizeof(wifi_config.ap.password));
-         wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+         if ((l = strlen(appass)) > sizeof(cfg.ap.password))
+            l = sizeof(cfg.ap.password);
+         memcpy(&cfg.ap.password, appass, l);
+         cfg.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
       }
-      wifi_config.ap.ssid_hidden = aphide;
-      wifi_config.ap.max_connection = apmax;
+      cfg.ap.ssid_hidden = aphide;
+      cfg.ap.max_connection = apmax;
       esp_netif_ip_info_t info = { 0, };
       makeip(&info, *apip ? apip : "10.0.0.1/24", NULL);
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
       REVK_ERR_CHECK(esp_netif_set_ip_info(ap_netif, &info));
       REVK_ERR_CHECK(esp_netif_dhcps_start(ap_netif));
-      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+      REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &cfg));
       ESP_LOGI(TAG, "WIFiAP [%s]%s%s", apssid, aphide ? " (hidden)" : "", aplr ? " (LR)" : "");
    }
    REVK_ERR_CHECK(esp_wifi_start());
@@ -646,12 +649,24 @@ static void mesh_init(void)
       cfg.channel = wifichan;
       if (!wifichan)
          cfg.allow_channel_switch = 1;
-      cfg.router.ssid_len = strlen(wifissid);
-      strncpy((char *) cfg.router.ssid, wifissid, sizeof(cfg.router.ssid));
+      int l;
+      if ((l = strlen(wifissid)) > sizeof(cfg.router.ssid))
+         l = sizeof(cfg.router.ssid);
+      cfg.router.ssid_len = l;
+      memcpy(cfg.router.ssid, wifissid, cfg.router.ssid_len = l);
       if (*wifipass)
-         strncpy((char *) &cfg.router.password, wifipass, strlen(wifipass));
+      {
+         if ((l = strlen(wifipass)) > sizeof(cfg.router.password))
+            l = sizeof(cfg.router.password);
+         memcpy(&cfg.router.password, wifipass, l);
+      }
       cfg.mesh_ap.max_connection = meshwidth;
-      strncpy((char *) &cfg.mesh_ap.password, meshpass, sizeof(cfg.mesh_ap.password));
+      if (*meshpass)
+      {
+         if ((l = strlen(meshpass)) > sizeof(cfg.mesh_ap.password))
+            l = sizeof(cfg.mesh_ap.password);
+         memcpy(&cfg.mesh_ap.password, meshpass, l);
+      }
       REVK_ERR_CHECK(esp_mesh_set_config(&cfg));
       if (meshmax)
          REVK_ERR_CHECK(esp_mesh_set_capacity_num(meshmax));
@@ -778,7 +793,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             int pos;
             err = jo_error(j, &pos);
             if (err)
-               ESP_LOGE(TAG, "Fail at pos %d, %s: (%.10s...) %.*s", pos, err, jo_debug(j), plen, payload );
+               ESP_LOGE(TAG, "Fail at pos %d, %s: (%.10s...) %.*s", pos, err, jo_debug(j), plen, payload);
          }
          jo_rewind(j);
       }
