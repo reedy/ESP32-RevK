@@ -595,7 +595,7 @@ static void wifi_init(void)
    // Doing AP mode after STA mode - seems to fail is not
    if (*apssid)
    {                            // AP config
-      cfg cfg = { 0, };
+      wifi_init_config_t cfg = { 0, };
       cfg.ap.channel = wifichan;
       int l;
       if ((l = strlen(apssid)) > sizeof(cfg.ap.ssid))
