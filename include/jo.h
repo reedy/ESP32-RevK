@@ -94,6 +94,9 @@ void jo_lit(jo_t, const char *tag, const char *lit);
 void jo_litf(jo_t, const char *tag, const char *format, ...);
 // Add a literal string (formatted) - caller is expected to meet JSON rules - used typically for numeric values
 
+void jo_datetime(jo_t j, const char *tag, time_t t);
+// Add a datetime (ISO, Z)
+
 extern const char JO_BASE64[];
 extern const char JO_BASE32[];
 extern const char JO_BASE16[];
@@ -146,3 +149,6 @@ char *jo_strdup(jo_t);
 
 // Get a number
 int64_t jo_read_int(jo_t);
+
+// Get a datetime
+time_t jo_read_datetime(jo_t);

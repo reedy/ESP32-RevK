@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <time.h>
 #include "esp_log.h"
 
 #ifndef	JO_MAX
@@ -574,6 +575,18 @@ void jo_baseN(jo_t j, const char *tag, const void *src, size_t slen, uint8_t bit
    jo_write(j, '"');
 }
 
+void jo_datetime(jo_t j, const char *tag, time_t t)
+{
+   if (t < 1000000000)
+      jo_null(j, tag);
+   else
+   {
+      struct tm tm;
+      gmtime_r(&t, &tm);
+      jo_stringf(j, tag, "%04d-%02d-%02dT%02d:%02d:%02dZ", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+   }
+}
+
 ssize_t jo_strncpyd(jo_t j, void *dstv, size_t dlen, uint8_t bits, const char *alphabet)
 {                               // Base16/32/64 string to binary
    uint8_t *dst = dstv;
@@ -998,4 +1011,36 @@ int64_t jo_read_int(jo_t j)
    }
    jo_free(&p);
    return n * s;
+}
+
+time_t jo_read_datetime(jo_t j)
+{                               // Get a datetime
+   if (jo_here(j) != JO_STRING)
+      return -1;
+   char dt[21];
+   ssize_t l = jo_strncpy(j, dt, sizeof(dt));
+   if (l != 10 && l != 19 && l != 20)
+      return -1;
+   int y = 0,
+       m = 0,
+       d = 0,
+       H = 0,
+       M = 0,
+       S = 0;
+   int n = sscanf(dt, "%d-%d-%d%*c%d:%d:%d", &y, &m, &d, &H, &M, &S);
+   if (n != 3 && n != 6)
+      return 1;
+   struct tm tm = {.tm_year = y - 1900,.tm_mon = m - 1,.tm_mday = d,.tm_hour = H,.tm_min = M,.tm_sec = S,.tm_isdst = -1 };
+   time_t t = 0;
+#if 0                           // ESP IDF has no timegm!
+   if (l == 20 && dt[l - 1] == 'Z')
+      t = timegm(&tm);
+   else
+      t = timelocal(&tm);
+#else
+   if (l == 20 && dt[l - 1] == 'Z')
+      tm.tm_isdst = 0;
+   t = mktime(&tm);
+#endif
+   return t;
 }
