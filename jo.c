@@ -398,7 +398,7 @@ static void jo_write_str(jo_t j, const char *s, ssize_t len)
    while (len--)
    {
       uint8_t c = *s++;
-#define esc(a,b) if(c==b){jo_write(j,'\\');jo_write(j,b);continue;}
+#define esc(a,b) if(c==b){jo_write(j,'\\');jo_write(j,a);continue;}
 #define esco(a,b)               // optional
       escapes
 #undef esco
