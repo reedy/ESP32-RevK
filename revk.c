@@ -595,7 +595,7 @@ static void wifi_init(void)
    // Doing AP mode after STA mode - seems to fail is not
    if (*apssid)
    {                            // AP config
-      wifi_init_config_t cfg = { 0, };
+      wifi_config_t cfg = { 0, };
       cfg.ap.channel = wifichan;
       int l;
       if ((l = strlen(apssid)) > sizeof(cfg.ap.ssid))
@@ -1859,10 +1859,10 @@ static void ota_task(void *pvParameters)
 #else
          esp_ota_handle_t ota_handle;
          const esp_partition_t *ota_partition = NULL;
-         int ota_progess = 0;
+         int ota_progress = 0;
          int ota_data = 0;
-         int64_t next = 0;
-         ota_progress = 0;
+         uint32_t next = 0;
+         uint32_t now = uptime();
          if (!ota_partition)
             ota_partition = esp_ota_get_running_partition();
          ota_partition = esp_ota_get_next_update_partition(ota_partition);
@@ -1879,18 +1879,18 @@ static void ota_task(void *pvParameters)
                jo_t j = jo_object_alloc();
                jo_int(j, "size", ota_size);
                revk_info("upgrade", &j);
-               next = now + 5000000LL;
+               next = now + 5;
             }
             while (!err && ota_data < ota_size)
             {
                uint8_t buf[1024];
-               int len = esp_http_client_read(client, buf, sizeof(buf));
+               int len = esp_http_client_read_response(client, (void *) buf, sizeof(buf));
                if (len <= 0)
                   break;
-               if ((err = REVK_ERR_CHECK(esp_ota_write(ota_handle, evt->data, evt->data_len))))
+               if ((err = REVK_ERR_CHECK(esp_ota_write(ota_handle, buf, len))))
                   break;
-               ota_data += evt->data_len;
-               int64_t now = esp_timer_get_time();
+               ota_data += len;
+               now = uptime();
                int percent = ota_data * 100 / ota_size;
                if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                {
@@ -1899,7 +1899,7 @@ static void ota_task(void *pvParameters)
                   jo_int(j, "loaded", ota_data);
                   jo_int(j, "size", ota_size);
                   revk_info("upgrade", &j);
-                  next = now + 5000000LL;
+                  next = now + 5;
                }
             }
             // End
