@@ -139,6 +139,6 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp);
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
 uint32_t revk_offline(void);    // How long we have been offline (seconds), or 0 if online
 #endif
-void revk_blink(uint8_t on, uint8_t off, const char *colours);  // Set LED blink rate (0,0) for default
+void revk_blink(uint8_t on, uint8_t off, const char *colours);  // Set LED blink rate and colour sequence for on state (for RGB LED)
 
 #endif

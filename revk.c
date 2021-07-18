@@ -1117,32 +1117,39 @@ static void task(void *pvParameters)
          esp_task_wdt_reset();
       if (blink[0])
       {                         // LED blinking
-         if (blink[1] && blink_colours)
-         {                      // Colours
-            static const char *c = "";
-            if (!*c)
-               c = blink_colours;
-            gpio_set_level(blink[0] & 0x3F, (*c == 'R' || *c == 'Y' || *c == 'M' || *c == 'W') ^ ((blink[0] & 0x40) ? 1 : 0));  // Red LED
-            gpio_set_level(blink[1] & 0x3F, (*c == 'G' || *c == 'Y' || *c == 'C' || *c == 'W') ^ ((blink[1] & 0x40) ? 1 : 0));  // Green LED
-            gpio_set_level(blink[2] & 0x3F, (*c == 'B' || *c == 'C' || *c == 'M' || *c == 'W') ^ ((blink[2] & 0x40) ? 1 : 0));  // Blue LED
-            c++;
-         } else
+         static uint8_t lit = 0,
+             count = 0;
+         if (count)
+            count--;
+         else
          {
-            static uint8_t lit = 0,
-                count = 0;
-            if (count)
-               count--;
-            else
-            {
-               uint8_t on = blink_on,
-                   off = blink_off;
+            uint8_t on = blink_on,
+                off = blink_off;
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-               if (!on && !off)
-                  on = off = (revk_offline()? 6 : 3);
+            if (!on && !off)
+               on = off = (revk_offline()? 6 : 3);
 #endif
+            lit = 1 - lit;
+            count = (lit ? on : off);
+            if (!count)
+            {                   // Only once, allows for on or off to be 0, if both 0 we do nothing!
                lit = 1 - lit;
                count = (lit ? on : off);
-               if (count)
+            }
+            if (count)
+            {
+               if (blink[1] && blink_colours)
+               { // Coloured LED
+                  static const char *c = "";
+                  if (!*c)
+                     c = blink_colours;
+                  char col = 0;
+                  if (lit)
+                     col = *c++;        // Sequences the colours set for the on state
+                  gpio_set_level(blink[0] & 0x3F, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x40) ? 1 : 0));        // Red LED
+                  gpio_set_level(blink[1] & 0x3F, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x40) ? 1 : 0));        // Green LED
+                  gpio_set_level(blink[2] & 0x3F, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x40) ? 1 : 0));        // Blue LED
+               } else
                   gpio_set_level(blink[0] & 0x3F, lit ^ ((blink[0] & 0x40) ? 1 : 0));   // Single LED
             }
          }
