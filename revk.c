@@ -1139,7 +1139,7 @@ static void task(void *pvParameters)
             if (count)
             {
                if (blink[1] && blink_colours)
-               { // Coloured LED
+               {                // Coloured LED
                   static const char *c = "";
                   if (!*c)
                      c = blink_colours;
@@ -2694,6 +2694,9 @@ static const char *revk_setting_dump(void)
 
 const char *revk_setting(jo_t j)
 {
+   jo_rewind(j);
+   if (!jo_here(j) == JO_OBJECT)
+      return "Not an object";
    int index = 0;
    int match(setting_t * s, const char *tag) {
       const char *a = s->name;
