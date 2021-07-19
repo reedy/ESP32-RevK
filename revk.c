@@ -2085,6 +2085,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (s->array && index && !(flags & SETTING_BOOLEAN))
          data += index * (s->size ? : sizeof(void *));
    }
+   // TODO we should not have suffix on index 1, that is just silly, but change needs backwards compatibility...
    char tag[16];                /* Max NVS name size */
    if (snprintf(tag, sizeof(tag), s->array ? "%s%u" : "%s", s->name, index + 1) >= sizeof(tag))
    {
