@@ -54,9 +54,9 @@ extern char *prefixinfo;
 extern char *prefixerror;
 extern char *appname;
 extern char *hostname;
-extern char *nodename;	// Node name
+extern char *nodename;          // Node name
 
-jo_t jo_make(void); // Start object with node name
+jo_t jo_make(void);             // Start object with node name
 
 typedef struct {                // Dynamic binary data
    uint16_t len;
@@ -110,8 +110,8 @@ void revk_error_clients(const char *suffix, jo_t *, uint8_t clients);
 void revk_info_clients(const char *suffix, jo_t *, uint8_t clients);
 #define revk_info(t,j) revk_info_clients(t,j,1)
 
-void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_t * jp, int copy);
-#define revk_mqtt_send(p,r,t,j) revk_mqtt_send_copy(p,r,t,j,0)
+void revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients);
+#define revk_mqtt_send(p,r,t,j) revk_mqtt_send_clients(p,r,t,j,1)
 
 const char *revk_setting(jo_t); // Store settings
 const char *revk_command(const char *tag, jo_t);        // Do an internal command
