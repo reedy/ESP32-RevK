@@ -64,7 +64,7 @@ static const char
 #define	MQTT_MAX CONFIG_MQTT_BUFFER_SIZE
 #endif
 
-#define	MQTT_CLIENTS	2
+#define	MQTT_CLIENTS	2       // Smaller that 8 as top bit used for retain
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		bd(otacert,CONFIG_REVK_OTACERT);		\
@@ -266,7 +266,7 @@ static const char *revk_upgrade(const char *target, jo_t j);
 
 #ifdef	CONFIG_REVK_MESH
 static void mesh_init(void);
-void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
+void mesh_make_mqtt(mesh_data_t * data, uint8_t tag, int tlen, const char *topic, int plen, const unsigned char *payload);
 static SemaphoreHandle_t mesh_mutex = NULL;
 #endif
 
@@ -446,14 +446,9 @@ static void mesh_task(void *pvParameters)
             // Extract topic and payload from message coded as null terminated topic, and then payload to end
             // Topic prefix digit for client number, default 0.
             // Topic then prefix + for retain
-            char retain = 0;
-            int client = 0;
             char *e = (char *) data.data + data.size;
             char *topic = (char *) data.data;
-            if (*topic >= '0' && *topic < '0' + MQTT_CLIENTS)
-               client = *topic++ - '0';
-            if (*topic == '+')
-               retain = (*topic++ == '+');
+            uint8_t tag = *topic++;
             char *payload = topic;
             while (payload < e && *payload)
                payload++;
@@ -478,11 +473,14 @@ static void mesh_task(void *pvParameters)
                suffix++;
             else
                suffix = NULL;
-            ESP_LOGD(TAG, "Mesh Rx MQTT%d %s: %s %.*s", client, mac, topic, (int) (e - payload), payload);
-            if (esp_mesh_is_root())
-               lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, retain); // Out
-            else
-               mqtt_rx((void *) client, topic, e - payload, (void *) payload);  // In
+            ESP_LOGD(TAG, "Mesh Rx MQTT%02X %s: %s %.*s", tag, mac, topic, (int) (e - payload), payload);
+            if (esp_mesh_is_root())     // tag is client bit map
+            {
+               for (int client = 0; client < MQTT_CLIENTS; client++)
+                  if (tag & (1 << client))
+                     lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, tag >> 7); // Out
+            } else              // tag is client ID
+               mqtt_rx((void *) (int) tag, topic, e - payload, (void *) payload);       // In
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
             ESP_LOGD(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
@@ -801,7 +799,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (*target == '*' || strncmp(target, revk_id, strlen(revk_id)))
       {                         // pass on to clients as global or not for us
          mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-         mesh_make_mqtt(&data, client, -1, topic, plen, payload, 0);
+         mesh_make_mqtt(&data, client, -1, topic, plen, payload);
          mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
          };
          if (*target != '*')
@@ -1250,7 +1248,7 @@ static void task(void *pvParameters)
                if (ap.phy_lr)
                   jo_bool(j, "lr", 1);
             }
-            revk_state_copy(NULL, &j, MQTT_CLIENTS - 1);
+            revk_state_clients(NULL, &j, -1);   // up message goes to all servers
             lastheap = heap;
             lastch = ap.primary;
             memcpy(lastbssid, ap.bssid, 6);
@@ -1467,32 +1465,25 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
 }
 
 #ifdef	CONFIG_REVK_MESH
-void mesh_make_mqtt(mesh_data_t * data, int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
+void mesh_make_mqtt(mesh_data_t * data, uint8_t tag, int tlen, const char *topic, int plen, const unsigned char *payload)
 {
+   // Tag is typically bit map of clients with bit 7 for retain when sending to root, and is client number when sending to leaf
    memset(data, 0, sizeof(*data));
    data->proto = MESH_PROTO_MQTT;
    if (plen < 0)
       plen = strlen((char *) payload);
    if (tlen < 0)
       tlen = strlen(topic);
-   data->size = tlen + 1 + plen;
-   char tag = (client || (plen && (*(char *) payload >= '1' || *(char *) payload < '0' + MQTT_CLIENTS)));
-   if (tag)
-      data->size++;
-   if (retain)
-      data->size++;
+   data->size = 1 + tlen + 1 + plen;
    data->data = malloc(data->size + MESH_PAD);
    char *p = (char *) data->data;
-   if (tag)
-      *p++ = '0' + client;
-   if (retain)
-      *p++ = '+';
+   *p++ = tag;
    strcpy(p, topic);
    p += tlen + 1;
    if (plen)
       memcpy(p, payload, plen);
    p += plen;
-   ESP_LOGD(TAG, "Mesh Tx MQTT%d %.*s %.*s", client, tlen, topic, plen, payload);
+   ESP_LOGD(TAG, "Mesh Tx MQTT%02X %.*s %.*s", tag, tlen, topic, plen, payload);
 }
 #endif
 
@@ -1522,68 +1513,52 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp)
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-const char *revk_mqtt_out(int client, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
+const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
 #ifdef	CONFIG_REVK_MESH
-   if (!mqtt_client[client] && esp_mesh_is_device_active() && !esp_mesh_is_root())
+   if (esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-      mesh_make_mqtt(&data, client, tlen, topic, plen, payload, retain);
+      mesh_make_mqtt(&data, clients | (retain << 7), tlen, topic, plen, payload);
       mesh_encode_send(NULL, &data, 0);
       free(data.data);
       return NULL;
    }
 #endif
-   return lwmqtt_send_full(mqtt_client[client], tlen, topic, plen, payload, retain);
+   const char *er = NULL;
+   for (int client = 0; client < MQTT_CLIENTS && !er; client++)
+      if (clients & (1 << client))
+         er = lwmqtt_send_full(mqtt_client[client], tlen, topic, plen, payload, retain);
+   return er;
 }
 #endif
 
-void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int copy)
+void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, uint8_t clients)
 {
 #ifdef	CONFIG_REVK_MQTT
-   int from = 0,
-       to = 0;
-   if (copy > 0)
-      to = copy;
-   else
-      from = to = -copy;
-   if (to >= MQTT_CLIENTS)
-      to = MQTT_CLIENTS - 1;
-   for (int client = from; client <= to; client++)
-   {
-      ESP_LOGD(TAG, "MQTT%d publish %s (%s)", client, topic ? : "-", payload);
-      revk_mqtt_out(client, -1, topic, -1, (void *) payload, retain);
-   }
+   ESP_LOGD(TAG, "MQTT%02X publish %s (%s)", clients, topic ? : "-", payload);
+   revk_mqtt_out(clients, -1, topic, -1, (void *) payload, retain);
 #endif
 }
 
-void revk_mqtt_send_str_copy(const char *str, int retain, int copy)
+void revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients)
 {
 #ifdef	CONFIG_REVK_MQTT
-   if (!str)
-      return;
-   int from = 0,
-       to = 0;
-   if (copy > 0)
-      to = copy;
-   else
-      from = to = -copy;
-   if (to >= MQTT_CLIENTS)
-      to = MQTT_CLIENTS - 1;
    const char *e = str;
    while (*e && *e != ' ');
    const char *p = e;
    if (*p)
       p++;
-   for (int client = from; client <= to; client++)
-   {
-      ESP_LOGD(TAG, "MQTT%d publish %.*s (%s)", client, e - str, str, p);
-      revk_mqtt_out(client, e - str, str, -1, (void *) p, retain);
-   }
+   for (int client = 0; client < MQTT_CLIENTS; client++)
+      if (clients & (1 << client))
+      {
+         ESP_LOGD(TAG, "MQTT%02X publish %.*s (%s)", clients, e - str, str, p);
+         revk_mqtt_out(client, e - str, str, -1, (void *) p, retain);
+      }
 #endif
 }
 
-void revk_mqtt_send_payload_copy(const char *prefix, int retain, const char *suffix, const char *payload, int copy)
+void revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients)
 {                               // Send to main, and N additional MQTT servers, or only to extra server N if copy -ve
 #ifdef	CONFIG_REVK_MQTT
    char *topic = NULL;
@@ -1593,13 +1568,13 @@ void revk_mqtt_send_payload_copy(const char *prefix, int retain, const char *suf
       topic = NULL;
    if (!topic)
       return;
-   revk_mqtt_send_raw(topic, retain, payload, copy);
+   revk_mqtt_send_raw(topic, retain, payload, clients);
    if (topic != suffix)
       freez(topic);
 #endif
 }
 
-void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_t * jp, int copy)
+void revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients)
 {
    char *payload = NULL;
    if (jp)
@@ -1609,34 +1584,34 @@ void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_
       payload = jo_finisha(jp);
       if (!payload && err)
          ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
-      revk_mqtt_send_payload_copy(prefix, retain, suffix, payload, copy);
+      revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
    }
    freez(payload);
 }
 
-void revk_state_copy(const char *suffix, jo_t * jp, int copy)
+void revk_state_clients(const char *suffix, jo_t * jp, uint8_t clients)
 {                               // State message (retained)
-   revk_mqtt_send_copy(prefixstate, 1, suffix, jp, copy);
+   revk_mqtt_send_clients(prefixstate, 1, suffix, jp, clients);
 }
 
-void revk_event_copy(const char *suffix, jo_t * jp, int copy)
+void revk_event_clients(const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Event message (may one day create log entries)
-   revk_mqtt_send_copy(prefixevent, 0, suffix, jp, copy);
+   revk_mqtt_send_clients(prefixevent, 0, suffix, jp, clients);
 }
 
-void revk_error_copy(const char *suffix, jo_t * jp, int copy)
+void revk_error_clients(const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Error message, waits a while for connection if possible before sending
    xEventGroupWaitBits(revk_group,
 #ifdef	CONFIG_REVK_WIFI
                        GROUP_WIFI |
 #endif
                        GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);
-   revk_mqtt_send_copy(prefixerror, 0, suffix, jp, copy);
+   revk_mqtt_send_clients(prefixerror, 0, suffix, jp, clients);
 }
 
-void revk_info_copy(const char *suffix, jo_t * jp, int copy)
+void revk_info_clients(const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Info message, nothing special
-   revk_mqtt_send_copy(prefixinfo, 0, suffix, jp, copy);
+   revk_mqtt_send_clients(prefixinfo, 0, suffix, jp, clients);
 }
 
 const char *revk_restart(const char *reason, int delay)
@@ -3146,7 +3121,7 @@ void revk_mqtt_close(const char *reason)
          jo_string(j, "id", revk_id);
          jo_bool(j, "up", 0);
          jo_string(j, "reason", reason);
-         revk_state_copy(NULL, &j, -client);
+         revk_state_clients(NULL, &j, 1 << client);
          lwmqtt_end(&mqtt_client[client]);
          ESP_LOGI(TAG, "MQTT%d Closed", client);
          xEventGroupWaitBits(revk_group, GROUP_MQTT_DOWN << client, false, true, 2 * 1000 / portTICK_PERIOD_MS);

@@ -97,18 +97,18 @@ esp_err_t revk_err_check(esp_err_t e);
 TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);
 
 // reporting via main MQTT, copy option is how many additional MQTT to copy, normally 0 or 1. Setting -N means send only to specific additional MQTT
-void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, int copies);
-void revk_mqtt_send_payload_copy(const char *prefix, int retain, const char *suffix, const char *payload, int copy);
-void revk_mqtt_send_str_copy(const char *str, int retain, int copies);
-#define	revk_mqtt_send_str(s) revk_mqtt_send_str_copy(s,0,0);
-void revk_state_copy(const char *suffix, jo_t *, int copy);
-#define revk_state(t,j) revk_state_copy(t,j,0)
-void revk_event_copy(const char *suffix, jo_t *, int copy);
-#define revk_event(t,j) revk_event_copy(t,j,0)
-void revk_error_copy(const char *suffix, jo_t *, int copy);
-#define revk_error(t,j) revk_error_copy(t,j,0)
-void revk_info_copy(const char *suffix, jo_t *, int copy);
-#define revk_info(t,j) revk_info_copy(t,j,0)
+void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, uint8_t clients);
+void revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients);
+void revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients);
+#define	revk_mqtt_send_str(s) revk_mqtt_send_str_clients(s,0,1);
+void revk_state_clients(const char *suffix, jo_t *, uint8_t clients);
+#define revk_state(t,j) revk_state_clients(t,j,1)
+void revk_event_clients(const char *suffix, jo_t *, uint8_t clients);
+#define revk_event(t,j) revk_event_clients(t,j,1)
+void revk_error_clients(const char *suffix, jo_t *, uint8_t clients);
+#define revk_error(t,j) revk_error_clients(t,j,1)
+void revk_info_clients(const char *suffix, jo_t *, uint8_t clients);
+#define revk_info(t,j) revk_info_clients(t,j,1)
 
 void revk_mqtt_send_copy(const char *prefix, int retain, const char *suffix, jo_t * jp, int copy);
 #define revk_mqtt_send(p,r,t,j) revk_mqtt_send_copy(p,r,t,j,0)
