@@ -2728,7 +2728,7 @@ const char *revk_setting(jo_t j)
    }
    const char *er = NULL;
    jo_type_t t = jo_next(j);    // Start object
-   while (t == JO_TAG && !er)
+   while (t == JO_TAG)
    {
 #ifdef SETTING_DEBUG
       ESP_LOGI(TAG, "Setting: %.10s", jo_debug(j));
@@ -2749,6 +2749,7 @@ const char *revk_setting(jo_t j)
          {
             ESP_LOGI(TAG, "Unknown %s %.20s", tag, jo_debug(j));
             er = "Unknown setting";
+            t = jo_skip(j);
          } else
          {
             void store(setting_t * s) {
@@ -2875,9 +2876,9 @@ const char *revk_setting(jo_t j)
                }
             } else
                store(s);
+            t = jo_next(j);
          }
          freez(tag);
-         t = jo_next(j);
       }
    }
    return er ? : "";
