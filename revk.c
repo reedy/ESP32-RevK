@@ -1515,6 +1515,8 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp)
 #ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
+   if (!clients)
+      return NULL;
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
