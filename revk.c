@@ -354,6 +354,7 @@ esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
       return -1;
    // Remove padding
    data->size -= data->data[data->size];
+   data->data[data->size] = 0;  // Original expected a null
    return 0;
 }
 #endif
