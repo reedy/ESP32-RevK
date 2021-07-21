@@ -1588,12 +1588,8 @@ void revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients)
    const char *p = e;
    if (*p)
       p++;
-   for (int client = 0; client < MQTT_CLIENTS; client++)
-      if (clients & (1 << client))
-      {
-         ESP_LOGD(TAG, "MQTT%02X publish %.*s (%s)", clients, e - str, str, p);
-         revk_mqtt_out(client, e - str, str, -1, (void *) p, retain);
-      }
+   ESP_LOGD(TAG, "MQTT%02X publish %.*s (%s)", clients, e - str, str, p);
+   revk_mqtt_out(clients, e - str, str, -1, (void *) p, retain);
 #endif
 }
 
