@@ -292,15 +292,6 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 #endif
 
 #ifdef CONFIG_REVK_MESH
-esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
-{                               // Security - decode mesh message
-   // TODO - mesh decode
-   return 0;
-
-}
-#endif
-
-#ifdef CONFIG_REVK_MESH
 esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int flag, const mesh_opt_t opt[], int opt_count)
 {                               // Mutex to protect non-re-entrant call
    xSemaphoreTake(mesh_mutex, portMAX_DELAY);
@@ -319,9 +310,48 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
 
 #ifdef CONFIG_REVK_MESH
 esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
-{                               // Security - encode mesh message and send
-   // TODO - mesh encode
+{                               // Security - encode mesh message and send - **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
+   // Note, at this point this does not protect against replay - critical messages should check timestamps to mitigate against replay
+   // Add padding
+   uint8_t pad = 15 - (data.size & 15); // Padding
+   data.size += pad;
+   // Add padding len
+   data.data[data.size++] = pad;        // Last byte in 16 byte block is how much padding
+   // Encrypt
+   uint8_t *iv = data.data + data.size;
+   esp_fill_random(iv, 16);     // IV
+   esp_aes_context ctx;
+   esp_aes_init(&ctx);
+   esp_aes_setkey(&ctx, meshkey, 128);
+   esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, data.size, iv, data.data, data.data);
+   esp_aes_free(&ctx);
+   // Add IV
+   data.size += 16;
    return mesh_safe_send(addr, data, flags, NULL, 0);
+}
+#endif
+
+#ifdef CONFIG_REVK_MESH
+esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
+{                               // Security - decode mesh message
+   if (data.size < 32 || (data.size & 15))
+      return -1;
+   // Remove IV
+   data.size -= 16;
+   uint8_t *iv = data.data + data.size;
+   // Decrypt
+   esp_aes_context ctx;
+   esp_aes_init(&ctx);
+   esp_aes_setkey(&ctx, meshkey, 128);
+   esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, data.size, iv, data.data, data.data);
+   esp_aes_free(&ctx);
+   // Remove padding len
+   data.size--;
+   if (data.data[data.size] > 15)
+      return -1;
+   // Remove padding
+   data.size -= data.data[data.size];
+   return 0;
 }
 #endif
 
@@ -799,13 +829,13 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (*target == '*' || strncmp(target, revk_id, strlen(revk_id)))
       {                         // pass on to clients as global or not for us
          mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-         mesh_make_mqtt(&data, client, -1, topic, plen, payload);
+         mesh_make_mqtt(&data, client, -1, topic, plen, payload);       // Ensures MESH_PAD space one end
          mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
          };
          if (*target != '*')
             for (int n = 0; n < sizeof(addr.addr); n++)
                addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
-         mesh_encode_send(&addr, &data, MESH_DATA_P2P);
+         mesh_encode_send(&addr, &data, MESH_DATA_P2P); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
          free(data.data);
       }
 #endif
@@ -1492,7 +1522,7 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp)
 {
    if (!jp)
       return;
-   jo_t j = jo_pad(jp, MESH_PAD);
+   jo_t j = jo_pad(jp, MESH_PAD);       // Ensures MESH_PAD on end of JSON
    if (!j)
    {
       ESP_LOGE(TAG, "JO Pad failed");
@@ -1506,7 +1536,7 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp)
       else
          ESP_LOGD(TAG, "Mesh Tx JSON to root node: %s", json);
       mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen(json) };
-      mesh_encode_send((void *) mac, &data, MESH_DATA_P2P);
+      mesh_encode_send((void *) mac, &data, MESH_DATA_P2P);     // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
    }
    jo_free(jp);
 }
@@ -1521,8 +1551,8 @@ const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen
    if (esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-      mesh_make_mqtt(&data, clients | (retain << 7), tlen, topic, plen, payload);
-      mesh_encode_send(NULL, &data, 0);
+      mesh_make_mqtt(&data, clients | (retain << 7), tlen, topic, plen, payload);       // Ensures MESH_PAD space one end
+      mesh_encode_send(NULL, &data, 0); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
       free(data.data);
       return NULL;
    }
