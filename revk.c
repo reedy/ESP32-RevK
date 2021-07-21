@@ -311,12 +311,13 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
 #ifdef CONFIG_REVK_MESH
 esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 {                               // Security - encode mesh message and send - **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
+   addr = addr;                 // Not used
    // Note, at this point this does not protect against replay - critical messages should check timestamps to mitigate against replay
    // Add padding
-   uint8_t pad = 15 - (data->size & 15); // Padding
+   uint8_t pad = 15 - (data->size & 15);        // Padding
    data->size += pad;
    // Add padding len
-   data->data[data->size++] = pad;        // Last byte in 16 byte block is how much padding
+   data->data[data->size++] = pad;      // Last byte in 16 byte block is how much padding
    // Encrypt
    uint8_t *iv = data->data + data->size;
    esp_fill_random(iv, 16);     // IV
@@ -334,6 +335,7 @@ esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 #ifdef CONFIG_REVK_MESH
 esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
 {                               // Security - decode mesh message
+   addr = addr;                 // Not used
    if (data->size < 32 || (data->size & 15))
       return -1;
    // Remove IV
@@ -473,6 +475,7 @@ static void mesh_task(void *pvParameters)
             }
          } else if (data.proto == MESH_PROTO_MQTT)
          {
+            mesh_decode(&from, &data);
             // Extract topic and payload from message coded as null terminated topic, and then payload to end
             // Topic prefix digit for client number, default 0.
             // Topic then prefix + for retain
@@ -513,6 +516,7 @@ static void mesh_task(void *pvParameters)
                mqtt_rx((void *) (int) tag, topic, e - payload, (void *) payload);       // In
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
+            mesh_decode(&from, &data);
             ESP_LOGD(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
             jo_t j = jo_parse_mem(data.data, data.size + 1);    // Include the null
             if (app_callback)
