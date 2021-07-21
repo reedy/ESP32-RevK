@@ -319,8 +319,9 @@ esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
    // Add padding len
    data->data[data->size++] = pad;      // Last byte in 16 byte block is how much padding
    // Encrypt
-   uint8_t *iv = data->data + data->size;
+   uint8_t iv[16];              // Changes by the encrypt
    esp_fill_random(iv, 16);     // IV
+   memcpy(data->data + data->size, iv, 16);
    esp_aes_context ctx;
    esp_aes_init(&ctx);
    esp_aes_setkey(&ctx, meshkey, 128);
