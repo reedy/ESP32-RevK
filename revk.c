@@ -1583,7 +1583,8 @@ void revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients)
 {
 #ifdef	CONFIG_REVK_MQTT
    const char *e = str;
-   while (*e && *e != ' ');
+   while (*e && *e != ' ')
+      e++;
    const char *p = e;
    if (*p)
       p++;
