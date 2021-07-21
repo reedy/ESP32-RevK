@@ -141,7 +141,7 @@ static const char
 #define	ioa(n,a)	uint8_t n[a];
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
-#define hs(n,l,d)	char n[l];
+#define hs(n,l,d)	uint8_t n[l];
 #define bd(n,d)		revk_bindata_t *n;
 #define bad(n,a,d)	revk_bindata_t *n[a];
 #define bdp(n,d)	revk_bindata_t *n;
@@ -313,20 +313,20 @@ esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 {                               // Security - encode mesh message and send - **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
    // Note, at this point this does not protect against replay - critical messages should check timestamps to mitigate against replay
    // Add padding
-   uint8_t pad = 15 - (data.size & 15); // Padding
-   data.size += pad;
+   uint8_t pad = 15 - (data->size & 15); // Padding
+   data->size += pad;
    // Add padding len
-   data.data[data.size++] = pad;        // Last byte in 16 byte block is how much padding
+   data->data[data->size++] = pad;        // Last byte in 16 byte block is how much padding
    // Encrypt
-   uint8_t *iv = data.data + data.size;
+   uint8_t *iv = data->data + data->size;
    esp_fill_random(iv, 16);     // IV
    esp_aes_context ctx;
    esp_aes_init(&ctx);
    esp_aes_setkey(&ctx, meshkey, 128);
-   esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, data.size, iv, data.data, data.data);
+   esp_aes_crypt_cbc(&ctx, ESP_AES_ENCRYPT, data->size, iv, data->data, data->data);
    esp_aes_free(&ctx);
    // Add IV
-   data.size += 16;
+   data->size += 16;
    return mesh_safe_send(addr, data, flags, NULL, 0);
 }
 #endif
@@ -334,23 +334,23 @@ esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 #ifdef CONFIG_REVK_MESH
 esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
 {                               // Security - decode mesh message
-   if (data.size < 32 || (data.size & 15))
+   if (data->size < 32 || (data->size & 15))
       return -1;
    // Remove IV
-   data.size -= 16;
-   uint8_t *iv = data.data + data.size;
+   data->size -= 16;
+   uint8_t *iv = data->data + data->size;
    // Decrypt
    esp_aes_context ctx;
    esp_aes_init(&ctx);
    esp_aes_setkey(&ctx, meshkey, 128);
-   esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, data.size, iv, data.data, data.data);
+   esp_aes_crypt_cbc(&ctx, ESP_AES_DECRYPT, data->size, iv, data->data, data->data);
    esp_aes_free(&ctx);
    // Remove padding len
-   data.size--;
-   if (data.data[data.size] > 15)
+   data->size--;
+   if (data->data[data->size] > 15)
       return -1;
    // Remove padding
-   data.size -= data.data[data.size];
+   data->size -= data->data[data->size];
    return 0;
 }
 #endif
