@@ -56,7 +56,7 @@ extern char *appname;
 extern char *hostname;
 extern char *nodename;          // Node name
 
-jo_t jo_make(void);             // Start object with node name
+jo_t jo_make(const char *nodename);             // Start object with node name
 
 typedef struct {                // Dynamic binary data
    uint16_t len;

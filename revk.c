@@ -1238,7 +1238,7 @@ static void task(void *pvParameters)
          uint32_t now = uptime();
          if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next)
          {
-            jo_t j = jo_make();
+            jo_t j = jo_make(NULL);
             jo_string(j, "id", revk_id);
             {                   // uptime
                uint64_t t = esp_timer_get_time();
@@ -3152,7 +3152,7 @@ void revk_mqtt_close(const char *reason)
    for (int client = 0; client < MQTT_CLIENTS; client++)
       if (mqtt_client[client])
       {
-         jo_t j = jo_make();
+         jo_t j = jo_make(NULL);
          jo_string(j, "id", revk_id);
          jo_bool(j, "up", 0);
          jo_string(j, "reason", reason);
@@ -3199,13 +3199,15 @@ int revk_wait_mqtt(int seconds)
 }
 #endif
 
-jo_t jo_make(void)
+jo_t jo_make(const char *node)
 {
    jo_t j = jo_object_alloc();
    time_t now = time(0);
    if (now > 1000000000)
       jo_datetime(j, "ts", now);
-   if (*nodename)
+   if (node && *node)
+      jo_string(j, "node", node);
+   else if (!node && *nodename)
       jo_string(j, "node", nodename);
    return j;
 }
