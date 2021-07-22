@@ -511,9 +511,12 @@ static void mesh_task(void *pvParameters)
             ESP_LOGD(TAG, "Mesh Rx MQTT%02X %s: %s %.*s", tag, mac, topic, (int) (e - payload), payload);
             if (esp_mesh_is_root())     // tag is client bit map
             {
-               for (int client = 0; client < MQTT_CLIENTS; client++)
-                  if (tag & (1 << client))
-                     lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, tag >> 7); // Out
+               if (memcmp(from.addr, revk_mac, 6))
+               {                // From us is exception, we would have sent direct
+                  for (int client = 0; client < MQTT_CLIENTS; client++)
+                     if (tag & (1 << client))
+                        lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, tag >> 7);      // Out
+               }
             } else              // tag is client ID
                mqtt_rx((void *) (int) tag, topic, e - payload, (void *) payload);       // In
          } else if (data.proto == MESH_PROTO_JSON)
@@ -832,7 +835,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          jo_rewind(j);
       }
 #ifdef	CONFIG_REVK_MESH
-      if (*target == '*' || strncmp(target, revk_id, strlen(revk_id)))
+      if (esp_mesh_is_root() && (*target == '*' || strncmp(target, revk_id, strlen(revk_id))))
       {                         // pass on to clients as global or not for us
          mesh_data_t data = {.proto = MESH_PROTO_MQTT };
          mesh_make_mqtt(&data, client, -1, topic, plen, payload);       // Ensures MESH_PAD space one end
