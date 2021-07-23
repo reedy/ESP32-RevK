@@ -1398,7 +1398,7 @@ void revk_boot(app_callback_t * app_callback_cb)
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
-   revk_register("mqtt", 0, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);        // Parent
+   revk_register("mqtt", MQTT_CLIENTS, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);        // Parent
    mqttsettings;
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
