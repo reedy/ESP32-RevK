@@ -1359,6 +1359,7 @@ void revk_boot(app_callback_t * app_callback_cb)
    const esp_app_desc_t *app = esp_ota_get_app_description();
    if (nvs_open_from_partition(TAG, TAG, NVS_READWRITE, &nvs))
       REVK_ERR_CHECK(nvs_open(TAG, NVS_READWRITE, &nvs));
+   revk_register("client", 0, 0, &clientkey, NULL, SETTING_SECRET);     // Parent
    revk_register("prefix", 0, 0, &prefixcommand, "command", SETTING_SECRET);    // Parent
    /* Fallback if no dedicated partition */
 #define str(x) #x
@@ -1398,7 +1399,7 @@ void revk_boot(app_callback_t * app_callback_cb)
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
-   revk_register("mqtt", MQTT_CLIENTS, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);        // Parent
+   revk_register("mqtt", MQTT_CLIENTS, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);     // Parent
    mqttsettings;
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
