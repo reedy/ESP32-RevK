@@ -894,9 +894,9 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          if (suffix)
             jo_string(e, "suffix", suffix);
          if (j)
-            jo_lit(e, "payload", payload);
+            jo_lit(e, "payload", (char *) payload);
          else if (plen)
-            jo_string(e, "payload", payload);
+            jo_string(e, "payload", (char *) payload);
          revk_error(suffix, &e);
       }
       jo_free(&j);
