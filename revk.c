@@ -437,7 +437,7 @@ static void mesh_task(void *pvParameters)
                   int percent = ota_data * 100 / ota_size;
                   if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                   {
-                     jo_t j = jo_object_alloc();
+                     jo_t j = jo_make(NULL);
                      jo_int(j, "progress", ota_progress = percent);
                      jo_int(j, "loaded", ota_data);
                      jo_int(j, "size", ota_size);
@@ -454,7 +454,7 @@ static void mesh_task(void *pvParameters)
                      ESP_LOGE(TAG, "Flash missing data %d/%d", ota_data, ota_size);
                   else if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
                   {
-                     jo_t j = jo_object_alloc();
+                     jo_t j = jo_make(NULL);
                      jo_string(j, "complete", ota_partition->label);
                      jo_int(j, "size", ota_size);
                      revk_info("upgrade", &j);  // Send from target device so cloud knows target is upgraded
@@ -881,23 +881,25 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          if (e2 && (*e2 || !err))
             err = e2;           /* Overwrite error if we did not have one */
       }
-      jo_free(&j);
       if (!err && !target)
          err = "Unknown";
       if (err && *err)
       {
-         jo_t j = jo_object_alloc();
-         jo_string(j, "description", err);
+         jo_t e = jo_make(NULL);
+         jo_string(e, "description", err);
          if (prefix)
-            jo_string(j, "prefix", prefix);
+            jo_string(e, "prefix", prefix);
          if (target)
-            jo_string(j, "target", target);
+            jo_string(e, "target", target);
          if (suffix)
-            jo_string(j, "suffix", suffix);
-         if (plen)
-            jo_stringf(j, "payload", "%s", payload);
-         revk_error(suffix, &j);
+            jo_string(e, "suffix", suffix);
+         if (j)
+            jo_lit(e, "payload", payload);
+         else if (plen)
+            jo_string(e, "payload", payload);
+         revk_error(suffix, &e);
       }
+      jo_free(&j);
    } else if (payload)
    {
       ESP_LOGI(TAG, "MQTT%d connected %s", client, (char *) payload);
@@ -1914,7 +1916,7 @@ static void ota_task(void *pvParameters)
                int percent = ota_data * 100 / ota_size;
                if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                {
-                  jo_t j = jo_object_alloc();
+                  jo_t j = jo_make(NULL);
                   jo_int(j, "progress", ota_progress = percent);
                   jo_int(j, "loaded", ota_data);
                   jo_int(j, "size", ota_size);
@@ -1925,7 +1927,7 @@ static void ota_task(void *pvParameters)
             // End
             if (!err && !(err = REVK_ERR_CHECK(esp_ota_end(ota_handle))))
             {
-               jo_t j = jo_object_alloc();
+               jo_t j = jo_make(NULL);
                jo_string(j, "complete", ota_partition->label);
                jo_int(j, "size", ota_size);
                revk_info("upgrade", &j);
@@ -1940,7 +1942,7 @@ static void ota_task(void *pvParameters)
       if (err || status / 100 != 2 || ota_size < 0)
          if (!err && status / 100 != 2)
          {
-            jo_t j = jo_object_alloc();
+            jo_t j = jo_make(NULL);
             jo_string(j, "url", url);
             if (err)
             {
@@ -2673,7 +2675,7 @@ static const char *revk_setting_dump(void)
                      j = p;
                   } else
                   {
-                     jo_t j = jo_object_alloc();
+                     jo_t j = jo_make(NULL);
                      jo_string(j, "description", "Setting did not fit");
                      jo_string(j, "setting", tag);
                      if (err)
@@ -2693,7 +2695,7 @@ static const char *revk_setting_dump(void)
             }
          } else
          {
-            jo_t j = jo_object_alloc();
+            jo_t j = jo_make(NULL);
             jo_string(j, "description", "Setting did not fit");
             jo_string(j, "setting", s->name);
             if (err)
@@ -2931,7 +2933,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
 #endif
                *val ? val : otahost, appname);
    {
-      jo_t j = jo_object_alloc();
+      jo_t j = jo_make(NULL);
       jo_string(j, "url", url);
       if (target)
          jo_string(j, "device", target);
@@ -3091,7 +3093,7 @@ esp_err_t revk_err_check(esp_err_t e, const char *file, int line, const char *fu
       else
          fn = file;
       ESP_LOGE(TAG, "Error %s at line %d in %s (%s)", esp_err_to_name(e), line, fn, cmd);
-      jo_t j = jo_object_alloc();
+      jo_t j = jo_make(NULL);
       jo_int(j, "code", e);
       jo_string(j, "description", esp_err_to_name(e));
       jo_string(j, "file", fn);
@@ -3108,7 +3110,7 @@ esp_err_t revk_err_check(esp_err_t e)
    if (e != ERR_OK)
    {
       ESP_LOGE(TAG, "Error %s", esp_err_to_name(e));
-      jo_t j = jo_object_alloc();
+      jo_t j = jo_make(NULL);
       jo_int(j, "code", e);
       jo_string(j, "description", esp_err_to_name(e));
       revk_error(NULL, &j);
