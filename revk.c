@@ -959,6 +959,7 @@ void revk_mqtt_init(void)
             .plen = -1,
             .keepalive = 30,
             .callback = &mqtt_rx,
+            .client = revk_id,
          };
          ESP_LOGI(TAG, "MQTT%d %s", client, config.hostname);
          if (mqttcert[client]->len)
