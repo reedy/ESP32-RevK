@@ -614,7 +614,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       case 13:                 // pingresp - no action - though we could use lack of reply to indicate broken connection I guess
          break;
       default:
-         ESP_LOGE(TAG, "Unknown MQTT %02X", *buf);
+         ESP_LOGE(TAG, "Unknown MQTT %02X (%d)", *buf, pos);
       }
       pos = 0;
    }
