@@ -911,6 +911,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       {
          jo_t j = jo_create_alloc();
          jo_string(j, NULL, (char *) payload);
+         jo_rewind(j);
          app_callback(client, prefixcommand, NULL, "connect", j);
          jo_free(&j);
       }
@@ -1003,6 +1004,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          {
             jo_t j = jo_create_alloc();
             jo_string(j, "ssid", apssid);
+            jo_rewind(j);
             app_callback(0, prefixcommand, NULL, "ap", j);
             jo_free(&j);
          }
