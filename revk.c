@@ -948,20 +948,22 @@ void revk_mqtt_init(void)
       xEventGroupSetBits(revk_group, (GROUP_MQTT_DOWN << client));
       if (*mqtthost[client])
       {
-         char *topic = NULL;
-         if (asprintf(&topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
-            return;
          lwmqtt_client_config_t config = {
             .arg = (void *) client,
             .hostname = mqtthost[client],
-            .topic = topic,
             .retain = 1,
             .payload = (void *) "{\"up\":false}",
             .plen = -1,
             .keepalive = 30,
             .callback = &mqtt_rx,
-            .client = revk_id,
          };
+         if (asprintf(&config.topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
+            return;
+         if (asprintf(&config.client, "%s-%s", appname, revk_id))
+         {
+            freez(config.topic);
+            return;
+         }
          ESP_LOGI(TAG, "MQTT%d %s", client, config.hostname);
          if (mqttcert[client]->len)
          {
@@ -985,7 +987,8 @@ void revk_mqtt_init(void)
             config.password = mqttpass[client];
          config.port = mqttport[client];
          mqtt_client[client] = lwmqtt_client(&config);
-         freez(topic);
+         freez(config.topic);
+         freez(config.client);
       }
    }
 }
