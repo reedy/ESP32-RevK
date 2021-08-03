@@ -961,7 +961,7 @@ void revk_mqtt_init(void)
             return;
          if (asprintf(&config.client, "%s-%s", appname, revk_id))
          {
-            freez(config.topic);
+            free((void *) config.topic);
             return;
          }
          ESP_LOGI(TAG, "MQTT%d %s", client, config.hostname);
@@ -987,8 +987,8 @@ void revk_mqtt_init(void)
             config.password = mqttpass[client];
          config.port = mqttport[client];
          mqtt_client[client] = lwmqtt_client(&config);
-         freez(config.topic);
-         freez(config.client);
+         free((void *) config.topic);
+         free((void *) config.client);
       }
    }
 }
