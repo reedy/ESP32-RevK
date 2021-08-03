@@ -81,7 +81,7 @@ struct lwmqtt_s {               // mallocd copies
 
 #define	hread(handle,buf,len)	(handle->tls?esp_tls_conn_read(handle->tls,buf,len):read(handle->sock,buf,len))
 
-static int hwrite(lwmqtt_t handle handle, ui8 * buf, int len)
+static int hwrite(lwmqtt_t handle, ui8 * buf, int len)
 {                               // Send (all of) a block
    while (len)
    {
