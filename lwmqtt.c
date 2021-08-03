@@ -83,15 +83,15 @@ struct lwmqtt_s {               // mallocd copies
 
 static int hwrite(lwmqtt_t handle, uint8_t * buf, int len)
 {                               // Send (all of) a block
-   while (len)
+   int pos = 0;
+   while (pos < len)
    {
-      int sent = (handle->tls ? esp_tls_conn_write(handle->tls, buf, len) : write(handle->sock, buf, len));
+      int sent = (handle->tls ? esp_tls_conn_write(handle->tls, buf + pos, len - pos) : write(handle->sock, buf + pos, len - pos));
       if (sent <= 0)
          return sent;
-      len -= sent;
-      buf += sent;
+      pos += sent;
    }
-   return 0;
+   return pos;
 }
 
 #define freez(x) do{if(x){free(x);x=NULL;}}while(0)
