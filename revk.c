@@ -959,7 +959,7 @@ void revk_mqtt_init(void)
          };
          if (asprintf((void *) &config.topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
             return;
-         if (asprintf((void *) &config.client, "%s-%s", appname, revk_id))
+         if (asprintf((void *) &config.client, "%s-%s", appname, revk_id) < 0)
          {
             free((void *) config.topic);
             return;
