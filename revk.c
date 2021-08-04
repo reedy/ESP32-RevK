@@ -2427,12 +2427,12 @@ static const char *revk_setting_dump(void)
          return;
       revk_mqtt_send(prefixsetting, 0, NULL, &j);
    }
-   int max = MQTT_MAX;
-   max -= 50;                   // for headers
+   int maxpacket = MQTT_MAX;
+   maxpacket -= 50;                   // for headers
 #ifdef	CONFIG_REVK_MESH
-   max -= MESH_PAD;
+   maxpacket -= MESH_PAD;
 #endif
-   char buf[max];               // Allows for topic, header, etc
+   char buf[maxpacket];               // Allows for topic, header, etc
    const char *hasdef(setting_t * s) {
       const char *d = s->defval;
       if (!d)
@@ -2507,7 +2507,7 @@ static const char *revk_setting_dump(void)
                   p = jo_copy(j);
                else
                {
-                  p = jo_create_mem(buf, max);
+                  p = jo_create_mem(buf, maxpacket);
                   jo_object(p, NULL);
                }
             }
