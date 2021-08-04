@@ -1623,17 +1623,27 @@ void revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *
 
 void revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients)
 {
-   char *payload = NULL;
    if (jp)
    {
       int pos = 0;
       const char *err = jo_error(*jp, &pos);
-      payload = jo_finisha(jp);
-      if (!payload && err)
+      if (err)
+      {
+         jo_free(jp);
          ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
-      revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
+      } else if (jo_isalloc(*jp))
+      {
+         char *payload = jo_finisha(jp);
+         if (payload)
+            revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
+         free(payload);
+      } else
+      {                         // Static
+         char *payload = jo_finish(jp);
+         if (payload)
+            revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
+      }
    }
-   freez(payload);
 }
 
 void revk_state_clients(const char *suffix, jo_t * jp, uint8_t clients)
@@ -2428,11 +2438,11 @@ static const char *revk_setting_dump(void)
       revk_mqtt_send(prefixsetting, 0, NULL, &j);
    }
    int maxpacket = MQTT_MAX;
-   maxpacket -= 50;                   // for headers
+   maxpacket -= 50;             // for headers
 #ifdef	CONFIG_REVK_MESH
    maxpacket -= MESH_PAD;
 #endif
-   char buf[maxpacket];               // Allows for topic, header, etc
+   char buf[maxpacket];         // Allows for topic, header, etc
    const char *hasdef(setting_t * s) {
       const char *d = s->defval;
       if (!d)

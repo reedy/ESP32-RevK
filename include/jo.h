@@ -64,6 +64,9 @@ const char *jo_error(jo_t, int *pos);
 void jo_free(jo_t *);
 // Free jo_t and any allocated memory (safe to call with NULL or pointer to NULL)
 
+int jo_isalloc(jo_t);
+// If it is allocated so finisha can be used
+
 char *jo_finish(jo_t *);
 // Finish creating static JSON, return start of static JSON if no error. Frees j. It is an error to use with jo_create_alloc
 

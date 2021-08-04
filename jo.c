@@ -340,6 +340,13 @@ void jo_free(jo_t * jp)
    free(j);
 }
 
+int jo_isalloc(jo_t j)
+{
+   if (j && j->alloc)
+      return 1;
+   return 0;
+}
+
 char *jo_finish(jo_t * jp)
 {                               // Finish creating static JSON, return start of static JSON if no error. Frees j. It is an error to use with jo_create_alloc
    if (!jp)
@@ -364,8 +371,9 @@ char *jo_finish(jo_t * jp)
 }
 
 char *jo_finisha(jo_t * jp)
-{                               // Finish creating allocated JSON, returns start of alloc'd memory if no error. Frees j. If NULL returned then any allocated space also freed
-// It is an error to use with non jo_create_alloc
+{                               // Finish creating allocated JSON, returns start of alloc'd memory if no error.
+   // Frees j. If NULL returned then any allocated space also freed
+   // It is an error to use with non jo_create_alloc
    if (!jp)
       return NULL;
    jo_t j = *jp;
