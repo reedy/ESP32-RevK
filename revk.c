@@ -842,7 +842,15 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             } else
             {                   // Just JSON the argument
                j = jo_create_alloc();
-               jo_stringf(j, NULL, "%.*s", plen, payload);
+               int q = 0;
+               if (q + 1 < plen && payload[q] == '-' && payload[q + 1] >= '0' && payload[q + 1] <= '9')
+                  q++;
+               while (q < plen && payload[q] >= '0' && payload[q] <= '9')
+                  q++;
+               if (plen && q == plen)
+                  jo_litf(j, NULL, "%.*s", plen, payload);      // Looks safe as number
+               else
+                  jo_stringf(j, NULL, "%.*s", plen, payload);
             }
          } else
          {                      // Parse JSON argument
