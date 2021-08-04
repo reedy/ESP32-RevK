@@ -809,6 +809,27 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       }
       if (*p)
          suffix = ++p;
+#ifdef	CONFIG_REVK_MESH
+      if (esp_mesh_is_root() && (*target == '*' || strncmp(target, revk_id, strlen(revk_id))))
+      {                         // pass on to clients as global or not for us
+         mesh_data_t data = {.proto = MESH_PROTO_MQTT };
+         mesh_make_mqtt(&data, client, -1, topic, plen, payload);       // Ensures MESH_PAD space one end
+         mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
+         };
+         if (*target != '*')
+            for (int n = 0; n < sizeof(addr.addr); n++)
+               addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
+         mesh_encode_send(&addr, &data, MESH_DATA_P2P); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
+         free(data.data);
+      }
+#endif
+      // Break up topic
+      if (appname)
+         appname[-1] = 0;
+      if (target)
+         target[-1] = 0;
+      if (suffix)
+         suffix[-1] = 0;
       jo_t j = NULL;
       if (plen)
       {
@@ -834,27 +855,6 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          jo_rewind(j);
       }
-#ifdef	CONFIG_REVK_MESH
-      if (esp_mesh_is_root() && (*target == '*' || strncmp(target, revk_id, strlen(revk_id))))
-      {                         // pass on to clients as global or not for us
-         mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-         mesh_make_mqtt(&data, client, -1, topic, plen, payload);       // Ensures MESH_PAD space one end
-         mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
-         };
-         if (*target != '*')
-            for (int n = 0; n < sizeof(addr.addr); n++)
-               addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
-         mesh_encode_send(&addr, &data, MESH_DATA_P2P); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
-         free(data.data);
-      }
-#endif
-      // Break up topic
-      if (appname)
-         appname[-1] = 0;
-      if (target)
-         target[-1] = 0;
-      if (suffix)
-         suffix[-1] = 0;
       if (!strcmp(target, "*") || !strcmp(target, revk_id))
          target = NULL;         // Mark as us for simple testing by app_command, etc
       if (!client && prefix && !strcmp(prefix, prefixcommand) && suffix && !strcmp(suffix, "upgrade"))
