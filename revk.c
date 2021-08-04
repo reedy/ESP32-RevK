@@ -855,7 +855,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          jo_rewind(j);
       }
-      if (!strcmp(target, "*") || !strcmp(target, revk_id))
+      if (!strcmp(target, "*") || !strcmp(target, revk_id) || (*hostname && !strcmp(target, hostname)))
          target = NULL;         // Mark as us for simple testing by app_command, etc
       if (!client && prefix && !strcmp(prefix, prefixcommand) && suffix && !strcmp(suffix, "upgrade"))
          err = (err ? : revk_upgrade(target, j));       // Special case as command can be to other host
@@ -1623,26 +1623,25 @@ void revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *
 
 void revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients)
 {
-   if (jp)
+   if (!jp)
+      return;
+   int pos = 0;
+   const char *err = jo_error(*jp, &pos);
+   if (err)
    {
-      int pos = 0;
-      const char *err = jo_error(*jp, &pos);
-      if (err)
-      {
-         jo_free(jp);
-         ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
-      } else if (jo_isalloc(*jp))
-      {
-         char *payload = jo_finisha(jp);
-         if (payload)
-            revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
-         free(payload);
-      } else
-      {                         // Static
-         char *payload = jo_finish(jp);
-         if (payload)
-            revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
-      }
+      jo_free(jp);
+      ESP_LOGE(TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
+   } else if (jo_isalloc(*jp))
+   {
+      char *payload = jo_finisha(jp);
+      if (payload)
+         revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
+      free(payload);
+   } else
+   {                            // Static
+      char *payload = jo_finish(jp);
+      if (payload)
+         revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
    }
 }
 
