@@ -355,7 +355,8 @@ const char *lwmqtt_subscribeub(lwmqtt_t handle, const char *topic, char unsubscr
                      *p++ = ((mlen - 3) >> 7);
                   } else
                      *p++ = mlen - 2;   // 1 byte len
-                  handle->seq++;
+                  if (!++(handle->seq))
+                     handle->seq++;     // Non zero
                   *p++ = handle->seq >> 8;
                   *p++ = handle->seq;
                   *p++ = tlen >> 8;
