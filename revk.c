@@ -1339,8 +1339,13 @@ void revk_boot(app_callback_t * app_callback_cb)
 #endif
    /* Watchdog */
 #ifdef	CONFIG_REVK_PARTITION_CHECK
+#ifdef  BUILD_ESP32_USING_CMAKE
+   extern const uint8_t part_start[] asm("_binary_partition_table_bin_start");
+   extern const uint8_t part_end[] asm("_binary_partition_table_bin_start");
+#else
    extern const uint8_t part_start[] asm("_binary_partitions_4m_bin_start");
    extern const uint8_t part_end[] asm("_binary_partitions_4m_bin_end");
+#endif
    /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
    if ((part_end - part_start) > SPI_FLASH_SEC_SIZE)
    {
