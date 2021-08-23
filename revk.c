@@ -1287,6 +1287,8 @@ static void task(void *pvParameters)
                         date[6] = '0' + (m + 1) % 10;
                         break;
                      }
+                  if (date[8] == ' ')
+                     date[8] = '0';
                   jo_stringf(j, "build", "%sT%s", date, app->time);
                   jo_int(j, "flash", spi_flash_get_chip_size());
                   jo_int(j, "rst", esp_reset_reason());
