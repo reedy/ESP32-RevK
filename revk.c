@@ -1340,8 +1340,8 @@ void revk_boot(app_callback_t * app_callback_cb)
    /* Watchdog */
 #ifdef	CONFIG_REVK_PARTITION_CHECK
 #ifdef  BUILD_ESP32_USING_CMAKE
-   extern const uint8_t part_start[] asm("_binary_partition_table_unsigned_bin_start");
-   extern const uint8_t part_end[] asm("_binary_partition_table_unsigned_bin_start");
+   extern const uint8_t part_start[] asm("_binary_partition_table_bin_start");
+   extern const uint8_t part_end[] asm("_binary_partition_table_bin_start");
 #else
    extern const uint8_t part_start[] asm("_binary_partitions_4m_bin_start");
    extern const uint8_t part_end[] asm("_binary_partitions_4m_bin_end");
