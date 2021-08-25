@@ -2181,7 +2181,8 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
    }
    if (!value)
    {
-      value = (const unsigned char *) "";
+      defval = "";
+      value = (const unsigned char *) defval;
       erase = 1;
    } else
       s->set = 1;
