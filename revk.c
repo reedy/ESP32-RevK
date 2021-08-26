@@ -3012,6 +3012,12 @@ const char *revk_command(const char *tag, jo_t j)
          revk_restart("Factory reset", 5);
       return "";
    }
+#ifdef	CONFIG_REVK_MESH
+    if (!e && !strcmp(tag, "mesh"))
+    { // Update mesh if we are root
+	    // esp_mesh_switch_channel(const uint8_t *new_bssid, int csa_newchan, int csa_count)
+    }
+#endif
 #ifdef	CONFIG_REVK_APCONFIG
    if (!e && !strcmp(tag, "apconfig") && !ap_task_id)
    {
