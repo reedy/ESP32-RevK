@@ -1543,8 +1543,9 @@ void mesh_make_mqtt(mesh_data_t * data, uint8_t tag, int tlen, const char *topic
    data->data = malloc(data->size + MESH_PAD);
    char *p = (char *) data->data;
    *p++ = tag;
-   strcpy(p, topic);
-   p += tlen + 1;
+   memcpy(p, topic, tlen);
+   p += tlen;
+   *p++ = 0;
    if (plen)
       memcpy(p, payload, plen);
    p += plen;
