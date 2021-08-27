@@ -489,36 +489,38 @@ static void mesh_task(void *pvParameters)
                payload++;
             if (payload == e)
                continue;        // We expect topic ending in NULL
-            payload++;
-            char *target = topic;
-            while (*target && *target != '/')
-               target++;        // clear the command
-            if (!*target)
-               continue;        // Uh
-            target++;
-            while (*target && *target != '/')
-               target++;        // clear the appname
-            if (!*target)
-               continue;        // Uh
-            target++;
-            char *suffix = target;
-            while (*suffix && *suffix != '/')
-               suffix++;
-            if (*suffix)
-               suffix++;
-            else
-               suffix = NULL;
-            ESP_LOGD(TAG, "Mesh Rx MQTT%02X %s: %s %.*s", tag, mac, topic, (int) (e - payload), payload);
-            if (esp_mesh_is_root())     // tag is client bit map
-            {
+            payload++;          // Clear the null
+            if (esp_mesh_is_root())
+            {                   // To root: tag is client bit map of which external MQTT server to send to
                if (memcmp(from.addr, revk_mac, 6))
                {                // From us is exception, we would have sent direct
                   for (int client = 0; client < MQTT_CLIENTS; client++)
                      if (tag & (1 << client))
                         lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, tag >> 7);      // Out
                }
-            } else              // tag is client ID
+            } else
+            {                   // To leaf: tag is client ID
+               char *target = topic;
+               while (*target && *target != '/')
+                  target++;     // clear the command
+               if (!*target)
+                  continue;     // Uh
+               target++;
+               while (*target && *target != '/')
+                  target++;     // clear the appname
+               if (!*target)
+                  continue;     // Uh
+               target++;
+               char *suffix = target;
+               while (*suffix && *suffix != '/')
+                  suffix++;
+               if (*suffix)
+                  suffix++;
+               else
+                  suffix = NULL;
+               ESP_LOGD(TAG, "Mesh Rx MQTT%02X %s: %s %.*s", tag, mac, topic, (int) (e - payload), payload);
                mqtt_rx((void *) (int) tag, topic, e - payload, (void *) payload);       // In
+            }
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
             mesh_decode(&from, &data);
@@ -3013,10 +3015,10 @@ const char *revk_command(const char *tag, jo_t j)
       return "";
    }
 #ifdef	CONFIG_REVK_MESH
-    if (!e && !strcmp(tag, "mesh"))
-    { // Update mesh if we are root
-	    // esp_mesh_switch_channel(const uint8_t *new_bssid, int csa_newchan, int csa_count)
-    }
+   if (!e && !strcmp(tag, "mesh"))
+   {                            // Update mesh if we are root
+      // esp_mesh_switch_channel(const uint8_t *new_bssid, int csa_newchan, int csa_count)
+   }
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
    if (!e && !strcmp(tag, "apconfig") && !ap_task_id)
