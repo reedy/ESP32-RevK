@@ -294,6 +294,8 @@ static void makeip(esp_netif_ip_info_t * info, const char *ip, const char *gw)
 #ifdef CONFIG_REVK_MESH
 esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int flag, const mesh_opt_t opt[], int opt_count)
 {                               // Mutex to protect non-re-entrant call
+   if (!esp_mesh_is_device_active())
+      return ESP_ERR_MESH_DISCONNECTED;
    xSemaphoreTake(mesh_mutex, portMAX_DELAY);
    esp_err_t e = esp_mesh_send(to, data, flag, opt, opt_count);
    xSemaphoreGive(mesh_mutex);
@@ -682,6 +684,7 @@ static void mesh_init(void)
       REVK_ERR_CHECK(esp_mesh_set_xon_qsize(16));
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
+      REVK_ERR_CHECK(esp_mesh_disable_ps());
       REVK_ERR_CHECK(esp_mesh_send_block_time(100));
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
