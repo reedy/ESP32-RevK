@@ -444,7 +444,7 @@ static void mesh_task(void *pvParameters)
                      jo_int(j, "progress", ota_progress = percent);
                      jo_int(j, "loaded", ota_data);
                      jo_int(j, "size", ota_size);
-                     revk_info_clients("upgrade", &j, -1);
+                     revk_info_clients("upgrade", &j, 3);
                      next = now + 5;
                   }
                }                // else ESP_LOGI(TAG, "Unexpected %02X not %02X+1", *data.data, ota_ack);
@@ -460,7 +460,7 @@ static void mesh_task(void *pvParameters)
                      jo_t j = jo_make(NULL);
                      jo_string(j, "complete", ota_partition->label);
                      jo_int(j, "size", ota_size);
-                     revk_info_clients("upgrade", &j, -1);      // Send from target device so cloud knows target is upgraded
+                     revk_info_clients("upgrade", &j, 3);       // Send from target device so cloud knows target is upgraded
                      esp_ota_set_boot_partition(ota_partition);
                      revk_restart("OTA", 5);
                   }
@@ -1963,7 +1963,7 @@ static void ota_task(void *pvParameters)
                   jo_int(j, "progress", ota_progress = percent);
                   jo_int(j, "loaded", ota_data);
                   jo_int(j, "size", ota_size);
-                  revk_info_clients("upgrade", &j, -1);
+                  revk_info_clients("upgrade", &j, 3);
                   next = now + 5;
                }
             }
@@ -1973,7 +1973,7 @@ static void ota_task(void *pvParameters)
                jo_t j = jo_make(NULL);
                jo_string(j, "complete", ota_partition->label);
                jo_int(j, "size", ota_size);
-               revk_info_clients("upgrade", &j, -1);
+               revk_info_clients("upgrade", &j, 3);
                esp_ota_set_boot_partition(ota_partition);
                revk_restart("OTA", 5);
             }
