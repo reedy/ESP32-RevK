@@ -431,7 +431,7 @@ static void mesh_task(void *pvParameters)
                   }
                   ota_progress = 0;
                   ota_data = 0;
-                  next = now;
+                  next = now + 5;
                }
                break;
             case 0xD:          // Data
