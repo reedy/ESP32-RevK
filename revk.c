@@ -253,6 +253,9 @@ static const char *revk_setting_dump(void);
 static volatile uint8_t mesh_ota_ack = 0;
 static SemaphoreHandle_t mesh_ota_sem = NULL;
 static mesh_addr_t mesh_ota_addr = { };
+
+static uint8_t mesh_tods = 0;
+static uint8_t mesh_root = 0;
 #endif
 
 /* Local functions */
@@ -296,6 +299,8 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
 {                               // Mutex to protect non-re-entrant call
    if (!esp_mesh_is_device_active())
       return ESP_ERR_MESH_DISCONNECTED;
+   if (!to && !esp_mesh_is_root() && !mesh_root)
+      return ESP_ERR_MESH_DISCONNECTED; // We are not root and root address not known
    xSemaphoreTake(mesh_mutex, portMAX_DELAY);
    esp_err_t e = esp_mesh_send(to, data, flag, opt, opt_count);
    xSemaphoreGive(mesh_mutex);
@@ -314,7 +319,6 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
 // TODO esp_mesh_set_ie_crypto_funcs may be better way to do this in future
 esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 {                               // Security - encode mesh message and send - **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
-   addr = addr;                 // Not used
    // Note, at this point this does not protect against replay - critical messages should check timestamps to mitigate against replay
    // Add padding
    uint8_t pad = 15 - (data->size & 15);        // Padding
@@ -444,7 +448,7 @@ static void mesh_task(void *pvParameters)
                      jo_int(j, "progress", ota_progress = percent);
                      jo_int(j, "loaded", ota_data);
                      jo_int(j, "size", ota_size);
-                     revk_info_clients("upgrade", &j, 3);
+                     revk_info_clients("upgrade", &j, -1);
                      next = now + 5;
                   }
                }                // else ESP_LOGI(TAG, "Unexpected %02X not %02X+1", *data.data, ota_ack);
@@ -460,7 +464,7 @@ static void mesh_task(void *pvParameters)
                      jo_t j = jo_make(NULL);
                      jo_string(j, "complete", ota_partition->label);
                      jo_int(j, "size", ota_size);
-                     revk_info_clients("upgrade", &j, 3);       // Send from target device so cloud knows target is upgraded
+                     revk_info_clients("upgrade", &j, -1);      // Send from target device so cloud knows target is upgraded
                      esp_ota_set_boot_partition(ota_partition);
                      revk_restart("OTA", 5);
                   }
@@ -721,7 +725,6 @@ static void mesh_init(void)
       REVK_ERR_CHECK(esp_mesh_disable_ps());
       revk_task("Mesh", mesh_task, NULL);
    }
-   esp_wifi_disconnect();
    REVK_ERR_CHECK(esp_mesh_start());
 }
 #endif
@@ -1157,6 +1160,15 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          stop_ip();
          revk_mqtt_close("Mesh gone");
          break;
+      case MESH_EVENT_ROOT_ADDRESS:    // We know the root
+         mesh_root = 1;
+         break;
+      case MESH_EVENT_TODS_STATE:      // External network start
+         {
+            mesh_event_toDS_state_t *toDs_state = (mesh_event_toDS_state_t *) event_data;
+            mesh_tods = (*toDs_state == MESH_TODS_REACHABLE);
+         }
+         break;
       }
    }
 #endif
@@ -1346,6 +1358,7 @@ static void task(void *pvParameters)
 /* External functions */
 void revk_boot(app_callback_t * app_callback_cb)
 {                               /* Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID */
+   ESP_LOGI(TAG, "sem");
 #ifdef	CONFIG_REVK_MESH
    mesh_mutex = xSemaphoreCreateBinary();
    xSemaphoreGive(mesh_mutex);
@@ -1360,6 +1373,7 @@ void revk_boot(app_callback_t * app_callback_cb)
    extern const uint8_t part_start[] asm("_binary_partitions_4m_bin_start");
    extern const uint8_t part_end[] asm("_binary_partitions_4m_bin_end");
 #endif
+   ESP_LOGI(TAG, "flash");
    /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
    if ((part_end - part_start) > SPI_FLASH_SEC_SIZE)
    {
@@ -1372,7 +1386,9 @@ void revk_boot(app_callback_t * app_callback_cb)
       ESP_LOGE(TAG, "Malloc fail: %d", SPI_FLASH_SEC_SIZE);
       return;
    }
+   ESP_LOGI(TAG, "read");
    REVK_ERR_CHECK(spi_flash_read(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+   ESP_LOGI(TAG, "read done");
    if (memcmp(mem, part_start, part_end - part_start))
    {
 #ifndef CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
@@ -1387,8 +1403,11 @@ void revk_boot(app_callback_t * app_callback_cb)
    }
    freez(mem);
 #endif
+   ESP_LOGI(TAG, "nvs_flash_init");
    nvs_flash_init();
+   ESP_LOGI(TAG, "nvs_flash_init_partition");
    nvs_flash_init_partition(TAG);
+   ESP_LOGI(TAG, "nvs_open_from_partition");
    const esp_app_desc_t *app = esp_ota_get_app_description();
    if (nvs_open_from_partition(TAG, TAG, NVS_READWRITE, &nvs))
       REVK_ERR_CHECK(nvs_open(TAG, NVS_READWRITE, &nvs));
@@ -1964,7 +1983,7 @@ static void ota_task(void *pvParameters)
                   jo_int(j, "progress", ota_progress = percent);
                   jo_int(j, "loaded", ota_data);
                   jo_int(j, "size", ota_size);
-                  revk_info_clients("upgrade", &j, 3);
+                  revk_info_clients("upgrade", &j, -1);
                   next = now + 5;
                }
             }
@@ -1974,7 +1993,7 @@ static void ota_task(void *pvParameters)
                jo_t j = jo_make(NULL);
                jo_string(j, "complete", ota_partition->label);
                jo_int(j, "size", ota_size);
-               revk_info_clients("upgrade", &j, 3);
+               revk_info_clients("upgrade", &j, -1);
                esp_ota_set_boot_partition(ota_partition);
                revk_restart("OTA", 5);
             }
@@ -3043,6 +3062,7 @@ const char *revk_command(const char *tag, jo_t j)
 
 void revk_register(const char *name, uint8_t array, uint16_t size, void *data, const char *defval, uint8_t flags)
 {                               /* Register setting (not expected to be thread safe, should be called from init) */
+   ESP_LOGI(TAG, "Register %s", name);
    if (flags & SETTING_BITFIELD)
    {
       if (!defval)
@@ -3233,8 +3253,7 @@ void revk_wifi_close(void)
    esp_mesh_stop();
    esp_mesh_deinit();
 #endif
-   esp_wifi_disconnect();
-   sleep(1);
+   esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_deinit();
    ESP_LOGI(TAG, "WIFi Closed");
 }
