@@ -311,6 +311,7 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
 #endif
 
 #ifdef CONFIG_REVK_MESH
+// TODO esp_mesh_set_ie_crypto_funcs may be better way to do this in future
 esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 {                               // Security - encode mesh message and send - **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
    addr = addr;                 // Not used
@@ -685,13 +686,17 @@ static void mesh_init(void)
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_mesh_disable_ps());
-      REVK_ERR_CHECK(esp_mesh_send_block_time(1000)); // Note sure if needed or what but a second it a long time - send calls should check return code
+      REVK_ERR_CHECK(esp_mesh_send_block_time(1000));   // Note sure if needed or what but a second it a long time - send calls should check return code
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
       memcpy((uint8_t *) & cfg.mesh_id, meshid, 6);
+      if (wifibssid[0] || wifibssid[1] || wifibssid[2])
+      {
+         memcpy(cfg.router.bssid, wifibssid, sizeof(cfg.router.bssid));
+         cfg.router.allow_router_switch = 1;    // Fallback if not found
+      }
       cfg.channel = wifichan;
-      if (!wifichan)
-         cfg.allow_channel_switch = 1;
+      cfg.allow_channel_switch = 1;     // Fallback
       int l;
       if ((l = strlen(wifissid)) > sizeof(cfg.router.ssid))
          l = sizeof(cfg.router.ssid);
