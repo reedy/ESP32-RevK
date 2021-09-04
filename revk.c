@@ -250,12 +250,11 @@ static const char *revk_setting_dump(void);
 
 #ifdef	CONFIG_REVK_MESH
 // OTA to mesh devices
+static uint8_t mesh_root = 0;
 static volatile uint8_t mesh_ota_ack = 0;
 static SemaphoreHandle_t mesh_ota_sem = NULL;
 static mesh_addr_t mesh_ota_addr = { };
 
-static uint8_t mesh_tods = 0;
-static uint8_t mesh_root = 0;
 #endif
 
 /* Local functions */
@@ -1163,12 +1162,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case MESH_EVENT_ROOT_ADDRESS:    // We know the root
          mesh_root = 1;
          break;
-      case MESH_EVENT_TODS_STATE:      // External network start
-         {
-            mesh_event_toDS_state_t *toDs_state = (mesh_event_toDS_state_t *) event_data;
-            mesh_tods = (*toDs_state == MESH_TODS_REACHABLE);
-         }
-         break;
       }
    }
 #endif
@@ -1615,13 +1608,10 @@ const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
-      if (mesh_tods)
-      {
-         mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-         mesh_make_mqtt(&data, clients | (retain << 7), tlen, topic, plen, payload);    // Ensures MESH_PAD space one end
-         mesh_encode_send(NULL, &data, 0);      // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
-         free(data.data);
-      }
+      mesh_data_t data = {.proto = MESH_PROTO_MQTT };
+      mesh_make_mqtt(&data, clients | (retain << 7), tlen, topic, plen, payload);       // Ensures MESH_PAD space one end
+      mesh_encode_send(NULL, &data, 0); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
+      free(data.data);
       return NULL;
    }
 #endif
