@@ -376,7 +376,7 @@ static void mesh_task(void *pvParameters)
       mesh_addr_t from = { };
       data.size = MESH_MPS;
       int flag = 0;
-      esp_err_t e = esp_mesh_recv(&from, &data, 500, &flag, NULL, 0);
+      esp_err_t e = esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0);
       if (e == ESP_ERR_MESH_TIMEOUT)
          continue;
       if (e)
