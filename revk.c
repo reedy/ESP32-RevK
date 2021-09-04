@@ -721,6 +721,7 @@ static void mesh_init(void)
       REVK_ERR_CHECK(esp_mesh_disable_ps());
       revk_task("Mesh", mesh_task, NULL);
    }
+   esp_wifi_disconnect();
    REVK_ERR_CHECK(esp_mesh_start());
 }
 #endif
@@ -3232,7 +3233,7 @@ void revk_wifi_close(void)
    esp_mesh_stop();
    esp_mesh_deinit();
 #endif
-   esp_wifi_set_mode(WIFI_MODE_NULL);
+   esp_wifi_disconnect();
    sleep(1);
    esp_wifi_deinit();
    ESP_LOGI(TAG, "WIFi Closed");
