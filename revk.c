@@ -434,7 +434,7 @@ static void mesh_task(void *pvParameters)
                if (ota_size && (*data.data & 0xF) == ((ota_ack + 1) & 0xF))
                {                // Expected data
                   ota_ack = 0xA0 + (*data.data & 0xF);
-                  if (REVK_ERR_CHECK(esp_ota_write_offset(ota_handle, data.data + 1, data.size - 1, ota_data)))
+                  if (REVK_ERR_CHECK(esp_ota_write_with_offset(ota_handle, data.data + 1, data.size - 1, ota_data)))
                   {
                      ota_size = 0;
                      ESP_LOGE(TAG, "Flash failed at %d", ota_data);
