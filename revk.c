@@ -3233,6 +3233,7 @@ void revk_wifi_close(void)
    esp_mesh_deinit();
 #endif
    esp_wifi_set_mode(WIFI_MODE_NULL);
+   sleep(1);
    esp_wifi_deinit();
    ESP_LOGI(TAG, "WIFi Closed");
 }
