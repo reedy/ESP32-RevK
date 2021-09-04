@@ -416,8 +416,6 @@ static void mesh_task(void *pvParameters)
                   send_ack();
                   if (!ota_size)
                   {
-                     ota_progress = 0;
-                     ota_data = 0;
                      ota_size = (data.data[1] << 16) + (data.data[2] << 8) + data.data[3];
                      ota_partition = esp_ota_get_next_update_partition(esp_ota_get_running_partition());
                      ESP_LOGI(TAG, "Start flash %d", ota_size);
@@ -427,6 +425,8 @@ static void mesh_task(void *pvParameters)
                         ESP_LOGI(TAG, "Failed to start flash");
                      }
                   }
+                  ota_progress = 0;
+                  ota_data = 0;
                   next = now;
                }
                break;
@@ -434,7 +434,7 @@ static void mesh_task(void *pvParameters)
                if (ota_size && (*data.data & 0xF) == ((ota_ack + 1) & 0xF))
                {                // Expected data
                   ota_ack = 0xA0 + (*data.data & 0xF);
-                  if (REVK_ERR_CHECK(esp_ota_write(ota_handle, data.data + 1, data.size - 1)))
+                  if (REVK_ERR_CHECK(esp_ota_write_offset(ota_handle, data.data + 1, data.size - 1, ota_data)))
                   {
                      ota_size = 0;
                      ESP_LOGE(TAG, "Flash failed at %d", ota_data);
