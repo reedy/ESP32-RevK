@@ -419,6 +419,10 @@ static void mesh_task(void *pvParameters)
                      ota_size = (data.data[1] << 16) + (data.data[2] << 8) + data.data[3];
                      ota_partition = esp_ota_get_next_update_partition(esp_ota_get_running_partition());
                      ESP_LOGI(TAG, "Start flash %d", ota_size);
+                     jo_t j = jo_make(NULL);
+                     jo_int(j, "progress", 0);
+                     jo_int(j, "size", ota_size);
+                     revk_info_clients("upgrade", &j, -1);
                      if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
                      {
                         ota_size = 0;   // Failed
