@@ -1615,10 +1615,13 @@ const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
-      mesh_data_t data = {.proto = MESH_PROTO_MQTT };
-      mesh_make_mqtt(&data, clients | (retain << 7), tlen, topic, plen, payload);       // Ensures MESH_PAD space one end
-      mesh_encode_send(NULL, &data, 0); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
-      free(data.data);
+      if (mesh_tods)
+      {
+         mesh_data_t data = {.proto = MESH_PROTO_MQTT };
+         mesh_make_mqtt(&data, clients | (retain << 7), tlen, topic, plen, payload);    // Ensures MESH_PAD space one end
+         mesh_encode_send(NULL, &data, 0);      // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
+         free(data.data);
+      }
       return NULL;
    }
 #endif
@@ -3233,6 +3236,13 @@ void revk_mqtt_close(const char *reason)
          jo_bool(j, "up", 0);
          jo_string(j, "reason", reason);
          revk_state_clients(NULL, &j, 1 << client);
+      }
+#ifdef  CONFIG_REVK_MESH
+   sleep(2);                    // Allow mesh a while to send final
+#endif
+   for (int client = 0; client < MQTT_CLIENTS; client++)
+      if (mqtt_client[client])
+      {
          lwmqtt_end(&mqtt_client[client]);
          ESP_LOGI(TAG, "MQTT%d Closed", client);
          xEventGroupWaitBits(revk_group, GROUP_MQTT_DOWN << client, false, true, 2 * 1000 / portTICK_PERIOD_MS);
