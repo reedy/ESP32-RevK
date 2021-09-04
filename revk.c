@@ -685,7 +685,7 @@ static void mesh_init(void)
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_mesh_disable_ps());
-      REVK_ERR_CHECK(esp_mesh_send_block_time(100));
+      REVK_ERR_CHECK(esp_mesh_send_block_time(1000)); // Note sure if needed or what but a second it a long time - send calls should check return code
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
       memcpy((uint8_t *) & cfg.mesh_id, meshid, 6);
