@@ -19,6 +19,13 @@ menu "RevK"
         help
 		Enable WiFi Mesh operation
 
+	config REVK_MESHRESET
+	int "Reset if we are offline too long"
+	default 3600
+	depends on REVK_MESH
+	help
+		Number of seconds for mesh root with no IP before reset
+
 	config REVK_MESHID
         string "Mesh ID (6 byte hex)"
         default ""

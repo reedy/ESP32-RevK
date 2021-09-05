@@ -118,6 +118,7 @@ static const char
 		b(aphide,CONFIG_REVK_APHIDE);		\
 
 #define	meshsettings	\
+		u16(meshreset,CONFIG_REVK_MESHRESET);	\
 		h(meshid,6,CONFIG_REVK_MESHID);		\
 		hs(meshkey,16,NULL);		\
     		u16(meshwidth,CONFIG_REVK_MESHWIDTH);	\
@@ -1162,26 +1163,21 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          revk_mqtt_close("Mesh gone");
          break;
       case MESH_EVENT_ROOT_ADDRESS:    // We know the root
+         if (!mesh_root)
          {
-            mesh_event_root_address_t *root_addr = (mesh_event_root_address_t *) event_data;
-            if (!root_addr->addr[0] && !root_addr->addr[1] && !root_addr->addr[2] && !root_addr->addr[3] && !root_addr->addr[4] && !root_addr->addr[5])
-            {
-               if (mesh_root)
-               {
-                  ESP_LOGI(TAG, "Mesh root lost");
-                  mesh_root = 0;
-               }
-            } else
-            {
-               if (!mesh_root)
-               {
-                  ESP_LOGI(TAG, "Mesh root known");
-                  mesh_root = 1;
-               }
-            }
+            ESP_LOGI(TAG, "Mesh root known");
+            mesh_root = 1;
+         }
+         break;
+      case MESH_EVENT_NO_PARENT_FOUND:
+         if (mesh_root)
+         {
+            ESP_LOGI(TAG, "Mesh root lost");
+            mesh_root = 0;
          }
          break;
       }
+      ESP_LOGI(TAG, "Mesh event %d", event_id); // TODo debug
    }
 #endif
 }
@@ -1365,16 +1361,20 @@ static void task(void *pvParameters)
             }
          }
 #endif
-#if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-         if (wifireset && revk_link_down() > wifireset)
-         {
 #ifdef  CONFIG_REVK_MESH
-            if ((esp_mesh_is_root() && esp_mesh_get_total_node_num() <= 1) || !mesh_root)
+         if (esp_mesh_is_root())
+         {                      // Root reset is if wifireset and alone, or mesh reset even if not alone
+            if ((wifireset && revk_link_down() > wifireset && esp_mesh_get_total_node_num() <= 1) || (meshreset && revk_link_down() > meshreset))
                revk_restart("Mesh sucks", 0);
-#else
-            revk_restart("Offline too long", 0);
-#endif
+         } else
+         {                      // Leaf reset if only if link down (meaning alone)
+            if (wifireset && revk_link_down() > wifireset)
+               revk_restart("Mesh sucks", 0);
          }
+#endif
+#ifdef	CONFIG_REVK_WIFI
+         if (wifireset && revk_link_down() > wifireset)
+            revk_restart("Offline too long", 0);
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
          if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
