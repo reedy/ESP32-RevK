@@ -241,6 +241,7 @@ static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+static uint8_t uplink = 0;      // If we have uplink
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
 #endif
@@ -250,7 +251,6 @@ static uint8_t blink_on = 0,
 static const char *blink_colours = "RYGCBM";
 static const char *revk_setting_dump(void);
 
-static uint8_t uplink = 0;      // If we have uplink
 #ifdef	CONFIG_REVK_MESH
 // OTA to mesh devices
 static uint8_t mesh_root = 0;
@@ -3282,6 +3282,13 @@ int revk_wait_mqtt(int seconds)
 {
    ESP_LOGD(TAG, "Wait MQTT %d", seconds);
    return xEventGroupWaitBits(revk_group, GROUP_MQTT, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_MQTT;
+}
+#endif
+
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+int revk_uplink(void)
+{                               // We have uplink (IP or parent mesh)
+   return uplink;
 }
 #endif
 
