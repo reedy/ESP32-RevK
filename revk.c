@@ -1162,7 +1162,24 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          revk_mqtt_close("Mesh gone");
          break;
       case MESH_EVENT_ROOT_ADDRESS:    // We know the root
-         mesh_root = 1;
+         {
+            mesh_event_root_address_t *root_addr = (mesh_event_root_address_t *) event_data;
+            if (!root_addr->addr[0] && !root_addr->addr[1] && !root_addr->addr[2] && !root_addr->addr[3] && !root_addr->addr[4] && !root_addr->addr[5])
+            {
+               if (mesh_root)
+               {
+                  ESP_LOGI(TAG, "Mesh root lost");
+                  mesh_root = 0;
+               }
+            } else
+            {
+               if (!mesh_root)
+               {
+                  ESP_LOGI(TAG, "Mesh root known");
+                  mesh_root = 1;
+               }
+            }
+         }
          break;
       }
    }
@@ -1239,9 +1256,13 @@ static void task(void *pvParameters)
          sec = 0;
          uint32_t now = uptime();
 #ifdef CONFIG_REVK_MESH
-         ESP_LOGI(TAG, "Tick %d mesh nodes %d%s", now, esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : "");
+         ESP_LOGI(TAG, "Up %d, Link down %d, Mesh nodes %d%s", now, revk_link_down(), esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : mesh_root ? " (leaf)" : " (alone)");
 #else
-         ESP_LOGI(TAG, "Tick %d", now);
+#ifdef	CONFIG_MESH_WIFI
+         ESP_LOGI(TAG, "Up %d, Link down %d", now, revk_link_down());
+#else
+         ESP_LOGI(TAG, "Up %d", now);
+#endif
 #endif
          if (restart_time && restart_time < now && !ota_task_id)
          {                      /* Restart */
@@ -1348,7 +1369,7 @@ static void task(void *pvParameters)
          if (wifireset && revk_link_down() > wifireset)
          {
 #ifdef  CONFIG_REVK_MESH
-            if (esp_mesh_get_total_node_num() <= 1)
+            if ((esp_mesh_is_root() && esp_mesh_get_total_node_num() <= 1) || !mesh_root)
                revk_restart("Mesh sucks", 0);
 #else
             revk_restart("Offline too long", 0);
