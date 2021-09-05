@@ -583,15 +583,21 @@ static void setup_ip(void)
       ESP_LOGI(TAG, "Fixed IP %s GW %s", wifiip, wifigw);
       if (!*wifidns[0])
          dns(wifiip, ESP_NETIF_DNS_MAIN);       /* Fallback to using gateway for DNS */
+      link_down = 0;            // Static so not GOT_IP
    } else
+   {
+      if (!link_down)
+         link_down = uptime();  // Just in case we think we have a link, we don't yet - need GOT_IP
+      ESP_LOGI(TAG, "Dynamic IP start");
       esp_netif_dhcpc_start(sta_netif); /* Dynamic IP */
+   }
    dns(wifidns[0], ESP_NETIF_DNS_MAIN);
    dns(wifidns[1], ESP_NETIF_DNS_BACKUP);
    dns(wifidns[2], ESP_NETIF_DNS_FALLBACK);
 #ifndef	CONFIG_REVK_MESH
 #ifdef  CONFIG_REVK_MQTT
    if (*wifiip)
-      revk_mqtt_init();         // Won't start on GOT_IP
+      revk_mqtt_init();         // Won't start on GOT_IP so start here
 #endif
 #endif
 }
@@ -1089,12 +1095,12 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       {
       case IP_EVENT_STA_LOST_IP:
          if (!link_down)
-            link_down = uptime();
+            link_down = uptime();       // Applies for non mesh, and mesh
          ESP_LOGI(TAG, "Lost IP");
          break;
       case IP_EVENT_STA_GOT_IP:
          {
-            link_down = 0;
+            link_down = 0;      // Applies for non mesh, and mesh
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
             wifi_ap_record_t ap = { };
             REVK_ERR_CHECK(esp_wifi_sta_get_ap_info(&ap));
@@ -1141,17 +1147,21 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_PARENT_CONNECTED:
          {
-            link_down = 0;
             if (esp_mesh_is_root())
             {
-               ESP_LOGD(TAG, "Mesh root");
-               setup_ip();
+               ESP_LOGI(TAG, "Mesh root");
+               setup_ip();      // Handles starting dhcp or setting link_down
                revk_mqtt_init();
             } else
             {
-               ESP_LOGD(TAG, "Mesh child");
+               ESP_LOGI(TAG, "Mesh child");
                stop_ip();
                revk_mqtt_close("No child of mesh");
+               if (link_down)
+               {
+                  ESP_LOGI(TAG, "Link up");
+                  link_down = 0;        // As child we assume parent has a link
+               }
             }
          }
          break;
@@ -1160,7 +1170,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          if (!link_down)
          {
             link_down = uptime();
-            ESP_LOGD(TAG, "Mesh disconnected");
+            ESP_LOGD(TAG, "Link down");
          }
          if (mesh_root_known)
          {
@@ -1253,7 +1263,7 @@ static void task(void *pvParameters)
          sec = 0;
          uint32_t now = uptime();
 #ifdef CONFIG_REVK_MESH
-         ESP_LOGI(TAG, "Up %d, Link down %d, Mesh nodes %d%s", now, revk_link_down(), esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : mesh_root_known ? " (leaf)" : " (alone)");
+         ESP_LOGI(TAG, "Up %d, Link down %d, Mesh nodes %d%s", now, revk_link_down(), esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_MESH_WIFI
          ESP_LOGI(TAG, "Up %d, Link down %d", now, revk_link_down());
