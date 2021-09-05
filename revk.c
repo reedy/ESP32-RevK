@@ -1238,7 +1238,11 @@ static void task(void *pvParameters)
       {                         // Slow (once a second)
          sec = 0;
          uint32_t now = uptime();
+#ifdef CONFIG_REVK_MESH
+         ESP_LOGI(TAG, "Tick %d mesh nodes %d%s", now, esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : "");
+#else
          ESP_LOGI(TAG, "Tick %d", now);
+#endif
          if (restart_time && restart_time < now && !ota_task_id)
          {                      /* Restart */
             if (!restart_reason)
