@@ -211,8 +211,6 @@ mac_t revk_mac;                 // MAC
 /* Local */
 static uint32_t up_next;        // next up report (uptime)
 static EventGroupHandle_t revk_group;
-static volatile uint64_t offline = 1;   // When we first went off line
-static volatile uint64_t offline_try = 1;       // When we last tried to get on line
 const static int GROUP_OFFLINE = BIT0;  // We are off line (IP not set)
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 const static int GROUP_WIFI = BIT1;     // We are WiFi connected
@@ -449,6 +447,7 @@ static void mesh_task(void *pvParameters)
                   int percent = ota_data * 100 / ota_size;
                   if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                   {
+                     ESP_LOGI(TAG, "Flash %d%%", percent);
                      jo_t j = jo_make(NULL);
                      jo_int(j, "progress", ota_progress = percent);
                      jo_int(j, "loaded", ota_data);
@@ -1047,8 +1046,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGI(TAG, "STA Stop");
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits(revk_group, GROUP_OFFLINE);
-         if (!offline)
-            offline_try = offline = esp_timer_get_time();
          break;
       case WIFI_EVENT_STA_CONNECTED:
          ESP_LOGI(TAG, "STA Connected");
@@ -1059,8 +1056,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGI(TAG, "STA Disconnect");
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits(revk_group, GROUP_OFFLINE);
-         if (!offline)
-            offline_try = offline = esp_timer_get_time();
          esp_wifi_connect();
          break;
          // AP
@@ -1095,8 +1090,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          if (!link_down)
             link_down = uptime();
          ESP_LOGI(TAG, "Lost IP");
-         if (!offline)
-            offline_try = offline = esp_timer_get_time();
          break;
       case IP_EVENT_STA_GOT_IP:
          {
@@ -1106,7 +1099,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             REVK_ERR_CHECK(esp_wifi_sta_get_ap_info(&ap));
             ESP_LOGI(TAG, "Got IP " IPSTR " from %s", IP2STR(&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits(revk_group, GROUP_IP);
-            offline = 0;
             sntp_stop();
             sntp_init();
 #ifdef	CONFIG_REVK_MQTT
@@ -1144,8 +1136,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGD(TAG, "STA Stop");
          xEventGroupClearBits(revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits(revk_group, GROUP_OFFLINE);
-         if (!offline)
-            offline_try = offline = esp_timer_get_time();
          revk_mqtt_close("Mesh gone");
          break;
       case MESH_EVENT_PARENT_CONNECTED:
@@ -1188,7 +1178,7 @@ static void task(void *pvParameters)
    int64_t tick = 0;
    while (1)
    {                            /* Idle */
-      {                         // Fast
+      {                         // Fast (once per 100ms)
          int64_t now = esp_timer_get_time();
          if (now < tick)
          {                      /* wait for next 10th, so idle task runs */
@@ -1210,7 +1200,7 @@ static void task(void *pvParameters)
                    off = blink_off;
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
                if (!on && !off)
-                  on = off = (revk_offline()? 6 : 3);
+                  on = off = (revk_link_down()? 3 : 6);
 #endif
                lit = 1 - lit;
                count = (lit ? on : off);
@@ -1243,122 +1233,135 @@ static void task(void *pvParameters)
             revk_setting_dump();
          }
       }
-      uint32_t now = uptime();  // Slow
-      if (restart_time && restart_time < now && !ota_task_id)
-      {                         /* Restart */
-         if (!restart_reason)
-            restart_reason = "Unknown";
-         if (app_callback)
-         {
-            jo_t j = jo_create_alloc();
-            jo_string(j, NULL, restart_reason);
-            jo_rewind(j);
-            app_callback(0, prefixcommand, NULL, "shutdown", j);
-            jo_free(&j);
-         }
-         revk_mqtt_close(restart_reason);
+      static uint8_t sec = 0;
+      if (++sec >= 10)
+      {                         // Slow (once a second)
+         sec = 0;
+         uint32_t now = uptime();
+         ESP_LOGI(TAG, "Tick %d", now);
+         if (restart_time && restart_time < now && !ota_task_id)
+         {                      /* Restart */
+            if (!restart_reason)
+               restart_reason = "Unknown";
+            if (app_callback)
+            {
+               jo_t j = jo_create_alloc();
+               jo_string(j, NULL, restart_reason);
+               jo_rewind(j);
+               app_callback(0, prefixcommand, NULL, "shutdown", j);
+               jo_free(&j);
+            }
+            revk_mqtt_close(restart_reason);
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-         revk_wifi_close();
+            revk_wifi_close();
 #endif
-         REVK_ERR_CHECK(nvs_commit(nvs));
-         esp_restart();
-         restart_time = 0;
-      }
-      if (nvs_time && nvs_time < now)
-      {
-         REVK_ERR_CHECK(nvs_commit(nvs));
-         nvs_time = 0;
-      }
+            REVK_ERR_CHECK(nvs_commit(nvs));
+            esp_restart();
+            restart_time = 0;
+         }
+         if (nvs_time && nvs_time < now)
+         {
+            REVK_ERR_CHECK(nvs_commit(nvs));
+            nvs_time = 0;
+         }
 #if 0
-      {                         // memory leak debug
-         static uint32_t last = 0;
-         uint32_t heap = esp_get_free_heap_size();
-         if (heap / 100 != last / 100)
-            ESP_LOGI(TAG, "Mem %d", last = heap);
-      }
+         {                      // memory leak debug
+            static uint32_t last = 0;
+            uint32_t heap = esp_get_free_heap_size();
+            if (heap / 100 != last / 100)
+               ESP_LOGI(TAG, "Mem %d", last = heap);
+         }
 #endif
 #ifdef	CONFIG_REVK_MQTT
-      {                         // Report even if not on-line as mesh works anyway
-         static uint8_t lastch = 0;
-         static mac_t lastbssid;
-         static uint32_t lastheap = 0;
-         uint32_t heap = esp_get_free_heap_size();
-         wifi_ap_record_t ap = {
-         };
-         esp_wifi_sta_get_ap_info(&ap);
-         if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next)
-         {
-            jo_t j = jo_make(NULL);
-            jo_string(j, "id", revk_id);
-            {                   // uptime
-               uint64_t t = esp_timer_get_time();
-               jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
-            }
-            if (!up_next)
-            {                   // some unchanging stuff
+         {                      // Report even if not on-line as mesh works anyway
+            static uint8_t lastch = 0;
+            static mac_t lastbssid;
+            static uint32_t lastheap = 0;
+            uint32_t heap = esp_get_free_heap_size();
+            wifi_ap_record_t ap = {
+            };
+            esp_wifi_sta_get_ap_info(&ap);
+            if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next)
+            {
+               jo_t j = jo_make(NULL);
+               jo_string(j, "id", revk_id);
+               {                // uptime
+                  uint64_t t = esp_timer_get_time();
+                  jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
+               }
+               if (!up_next)
+               {                // some unchanging stuff
 #ifdef	CONFIG_SECURE_BOOT
-               jo_bool(j, "secureboot", 1);
+                  jo_bool(j, "secureboot", 1);
 #endif
 #ifdef	CONFIG_NVS_ENCRYPTION
-               jo_bool(j, "nvsecryption", 1);
+                  jo_bool(j, "nvsecryption", 1);
 #endif
-               jo_string(j, "app", appname);
-               jo_string(j, "version", revk_version);
-               const esp_app_desc_t *app = esp_ota_get_app_description();
-               const char *v = app->date;
-               if (v && strlen(v) == 11)
-               {                // Stupid format Jul 10 2021
-                  char date[11];
-                  sprintf(date, "%s-xx-%.2s", v + 7, v + 4);
-                  const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
-                  for (int m = 0; m < 12; m++)
-                     if (!strncmp(mname + m * 3, v, 3))
-                     {
-                        date[5] = '0' + (m + 1) / 10;
-                        date[6] = '0' + (m + 1) % 10;
-                        break;
-                     }
-                  if (date[8] == ' ')
-                     date[8] = '0';
-                  jo_stringf(j, "build", "%sT%s", date, app->time);
-                  jo_int(j, "flash", spi_flash_get_chip_size());
-                  jo_int(j, "rst", esp_reset_reason());
+                  jo_string(j, "app", appname);
+                  jo_string(j, "version", revk_version);
+                  const esp_app_desc_t *app = esp_ota_get_app_description();
+                  const char *v = app->date;
+                  if (v && strlen(v) == 11)
+                  {             // Stupid format Jul 10 2021
+                     char date[11];
+                     sprintf(date, "%s-xx-%.2s", v + 7, v + 4);
+                     const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+                     for (int m = 0; m < 12; m++)
+                        if (!strncmp(mname + m * 3, v, 3))
+                        {
+                           date[5] = '0' + (m + 1) / 10;
+                           date[6] = '0' + (m + 1) % 10;
+                           break;
+                        }
+                     if (date[8] == ' ')
+                        date[8] = '0';
+                     jo_stringf(j, "build", "%sT%s", date, app->time);
+                     jo_int(j, "flash", spi_flash_get_chip_size());
+                     jo_int(j, "rst", esp_reset_reason());
+                  }
                }
+               if (!up_next || heap / 10000 < lastheap / 10000)
+                  jo_int(j, "mem", esp_get_free_heap_size());
+               if (!up_next || lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6))
+               {                // Wifi
+                  jo_string(j, "ssid", (char *) ap.ssid);
+                  jo_stringf(j, "bssid", "%02X%02X%02X%02X%02X%02X", (uint8_t) ap.bssid[0], (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
+                  jo_int(j, "rssi", ap.rssi);
+                  jo_int(j, "chan", ap.primary);
+                  if (ap.phy_lr)
+                     jo_bool(j, "lr", 1);
+               }
+               revk_state_clients(NULL, &j, -1);        // up message goes to all servers
+               lastheap = heap;
+               lastch = ap.primary;
+               memcpy(lastbssid, ap.bssid, 6);
+               up_next = now + 3600;
             }
-            if (!up_next || heap / 10000 < lastheap / 10000)
-               jo_int(j, "mem", esp_get_free_heap_size());
-            if (!up_next || lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6))
-            {                   // Wifi
-               jo_string(j, "ssid", (char *) ap.ssid);
-               jo_stringf(j, "bssid", "%02X%02X%02X%02X%02X%02X", (uint8_t) ap.bssid[0], (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
-               jo_int(j, "rssi", ap.rssi);
-               jo_int(j, "chan", ap.primary);
-               if (ap.phy_lr)
-                  jo_bool(j, "lr", 1);
-            }
-            revk_state_clients(NULL, &j, -1);   // up message goes to all servers
-            lastheap = heap;
-            lastch = ap.primary;
-            memcpy(lastbssid, ap.bssid, 6);
-            up_next = now + 3600;
          }
-      }
 #endif
-#ifdef	CONFIG_REVK_WIFI
-      if (wifireset && offline && (now - offline) > 1000000LL * wifireset)
-         revk_restart("Offline too long", 1);
+#if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+         if (wifireset && revk_link_down() > wifireset)
+         {
+#ifdef  CONFIG_REVK_MESH
+            if (esp_mesh_get_total_node_num() <= 1)
+               revk_restart("Mesh sucks", 0);
+#else
+            revk_restart("Offline too long", 0);
+#endif
+         }
 #endif
 #ifdef	CONFIG_REVK_APCONFIG
-      if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
+         if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-                          || (apwait && (now - offline_try) > 1000000LL * apwait)
+                             || (apwait && revk_link_down() > apwait)
 #endif
 #ifdef	CONFIG_REVK_WIFI
-                          || !*wifissid
+                             || !*wifissid
 #endif
-          ))
-         ap_task_id = revk_task("AP", ap_task, NULL);   /* Start AP mode */
+             ))
+            ap_task_id = revk_task("AP", ap_task, NULL);        /* Start AP mode */
 #endif
+      }
    }
 }
 
@@ -1854,7 +1857,6 @@ static void ap_task(void *pvParameters)
       //Send reply maybe...
       REVK_ERR_CHECK(httpd_stop(server));
    }
-   offline_try = esp_timer_get_time();  // Don't retry instantly
    xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE);
    if (!*apssid)
    {
@@ -1986,6 +1988,7 @@ static void ota_task(void *pvParameters)
                int percent = ota_data * 100 / ota_size;
                if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
                {
+                  ESP_LOGI(TAG, "Flash %d%%", percent);
                   jo_t j = jo_make(NULL);
                   jo_int(j, "progress", ota_progress = percent);
                   jo_int(j, "loaded", ota_data);
@@ -3219,15 +3222,6 @@ void revk_blink(uint8_t on, uint8_t off, const char *colours)
    blink_off = off;
    blink_colours = colours;
 }
-
-#if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-uint32_t revk_offline(void)
-{
-   if (!offline)
-      return 0;                 // On line
-   return (esp_timer_get_time() - offline) / 1000000ULL ? : 1;
-}
-#endif
 
 #ifdef	CONFIG_REVK_MQTT
 void revk_mqtt_close(const char *reason)
