@@ -1136,7 +1136,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #ifdef	CONFIG_REVK_MESH
    if (event_base == MESH_EVENT)
    {
-      ESP_LOGD(TAG, "Mesh event %d", event_id);
+      ESP_LOGI(TAG, "Mesh event %d", event_id);
       switch (event_id)
       {
       case MESH_EVENT_STOPPED:
@@ -1187,8 +1187,20 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             mesh_root_known = 1;
          }
          break;
+      case MESH_EVENT_TODS_STATE:
+         {
+            mesh_event_toDS_state_t *toDs_state = (mesh_event_toDS_state_t *) event_data;
+            ESP_LOG(TAG, "TODS %d", *toDs_state);
+            if (*toDs_state == MESH_TODS_REACHABLE)
+            {
+               mesh_root_known = 1;
+            } else
+            {
+
+            }
+         }
+         break;
       }
-      ESP_LOGI(TAG, "Mesh event %d", event_id); // TODo debug
    }
 #endif
 }
