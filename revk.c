@@ -1247,6 +1247,7 @@ static void task(void *pvParameters)
          {                      /* Restart */
             if (!restart_reason)
                restart_reason = "Unknown";
+            ESP_LOGI(TAG, "Restart %s", restart_reason);
             if (app_callback)
             {
                jo_t j = jo_create_alloc();
