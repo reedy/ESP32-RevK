@@ -6,7 +6,7 @@ static const char
 //#define       SETTING_DEBUG
 //#define       SETTING_CHANGED
 
-#define	ESP_IDF_431 // Older
+#define	ESP_IDF_431             // Older
 
 // Note, low wifi buffers breaks mesh
 
@@ -250,6 +250,7 @@ static uint8_t blink_on = 0,
 static const char *blink_colours = "RYGCBM";
 static const char *revk_setting_dump(void);
 
+static uint8_t uplink = 0;      // If we have uplink
 #ifdef	CONFIG_REVK_MESH
 // OTA to mesh devices
 static uint8_t mesh_root = 0;
@@ -1091,12 +1092,14 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       switch (event_id)
       {
       case IP_EVENT_STA_LOST_IP:
+         uplink = 0;
          ESP_LOGI(TAG, "Lost IP");
          if (!offline)
             offline_try = offline = esp_timer_get_time();
          break;
       case IP_EVENT_STA_GOT_IP:
          {
+            uplink = 1;
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
             wifi_ap_record_t ap = { };
             REVK_ERR_CHECK(esp_wifi_sta_get_ap_info(&ap));
@@ -1146,6 +1149,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_PARENT_CONNECTED:
          {
+            uplink = 1;
             if (esp_mesh_is_root())
             {
                ESP_LOGD(TAG, "Mesh root");
@@ -1160,6 +1164,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
+         uplink = 0;
          ESP_LOGD(TAG, "Mesh disconnected");
          stop_ip();
          revk_mqtt_close("Mesh gone");
@@ -1608,7 +1613,7 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp)
 #ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
-   if (!clients)
+   if (!clients || !uplink)
       return NULL;
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_device_active() && !esp_mesh_is_root())
@@ -1864,7 +1869,7 @@ static void ota_task(void *pvParameters)
    esp_http_client_config_t config = {
       .url = url
    };
-#ifndef	ESP_IDF_431	// Old version does not have
+#ifndef	ESP_IDF_431             // Old version does not have
    /* Set the TLS in case redirect to TLS even if http */
    if (otacert->len)
    {
