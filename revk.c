@@ -234,14 +234,14 @@ static TaskHandle_t ap_task_id = NULL;
 static app_callback_t *app_callback = NULL;
 lwmqtt_t mqtt_client[MQTT_CLIENTS] = { };
 
-static int64_t restart_time = 0;
-static int64_t nvs_time = 0;
+static uint32_t restart_time = 0;
+static uint32_t nvs_time = 0;
 static uint8_t setting_dump_requested = 0;
 static const char *restart_reason = "Unknown";
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-static uint8_t uplink = 0;      // If we have uplink
+static uint32_t link_down = 1;  // When link last down
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
 #endif
@@ -1092,14 +1092,14 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       switch (event_id)
       {
       case IP_EVENT_STA_LOST_IP:
-         uplink = 0;
+         link_down = uptime();
          ESP_LOGI(TAG, "Lost IP");
          if (!offline)
             offline_try = offline = esp_timer_get_time();
          break;
       case IP_EVENT_STA_GOT_IP:
          {
-            uplink = 1;
+            link_down = 0;
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
             wifi_ap_record_t ap = { };
             REVK_ERR_CHECK(esp_wifi_sta_get_ap_info(&ap));
@@ -1149,7 +1149,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case MESH_EVENT_PARENT_CONNECTED:
          {
-            uplink = 1;
+            link_down = 0;
             if (esp_mesh_is_root())
             {
                ESP_LOGD(TAG, "Mesh root");
@@ -1164,7 +1164,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
-         uplink = 0;
+         link_down = uptime();
          ESP_LOGD(TAG, "Mesh disconnected");
          stop_ip();
          revk_mqtt_close("Mesh gone");
@@ -1186,59 +1186,62 @@ static void task(void *pvParameters)
    int64_t tick = 0;
    while (1)
    {                            /* Idle */
-      int64_t now = esp_timer_get_time();
-      if (now < tick)
-      {                         /* wait for next 10th, so idle task runs */
-         usleep(tick - now);
-         now = tick;
-      }
-      tick += 100000ULL;        /* 10th second */
-      if (!wdt_test && watchdogtime)
-         esp_task_wdt_reset();
-      if (blink[0])
-      {                         // LED blinking
-         static uint8_t lit = 0,
-             count = 0;
-         if (count)
-            count--;
-         else
-         {
-            uint8_t on = blink_on,
-                off = blink_off;
+      {                         // Fast
+         int64_t now = esp_timer_get_time();
+         if (now < tick)
+         {                      /* wait for next 10th, so idle task runs */
+            usleep(tick - now);
+            now = tick;
+         }
+         tick += 100000ULL;     /* 10th second */
+         if (!wdt_test && watchdogtime)
+            esp_task_wdt_reset();
+         if (blink[0])
+         {                      // LED blinking
+            static uint8_t lit = 0,
+                count = 0;
+            if (count)
+               count--;
+            else
+            {
+               uint8_t on = blink_on,
+                   off = blink_off;
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-            if (!on && !off)
-               on = off = (revk_offline()? 6 : 3);
+               if (!on && !off)
+                  on = off = (revk_offline()? 6 : 3);
 #endif
-            lit = 1 - lit;
-            count = (lit ? on : off);
-            if (!count)
-            {                   // Only once, allows for on or off to be 0, if both 0 we do nothing!
                lit = 1 - lit;
                count = (lit ? on : off);
-            }
-            if (count)
-            {
-               if (blink[1] && blink_colours)
-               {                // Coloured LED
-                  static const char *c = "";
-                  if (!*c)
-                     c = blink_colours;
-                  char col = 0;
-                  if (lit)
-                     col = *c++;        // Sequences the colours set for the on state
-                  gpio_set_level(blink[0] & 0x3F, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x40) ? 1 : 0));        // Red LED
-                  gpio_set_level(blink[1] & 0x3F, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x40) ? 1 : 0));        // Green LED
-                  gpio_set_level(blink[2] & 0x3F, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x40) ? 1 : 0));        // Blue LED
-               } else
-                  gpio_set_level(blink[0] & 0x3F, lit ^ ((blink[0] & 0x40) ? 1 : 0));   // Single LED
+               if (!count)
+               {                // Only once, allows for on or off to be 0, if both 0 we do nothing!
+                  lit = 1 - lit;
+                  count = (lit ? on : off);
+               }
+               if (count)
+               {
+                  if (blink[1] && blink_colours)
+                  {             // Coloured LED
+                     static const char *c = "";
+                     if (!*c)
+                        c = blink_colours;
+                     char col = 0;
+                     if (lit)
+                        col = *c++;     // Sequences the colours set for the on state
+                     gpio_set_level(blink[0] & 0x3F, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x40) ? 1 : 0));     // Red LED
+                     gpio_set_level(blink[1] & 0x3F, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x40) ? 1 : 0));     // Green LED
+                     gpio_set_level(blink[2] & 0x3F, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x40) ? 1 : 0));     // Blue LED
+                  } else
+                     gpio_set_level(blink[0] & 0x3F, lit ^ ((blink[0] & 0x40) ? 1 : 0));        // Single LED
+               }
             }
          }
+         if (setting_dump_requested)
+         {                      // Done here so not reporting from MQTT
+            setting_dump_requested = 0;
+            revk_setting_dump();
+         }
       }
-      if (setting_dump_requested)
-      {                         // Done here so not reporting from MQTT
-         setting_dump_requested = 0;
-         revk_setting_dump();
-      }
+      uint32_t now = uptime();  // Slow
       if (restart_time && restart_time < now && !ota_task_id)
       {                         /* Restart */
          if (!restart_reason)
@@ -1281,7 +1284,6 @@ static void task(void *pvParameters)
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info(&ap);
-         uint32_t now = uptime();
          if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next)
          {
             jo_t j = jo_make(NULL);
@@ -1613,7 +1615,7 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp)
 #ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
-   if (!clients || !uplink)
+   if (!clients || link_down)
       return NULL;
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_device_active() && !esp_mesh_is_root())
@@ -1729,7 +1731,7 @@ const char *revk_restart(const char *reason, int delay)
       restart_time = 0;         /* Cancelled */
    else
    {
-      restart_time = esp_timer_get_time() + 1000000LL * (int64_t) delay;        /* Reboot now */
+      restart_time = uptime() + delay;
       if (app_callback)
       {
          jo_t j = jo_create_alloc();
@@ -2441,7 +2443,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
                ESP_LOGI(TAG, "Setting %s stored %.*s", tag, len, value);
 #endif
          }
-         nvs_time = esp_timer_get_time() + 60000000LL;
+         nvs_time = uptime() + 60;
       }
       if (flags & SETTING_LIVE)
       {                         /* Store changed value in memory live */
@@ -3286,9 +3288,11 @@ int revk_wait_mqtt(int seconds)
 #endif
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-int revk_uplink(void)
-{                               // We have uplink (IP or parent mesh)
-   return uplink;
+uint32_t revk_link_down(void)
+{
+   if (!link_down)
+      return 0;
+   return (uptime() - link_down) ? : 1; // How long down;
 }
 #endif
 

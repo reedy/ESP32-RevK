@@ -125,7 +125,7 @@ void revk_mqtt_close(const char *reason);       // Clean close MQTT
 int revk_wait_mqtt(int seconds);
 #endif
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-int revk_uplink(void);	// We have uplink (IP or mesh parent)
+uint32_t revk_link_down(void);	// How long link down (no IP or no parent if mesh)
 #define MESH_PAD        32      // Max extra allocated bytes required on data
 const char *revk_wifi(void);
 void revk_wifi_close(void);
