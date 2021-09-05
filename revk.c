@@ -6,6 +6,8 @@ static const char
 //#define       SETTING_DEBUG
 //#define       SETTING_CHANGED
 
+#define	ESP_IDF_431 // Older
+
 // Note, low wifi buffers breaks mesh
 
 #include "revk.h"
@@ -1862,6 +1864,7 @@ static void ota_task(void *pvParameters)
    esp_http_client_config_t config = {
       .url = url
    };
+#ifndef	ESP_IDF_431	// Old version does not have
    /* Set the TLS in case redirect to TLS even if http */
    if (otacert->len)
    {
@@ -1880,6 +1883,7 @@ static void ota_task(void *pvParameters)
       config.client_key_pem = (void *) clientkey->data;
       config.client_key_len = clientkey->len;
    }
+#endif
    esp_http_client_handle_t client = esp_http_client_init(&config);
    if (!client)
    {
