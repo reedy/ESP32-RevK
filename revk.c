@@ -1190,7 +1190,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       case MESH_EVENT_TODS_STATE:
          {
             mesh_event_toDS_state_t *toDs_state = (mesh_event_toDS_state_t *) event_data;
-            ESP_LOG(TAG, "TODS %d", *toDs_state);
+            ESP_LOGI(TAG, "TODS %d", *toDs_state);
             if (*toDs_state == MESH_TODS_REACHABLE)
             {
                mesh_root_known = 1;
