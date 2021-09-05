@@ -1092,7 +1092,8 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
       switch (event_id)
       {
       case IP_EVENT_STA_LOST_IP:
-         link_down = uptime();
+         if (!link_down)
+            link_down = uptime();
          ESP_LOGI(TAG, "Lost IP");
          if (!offline)
             offline_try = offline = esp_timer_get_time();
@@ -1164,7 +1165,8 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
-         link_down = uptime();
+         if (!link_down)
+            link_down = uptime();
          ESP_LOGD(TAG, "Mesh disconnected");
          stop_ip();
          revk_mqtt_close("Mesh gone");
