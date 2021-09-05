@@ -671,7 +671,6 @@ static void client_task(void *pvParameters)
             .clientkey_buf = handle->our_key_buf,
             .clientkey_bytes = handle->our_key_bytes,
             .crt_bundle_attach = handle->crt_bundle_attach,
-            .is_plain_tcp = (handle->ca_cert_bytes || handle->crt_bundle_attach) ? 0 : 1,
          };
          tls = esp_tls_init();
          if (esp_tls_conn_new_sync(handle->hostname, strlen(handle->hostname), handle->port, &cfg, tls) != 1)
