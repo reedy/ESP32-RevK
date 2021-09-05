@@ -44,7 +44,7 @@ static const char
 
 uint32_t uptime(void)
 {
-   return esp_timer_get_time() / 1000000LL;
+   return esp_timer_get_time() / 1000000LL ? : 1;
 }
 
 struct lwmqtt_s {               // mallocd copies
