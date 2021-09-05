@@ -252,7 +252,7 @@ static const char *revk_setting_dump(void);
 
 #ifdef	CONFIG_REVK_MESH
 // OTA to mesh devices
-static uint8_t mesh_root = 0;
+static uint8_t mesh_root_known = 0;
 static volatile uint8_t mesh_ota_ack = 0;
 static SemaphoreHandle_t mesh_ota_sem = NULL;
 static mesh_addr_t mesh_ota_addr = { };
@@ -300,7 +300,7 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
 {                               // Mutex to protect non-re-entrant call
    if (!esp_mesh_is_device_active())
       return ESP_ERR_MESH_DISCONNECTED;
-   if (!to && !esp_mesh_is_root() && !mesh_root)
+   if (!to && !esp_mesh_is_root() && !mesh_root_known)
       return ESP_ERR_MESH_DISCONNECTED; // We are not root and root address not known
    xSemaphoreTake(mesh_mutex, portMAX_DELAY);
    esp_err_t e = esp_mesh_send(to, data, flag, opt, opt_count);
@@ -1156,24 +1156,25 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
+      case MESH_EVENT_NO_PARENT_FOUND:
          if (!link_down)
+         {
             link_down = uptime();
-         ESP_LOGD(TAG, "Mesh disconnected");
+            ESP_LOGD(TAG, "Mesh disconnected");
+         }
+         if (mesh_root_known)
+         {
+            ESP_LOGI(TAG, "Mesh root lost");
+            mesh_root_known = 0;
+         }
          stop_ip();
          revk_mqtt_close("Mesh gone");
          break;
       case MESH_EVENT_ROOT_ADDRESS:    // We know the root
-         if (!mesh_root)
+         if (!mesh_root_known)
          {
             ESP_LOGI(TAG, "Mesh root known");
-            mesh_root = 1;
-         }
-         break;
-      case MESH_EVENT_NO_PARENT_FOUND:
-         if (mesh_root)
-         {
-            ESP_LOGI(TAG, "Mesh root lost");
-            mesh_root = 0;
+            mesh_root_known = 1;
          }
          break;
       }
@@ -1252,7 +1253,7 @@ static void task(void *pvParameters)
          sec = 0;
          uint32_t now = uptime();
 #ifdef CONFIG_REVK_MESH
-         ESP_LOGI(TAG, "Up %d, Link down %d, Mesh nodes %d%s", now, revk_link_down(), esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : mesh_root ? " (leaf)" : " (alone)");
+         ESP_LOGI(TAG, "Up %d, Link down %d, Mesh nodes %d%s", now, revk_link_down(), esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : mesh_root_known ? " (leaf)" : " (alone)");
 #else
 #ifdef	CONFIG_MESH_WIFI
          ESP_LOGI(TAG, "Up %d, Link down %d", now, revk_link_down());
