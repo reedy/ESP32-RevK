@@ -474,6 +474,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       }
       if (pos < need)
       {
+	      ESP_LOGI(TAG,"Poll");
          uint32_t now = uptime();
          if (now >= handle->ka)
          {
@@ -548,7 +549,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
       case 2:                  // conack
          if (handle->server)
             break;
-         ESP_LOGD(TAG, "Connected %s:%d", handle->hostname, handle->port);
+         ESP_LOGI(TAG, "Connected %s:%d", handle->hostname, handle->port);
          handle->backoff = 1;
          if (handle->callback)
             handle->callback(handle->arg, NULL, strlen(handle->hostname), (void *) handle->hostname);

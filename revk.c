@@ -1033,6 +1033,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #ifdef	CONFIG_REVK_WIFI
    if (event_base == WIFI_EVENT)
    {
+      ESP_LOGI(TAG, "WiFi event %d", event_id);
       switch (event_id)
       {
       case WIFI_EVENT_AP_START:
@@ -1065,7 +1066,6 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          xEventGroupSetBits(revk_group, GROUP_OFFLINE);
          esp_wifi_connect();
          break;
-         // AP
       case WIFI_EVENT_AP_STOP:
          ESP_LOGI(TAG, "AP Stop");
          break;
@@ -1091,6 +1091,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #endif
    if (event_base == IP_EVENT)
    {
+      ESP_LOGI(TAG, "IP event %d", event_id);
       switch (event_id)
       {
       case IP_EVENT_STA_LOST_IP:
