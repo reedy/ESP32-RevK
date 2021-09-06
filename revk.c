@@ -3292,8 +3292,8 @@ void revk_mqtt_close(const char *reason)
          found++;
       }
 #ifdef  CONFIG_REVK_MESH
-   if (found)
-      sleep(5);                 // Allow mesh a while to send final
+   if (found && !esp_mesh_is_root())
+      sleep(2);                 // Allow mesh a while to send final
 #endif
    for (int client = 0; client < MQTT_CLIENTS; client++)
       if (mqtt_client[client])
