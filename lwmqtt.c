@@ -474,7 +474,6 @@ static void lwmqtt_loop(lwmqtt_t handle)
       }
       if (pos < need)
       {
-	      ESP_LOGI(TAG,"Poll");
          uint32_t now = uptime();
          if (now >= handle->ka)
          {
