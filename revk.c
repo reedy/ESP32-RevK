@@ -126,6 +126,7 @@ static const char
     		u16(meshmax,CONFIG_REVK_MESHMAX);	\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 		b(meshlr,CONFIG_REVK_MESHLR);		\
+    		b(meshroot,"false");			\
 
 #define s(n,d)		char *n;
 #define sp(n,d)		char *n;
@@ -734,6 +735,8 @@ static void mesh_init(void)
       if (meshmax)
          REVK_ERR_CHECK(esp_mesh_set_capacity_num(meshmax));
       REVK_ERR_CHECK(esp_mesh_disable_ps());
+      if (meshmax == 1 || meshroot)
+         esp_mesh_set_type(MESH_ROOT);  // We are forcing root
       revk_task("Mesh", mesh_task, NULL);
    }
    REVK_ERR_CHECK(esp_mesh_start());
