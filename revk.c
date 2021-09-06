@@ -386,6 +386,7 @@ static void mesh_task(void *pvParameters)
          ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
       else
       {
+         mesh_root_known = 1;   // We are root or we got from root, so let's mark known
          data.data[data.size] = 0;      // Add a null so we can parse JSON with NULL and log and so on
          char mac[13];
          sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
