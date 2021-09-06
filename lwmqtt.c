@@ -79,7 +79,7 @@ struct lwmqtt_s {               // mallocd copies
     esp_err_t(*crt_bundle_attach) (void *conf);
 };
 
-#define	hread(handle,buf,len)	(handle->tls?esp_tls_conn_read(handle->tls,buf,len):read(handle->sock,buf,len))
+#define	hread(handle,buf,len)	(handle->tls?esp_tls_conn_read(handle->tls,buf,len):recv(handle->sock,buf,len,MSG_DONTWAIT))
 
 static int hwrite(lwmqtt_t handle, uint8_t * buf, int len)
 {                               // Send (all of) a block
