@@ -1780,8 +1780,8 @@ void revk_info_clients(const char *suffix, jo_t * jp, uint8_t clients)
 const char *revk_restart(const char *reason, int delay)
 {                               /* Restart cleanly */
 #ifdef	CONFIG_REVK_MESH
-   if (delay > 0 && !esp_mesh_is_root())
-      delay--;                  // For when lots of devices done at once, do root a second later
+   if (delay > 1 && !esp_mesh_is_root())
+      delay -= 2;               // For when lots of devices done at once, do root later
 #endif
    if (restart_reason != reason && delay >= 0)
       ESP_LOGI(TAG, "Restart %d %s", delay, reason);
