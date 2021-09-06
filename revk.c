@@ -450,9 +450,9 @@ static void mesh_task(void *pvParameters)
                   {
                      ESP_LOGI(TAG, "Flash %d%%", percent);
                      jo_t j = jo_make(NULL);
-                     jo_int(j, "progress", ota_progress = percent);
-                     jo_int(j, "loaded", ota_data);
                      jo_int(j, "size", ota_size);
+                     jo_int(j, "loaded", ota_data);
+                     jo_int(j, "progress", ota_progress = percent);
                      revk_info_clients("upgrade", &j, -1);
                      next = now + 5;
                   }
@@ -467,8 +467,8 @@ static void mesh_task(void *pvParameters)
                   else if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
                   {
                      jo_t j = jo_make(NULL);
-                     jo_string(j, "complete", ota_partition->label);
                      jo_int(j, "size", ota_size);
+                     jo_string(j, "complete", ota_partition->label);
                      revk_info_clients("upgrade", &j, -1);      // Send from target device so cloud knows target is upgraded
                      esp_ota_set_boot_partition(ota_partition);
                      revk_restart("OTA", 5);
@@ -2034,9 +2034,9 @@ static void ota_task(void *pvParameters)
                {
                   ESP_LOGI(TAG, "Flash %d%%", percent);
                   jo_t j = jo_make(NULL);
-                  jo_int(j, "progress", ota_progress = percent);
-                  jo_int(j, "loaded", ota_data);
                   jo_int(j, "size", ota_size);
+                  jo_int(j, "loaded", ota_data);
+                  jo_int(j, "progress", ota_progress = percent);
                   revk_info_clients("upgrade", &j, -1);
                   next = now + 5;
                }
@@ -2045,8 +2045,8 @@ static void ota_task(void *pvParameters)
             if (!err && !(err = REVK_ERR_CHECK(esp_ota_end(ota_handle))))
             {
                jo_t j = jo_make(NULL);
-               jo_string(j, "complete", ota_partition->label);
                jo_int(j, "size", ota_size);
+               jo_string(j, "complete", ota_partition->label);
                revk_info_clients("upgrade", &j, -1);
                esp_ota_set_boot_partition(ota_partition);
                revk_restart("OTA", 5);
@@ -2060,6 +2060,8 @@ static void ota_task(void *pvParameters)
          if (!err && status / 100 != 2)
          {
             jo_t j = jo_make(NULL);
+            if (ota_size >= 0)
+               jo_int(j, "size", ota_size);
             jo_string(j, "url", url);
             if (err)
             {
@@ -2068,8 +2070,6 @@ static void ota_task(void *pvParameters)
             }
             if (status)
                jo_int(j, "status", status);
-            if (ota_size >= 0)
-               jo_int(j, "size", ota_size);
             revk_error("upgrade", &j);
          }
    }
