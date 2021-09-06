@@ -138,5 +138,6 @@ void revk_send_unsub(int client, const mac_t);
 void revk_mesh_send_json(const mac_t mac, jo_t * jp);
 #endif
 void revk_blink(uint8_t on, uint8_t off, const char *colours);  // Set LED blink rate and colour sequence for on state (for RGB LED)
+const char *revk_node(void);
 
 #endif

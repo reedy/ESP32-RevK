@@ -3351,3 +3351,8 @@ jo_t jo_make(const char *node)
       jo_string(j, "node", nodename);
    return j;
 }
+
+const char *revk_node(void)
+{
+   return node;
+}
