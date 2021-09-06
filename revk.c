@@ -3280,6 +3280,7 @@ void revk_blink(uint8_t on, uint8_t off, const char *colours)
 #ifdef	CONFIG_REVK_MQTT
 void revk_mqtt_close(const char *reason)
 {
+   char found = 0;
    for (int client = 0; client < MQTT_CLIENTS; client++)
       if (mqtt_client[client])
       {
@@ -3288,9 +3289,11 @@ void revk_mqtt_close(const char *reason)
          jo_bool(j, "up", 0);
          jo_string(j, "reason", reason);
          revk_state_clients(NULL, &j, 1 << client);
+         found++;
       }
 #ifdef  CONFIG_REVK_MESH
-   sleep(2);                    // Allow mesh a while to send final
+   if (found)
+      sleep(5);                 // Allow mesh a while to send final
 #endif
    for (int client = 0; client < MQTT_CLIENTS; client++)
       if (mqtt_client[client])
