@@ -498,7 +498,7 @@ static void lwmqtt_loop(lwmqtt_t handle)
                ESP_LOGE(TAG, "Select failed");
                break;
             }
-            if (!sel)
+            if (!FD_ISSET(handle->sock, &r))
                continue;        // Nothing waiting
          }
          if (need > buflen)
