@@ -119,7 +119,7 @@ menu "RevK"
 
 	config REVK_WIFIRESET
 	int "Reset if we are offline too long"
-	default 0
+	default 3600
 	depends on REVK_WIFI || REVK_MESH
 	help
 		Number of seconds off line before we completely reset
