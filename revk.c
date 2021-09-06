@@ -1192,6 +1192,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             mesh_root_known = 1;
          }
          break;
+#if 0
       case MESH_EVENT_TODS_STATE:
          {
             mesh_event_toDS_state_t *toDs_state = (mesh_event_toDS_state_t *) event_data;
@@ -1199,6 +1200,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             mesh_root_known = 1;
          }
          break;
+#endif
       }
    }
 #endif
