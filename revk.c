@@ -2014,7 +2014,7 @@ static void ota_task(void *pvParameters)
             ota_size = 0;
          } else
          {
-            jo_t j = jo_object_alloc();
+            jo_t j = jo_make(NULL);
             jo_int(j, "size", ota_size);
             revk_info("upgrade", &j);
             if (!(err = REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle))))
