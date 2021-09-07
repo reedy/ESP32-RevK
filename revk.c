@@ -473,7 +473,7 @@ static void mesh_task(void *pvParameters)
                      jo_string(j, "complete", ota_partition->label);
                      revk_info_clients("upgrade", &j, -1);      // Send from target device so cloud knows target is upgraded
                      esp_ota_set_boot_partition(ota_partition);
-                     revk_restart("OTA", 5);
+                     revk_restart("OTA", 3);
                   }
                   ota_partition = NULL;
                   ota_size = 0;
@@ -1270,11 +1270,11 @@ static void task(void *pvParameters)
             revk_setting_dump();
          }
       }
-      static uint8_t sec = 0;
-      if (++sec >= 10)
+      static uint32_t last = 0;
+      uint32_t now = uptime();
+      if (now != last)
       {                         // Slow (once a second)
-         sec = 0;
-         uint32_t now = uptime();
+         last = now;
 #ifdef CONFIG_REVK_MESH
          ESP_LOGI(TAG, "Up %d, Link down %d, Mesh nodes %d%s", now, revk_link_down(), esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
 #else
@@ -1283,40 +1283,6 @@ static void task(void *pvParameters)
 #else
          ESP_LOGI(TAG, "Up %d", now);
 #endif
-#endif
-         if (restart_time && restart_time < now && !ota_task_id)
-         {                      /* Restart */
-            if (!restart_reason)
-               restart_reason = "Unknown";
-            ESP_LOGI(TAG, "Restart %s", restart_reason);
-            if (app_callback)
-            {
-               jo_t j = jo_create_alloc();
-               jo_string(j, NULL, restart_reason);
-               jo_rewind(j);
-               app_callback(0, prefixcommand, NULL, "shutdown", j);
-               jo_free(&j);
-            }
-            revk_mqtt_close(restart_reason);
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-            revk_wifi_close();
-#endif
-            REVK_ERR_CHECK(nvs_commit(nvs));
-            esp_restart();
-            restart_time = 0;
-         }
-         if (nvs_time && nvs_time < now)
-         {
-            REVK_ERR_CHECK(nvs_commit(nvs));
-            nvs_time = 0;
-         }
-#if 0
-         {                      // memory leak debug
-            static uint32_t last = 0;
-            uint32_t heap = esp_get_free_heap_size();
-            if (heap / 100 != last / 100)
-               ESP_LOGI(TAG, "Mem %d", last = heap);
-         }
 #endif
 #ifdef	CONFIG_REVK_MQTT
          {                      // Report even if not on-line as mesh works anyway
@@ -1327,13 +1293,25 @@ static void task(void *pvParameters)
             wifi_ap_record_t ap = {
             };
             esp_wifi_sta_get_ap_info(&ap);
-            if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next)
+            if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next || restart_time)
             {
+               if (ota_task_id)
+                  restart_time++;       // wait
                jo_t j = jo_make(NULL);
                jo_string(j, "id", revk_id);
-               {                // uptime
-                  uint64_t t = esp_timer_get_time();
-                  jo_litf(j, "up", "%d.%06d", (uint32_t) (t / 1000000LL), (uint32_t) (t % 1000000LL));
+               if (!restart_time || restart_time > now
+#ifdef 	CONFIG_REVK_MESH
+                   + (esp_mesh_is_root()? 0 : 2)        // Reports the up:false sooner if a leaf node, as takes time to send...
+#endif
+                   )
+                  jo_int(j, "up", now);
+               else
+                  jo_bool(j, "up", 0);
+               if (restart_time)
+               {
+                  if (restart_time > now)
+                     jo_int(j, "restart", restart_time - now);
+                  jo_string(j, "reason", restart_reason);
                }
                if (!up_next)
                {                // some unchanging stuff
@@ -1411,6 +1389,32 @@ static void task(void *pvParameters)
              ))
             ap_task_id = revk_task("AP", ap_task, NULL);        /* Start AP mode */
 #endif
+         if (nvs_time && nvs_time < now)
+         {
+            REVK_ERR_CHECK(nvs_commit(nvs));
+            nvs_time = 0;
+         }
+         if (restart_time && restart_time < now)
+         {                      /* Restart */
+            if (!restart_reason)
+               restart_reason = "Unknown";
+            ESP_LOGI(TAG, "Restart %s", restart_reason);
+            if (app_callback)
+            {
+               jo_t j = jo_create_alloc();
+               jo_string(j, NULL, restart_reason);
+               jo_rewind(j);
+               app_callback(0, prefixcommand, NULL, "shutdown", j);
+               jo_free(&j);
+            }
+            revk_mqtt_close(restart_reason);
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+            revk_wifi_close();
+#endif
+            REVK_ERR_CHECK(nvs_commit(nvs));
+            esp_restart();
+            restart_time = 0;
+         }
       }
    }
 }
@@ -2059,7 +2063,7 @@ static void ota_task(void *pvParameters)
                jo_string(j, "complete", ota_partition->label);
                revk_info_clients("upgrade", &j, -1);
                esp_ota_set_boot_partition(ota_partition);
-               revk_restart("OTA", 5);
+               revk_restart("OTA", 3);
             }
          }
 #endif
@@ -2531,7 +2535,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
             freez(n);
          }
       } else if (o < 0)
-         revk_restart("Settings changed", 5);
+         revk_restart("Settings changed", 10);
       return NULL;
    }
    const char *fail = parse();
@@ -3091,7 +3095,7 @@ const char *revk_command(const char *tag, jo_t j)
       return "";
    }
    if (!e && !strcmp(tag, "restart"))
-      e = revk_restart("Restart command", 5);
+      e = revk_restart("Restart command", 3);
    if (!e && !strcmp(tag, "factory"))
    {
       char val[256];
@@ -3105,7 +3109,7 @@ const char *revk_command(const char *tag, jo_t j)
       if (!e)
          e = nvs_flash_erase_partition(TAG);
       if (!e)
-         revk_restart("Factory reset", 5);
+         revk_restart("Factory reset", 3);
       return "";
    }
 #ifdef	CONFIG_REVK_MESH
@@ -3280,21 +3284,6 @@ void revk_blink(uint8_t on, uint8_t off, const char *colours)
 #ifdef	CONFIG_REVK_MQTT
 void revk_mqtt_close(const char *reason)
 {
-   char found = 0;
-   for (int client = 0; client < MQTT_CLIENTS; client++)
-      if (mqtt_client[client])
-      {
-         jo_t j = jo_make(NULL);
-         jo_string(j, "id", revk_id);
-         jo_bool(j, "up", 0);
-         jo_string(j, "reason", reason);
-         revk_state_clients(NULL, &j, 1 << client);
-         found++;
-      }
-#ifdef  CONFIG_REVK_MESH
-   if (found && !esp_mesh_is_root())
-      sleep(2);                 // Allow mesh a while to send final
-#endif
    for (int client = 0; client < MQTT_CLIENTS; client++)
       if (mqtt_client[client])
       {
@@ -3302,6 +3291,7 @@ void revk_mqtt_close(const char *reason)
          ESP_LOGI(TAG, "MQTT%d Closed", client);
          xEventGroupWaitBits(revk_group, GROUP_MQTT_DOWN << client, false, true, 2 * 1000 / portTICK_PERIOD_MS);
       }
+   ESP_LOGI(TAG, "MQTT Closed");
 }
 #endif
 
@@ -3310,11 +3300,6 @@ void revk_wifi_close(void)
 {
    ESP_LOGI(TAG, "WIFi Close");
 #ifdef	CONFIG_REVK_MESH
-   if (esp_mesh_is_root())
-   {
-      esp_mesh_waive_root(NULL, MESH_VOTE_REASON_ROOT_INITIATED);
-      sleep(1);
-   }
    esp_mesh_stop();
    esp_mesh_deinit();
 #endif
