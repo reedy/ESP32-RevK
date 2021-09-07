@@ -2535,7 +2535,7 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
             freez(n);
          }
       } else if (o < 0)
-         revk_restart("Settings changed", 10);
+         revk_restart("Settings changed", 5);
       return NULL;
    }
    const char *fail = parse();
