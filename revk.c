@@ -1295,7 +1295,7 @@ static void task(void *pvParameters)
             esp_wifi_sta_get_ap_info(&ap);
             if (lastch != ap.primary || memcmp(lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next || restart_time)
             {
-               if (ota_task_id)
+               if (restart_time && ota_task_id)
                   restart_time++;       // wait
                jo_t j = jo_make(NULL);
                jo_string(j, "id", revk_id);
@@ -1784,7 +1784,7 @@ void revk_info_clients(const char *suffix, jo_t * jp, uint8_t clients)
 const char *revk_restart(const char *reason, int delay)
 {                               /* Restart cleanly */
 #ifdef	CONFIG_REVK_MESH
-   if (delay > 1 && !esp_mesh_is_root())
+   if (delay >= 2 && !esp_mesh_is_root())
       delay -= 2;               // For when lots of devices done at once, do root later
 #endif
    if (restart_reason != reason && delay >= 0)
