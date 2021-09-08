@@ -3308,6 +3308,7 @@ void revk_wifi_close(void)
 #ifdef	CONFIG_REVK_MESH
    esp_mesh_stop();
    esp_mesh_deinit();
+   esp_wifi_disconnect();
 #endif
    esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_deinit();
