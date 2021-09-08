@@ -622,6 +622,7 @@ static void sta_init(void)
 {
    REVK_ERR_CHECK(esp_event_loop_create_default());
    REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
    REVK_ERR_CHECK(esp_wifi_init(&cfg));
    REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
@@ -712,6 +713,7 @@ static void mesh_init(void)
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_mesh_disable_ps());
+      REVK_ERR_CHECK(esp_mesh_allow_root_conflicts(0));
       REVK_ERR_CHECK(esp_mesh_send_block_time(1000));   // Note sure if needed or what but a second it a long time - send calls should check return code
       REVK_ERR_CHECK(esp_event_handler_register(MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
@@ -1043,12 +1045,12 @@ void revk_mqtt_init(void)
 
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-#ifdef	CONFIG_REVK_WIFI
    if (event_base == WIFI_EVENT)
    {
       ESP_LOGI(TAG, "WiFi event %d", event_id);
       switch (event_id)
       {
+#ifdef	CONFIG_REVK_WIFI
       case WIFI_EVENT_AP_START:
          ESP_LOGI(TAG, "AP Start");
          if (app_callback)
@@ -1099,9 +1101,16 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       default:
          break;
+#else
+#ifdef	CONFIG_REVK_MESH
+      case WIFI_EVENT_STA_DISCONNECTED:
+         if (esp_mesh_is_root() && !link_down)
+            link_down = uptime();
+         break;
+#endif
+#endif
       }
    }
-#endif
    if (event_base == IP_EVENT)
    {
       ESP_LOGI(TAG, "IP event %d", event_id);
