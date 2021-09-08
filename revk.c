@@ -695,6 +695,7 @@ static void mesh_init(void)
    // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_mesh.html
    if (!sta_netif)
    {
+      esp_netif_dhcpc_stop(sta_netif);
       esp_wifi_disconnect();    // Just in case
       esp_wifi_stop();
       sta_init();
@@ -1264,6 +1265,8 @@ static void task(void *pvParameters)
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
+                     if (restart_time)
+                        col = 'W';      // Rebooting
                      gpio_set_level(blink[0] & 0x3F, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x40) ? 1 : 0));     // Red LED
                      gpio_set_level(blink[1] & 0x3F, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x40) ? 1 : 0));     // Green LED
                      gpio_set_level(blink[2] & 0x3F, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x40) ? 1 : 0));     // Blue LED
