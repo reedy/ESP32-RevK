@@ -306,13 +306,18 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
    xSemaphoreTake(mesh_mutex, portMAX_DELAY);
    esp_err_t e = esp_mesh_send(to, data, flag, opt, opt_count);
    xSemaphoreGive(mesh_mutex);
+   static uint8_t fails = 0;
    if (e)
    {
       if (e != ESP_ERR_MESH_DISCONNECTED)
          ESP_LOGI(TAG, "Mesh send failed:%s (%d)", esp_err_to_name(e), data->size);
       if (e == ESP_ERR_MESH_NO_MEMORY)
-         revk_restart("ESP_ERR_MESH_NO_MEMORY", 1);     // Messy, catch memory leak
-   }
+      {
+         if (++fails > 100)
+            revk_restart("ESP_ERR_MESH_NO_MEMORY", 1);  // Messy, catch memory leak
+      }
+   } else
+      fails = 0;
    return e;
 }
 #endif
