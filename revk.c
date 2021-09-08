@@ -695,6 +695,8 @@ static void mesh_init(void)
    // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_mesh.html
    if (!sta_netif)
    {
+      esp_wifi_disconnect();    // Just in case
+      esp_wifi_stop();
       sta_init();
       REVK_ERR_CHECK(esp_netif_dhcps_stop(ap_netif));
       if (meshlr)
@@ -705,6 +707,7 @@ static void mesh_init(void)
       }
       REVK_ERR_CHECK(esp_mesh_set_max_layer(meshdepth));
       REVK_ERR_CHECK(esp_mesh_set_xon_qsize(16));
+      esp_wifi_set_mode(WIFI_MODE_NULL);
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_mesh_disable_ps());
@@ -1429,7 +1432,6 @@ void revk_boot(app_callback_t * app_callback_cb)
 {                               /* Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID */
    ESP_LOGI(TAG, "sem");
 #ifdef	CONFIG_REVK_MESH
-   esp_wifi_disconnect();
    mesh_mutex = xSemaphoreCreateBinary();
    xSemaphoreGive(mesh_mutex);
    mesh_ota_sem = xSemaphoreCreateBinary();     // Leave in taken, only given on ack received
@@ -3136,7 +3138,7 @@ const char *revk_command(const char *tag, jo_t j)
 
 void revk_register(const char *name, uint8_t array, uint16_t size, void *data, const char *defval, uint8_t flags)
 {                               /* Register setting (not expected to be thread safe, should be called from init) */
-   ESP_LOGI(TAG, "Register %s", name);
+   ESP_LOGD(TAG, "Register %s", name);
    if (flags & SETTING_BITFIELD)
    {
       if (!defval)
