@@ -1424,6 +1424,7 @@ void revk_boot(app_callback_t * app_callback_cb)
 {                               /* Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID */
    ESP_LOGI(TAG, "sem");
 #ifdef	CONFIG_REVK_MESH
+   esp_wifi_disconnect();
    mesh_mutex = xSemaphoreCreateBinary();
    xSemaphoreGive(mesh_mutex);
    mesh_ota_sem = xSemaphoreCreateBinary();     // Leave in taken, only given on ack received
