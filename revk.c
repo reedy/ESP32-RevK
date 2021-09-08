@@ -707,7 +707,7 @@ static void mesh_init(void)
       }
       REVK_ERR_CHECK(esp_mesh_set_max_layer(meshdepth));
       REVK_ERR_CHECK(esp_mesh_set_xon_qsize(16));
-      esp_wifi_set_mode(WIFI_MODE_NULL);
+      esp_wifi_set_mode(WIFI_MODE_NULL);        // Set by mesh
       REVK_ERR_CHECK(esp_wifi_start());
       REVK_ERR_CHECK(esp_mesh_init());
       REVK_ERR_CHECK(esp_mesh_disable_ps());
@@ -1432,6 +1432,7 @@ void revk_boot(app_callback_t * app_callback_cb)
 {                               /* Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID */
    ESP_LOGI(TAG, "sem");
 #ifdef	CONFIG_REVK_MESH
+   esp_wifi_disconnect();       // Just in case
    mesh_mutex = xSemaphoreCreateBinary();
    xSemaphoreGive(mesh_mutex);
    mesh_ota_sem = xSemaphoreCreateBinary();     // Leave in taken, only given on ack received
