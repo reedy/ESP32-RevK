@@ -556,6 +556,15 @@ static void mesh_task(void *pvParameters)
 #endif
 
 #if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+static dhcpc_stop(void)
+{
+   esp_netif_ip_info_t ip_info;
+   if (!esp_netif_get_old_ip_info(sta_netif, &ip_info))
+      esp_netif_dhcpc_stop(sta_netif);  // Crashes is no old IP, work around
+}
+#endif
+
+#if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static void setup_ip(void)
 {                               // Set up DHCPC / fixed IP
    void dns(const char *ip, esp_netif_dns_type_t type) {
@@ -583,7 +592,7 @@ static void setup_ip(void)
    }
    if (*wifiip)
    {
-      esp_netif_dhcpc_stop(sta_netif);
+      dhcpc_stop();
       esp_netif_ip_info_t info = { 0, };
       makeip(&info, wifiip, wifigw);
       REVK_ERR_CHECK(esp_netif_set_ip_info(sta_netif, &info));
@@ -613,7 +622,7 @@ static void setup_ip(void)
 #ifdef	CONFIG_REVK_MESH
 static void stop_ip(void)
 {
-   esp_netif_dhcpc_stop(sta_netif);
+   dhcpc_stop();
 }
 #endif
 
@@ -696,7 +705,7 @@ static void mesh_init(void)
    // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_mesh.html
    if (!sta_netif)
    {
-      esp_netif_dhcpc_stop(sta_netif);
+      dhcpc_stop();
       esp_wifi_disconnect();    // Just in case
       esp_wifi_stop();
       sta_init();
