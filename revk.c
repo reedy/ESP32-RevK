@@ -737,6 +737,8 @@ static void mesh_init(void)
          memcpy(&cfg.router.password, wifipass, l);
       }
       cfg.mesh_ap.max_connection = meshwidth;
+      if (meshmax && meshmax < meshwidth)
+         cfg.mesh_ap.max_connection = meshmax;
       if (*meshpass)
       {
          if ((l = strlen(meshpass)) > sizeof(cfg.mesh_ap.password))
