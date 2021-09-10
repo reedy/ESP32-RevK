@@ -556,7 +556,7 @@ static void mesh_task(void *pvParameters)
 #endif
 
 #if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-static dhcpc_stop(void)
+static void dhcpc_stop(void)
 {
    esp_netif_ip_info_t ip_info;
    if (!esp_netif_get_old_ip_info(sta_netif, &ip_info))
