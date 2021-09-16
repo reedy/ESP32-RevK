@@ -453,8 +453,28 @@ static const char *jo_write_check(jo_t j, const char *tag)
    return j->err;
 }
 
+void jo_json(jo_t j, const char *tag, jo_t json)
+{                               // Add JSON
+   if (!json)
+      return;
+   if (jo_write_check(j, tag))
+      return;
+   if (!json->parse)
+   {
+      while (j->level)
+         jo_close(j);
+      jo_store(j, 0);
+   }
+   char *p = json->buf,
+       *e = p + json->ptr;
+   if (json->parse)
+      e = p + json->len;
+   while (p < e)
+      jo_write(j, *p++);
+}
+
 void jo_lit(jo_t j, const char *tag, const char *lit)
-{
+{                               // Add literal
    if (jo_write_check(j, tag))
       return;
    while (*lit)
