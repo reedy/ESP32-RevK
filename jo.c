@@ -454,21 +454,34 @@ static const char *jo_write_check(jo_t j, const char *tag)
 }
 
 void jo_json(jo_t j, const char *tag, jo_t json)
-{                               // Add JSON
+{                               // Add JSON, if NULL tag, and in object, and JSON is object, add its content
    if (!json)
-      return;
-   if (jo_write_check(j, tag))
-      return;
-   if (!json->parse)
    {
-      while (j->level)
-         jo_close(j);
-      jo_store(j, 0);
+      jo_null(j, tag);
+      return;
+   }
+   if (!json->parse)
+   {                            // Close the json
+      while (json->level)
+         jo_close(json);
+      jo_store(json, 0);
    }
    char *p = json->buf,
        *e = p + json->ptr;
    if (json->parse)
       e = p + json->len;
+   if (!tag && p && *p == '{' && j->level && (j->o[(j->level - 1) / 8] & (1 << ((j->level - 1) & 7))))
+   {                            // Special case of adding in-line object content
+      p++;
+      e--;
+      if (j->comma)
+         jo_write(j, ',');
+      j->comma = 1;
+   } else
+   {                            // Normal add as value (possibly tagged)
+      if (jo_write_check(j, tag))
+         return;
+   }
    while (p < e)
       jo_write(j, *p++);
 }
