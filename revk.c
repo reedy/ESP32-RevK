@@ -1826,7 +1826,8 @@ const char *revk_restart(const char *reason, int delay)
       restart_time = 0;         /* Cancelled */
    else
    {
-      restart_time = uptime() + delay;
+      if (delay || !restart_time)
+         restart_time = uptime() + delay;
       if (app_callback)
       {
          jo_t j = jo_create_alloc();
