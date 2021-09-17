@@ -395,6 +395,15 @@ char *jo_finisha(jo_t * jp)
    return res;
 }
 
+int jo_len(jo_t j)
+{                               // Return length, including any closing
+   if (!j)
+      return -1;
+   if (j->parse)
+      return j->len;
+   return j->ptr + j->level;
+}
+
 // Creating
 // Note that tag is required if in an object and must be null if not
 

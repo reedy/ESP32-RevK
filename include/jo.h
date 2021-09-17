@@ -74,6 +74,8 @@ char *jo_finisha(jo_t *);
 // Finish creating allocated JSON, returns start of alloc'd memory if no error. Frees j. If NULL returned then any allocated space also freed
 // It is an error to use with non jo_create_alloc
 
+int jo_len(jo_t);	// Current length of object (including any closing needed)
+
 // Creating
 // Note that tag is required if in an object and must be null if not
 
