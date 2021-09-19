@@ -1115,7 +1115,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #else
 #ifdef	CONFIG_REVK_MESH
       case WIFI_EVENT_STA_DISCONNECTED:
-         if (esp_mesh_is_root() && !link_down)
+         if (!link_down)
             link_down = uptime();
          break;
 #endif
@@ -3335,8 +3335,9 @@ void revk_wifi_close(void)
 #ifdef	CONFIG_REVK_MESH
    esp_mesh_stop();
    esp_mesh_deinit();
-   esp_wifi_disconnect();
 #endif
+   dhcpc_stop();
+   esp_wifi_disconnect();
    esp_wifi_set_mode(WIFI_MODE_NULL);
    esp_wifi_deinit();
    ESP_LOGI(TAG, "WIFi Closed");
