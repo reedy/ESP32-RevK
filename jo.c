@@ -957,8 +957,8 @@ static ssize_t jo_cpycmp(jo_t j, void *strv, size_t max, uint8_t cmp)
       } else
       {                         // Copy or count
          void add(uint8_t v) {
-            if (str && str < end)
-               *str++ = v;
+            if (str && str < end - 1)
+               *str++ = v;      // store, but allow for final null always
             result++;           // count
          }
          if (c >= 0xF0)

@@ -145,7 +145,7 @@ ssize_t jo_strlen(jo_t);
 // Return byte length, if a string or tag this is the decoded byte length, else length of literal
 
 ssize_t jo_strncpy(jo_t, void *, size_t max);
-// Copy from current point to a string. If a string or a tag, remove quotes and decode/deescape
+// Copy from current point to a string. If a string or a tag, remove quotes and decode/deescape - max is size of target in to which a null is always added
 
 ssize_t jo_strncmp(jo_t, void *, size_t max);
 // Compare from current point to a string. If a string or a tag, remove quotes and decode/deescape
