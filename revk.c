@@ -323,7 +323,7 @@ esp_err_t mesh_safe_send(const mesh_addr_t * to, const mesh_data_t * data, int f
 #endif
 
 #ifdef CONFIG_REVK_MESH
-// TODO esp_mesh_set_ie_crypto_funcs may be better way to do this in future
+// TODO esp_mesh_set_ie_crypto_funcs may be better way to do this in future - but need to de-dup if mesh system not fixed!
 esp_err_t mesh_encode_send(mesh_addr_t * addr, mesh_data_t * data, int flags)
 {                               // Security - encode mesh message and send - **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
    // Note, at this point this does not protect against replay - critical messages should check timestamps to mitigate against replay
@@ -352,10 +352,20 @@ esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
 {                               // Security - decode mesh message
    addr = addr;                 // Not used
    if (data->size < 32 || (data->size & 15))
+   {
+      ESP_LOGE(TAG, "Bad mesh rx len %d", data->size);
       return -1;
+   }
    // Remove IV
    data->size -= 16;
    uint8_t *iv = data->data + data->size;
+   static uint8_t lastiv[16] = { };
+   if (!memcmp(lastiv, iv, 16))
+   {                            // Check for duplicate
+      ESP_LOGI(TAG, "Duplicate mesh rx %d: %02X %02X %02X %02X...", data->size, iv[0], iv[1], iv[2], iv[3]);
+      return -2;                // De-dup
+   }
+   memcpy(lastiv, iv, 16);
    // Decrypt
    esp_aes_context ctx;
    esp_aes_init(&ctx);
@@ -365,7 +375,10 @@ esp_err_t mesh_decode(mesh_addr_t * addr, mesh_data_t * data)
    // Remove padding len
    data->size--;
    if (data->data[data->size] > 15)
-      return -1;
+   {
+      ESP_LOGE(TAG, "Bad mesh rx pad %d", data->data[data->size]);
+      return -3;
+   }
    // Remove padding
    data->size -= data->data[data->size];
    data->data[data->size] = 0;  // Original expected a null
@@ -496,7 +509,8 @@ static void mesh_task(void *pvParameters)
             }
          } else if (data.proto == MESH_PROTO_MQTT)
          {
-            mesh_decode(&from, &data);
+            if (mesh_decode(&from, &data))
+               continue;
             // Extract topic and payload from message coded as null terminated topic, and then payload to end
             // Topic prefix digit for client number, default 0.
             // Topic then prefix + for retain
@@ -542,7 +556,8 @@ static void mesh_task(void *pvParameters)
             }
          } else if (data.proto == MESH_PROTO_JSON)
          {                      // Internal message
-            mesh_decode(&from, &data);
+            if (mesh_decode(&from, &data))
+               continue;
             ESP_LOGD(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
             jo_t j = jo_parse_mem(data.data, data.size + 1);    // Include the null
             if (app_callback)
