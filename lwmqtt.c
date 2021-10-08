@@ -36,8 +36,6 @@ static const char
 #include "esp_tls.h"
 #ifdef  CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
 #include "esp_crt_bundle.h"
-#else
-#include "lecert.h"
 #endif
 
 #include "lwmqtt.h"
