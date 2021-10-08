@@ -1045,8 +1045,11 @@ void revk_mqtt_init(void)
             config.ca_cert_ref = 1;     // No need to duplicate
             config.ca_cert_buf = (void *) mqttcert[client]->data;
             config.ca_cert_bytes = mqttcert[client]->len;
-         } else if (mqttport[client] == 8883)
+         }
+#ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
+	 else if (mqttport[client] == 8883)
             config.crt_bundle_attach = esp_crt_bundle_attach;
+#endif
          if (clientkey->len && clientcert->len)
          {
             config.client_cert_ref = 1; // No need to duplicate
