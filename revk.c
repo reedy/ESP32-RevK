@@ -82,6 +82,7 @@ static const char
 		p(event);				\
 		p(info);				\
 		p(error);				\
+    		b(prefixapp,CONFIG_REVK_PREFIXAPP);	\
 		ioa(blink,3);				\
     		bdp(clientkey,NULL);			\
     		bd(clientcert,NULL);			\
@@ -511,9 +512,6 @@ static void mesh_task(void *pvParameters)
          {
             if (mesh_decode(&from, &data))
                continue;
-            // Extract topic and payload from message coded as null terminated topic, and then payload to end
-            // Topic prefix digit for client number, default 0.
-            // Topic then prefix + for retain
             char *e = (char *) data.data + data.size;
             char *topic = (char *) data.data;
             uint8_t tag = *topic++;
@@ -533,24 +531,6 @@ static void mesh_task(void *pvParameters)
                }
             } else
             {                   // To leaf: tag is client ID
-               char *target = topic;
-               while (*target && *target != '/')
-                  target++;     // clear the command
-               if (!*target)
-                  continue;     // Uh
-               target++;
-               while (*target && *target != '/')
-                  target++;     // clear the appname
-               if (!*target)
-                  continue;     // Uh
-               target++;
-               char *suffix = target;
-               while (*suffix && *suffix != '/')
-                  suffix++;
-               if (*suffix)
-                  suffix++;
-               else
-                  suffix = NULL;
                ESP_LOGD(TAG, "Mesh Rx MQTT%02X %s: %s %.*s", tag, mac, topic, (int) (e - payload), payload);
                mqtt_rx((void *) (int) tag, topic, e - payload, (void *) payload);       // In
             }
@@ -791,17 +771,21 @@ void revk_send_unsub(int client, const mac_t mac)
    ESP_LOGI(TAG, "MQTT%d Unsubscribe %s", client, id);
    void sub(const char *prefix) {
       char *topic = NULL;
-      if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, id) < 0)
+      const char *an = appname,
+          *sl = "/";
+      if (!prefixapp)
+         an = sl = "";
+      if (asprintf(&topic, "%s%s%s/%s/#", prefix, sl, an, id) < 0)
          return;
       lwmqtt_unsubscribe(mqtt_client[client], topic);
       freez(topic);
-      if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
+      if (asprintf(&topic, "%s%s%s/*/#", prefix, sl, an) < 0)
          return;
       lwmqtt_unsubscribe(mqtt_client[client], topic);
       freez(topic);
       if (*hostname && strcmp(hostname, id))
       {
-         if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
+         if (asprintf(&topic, "%s%s%s/%s/#", prefix, sl, an, hostname) < 0)
             return;
          lwmqtt_unsubscribe(mqtt_client[client], topic);
          freez(topic);
@@ -823,17 +807,21 @@ void revk_send_sub(int client, const mac_t mac)
    ESP_LOGI(TAG, "MQTT%d Subscribe %s", client, id);
    void sub(const char *prefix) {
       char *topic = NULL;
-      if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, id) < 0)
+      const char *an = appname,
+          *sl = "/";
+      if (!prefixapp)
+         an = sl = "";
+      if (asprintf(&topic, "%s%s%s/%s/#", prefix, sl, an, id) < 0)
          return;
       lwmqtt_subscribe(mqtt_client[client], topic);
       freez(topic);
-      if (asprintf(&topic, "%s/%s/*/#", prefix, appname) < 0)
+      if (asprintf(&topic, "%s%s%s/%s/#", prefix, sl, an, prefixapp ? "*" : appname) < 0)
          return;
       lwmqtt_subscribe(mqtt_client[client], topic);
       freez(topic);
       if (*hostname && strcmp(hostname, id))
       {
-         if (asprintf(&topic, "%s/%s/%s/#", prefix, appname, hostname) < 0)
+         if (asprintf(&topic, "%s%s%s/%s/#", prefix, sl, an, hostname) < 0)
             return;
          lwmqtt_subscribe(mqtt_client[client], topic);
          freez(topic);
@@ -858,13 +846,13 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       char *prefix = topic;
       char *target = "?";
       char *suffix = NULL;
-      char *appname = NULL;
+      char *apppart = NULL;
       char *p = topic;
       while (*p && *p != '/')
          p++;
-      if (*p)
+      if (prefixapp && *p)
       {                         // Expect app name next
-         appname = ++p;
+         apppart = ++p;
          while (*p && *p != '/')
             p++;
       }
@@ -877,13 +865,13 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (*p)
          suffix = ++p;
 #ifdef	CONFIG_REVK_MESH
-      if (esp_mesh_is_root() && (*target == '*' || strncmp(target, revk_id, strlen(revk_id))))
+      if (esp_mesh_is_root() && ((prefixapp && *target == '*') || strncmp(target, revk_id, strlen(revk_id))))
       {                         // pass on to clients as global or not for us
          mesh_data_t data = {.proto = MESH_PROTO_MQTT };
          mesh_make_mqtt(&data, client, -1, topic, plen, payload);       // Ensures MESH_PAD space one end
          mesh_addr_t addr = {.addr = { 255, 255, 255, 255, 255, 255 }
          };
-         if (*target != '*')
+         if (prefixapp && *target != '*')
             for (int n = 0; n < sizeof(addr.addr); n++)
                addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
          mesh_encode_send(&addr, &data, MESH_DATA_P2P); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
@@ -891,8 +879,8 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       }
 #endif
       // Break up topic
-      if (appname)
-         appname[-1] = 0;
+      if (apppart)
+         apppart[-1] = 0;
       if (target)
          target[-1] = 0;
       if (suffix)
@@ -930,7 +918,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          }
          jo_rewind(j);
       }
-      if (!strcmp(target, "*") || !strcmp(target, revk_id) || (*hostname && !strcmp(target, hostname)))
+      if (!strcmp(target, prefixapp ? "*" : appname) || !strcmp(target, revk_id) || (*hostname && !strcmp(target, hostname)))
          target = NULL;         // Mark as us for simple testing by app_command, etc
       if (!client && prefix && !strcmp(prefix, prefixcommand) && suffix && !strcmp(suffix, "upgrade"))
          err = (err ? : revk_upgrade(target, j));       // Special case as command can be to other host
@@ -1032,7 +1020,11 @@ void revk_mqtt_init(void)
             .keepalive = 30,
             .callback = &mqtt_rx,
          };
-         if (asprintf((void *) &config.topic, "%s/%s/%s", prefixstate, appname, *hostname ? hostname : revk_id) < 0)
+         const char *an = appname,
+             *sl = "/";
+         if (!prefixapp)
+            an = sl = "";
+         if (asprintf((void *) &config.topic, "%s%s%s/%s", prefixstate, sl, an, *hostname ? hostname : revk_id) < 0)
             return;
          if (asprintf((void *) &config.client, "%s-%s", appname, revk_id) < 0)
          {
@@ -1047,7 +1039,7 @@ void revk_mqtt_init(void)
             config.ca_cert_bytes = mqttcert[client]->len;
          }
 #ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-	 else if (mqttport[client] == 8883)
+         else if (mqttport[client] == 8883)
             config.crt_bundle_attach = esp_crt_bundle_attach;
 #endif
          if (clientkey->len && clientcert->len)
@@ -1769,10 +1761,14 @@ void revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients)
 void revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients)
 {                               // Send to main, and N additional MQTT servers, or only to extra server N if copy -ve
 #ifdef	CONFIG_REVK_MQTT
+   const char *an = appname,
+       *sl = "/";
+   if (!prefixapp)
+      an = sl = "";
    char *topic = NULL;
    if (!prefix)
       topic = (char *) suffix;  /* Set fixed topic */
-   else if (asprintf(&topic, suffix ? "%s/%s/%s/%s" : "%s/%s/%s", prefix, appname, *hostname ? hostname : revk_id, suffix) < 0)
+   else if (asprintf(&topic, suffix ? "%s%s%s/%s/%s" : "%s%s%s/%s", prefix, sl, an, *hostname ? hostname : revk_id, suffix) < 0)
       topic = NULL;
    if (!topic)
       return;
