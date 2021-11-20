@@ -136,6 +136,13 @@ menu "RevK"
         default n
 	depends on REVK_WIFI || REVK_MESH
         help
+		Set WiFi power save mode
+
+	config REVK_WIFIMAXPS
+        bool "WiFi max power save"
+        default n
+	depends on REVK_WIFIPS
+        help
 		Set WiFi to maximum power save mode
 
 	config REVK_APSSID

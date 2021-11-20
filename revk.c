@@ -110,6 +110,7 @@ static const char
 		u8(wifichan,CONFIG_REVK_WIFICHAN);	\
 		sp(wifipass,CONFIG_REVK_WIFIPASS);	\
     		b(wifips,CONFIG_REVK_WIFIPS);		\
+    		b(wifimaxps,CONFIG_REVK_WIFIMAXPS);	\
 
 #define	apsettings	\
 		s(apssid,CONFIG_REVK_APSSID);		\
@@ -631,7 +632,7 @@ static void sta_init(void)
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
    REVK_ERR_CHECK(esp_wifi_init(&cfg));
    REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-   REVK_ERR_CHECK(esp_wifi_set_ps(wifips?WIFI_PS_MAX_MODEM:WIFI_PS_NONE));
+   REVK_ERR_CHECK(esp_wifi_set_ps(wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_NONE));
    sta_netif = esp_netif_create_default_wifi_sta();
    ap_netif = esp_netif_create_default_wifi_ap();
 }
