@@ -131,6 +131,13 @@ menu "RevK"
 	help
 		Number of seconds off line before we completely reset
 
+	config REVK_WIFIPS
+        bool "WiFi power save"
+        default n
+	depends on REVK_WIFI || REVK_MESH
+        help
+		Set WiFi to maximum power save mode
+
 	config REVK_APSSID
         string "Access point SSID"
         default ""
