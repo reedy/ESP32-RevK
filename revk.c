@@ -3100,17 +3100,22 @@ static const char *revk_upgrade(const char *target, jo_t j)
    else
       memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
 #endif
+#ifdef CONFIG_FREERTOS_UNICORE
+   const char *suffix = "1";
+#else
+   const char *suffix = "";
+#endif
    char *url;                   /* Yeh, not freed, but we are rebooting */
    if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
       url = strdup(val);        // Freed by task
    else
-      asprintf(&url, "%s://%s/%s.bin",
+      asprintf(&url, "%s://%s/%s%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                otacert->len ? "https" : "http",
 #else
                "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-               *val ? val : otahost, appname);
+               *val ? val : otahost, appname, suffix);
    {
       jo_t j = jo_make(NULL);
       jo_string(j, "url", url);
