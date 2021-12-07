@@ -1152,7 +1152,8 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             REVK_ERR_CHECK(esp_wifi_sta_get_ap_info(&ap));
             ESP_LOGI(TAG, "Got IP " IPSTR " from %s", IP2STR(&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits(revk_group, GROUP_IP);
-            sntp_restart();
+            sntp_stop();
+            sntp_start();
 #ifdef	CONFIG_REVK_MQTT
             revk_mqtt_init();
 #endif
