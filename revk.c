@@ -627,14 +627,14 @@ static void stop_ip(void)
 static void sta_init(void)
 {
    REVK_ERR_CHECK(esp_event_loop_create_default());
-   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
    REVK_ERR_CHECK(esp_wifi_init(&cfg));
    REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
    REVK_ERR_CHECK(esp_wifi_set_ps(wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_NONE));
    sta_netif = esp_netif_create_default_wifi_sta();
    ap_netif = esp_netif_create_default_wifi_ap();
+   REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+   REVK_ERR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
 }
 #endif
 
