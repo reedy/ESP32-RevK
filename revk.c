@@ -1097,6 +1097,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGI(TAG, "STA Connected");
          xEventGroupSetBits(revk_group, GROUP_WIFI);
          xEventGroupClearBits(revk_group, GROUP_OFFLINE);
+         esp_netif_create_ip6_linklocal(sta_netif);
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
          ESP_LOGI(TAG, "STA Disconnect");
@@ -1650,7 +1651,6 @@ void revk_start(void)
    else
       asprintf(&id, "%s-%06llX", appname, revk_binid & 0xFFFFFF);
    esp_netif_set_hostname(sta_netif, id);
-   esp_netif_create_ip6_linklocal(sta_netif);
    freez(id);
    revk_task(TAG, task, NULL);
 }
