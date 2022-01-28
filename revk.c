@@ -83,7 +83,7 @@ static const char
 		p(info);				\
 		p(error);				\
     		b(prefixapp,CONFIG_REVK_PREFIXAPP);	\
-		ioa(blink,3);				\
+		ioa(blink,3,CONFIG_REVK_BLINK);				\
     		bdp(clientkey,NULL);			\
     		bd(clientcert,NULL);			\
 
@@ -145,7 +145,7 @@ static const char
 #define	b(n,d)		uint8_t n;
 #define	s8(n,d)		int8_t n;
 #define	io(n)		uint8_t n;
-#define	ioa(n,a)	uint8_t n[a];
+#define	ioa(n,a,d)	uint8_t n[a];
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
 #define hs(n,l,d)	uint8_t n[l];
@@ -1538,7 +1538,7 @@ void revk_boot(app_callback_t * app_callback_cb)
 #define	b(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_BOOLEAN)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_SIGNED)
 #define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
-#define ioa(n,a)	revk_register(#n,a,sizeof(*n),&n,"-",SETTING_SET|SETTING_BITFIELD)
+#define ioa(n,a,d)	revk_register(#n,a,sizeof(*n),&n,"- "#d,SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
 #define hs(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX|SETTING_SECRET)
@@ -2299,7 +2299,25 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (*defval == ' ')
          defval++;
    }
-   if (!len && defval && !index && !value)
+   if (defval && index)
+   {
+      if (!s->size)
+         defval = NULL;         // Not first value so no def if a string
+      else
+      {                         // Allow space separated default if not a string
+         int i = index;
+         while (i-- && *defval)
+         {
+            while (*defval && *defval != ' ')
+               defval++;
+            if (*defval == ' ')
+               defval++;
+         }
+         if (!*defval)
+            defval = NULL;      // No def if no more values
+      }
+   }
+   if (!len && defval && !value)
    {                            /* Use default value */
       if (s->flags & SETTING_BINDATA)
       {                         // Convert to binary

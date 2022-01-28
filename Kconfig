@@ -12,6 +12,11 @@ menu "RevK"
         help
 		The MQTT strings have prefix (e.g. command) then appname then the hostname. The appname can be turned off
 
+	config REVK_BLINK
+        string "Blink GPIOs"
+        default ""
+        help
+		One or more (space separated) LED GPIOs
 
 	config REVK_WIFI
 	bool "Manage WiFi client"
