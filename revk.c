@@ -2478,8 +2478,8 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
                   v = n;
                   len--;
                }
-            if (len)
-               return "Bad number";
+            if (len && *value != ' ')
+               return "Bad number";     // Allow space - used for multiple defval
             if (flags & SETTING_SIGNED)
                bits--;
             if (bits < 0 || (bits < 64 && ((v - (v && neg ? 1 : 0)) >> bits)))
