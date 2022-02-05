@@ -91,7 +91,7 @@ static const char
 		u32(apport,CONFIG_REVK_APPORT);		\
 		u32(aptime,CONFIG_REVK_APTIME);		\
 		u32(apwait,CONFIG_REVK_APWAIT);		\
-		io(apgpio);		\
+		io(apgpio,CONFIG_REVK_APGPIO);		\
 
 #define	mqttsettings	\
 		sa(mqtthost,MQTT_CLIENTS,CONFIG_REVK_MQTTHOST);	\
@@ -144,7 +144,7 @@ static const char
 #define	u8(n,d)		uint8_t n;
 #define	b(n,d)		uint8_t n;
 #define	s8(n,d)		int8_t n;
-#define	io(n)		uint8_t n;
+#define	io(n,d)		uint8_t n;
 #define	ioa(n,a,d)	uint8_t n[a];
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
@@ -1537,7 +1537,7 @@ void revk_boot(app_callback_t * app_callback_cb)
 #define	u8(n,d)		revk_register(#n,0,1,&n,str(d),0)
 #define	b(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_BOOLEAN)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_SIGNED)
-#define io(n)		revk_register(#n,0,sizeof(n),&n,"-",SETTING_SET|SETTING_BITFIELD)
+#define io(n,d)		revk_register(#n,0,sizeof(n),&n,"- "#d,SETTING_SET|SETTING_BITFIELD)
 #define ioa(n,a,d)	revk_register(#n,a,sizeof(*n),&n,"- "#d,SETTING_SET|SETTING_BITFIELD)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)

@@ -150,6 +150,13 @@ menu "RevK"
         help
 		Set WiFi to maximum power save mode
 
+	config REVK_APGPIO
+        string "AP mode GPIO"
+        default ""
+	depends on REVK_WIFI
+        help
+		GPIO to force AP mode
+
 	config REVK_APSSID
         string "Access point SSID"
         default ""
