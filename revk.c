@@ -2299,14 +2299,14 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
       if (*defval == ' ')
          defval++;
    }
+   if (defval && *defval == '"')
+      defval++;                 // Bodge
    if (defval && index)
    {
       if (!s->size)
          defval = NULL;         // Not first value so no def if a string
       else
       {                         // Allow space separated default if not a string
-         if (*defval == '"')
-            defval++;           // Bodge
          int i = index;
          while (i-- && *defval)
          {
