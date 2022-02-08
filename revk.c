@@ -251,7 +251,7 @@ static esp_netif_t *ap_netif = NULL;
 static char wdt_test = 0;
 static uint8_t blink_on = 0,
     blink_off = 0;
-static const char *blink_colours = "RYGCBM";
+static const char *blink_colours = NULL;
 static const char *revk_setting_dump(void);
 
 #ifdef	CONFIG_REVK_MESH
@@ -1248,6 +1248,21 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #endif
 }
 
+static const char *blink_default(void)
+{
+   if (restart_time)
+      return "W";               // Rebooting
+   if (!*wifissid)
+      return "R";               // No wifi SSID
+   if (ap_task_id)
+      return "C";               // AP mode
+   if (!(xEventGroupGetBits(revk_group) & GROUP_WIFI))
+      return "M";               // No WiFi
+   if (revk_link_down())
+      return "Y";               // Link down
+   return "RYGCBM";             // Idle
+}
+
 static void task(void *pvParameters)
 {                               /* Main RevK task */
    if (watchdogtime)
@@ -1290,16 +1305,16 @@ static void task(void *pvParameters)
                }
                if (count)
                {
-                  if (blink[1] && blink_colours)
+                  if (blink[1])
                   {             // Coloured LED
                      static const char *c = "";
                      if (!*c)
                         c = blink_colours;
+                     if (!c)
+                        c = blink_default();
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
-                     if (restart_time)
-                        col = 'W';      // Rebooting
                      gpio_set_level(blink[0] & 0x3F, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x40) ? 1 : 0));     // Red LED
                      gpio_set_level(blink[1] & 0x3F, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x40) ? 1 : 0));     // Green LED
                      gpio_set_level(blink[2] & 0x3F, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x40) ? 1 : 0));     // Blue LED
