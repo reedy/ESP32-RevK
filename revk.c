@@ -2424,10 +2424,10 @@ static const char *revk_setting_internal(setting_t * s, unsigned int len, const 
             if (flags & SETTING_SET)
             {                   /* Set top bit if a value is present */
                bits--;
-               if (len && value != (const unsigned char *) defval)
-                  bitfield |= (1ULL << bits);   /* Value is set (not so if using default value) */
+               if (len && *value != ' ' && *value != '"')
+                  bitfield |= (1ULL << bits);
             }
-            if (flags & SETTING_BITFIELD && s->defval)
+            if ((flags & SETTING_BITFIELD) && s->defval)
             {                   /* Bit fields */
                while (len)
                {
