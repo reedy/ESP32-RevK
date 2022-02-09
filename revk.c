@@ -1248,10 +1248,12 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #endif
 }
 
-static const char *blink_default(void)
-{
+static const char *blink_default(const char *user)
+{                               // What blinking to do
    if (restart_time)
-      return "W";               // Rebooting
+      return "W";               // Rebooting - override user even
+   if (user)
+      return user;
    if (!*wifissid)
       return "R";               // No wifi SSID
    if (ap_task_id)
@@ -1307,11 +1309,13 @@ static void task(void *pvParameters)
                {
                   if (blink[1])
                   {             // Coloured LED
-                     static const char *c = "";
+                     static const char *c = "",
+                         *last = NULL;
+                     const char *base = blink_default(blink_colours);
+                     if (base != last)
+                        c = last = base;        // Restart sequence if changed
                      if (!*c)
-                        c = blink_colours;
-                     if (!c)
-                        c = blink_default();
+                        c = base;
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
