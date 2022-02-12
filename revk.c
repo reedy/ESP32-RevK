@@ -935,7 +935,9 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             {
                setting_dump_requested = 1;
                err = "";
-            } else if (!suffix)
+            } else if (suffix)
+               err = "";        // Not sensible, we have been addressed (suffix is used as JSON if present with no JSON), clash prefixapp and not
+            else
                err = ((err ? : revk_setting(j)) ? : "Unknown setting");
          } else
             err = (err ? : ""); // Ignore
