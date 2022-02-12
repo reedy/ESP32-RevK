@@ -896,6 +896,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             {                   // Special case for settings, the suffix is the setting
                j = jo_object_alloc();
                jo_stringf(j, suffix, "%.*s", plen, payload);
+               suffix = NULL;
             } else
             {                   // Just JSON the argument
                j = jo_create_alloc();
@@ -934,7 +935,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             {
                setting_dump_requested = 1;
                err = "";
-            } else
+            } else if (!suffix)
                err = ((err ? : revk_setting(j)) ? : "Unknown setting");
          } else
             err = (err ? : ""); // Ignore
