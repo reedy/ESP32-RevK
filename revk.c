@@ -3144,10 +3144,21 @@ static const char *revk_upgrade(const char *target, jo_t j)
    else
       memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
 #endif
+#if CONFIG_IDF_TARGET_ESP32
+   const char *suffix1 = "-S1";
+#elif CONFIG_IDF_TARGET_ESP32S2
+   const char *suffix1 = "-S2";
+#elif CONFIG_IDF_TARGET_ESP32S3
+   const char *suffix1 = "-S3";
+#elif CONFIG_IDF_TARGET_ESP32C3
+   const char *suffix1 = "-C3";
+#elif CONFIG_IDF_TARGET_ESP32H2
+   const char *suffix1 = "-H2";
+#endif
 #ifdef CONFIG_FREERTOS_UNICORE
-   const char *suffix = "1";
+   const char *suffix2 = "-solo";
 #else
-   const char *suffix = "";
+   const char *suffix2 = "";
 #endif
    char *url;                   /* Yeh, not freed, but we are rebooting */
    if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
@@ -3159,7 +3170,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
 #else
                "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-               *val ? val : otahost, appname, suffix);
+               *val ? val : otahost, appname, suffix1,suffix2);
    {
       jo_t j = jo_make(NULL);
       jo_string(j, "url", url);
