@@ -15,4 +15,4 @@ grep -q CONFIG_IDF_TARGET_ESPH2=y "$SDKCONFIG"
 if(! $status) echo "-H2"
 
 grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
-if(!status) echo "-solo"
+if(! $status) echo "-solo"
