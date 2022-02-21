@@ -1259,8 +1259,10 @@ static const char *blink_default(const char *user)
       return user;
    if (!*wifissid)
       return "R";               // No wifi SSID
+#ifdef  CONFIG_REVK_APCONFIG
    if (ap_task_id)
       return "C";               // AP mode
+#endif
    if (!(xEventGroupGetBits(revk_group) & GROUP_WIFI))
       return "M";               // No WiFi
    if (revk_link_down())
