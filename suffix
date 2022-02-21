@@ -1,6 +1,6 @@
 #!/bin/csh -fx
 
-setenv SDKCONFIG "adkconfig"
+setenv SDKCONFIG "sdkconfig"
 if("$1" != "") setenv SDKCONFIG "$1"
 
 grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
