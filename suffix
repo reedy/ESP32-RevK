@@ -3,16 +3,16 @@
 setenv SDKCONFIG "adkconfig"
 if("$1" != "") setenv SDKCONFIG "$1"
 
-grep -q "$SDKCONFIG" CONFIG_IDF_TARGET_ESP32=y
+grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
 if(! $status) echo "-S1"
-grep -q "$SDKCONFIG" CONFIG_IDF_TARGET_ESP32S2=y
+grep -q CONFIG_IDF_TARGET_ESP32S2=y "$SDKCONFIG"
 if(! $status) echo "-S2"
-grep -q "$SDKCONFIG" CONFIG_IDF_TARGET_ESP32S3=y
+grep -q CONFIG_IDF_TARGET_ESP32S3=y "$SDKCONFIG"
 if(! $status) echo "-S3"
-grep -q "$SDKCONFIG" CONFIG_IDF_TARGET_ESPC3=y
+grep -q CONFIG_IDF_TARGET_ESPC3=y "$SDKCONFIG"
 if(! $status) echo "-C3"
-grep -q "$SDKCONFIG" CONFIG_IDF_TARGET_ESPH2=y
+grep -q CONFIG_IDF_TARGET_ESPH2=y "$SDKCONFIG"
 if(! $status) echo "-H2"
 
-grep -q "$SDKCONFIG" CONFIG_FREERTOS_UNICORE=y
+grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
 if(!status) echo "-solo"
