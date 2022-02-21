@@ -14,5 +14,12 @@ if(! $status) echo -n "-C3"
 grep -q CONFIG_IDF_TARGET_ESPH2=y "$SDKCONFIG"
 if(! $status) echo -n "-H2"
 
+grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
+if(! $status) echo -n "V3"
+grep -q CONFIG_ESP32_REV_MIN_2=y "$SDKCONFIG"
+if(! $status) echo -n "V2"
+grep -q CONFIG_ESP32_REV_MIN_1=y "$SDKCONFIG"
+if(! $status) echo -n "V1"
+
 grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
 if(! $status) echo -n "-solo"
