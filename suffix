@@ -1,5 +1,7 @@
 #!/bin/csh -fx
 
+if("$1" != "") chdir "$1"
+
 grep -q sdkconfig CONFIG_IDF_TARGET_ESP32=y
 if(! $status) echo "-S1"
 grep -q sdkconfig CONFIG_IDF_TARGET_ESP32S2=y
