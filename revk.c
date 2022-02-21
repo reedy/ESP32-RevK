@@ -3164,7 +3164,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
    if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
       url = strdup(val);        // Freed by task
    else
-      asprintf(&url, "%s://%s/%s%s.bin",
+      asprintf(&url, "%s://%s/%s%s%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                otacert->len ? "https" : "http",
 #else
