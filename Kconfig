@@ -301,6 +301,7 @@ menu "RevK"
 
 	config REVK_PARTITION_CHECK
         bool "Check and update partition table"
+	depends on SPI_FLASH_DANGEROUS_WRITE_ALLOWED
         default y
         help
 		Enable automatic checking of partition table, and update if necessary

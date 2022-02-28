@@ -1497,44 +1497,55 @@ void revk_boot(app_callback_t * app_callback_cb)
    xSemaphoreGive(mesh_mutex);
    mesh_ota_sem = xSemaphoreCreateBinary();     // Leave in taken, only given on ack received
 #endif
-   /* Watchdog */
+
 #ifdef	CONFIG_REVK_PARTITION_CHECK
+   {
+      const char *table = CONFIG_PARTITION_TABLE_FILENAME;
+      int size = spi_flash_get_chip_size();
+      int expect = 4;
+      if (strstr(table, "8m"))
+         expect = 8;
+      else if (strstr(table, "16m"))
+         expect = 16;
+      if (size == expect * 1024 * 1024)
+      {
 #ifdef  BUILD_ESP32_USING_CMAKE
-   extern const uint8_t part_start[] asm("_binary_partition_table_bin_start");
-   extern const uint8_t part_end[] asm("_binary_partition_table_bin_start");
+         extern const uint8_t part_start[] asm("_binary_partition_table_bin_start");
+         extern const uint8_t part_end[] asm("_binary_partition_table_bin_start");
 #else
-   extern const uint8_t part_start[] asm("_binary_partitions_4m_bin_start");
-   extern const uint8_t part_end[] asm("_binary_partitions_4m_bin_end");
+#error Use cmake
 #endif
-   ESP_LOGI(TAG, "flash");
-   /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
-   if ((part_end - part_start) > SPI_FLASH_SEC_SIZE)
-   {
-      ESP_LOGE(TAG, "Block size error (%d>%d)", part_end - part_start, SPI_FLASH_SEC_SIZE);
-      return;
-   }
-   uint8_t *mem = malloc(SPI_FLASH_SEC_SIZE);
-   if (!mem)
-   {
-      ESP_LOGE(TAG, "Malloc fail: %d", SPI_FLASH_SEC_SIZE);
-      return;
-   }
-   ESP_LOGI(TAG, "read");
-   REVK_ERR_CHECK(spi_flash_read(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
-   ESP_LOGI(TAG, "read done");
-   if (memcmp(mem, part_start, part_end - part_start))
-   {
+         /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
+         if ((part_end - part_start) > SPI_FLASH_SEC_SIZE)
+         {
+            ESP_LOGE(TAG, "Block size error (%d>%d)", part_end - part_start, SPI_FLASH_SEC_SIZE);
+            return;
+         }
+         uint8_t *mem = malloc(SPI_FLASH_SEC_SIZE);
+         if (!mem)
+         {
+            ESP_LOGE(TAG, "Malloc fail: %d", SPI_FLASH_SEC_SIZE);
+            return;
+         }
+         ESP_LOGI(TAG, "read");
+         REVK_ERR_CHECK(spi_flash_read(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+         ESP_LOGI(TAG, "read done");
+         if (memcmp(mem, part_start, part_end - part_start))
+         {
 #ifndef CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
-#error Set CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
+#error Set CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED to allow CONFIG_REVK_PARTITION_CHECK
 #endif
-      ESP_LOGI(TAG, "Updating partition table");
-      memset(mem, 0, SPI_FLASH_SEC_SIZE);
-      memcpy(mem, part_start, part_end - part_start);
-      REVK_ERR_CHECK(spi_flash_erase_range(CONFIG_PARTITION_TABLE_OFFSET, SPI_FLASH_SEC_SIZE));
-      REVK_ERR_CHECK(spi_flash_write(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
-      esp_restart();
+            ESP_LOGI(TAG, "Updating partition table");
+            memset(mem, 0, SPI_FLASH_SEC_SIZE);
+            memcpy(mem, part_start, part_end - part_start);
+            REVK_ERR_CHECK(spi_flash_erase_range(CONFIG_PARTITION_TABLE_OFFSET, SPI_FLASH_SEC_SIZE));
+            REVK_ERR_CHECK(spi_flash_write(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+            esp_restart();
+         }
+         freez(mem);
+      } else
+         ESP_LOGI(TAG, "Flash partition not updated, size is unexpected: %d", size);
    }
-   freez(mem);
 #endif
    ESP_LOGI(TAG, "nvs_flash_init");
    nvs_flash_init();
@@ -1609,6 +1620,7 @@ void revk_boot(app_callback_t * app_callback_cb)
 #undef bd
 #undef bad
 #undef bdp
+   /* Watchdog */
    if (watchdogtime)
       esp_task_wdt_init(watchdogtime, true);
    REVK_ERR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));
