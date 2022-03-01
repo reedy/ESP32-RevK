@@ -3,6 +3,9 @@
 setenv SDKCONFIG "sdkconfig"
 if("$1" != "") setenv SDKCONFIG "$1"
 
+# Match the code in revk.c for OTA suffix defaults
+
+# suffix1
 grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
 if(! $status) echo -n "-S1"
 grep -q CONFIG_IDF_TARGET_ESP32S2=y "$SDKCONFIG"
@@ -14,12 +17,22 @@ if(! $status) echo -n "-C3"
 grep -q CONFIG_IDF_TARGET_ESPH2=y "$SDKCONFIG"
 if(! $status) echo -n "-H2"
 
-grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
-if(! $status) echo -n "V3"
-grep -q CONFIG_ESP32_REV_MIN_2=y "$SDKCONFIG"
-if(! $status) echo -n "V2"
-grep -q CONFIG_ESP32_REV_MIN_1=y "$SDKCONFIG"
-if(! $status) echo -n "V1"
-
+# suffix2
 grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
-if(! $status) echo -n "-solo"
+if(! $status) echo -n "-SOLO"
+
+# suffix3
+grep -q CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y "$SDKCONFIG"
+if(! $status) then
+grep -q CONFIG_ESP32_SPIRAM_SUPPORT=y "$SDKCONFIG"
+if(! $status) echo -n "-PICO"
+endif
+
+# suffix4
+grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
+if(! $status) echo -n "-V3"
+grep -q CONFIG_ESP32_REV_MIN_2=y "$SDKCONFIG"
+if(! $status) echo -n "-V2"
+grep -q CONFIG_ESP32_REV_MIN_1=y "$SDKCONFIG"
+if(! $status) echo -n "-V1"
+
