@@ -1694,11 +1694,14 @@ void revk_start(void)
 TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
 {                               /* General user task make */
    TaskHandle_t task_id = NULL;
+   esp_err_t e = 0;
 #ifdef REVK_LOCK_CPU1
-   xTaskCreatePinnedToCore(t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
+   e = xTaskCreatePinnedToCore(t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
 #else
-   xTaskCreate(t, tag, 8 * 1024, (void *) param, 2, &task_id);
+   e = xTaskCreate(t, tag, 8 * 1024, (void *) param, 2, &task_id);
 #endif
+   if (e)
+      ESP_LOGE(TAG, "Task %s failed (%s)", tag, esp_err_to_name(e));
    return task_id;
 }
 
