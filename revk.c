@@ -3183,7 +3183,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
 #elif CONFIG_ESP32_REV_MIN_2
    const char *suffix3 = "V2";
 #elif CONFIG_ESP32_REV_MIN_3
-   const char *suffix3 = "V4";
+   const char *suffix3 = "V3";
 #else
    const char *suffix3 = "VX";
 #endif
