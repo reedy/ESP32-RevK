@@ -2043,6 +2043,7 @@ static void ota_task(void *pvParameters)
    {
       jo_t j = jo_object_alloc();
       jo_string(j, "description", "HTTP client failed");
+      jo_string(j, "url", url);
       revk_error("upgrade", &j);
    } else
    {
@@ -2053,6 +2054,7 @@ static void ota_task(void *pvParameters)
          ota_size = esp_http_client_fetch_headers(client);
       if (!err && ota_size && (status = esp_http_client_get_status_code(client)) / 100 == 2)
       {
+         ESP_LOGI(TAG, "OTA %s", url);
 #ifdef  CONFIG_REVK_MESH
          int ota_data = 0;
          uint8_t block[MESH_MPS];
@@ -2153,7 +2155,6 @@ static void ota_task(void *pvParameters)
          }
 #endif
       }
-      //REVK_ERR_CHECK(esp_http_client_close(client));
       REVK_ERR_CHECK(esp_http_client_cleanup(client));
       if (err || status / 100 != 2 || ota_size < 0)
          if (!err && status / 100 != 2)
@@ -3177,9 +3178,9 @@ static const char *revk_upgrade(const char *target, jo_t j)
    const char *suffix2 = "";
 #endif
 #if defined(CONFIG_ESPTOOLPY_FLASHSIZE_8MB) && defined(CONFIG_ESP32_SPIRAM_SUPPORT)
-   const char *suffix3="-PICO";
+   const char *suffix3 = "-PICO";
 #else
-   const char *suffix3="";
+   const char *suffix3 = "";
 #endif
 #ifdef CONFIG_ESP32_REV_MIN_0
    const char *suffix4 = "";
@@ -3202,7 +3203,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
 #else
                "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-               *val ? val : otahost, appname, suffix1, suffix2, suffix3,suffix4);
+               *val ? val : otahost, appname, suffix1, suffix2, suffix3, suffix4);
    {
       jo_t j = jo_make(NULL);
       jo_string(j, "url", url);
