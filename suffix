@@ -3,6 +3,11 @@
 setenv SDKCONFIG "sdkconfig"
 if("$1" != "") setenv SDKCONFIG "$1"
 
+if(! -e "$SDKCONFIG") then
+        echo "Missing $SDKCONFIG"
+        exit 0
+endif
+
 # Match the code in revk.c for OTA suffix defaults
 
 # suffix1
