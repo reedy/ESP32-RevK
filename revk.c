@@ -6,6 +6,38 @@ static const char
 //#define       SETTING_DEBUG
 //#define       SETTING_CHANGED
 
+const char revk_build_suffix[] = ""
+#if CONFIG_IDF_TARGET_ESP32
+    "-S1"
+#elif CONFIG_IDF_TARGET_ESP32S2
+    "-S2"
+#elif CONFIG_IDF_TARGET_ESP32S3
+    "-S3"
+#elif CONFIG_IDF_TARGET_ESP32C3
+    "-C3"
+#elif CONFIG_IDF_TARGET_ESP32H2
+    "-H2"
+#else
+#error	Unknown processor
+#endif
+#ifdef CONFIG_FREERTOS_UNICORE
+    "-SOLO"
+#endif
+#if defined(CONFIG_ESPTOOLPY_FLASHSIZE_8MB) && defined(CONFIG_ESP32_SPIRAM_SUPPORT)
+    "-PICO"
+#endif
+#ifdef CONFIG_ESP32_REV_MIN_0
+#elif CONFIG_ESP32_REV_MIN_1
+    "-V1"
+#elif CONFIG_ESP32_REV_MIN_2
+    "-V2"
+#elif CONFIG_ESP32_REV_MIN_3
+    "-V3"
+#else
+#error	Unknown ESP32 rev
+#endif
+    ;
+
 #define	ESP_IDF_431             // Older
 
 // Note, low wifi buffers breaks mesh
@@ -1391,6 +1423,7 @@ static void task(void *pvParameters)
 #endif
                   jo_string(j, "app", appname);
                   jo_string(j, "version", revk_version);
+                  jo_string(j, "build-suffix", revk_build_suffix);
                   const esp_app_desc_t *app = esp_ota_get_app_description();
                   const char *v = app->date;
                   if (v && strlen(v) == 11)
@@ -3161,40 +3194,6 @@ static const char *revk_upgrade(const char *target, jo_t j)
    else
       memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
 #endif
-#if CONFIG_IDF_TARGET_ESP32
-   const char *suffix1 = "-S1";
-#elif CONFIG_IDF_TARGET_ESP32S2
-   const char *suffix1 = "-S2";
-#elif CONFIG_IDF_TARGET_ESP32S3
-   const char *suffix1 = "-S3";
-#elif CONFIG_IDF_TARGET_ESP32C3
-   const char *suffix1 = "-C3";
-#elif CONFIG_IDF_TARGET_ESP32H2
-   const char *suffix1 = "-H2";
-#else
-   const char *suffix1 = "-X";
-#endif
-#ifdef CONFIG_FREERTOS_UNICORE
-   const char *suffix2 = "-SOLO";
-#else
-   const char *suffix2 = "";
-#endif
-#if defined(CONFIG_ESPTOOLPY_FLASHSIZE_8MB) && defined(CONFIG_ESP32_SPIRAM_SUPPORT)
-   const char *suffix3 = "-PICO";
-#else
-   const char *suffix3 = "";
-#endif
-#ifdef CONFIG_ESP32_REV_MIN_0
-   const char *suffix4 = "";
-#elif CONFIG_ESP32_REV_MIN_1
-   const char *suffix4 = "-V1";
-#elif CONFIG_ESP32_REV_MIN_2
-   const char *suffix4 = "-V2";
-#elif CONFIG_ESP32_REV_MIN_3
-   const char *suffix4 = "-V3";
-#else
-   const char *suffix4 = "-VX";
-#endif
    char *url;                   /* Yeh, not freed, but we are rebooting */
    if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
       url = strdup(val);        // Freed by task
@@ -3205,7 +3204,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
 #else
                "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-               *val ? val : otahost, appname, suffix1, suffix2, suffix3, suffix4);
+               *val ? val : otahost, appname, build_suffix);
    {
       jo_t j = jo_make(NULL);
       jo_string(j, "url", url);
