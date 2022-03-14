@@ -3194,9 +3194,17 @@ static const char *revk_upgrade(const char *target, jo_t j)
    else
       memcpy(mesh_ota_addr.addr, revk_mac, 6);  // Us
 #endif
-   char *url;                   /* Yeh, not freed, but we are rebooting */
+   char *url;                   // Passed to task
    if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
-      url = strdup(val);        // Freed by task
+      url = strdup(val);        // Whole URL provided
+   else if (*val == '/')
+      asprintf(&url, "%s://%s%s",
+#ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
+               otacert->len ? "https" : "http",
+#else
+               "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
+#endif
+               otahost, val);   // Leaf provided
    else
       asprintf(&url, "%s://%s/%s%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
@@ -3204,7 +3212,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
 #else
                "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-               *val ? val : otahost, appname, revk_build_suffix);
+               *val ? val : otahost, appname, revk_build_suffix);       // Hostname provided
    {
       jo_t j = jo_make(NULL);
       jo_string(j, "url", url);
