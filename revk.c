@@ -6,6 +6,32 @@ static const char
 //#define       SETTING_DEBUG
 //#define       SETTING_CHANGED
 
+#define	ESP_IDF_431             // Older
+
+// Note, low wifi buffers breaks mesh
+
+#include "revk.h"
+#include "esp_http_client.h"
+#include "esp_ota_ops.h"
+#include "esp_tls.h"
+#ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
+#include "esp_crt_bundle.h"
+#else
+#include "lecert.h"
+#endif
+#include "esp_int_wdt.h"
+#include "esp_task_wdt.h"
+#include "esp_sntp.h"
+#include "esp_phy_init.h"
+#ifdef	CONFIG_REVK_APCONFIG
+#include "esp_http_server.h"
+#endif
+#include <driver/gpio.h>
+#ifdef	CONFIG_REVK_MESH
+#include <esp_mesh.h>
+#include "freertos/semphr.h"
+#endif
+
 const char revk_build_suffix[] = ""
 #if CONFIG_IDF_TARGET_ESP32
     "-S1"
@@ -37,32 +63,6 @@ const char revk_build_suffix[] = ""
 #error	Unknown ESP32 rev
 #endif
     ;
-
-#define	ESP_IDF_431             // Older
-
-// Note, low wifi buffers breaks mesh
-
-#include "revk.h"
-#include "esp_http_client.h"
-#include "esp_ota_ops.h"
-#include "esp_tls.h"
-#ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-#include "esp_crt_bundle.h"
-#else
-#include "lecert.h"
-#endif
-#include "esp_int_wdt.h"
-#include "esp_task_wdt.h"
-#include "esp_sntp.h"
-#include "esp_phy_init.h"
-#ifdef	CONFIG_REVK_APCONFIG
-#include "esp_http_server.h"
-#endif
-#include <driver/gpio.h>
-#ifdef	CONFIG_REVK_MESH
-#include <esp_mesh.h>
-#include "freertos/semphr.h"
-#endif
 
 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_tls.html
 //#ifndef       CONFIG_ESP_TLS_USING_WOLFSSL
@@ -3198,13 +3198,13 @@ static const char *revk_upgrade(const char *target, jo_t j)
    if (!strncmp((char *) val, "https://", 8) || !strncmp((char *) val, "http://", 7))
       url = strdup(val);        // Freed by task
    else
-      asprintf(&url, "%s://%s/%s%s%s%s%s.bin",
+      asprintf(&url, "%s://%s/%s%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                otacert->len ? "https" : "http",
 #else
                "http",          /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-               *val ? val : otahost, appname, build_suffix);
+               *val ? val : otahost, appname, revk_build_suffix);
    {
       jo_t j = jo_make(NULL);
       jo_string(j, "url", url);
