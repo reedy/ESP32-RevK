@@ -1,0 +1,35 @@
+#!/bin/csh -f
+if("$1" == "") then
+	echo "Specify suffix"
+	exit 1
+endif
+setenv type "$1"
+shift
+setenv file "$2"
+if("$file" == "") setenv file sdkconfig
+
+if(! -e "$file") then
+	echo "Missing $file"
+	exit 0
+endif
+
+rm -f "$file".new
+
+if("$type" == "PICO") then
+	sed -e 's/# CONFIG_ESP32_SPIRAM_SUPPORT is not set/CONFIG_ESP32_SPIRAM_SUPPORT=y/' -e 's/# CONFIG_ESPTOOLPY_FLASHSIZE_8MB is not set/CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y/' -e 's/CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y/# CONFIG_ESPTOOLPY_FLASHSIZE_4MB is not set/' -e 's/CONFIG_FREERTOS_UNICORE=y/# CONFIG_FREERTOS_UNICORE is not set/' "$file" > "$file".new
+endif
+
+if("$type" == "WROOM") then
+        sed -e 's/CONFIG_ESP32_SPIRAM_SUPPORT=y/# CONFIG_ESP32_SPIRAM_SUPPORT is not set/' -e 's/# CONFIG_ESPTOOLPY_FLASHSIZE_4MB is not set/CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y/' -e 's/CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y/# CONFIG_ESPTOOLPY_FLASHSIZE_8MB is not set/' -e 's/CONFIG_FREERTOS_UNICORE=y/# CONFIG_FREERTOS_UNICORE is not set/' "$file" > "$file".new
+endif
+
+if("$type" == "SOLO") then
+	sed -e 's/CONFIG_ESP32_SPIRAM_SUPPORT=y/# CONFIG_ESP32_SPIRAM_SUPPORT is not set/' -e 's/# CONFIG_ESPTOOLPY_FLASHSIZE_4MB is not set/CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y/' -e 's/CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y/# CONFIG_ESPTOOLPY_FLASHSIZE_8MB is not set/' -e 's/# CONFIG_FREERTOS_UNICORE is not set/CONFIG_FREERTOS_UNICORE=y/' "$file" > "$file".new
+endif
+
+if(! -e "$file".new) then
+	echo "Type not know"
+	exit 1
+endif
+
+mv -f "$file".new "$file"
