@@ -32,37 +32,7 @@ static const char
 #include "freertos/semphr.h"
 #endif
 
-const char revk_build_suffix[] = ""
-#if CONFIG_IDF_TARGET_ESP32
-    "-S1"
-#elif CONFIG_IDF_TARGET_ESP32S2
-    "-S2"
-#elif CONFIG_IDF_TARGET_ESP32S3
-    "-S3"
-#elif CONFIG_IDF_TARGET_ESP32C3
-    "-C3"
-#elif CONFIG_IDF_TARGET_ESP32H2
-    "-H2"
-#else
-#error	Unknown processor
-#endif
-#ifdef CONFIG_FREERTOS_UNICORE
-    "-SOLO"
-#endif
-#if defined(CONFIG_ESPTOOLPY_FLASHSIZE_8MB) && defined(CONFIG_ESP32_SPIRAM_SUPPORT)
-    "-PICO"
-#endif
-#ifdef CONFIG_ESP32_REV_MIN_0
-#elif CONFIG_ESP32_REV_MIN_1
-    "-V1"
-#elif CONFIG_ESP32_REV_MIN_2
-    "-V2"
-#elif CONFIG_ESP32_REV_MIN_3
-    "-V3"
-#else
-#error	Unknown ESP32 rev
-#endif
-    ;
+const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_tls.html
 //#ifndef       CONFIG_ESP_TLS_USING_WOLFSSL
