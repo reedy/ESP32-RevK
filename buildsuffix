@@ -1,5 +1,7 @@
 #!/bin/csh -f
 
+setenv	SUFFIX	""
+
 setenv SDKCONFIG "sdkconfig"
 if("$1" != "") setenv SDKCONFIG "$1"
 
@@ -8,36 +10,44 @@ if(! -e "$SDKCONFIG") then
         exit 0
 endif
 
-# Match the code in revk.c for OTA suffix defaults
-
-# suffix1
+# processor type
 grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
-if(! $status) echo -n "-S1"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-S1"
 grep -q CONFIG_IDF_TARGET_ESP32S2=y "$SDKCONFIG"
-if(! $status) echo -n "-S2"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-S2"
 grep -q CONFIG_IDF_TARGET_ESP32S3=y "$SDKCONFIG"
-if(! $status) echo -n "-S3"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-S3"
 grep -q CONFIG_IDF_TARGET_ESPC3=y "$SDKCONFIG"
-if(! $status) echo -n "-C3"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-C3"
 grep -q CONFIG_IDF_TARGET_ESPH2=y "$SDKCONFIG"
-if(! $status) echo -n "-H2"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-H2"
 
-# suffix2
+# Single ore
 grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
-if(! $status) echo -n "-SOLO"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-SOLO"
 
-# suffix3
+# Specific processor (ESP32-PICO)
 grep -q CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y "$SDKCONFIG"
 if(! $status) then
 grep -q CONFIG_ESP32_SPIRAM_SUPPORT=y "$SDKCONFIG"
-if(! $status) echo -n "-PICO"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-PICO"
 endif
 
-# suffix4
+# Min rev build
 grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
-if(! $status) echo -n "-V3"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-V3"
 grep -q CONFIG_ESP32_REV_MIN_2=y "$SDKCONFIG"
-if(! $status) echo -n "-V2"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-V2"
 grep -q CONFIG_ESP32_REV_MIN_1=y "$SDKCONFIG"
-if(! $status) echo -n "-V1"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-V1"
 
+
+
+
+grep -q '^CONFIG_REVK_BUILD_SUFFIX="'"$SUFFIX"'"$' "$SDKCONFIG"
+if($status) then
+	sed -e 's/^CONFIG_REVK_BUILD_SUFFIX=.*$/CONFIG_REVK_BUILD_SUFFIX="'"$SUFFIX"'"/' "$SDKCONFIG" > "$SDKCONFIG.new"
+	mv -f "$SDKCONFIG.new" "$SDKCONFIG"
+endif
+
+echo -n "$SUFFIX"
