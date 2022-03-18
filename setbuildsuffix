@@ -13,16 +13,44 @@ if(! -e "$SDKCONFIG") then
 	exit 0
 endif
 
-rm -f "$SDKCONFIG".new
+set add=()
+set rem=()
 
 if("$BUILDSUFFIX" =~ *-PICO*) then
-	sed -e 's/# CONFIG_ESP32_SPIRAM_SUPPORT is not set/CONFIG_ESP32_SPIRAM_SUPPORT=y/' -e 's/# CONFIG_ESPTOOLPY_FLASHSIZE_8MB is not set/CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y/' -e 's/CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y/# CONFIG_ESPTOOLPY_FLASHSIZE_4MB is not set/' -e 's/CONFIG_FREERTOS_UNICORE=y/# CONFIG_FREERTOS_UNICORE is not set/' "$SDKCONFIG" > "$SDKCONFIG".new
+	set add=($add CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB)
+	set rem=($rem CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE)
 else if("$BUILDSUFFIX" =~ *-SOLO*) then
-	sed -e 's/CONFIG_ESP32_SPIRAM_SUPPORT=y/# CONFIG_ESP32_SPIRAM_SUPPORT is not set/' -e 's/# CONFIG_ESPTOOLPY_FLASHSIZE_4MB is not set/CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y/' -e 's/CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y/# CONFIG_ESPTOOLPY_FLASHSIZE_8MB is not set/' -e 's/# CONFIG_FREERTOS_UNICORE is not set/CONFIG_FREERTOS_UNICORE=y/' "$SDKCONFIG" > "$SDKCONFIG".new
+	set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE)
+	set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB)
 else
-        sed -e 's/CONFIG_ESP32_SPIRAM_SUPPORT=y/# CONFIG_ESP32_SPIRAM_SUPPORT is not set/' -e 's/# CONFIG_ESPTOOLPY_FLASHSIZE_4MB is not set/CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y/' -e 's/CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y/# CONFIG_ESPTOOLPY_FLASHSIZE_8MB is not set/' -e 's/CONFIG_FREERTOS_UNICORE=y/# CONFIG_FREERTOS_UNICORE is not set/' "$SDKCONFIG" > "$SDKCONFIG".new
+	set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB)
+	set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_FREERTOS_UNICORE)
 endif
 
-mv -f "$SDKCONFIG".new "$SDKCONFIG"
+set bs=(`grep _BUILD_SUFFIX_ sdkconfig | sed 's/.*\(CONFIG_[A-Z0-9_]*_BUILD_SUFFIX_[A-Z0-9]*\).*/\1/'`)
+foreach c ($bs)
+	echo -n "$BUILDSUFFIX" | grep -q -- "-"`echo -n "$c" | sed 's/CONFIG_.*_BUILD_SUFFIX_\(.*\)/\1/'`
+	if(! $status) then
+		set add=($add $c)
+	else
+		set rem=($rem $c)
+	endif
+end
+
+rm -f "$SDKCONFIG".new
+foreach c ($add)
+	grep -q "^# $c is not set" "$SDKCONFIG"
+	if(! $status) then
+		sed "s/^# $c is not set/$c=y/" "$SDKCONFIG" > "$SDKCONFIG.new"
+		mv -f "$SDKCONFIG".new "$SDKCONFIG"
+	endif
+end
+foreach c ($rem)
+	grep -q "^$c=y" "$SDKCONFIG"
+	if(! $status) then
+		sed "s/^$c=y/# $c is not set/" "$SDKCONFIG" > "$SDKCONFIG.new"
+		mv -f "$SDKCONFIG".new "$SDKCONFIG"
+	endif
+end
 
 

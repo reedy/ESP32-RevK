@@ -41,8 +41,11 @@ if(! $status) 	setenv	SUFFIX	"$SUFFIX-V2"
 grep -q CONFIG_ESP32_REV_MIN_1=y "$SDKCONFIG"
 if(! $status) 	setenv	SUFFIX	"$SUFFIX-V1"
 
-
-
+set bs=(`grep _BUILD_SUFFIX_ sdkconfig | sed 's/.*\(CONFIG_[A-Z0-9_]*_BUILD_SUFFIX_[A-Z0-9]*\).*/\1/'`)
+foreach c ($bs)
+	grep -q "$c=y" "$SDKCONFIG"
+	if(! $status)	setenv	SUFFIX	"$SUFFIX-"`echo -n "$c" | sed 's/CONFIG_.*_BUILD_SUFFIX_\(.*\)/\1/'`
+end
 
 grep -q '^CONFIG_REVK_BUILD_SUFFIX="'"$SUFFIX"'"$' "$SDKCONFIG"
 if($status) then
