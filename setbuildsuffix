@@ -13,6 +13,8 @@ if(! -e "$SDKCONFIG") then
 	exit 0
 endif
 
+# TODO how to do dependant settings e.g. display driver and size and so on together - arguments to script to see them
+
 set add=()
 set rem=()
 
