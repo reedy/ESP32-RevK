@@ -406,7 +406,10 @@ static void mesh_task(void *pvParameters)
       if (e == ESP_ERR_MESH_TIMEOUT)
          continue;
       if (e)
+      {
          ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
+	 usleep(100000);
+      }
       else
       {
          mesh_root_known = 1;   // We are root or we got from root, so let's mark known
