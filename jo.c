@@ -1064,7 +1064,7 @@ int64_t jo_read_int(jo_t j)
    return n * s;
 }
 
-long double jo_read_int(jo_t j)
+long double jo_read_float(jo_t j)
 {
    if (!j || !j->parse || jo_here(j) != JO_NUMBER)
       return NAN;
