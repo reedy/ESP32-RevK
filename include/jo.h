@@ -157,6 +157,7 @@ char *jo_strdup(jo_t);
 
 // Get a number
 int64_t jo_read_int(jo_t);
+long double jo_read_float(jo_t);
 
 // Get a datetime
 time_t jo_read_datetime(jo_t);

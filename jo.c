@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <time.h>
+#include <math.h>
 #include "esp_log.h"
 
 #ifndef	JO_MAX
@@ -1042,7 +1043,7 @@ const char *jo_debug(jo_t j)
 
 int64_t jo_read_int(jo_t j)
 {
-   if (!j || !j->parse)
+   if (!j || !j->parse || jo_here(j) != JO_NUMBER)
       return -1;
    int64_t n = 0,
        c,
@@ -1061,6 +1062,19 @@ int64_t jo_read_int(jo_t j)
    }
    jo_free(&p);
    return n * s;
+}
+
+long double jo_read_int(jo_t j)
+{
+   if (!j || !j->parse || jo_here(j) != JO_NUMBER)
+      return NAN;
+   char temp[50];
+   ssize_t l = jo_strncpy(j, temp, sizeof(temp));
+   char *end = NULL;
+   long double value = strtold(temp, &end);
+   if (!end || *end)
+      return NAN;
+   return value;
 }
 
 time_t jo_read_datetime(jo_t j)
