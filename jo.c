@@ -1070,6 +1070,8 @@ long double jo_read_float(jo_t j)
       return NAN;
    char temp[50];
    ssize_t l = jo_strncpy(j, temp, sizeof(temp));
+   if (l <= 0)
+      return NAN;
    char *end = NULL;
    long double value = strtold(temp, &end);
    if (!end || *end)
