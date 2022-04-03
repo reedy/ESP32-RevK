@@ -3204,7 +3204,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
 const char *revk_command(const char *tag, jo_t j)
 {
    if (!tag || !*tag)
-      return "No command";
+      return NULL;
    ESP_LOGD(TAG, "MQTT command [%s]", tag);
    const char *e = NULL;
    /* My commands */
