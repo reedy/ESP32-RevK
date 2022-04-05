@@ -302,14 +302,14 @@ menu "RevK"
 	config REVK_APWAIT
 	int "Default AP mode delay"
 	depends on REVK_APMODE
-	default 60
+	default 10
 	help
 		Default time for starting AP mode
 
 	config REVK_APTIME
 	int "Default AP active time"
 	depends on REVK_APMODE
-	default 300
+	default 600
 	help
 		Default time for AP mode
 
