@@ -166,7 +166,7 @@ settings
 #ifdef	CONFIG_REVK_MQTT
     mqttsettings
 #endif
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
     apconfigsettings
 #endif
 #undef s
@@ -223,17 +223,17 @@ const static int GROUP_OFFLINE = BIT0;  // We are off line (IP not set)
 const static int GROUP_WIFI = BIT1;     // We are WiFi connected
 const static int GROUP_IP = BIT2;       // We have IP address
 #endif
-#ifdef	CONFIG_REVK_APCONFIG
-const static int GROUP_APCONFIG = BIT3; // We are running AP config
-const static int GROUP_APCONFIG_DONE = BIT4;    // Config done
-const static int GROUP_APCONFIG_NONE = BIT5;    // No stations connected
+#ifdef	CONFIG_REVK_APMODE
+const static int GROUP_APMODE = BIT3; // We are running AP config
+const static int GROUP_APMODE_DONE = BIT4;    // Config done
+const static int GROUP_APMODE_NONE = BIT5;    // No stations connected
 #endif
 #ifdef	CONFIG_REVK_MQTT
 const static int GROUP_MQTT = BIT6 /*7... */ ;  // We are MQTT connected - and MORE BITS (MQTT_CLIENTS)
 const static int GROUP_MQTT_DOWN = (GROUP_MQTT << MQTT_CLIENTS);        /*... */
 #endif
 static TaskHandle_t ota_task_id = NULL;
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
 static TaskHandle_t ap_task_id = NULL;
 #endif
 static app_callback_t *app_callback = NULL;
@@ -266,7 +266,7 @@ static mesh_addr_t mesh_ota_addr = { };
 #endif
 
 /* Local functions */
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
 static void ap_task(void *pvParameters);
 #endif
 
@@ -1117,14 +1117,14 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGI(TAG, "AP Stop");
          break;
       case WIFI_EVENT_AP_STACONNECTED:
-#ifdef CONFIG_REVK_APCONFIG
-         xEventGroupClearBits(revk_group, GROUP_APCONFIG_NONE);
+#ifdef CONFIG_REVK_APMODE
+         xEventGroupClearBits(revk_group, GROUP_APMODE_NONE);
 #endif
          ESP_LOGI(TAG, "AP STA Connect");
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
-#ifdef CONFIG_REVK_APCONFIG
-         xEventGroupSetBits(revk_group, GROUP_APCONFIG_DONE | GROUP_APCONFIG_NONE);
+#ifdef CONFIG_REVK_APMODE
+         xEventGroupSetBits(revk_group, GROUP_APMODE_DONE | GROUP_APMODE_NONE);
 #endif
          ESP_LOGI(TAG, "AP STA Disconnect");
          break;
@@ -1264,7 +1264,7 @@ static const char *blink_default(const char *user)
       return user;
    if (!*wifissid)
       return "R";               // No wifi SSID
-#ifdef  CONFIG_REVK_APCONFIG
+#ifdef  CONFIG_REVK_APMODE
    if (ap_task_id)
       return "C";               // AP mode
 #endif
@@ -1452,7 +1452,7 @@ static void task(void *pvParameters)
          if (wifireset && revk_link_down() > wifireset)
             revk_restart("Offline too long", 0);
 #endif
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
          if (!ap_task_id && ((apgpio && (gpio_get_level(apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
                              || (apwait && revk_link_down() > apwait)
@@ -1604,7 +1604,7 @@ void revk_boot(app_callback_t * app_callback_cb)
    revk_register("mqtt", MQTT_CLIENTS, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);     // Parent
    mqttsettings;
 #endif
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
    apconfigsettings;
 #endif
 #undef s
@@ -1641,7 +1641,7 @@ void revk_boot(app_callback_t * app_callback_cb)
          gpio_set_level(blink[b] & 0x3F, (blink[b] & 0x40) ? 0 : 1);    /* on */
          gpio_set_direction(blink[b] & 0x3F, GPIO_MODE_OUTPUT); /* Blinking LED */
       }
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
    if (apgpio)
    {
       gpio_reset_pin(apgpio & 0x3F);
@@ -1904,7 +1904,7 @@ const char *revk_restart(const char *reason, int delay)
    return "";                   /* Done */
 }
 
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
 static esp_err_t ap_get(httpd_req_t * req)
 {
    if (httpd_req_get_url_query_len(req))
@@ -1938,22 +1938,22 @@ static esp_err_t ap_get(httpd_req_t * req)
          }
          const char resp[] = "Done";
          httpd_resp_send(req, resp, strlen(resp));
-         xEventGroupSetBits(revk_group, GROUP_APCONFIG_DONE);
+         xEventGroupSetBits(revk_group, GROUP_APMODE_DONE);
          return ESP_OK;
       }
    }
    /* httpd_resp_sendstr_chunk */
-   const char resp[] = "<form><input name=ssid placeholder='SSID'><br/><input name=pass placeholder='Password'></br><input name=host placeholder='MQTT host'></br><input type=submit value='Set'></form>";
+   const char resp[] = "<meta name="viewport" content='width=device-width, initial-scale=3'><form><input name=ssid placeholder='SSID'><br/><input name=pass placeholder='Password'></br><input name=host placeholder='MQTT host'></br><input type=submit value='Set'></form>";
    httpd_resp_send(req, resp, strlen(resp));
    return ESP_OK;
 }
 #endif
 
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
 static void ap_task(void *pvParameters)
 {
-   xEventGroupClearBits(revk_group, GROUP_APCONFIG_DONE);
-   xEventGroupSetBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_NONE);
+   xEventGroupClearBits(revk_group, GROUP_APMODE_DONE);
+   xEventGroupSetBits(revk_group, GROUP_APMODE | GROUP_APMODE_NONE);
    if (!*apssid)
    {                            // If we are not running an AP already
       if (xEventGroupGetBits(revk_group) & GROUP_WIFI)
@@ -1991,6 +1991,8 @@ static void ap_task(void *pvParameters)
       REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
       REVK_ERR_CHECK(esp_wifi_start());
    }
+#ifdef	CONFIG_REVK_APCONFIG
+   // Web server
    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
    if (apport)
       config.server_port = apport;
@@ -2005,14 +2007,17 @@ static void ap_task(void *pvParameters)
          .user_ctx = NULL
       };
       REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
-      if (!(xEventGroupWaitBits(revk_group, GROUP_APCONFIG_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS) & GROUP_APCONFIG_DONE))
-         xEventGroupWaitBits(revk_group, GROUP_APCONFIG_NONE, true, true, 60 * 1000LL / portTICK_PERIOD_MS);    // Wait for disconnect if not done yet
+      if (!(xEventGroupWaitBits(revk_group, GROUP_APMODE_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS) & GROUP_APMODE_DONE))
+         xEventGroupWaitBits(revk_group, GROUP_APMODE_NONE, true, true, 60 * 1000LL / portTICK_PERIOD_MS);    // Wait for disconnect if not done yet
       else
          sleep(2);              // Allow http close cleanly
       //Send reply maybe...
       REVK_ERR_CHECK(httpd_stop(server));
    }
-   xEventGroupClearBits(revk_group, GROUP_APCONFIG | GROUP_APCONFIG_DONE);
+#else
+   sleep(aptime);
+#endif
+   xEventGroupClearBits(revk_group, GROUP_APMODE | GROUP_APMODE_DONE);
    if (!*apssid)
    {
       REVK_ERR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -3244,7 +3249,7 @@ const char *revk_command(const char *tag, jo_t j)
       // esp_mesh_switch_channel(const uint8_t *new_bssid, int csa_newchan, int csa_count)
    }
 #endif
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef	CONFIG_REVK_APMODE
    if (!e && !strcmp(tag, "apconfig") && !ap_task_id)
    {
       ap_task_id = revk_task("AP", ap_task, NULL);

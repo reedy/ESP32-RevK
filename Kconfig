@@ -271,12 +271,26 @@ menu "RevK"
 	help
 		This defines the TZ (timezone) control
 
-	config REVK_APCONFIG
-        bool "Config fallback via an access point / web page"
+	config REVK_APMODE
+        bool "Enable AP when not connected to WiFi, or on button, etc"
         default y
 	depends on REVK_WIFI
         help
-		Enable Access point mode for base settings
+		Enable Access point mode
+
+	config REVK_APDNS
+        bool "Enable dummy DNS"
+        default y
+	depends on REVK_APMODE
+        help
+		Enable dummy DNS returning our IP to allow splash screen
+
+	config REVK_APCONFIG
+        bool "Enable web page to set basic settings when APMODE active"
+        default y
+	depends on REVK_APMODE
+        help
+		Enable web page for basic settings when in AP MODE
 
 	config REVK_APPORT
 	int "Default AP mode port"
@@ -287,14 +301,14 @@ menu "RevK"
 
 	config REVK_APWAIT
 	int "Default AP mode delay"
-	depends on REVK_APCONFIG
+	depends on REVK_APMODE
 	default 60
 	help
 		Default time for starting AP mode
 
 	config REVK_APTIME
 	int "Default AP active time"
-	depends on REVK_APCONFIG
+	depends on REVK_APMODE
 	default 300
 	help
 		Default time for AP mode
