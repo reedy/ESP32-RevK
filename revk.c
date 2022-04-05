@@ -1936,15 +1936,29 @@ static esp_err_t ap_get(httpd_req_t * req)
                jo_free(&j);
             }
          }
-         const char resp[] = "Done";
-         httpd_resp_send(req, resp, strlen(resp));
+         httpd_resp_sendstr(req, "<h1>Done</h1>");
          xEventGroupSetBits(revk_group, GROUP_APMODE_DONE);
          return ESP_OK;
       }
    }
-   /* httpd_resp_sendstr_chunk */
-   const char resp[] = "<meta name='viewport' content='width=device-width, initial-scale=1'><form><input name=ssid placeholder='SSID' autofocus><br/><input name=pass placeholder='Password'></br><input name=host placeholder='MQTT host'></br><input type=submit value='Set'></form>";
-   httpd_resp_send(req, resp, strlen(resp));
+   httpd_resp_sendstr_chunk(req,"<meta name='viewport' content='width=device-width, initial-scale=1'>");
+   httpd_resp_sendstr_chunk(req,"<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
+   httpd_resp_sendstr_chunk(req,appname);
+   httpd_resp_sendstr_chunk(req,"</h1>");
+   if(*hostname)
+   {
+   httpd_resp_sendstr_chunk(req,"<p>");
+	   httpd_resp_sendstr_chunk(req,hostname);
+   httpd_resp_sendstr_chunk(req,"</p>");
+   }
+   httpd_resp_sendstr_chunk(req,"<form><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
+   if(*wifissid)httpd_resp_sendstr_chunk(req,wifissid);
+   httpd_resp_sendstr_chunk(req,"'></td></tr><tr><td>Pass</td><td><input name=pass value='");
+   if(*wifipass)httpd_resp_sendstr_chunk(req,wifipass);
+   httpd_resp_sendstr_chunk(req,"'></td></tr><tr><td>MQTT</td><td><input name=host host' value='");
+   if(*mqtthost[0])httpd_resp_sendstr_chunk(req,mqtthost[0]);
+   httpd_resp_sendstr_chunk(req,"'></td></tr></table><input type=submit value='Set'></form></body></html>");
+   httpd_resp_sendstr_chunk(req,NULL);
    return ESP_OK;
 }
 #endif
