@@ -224,9 +224,9 @@ const static int GROUP_WIFI = BIT1;     // We are WiFi connected
 const static int GROUP_IP = BIT2;       // We have IP address
 #endif
 #ifdef	CONFIG_REVK_APMODE
-const static int GROUP_APMODE = BIT3; // We are running AP config
-const static int GROUP_APMODE_DONE = BIT4;    // Config done
-const static int GROUP_APMODE_NONE = BIT5;    // No stations connected
+const static int GROUP_APMODE = BIT3;   // We are running AP config
+const static int GROUP_APMODE_DONE = BIT4;      // Config done
+const static int GROUP_APMODE_NONE = BIT5;      // No stations connected
 #endif
 #ifdef	CONFIG_REVK_MQTT
 const static int GROUP_MQTT = BIT6 /*7... */ ;  // We are MQTT connected - and MORE BITS (MQTT_CLIENTS)
@@ -408,9 +408,8 @@ static void mesh_task(void *pvParameters)
       if (e)
       {
          ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
-	 usleep(100000);
-      }
-      else
+         usleep(100000);
+      } else
       {
          mesh_root_known = 1;   // We are root or we got from root, so let's mark known
          data.data[data.size] = 0;      // Add a null so we can parse JSON with NULL and log and so on
@@ -1701,7 +1700,7 @@ TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param)
 {                               /* General user task make */
    TaskHandle_t task_id = NULL;
 #ifdef	CONFIG_FREERTOS_UNICORE
-   xTaskCreate(t, tag, 8 * 1024, (void *) param, 2, &task_id); // Only one code anyway and not CPU1
+   xTaskCreate(t, tag, 8 * 1024, (void *) param, 2, &task_id);  // Only one code anyway and not CPU1
 #else
 #ifdef REVK_LOCK_CPU1
    xTaskCreatePinnedToCore(t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
@@ -1941,24 +1940,27 @@ static esp_err_t ap_get(httpd_req_t * req)
          return ESP_OK;
       }
    }
-   httpd_resp_sendstr_chunk(req,"<meta name='viewport' content='width=device-width, initial-scale=1'>");
-   httpd_resp_sendstr_chunk(req,"<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
-   httpd_resp_sendstr_chunk(req,appname);
-   httpd_resp_sendstr_chunk(req,"</h1>");
-   if(*hostname)
+   httpd_resp_sendstr_chunk(req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
+   httpd_resp_sendstr_chunk(req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
+   httpd_resp_sendstr_chunk(req, appname);
+   httpd_resp_sendstr_chunk(req, "</h1>");
+   if (*hostname)
    {
-   httpd_resp_sendstr_chunk(req,"<p>");
-	   httpd_resp_sendstr_chunk(req,hostname);
-   httpd_resp_sendstr_chunk(req,"</p>");
+      httpd_resp_sendstr_chunk(req, "<p>");
+      httpd_resp_sendstr_chunk(req, hostname);
+      httpd_resp_sendstr_chunk(req, "</p>");
    }
-   httpd_resp_sendstr_chunk(req,"<form><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
-   if(*wifissid)httpd_resp_sendstr_chunk(req,wifissid);
-   httpd_resp_sendstr_chunk(req,"'></td></tr><tr><td>Pass</td><td><input name=pass value='");
-   if(*wifipass)httpd_resp_sendstr_chunk(req,wifipass);
-   httpd_resp_sendstr_chunk(req,"'></td></tr><tr><td>MQTT</td><td><input name=host host' value='");
-   if(*mqtthost[0])httpd_resp_sendstr_chunk(req,mqtthost[0]);
-   httpd_resp_sendstr_chunk(req,"'></td></tr></table><input type=submit value='Set'></form></body></html>");
-   httpd_resp_sendstr_chunk(req,NULL);
+   httpd_resp_sendstr_chunk(req, "<form><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
+   if (*wifissid)
+      httpd_resp_sendstr_chunk(req, wifissid);
+   httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>Pass</td><td><input name=pass value='");
+   if (*wifipass)
+      httpd_resp_sendstr_chunk(req, wifipass);
+   httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=host host' value='");
+   if (*mqtthost[0])
+      httpd_resp_sendstr_chunk(req, mqtthost[0]);
+   httpd_resp_sendstr_chunk(req, "'></td></tr></table><input type=submit value='Set'></form></body></html>");
+   httpd_resp_sendstr_chunk(req, NULL);
    return ESP_OK;
 }
 #endif
@@ -2022,7 +2024,7 @@ static void ap_task(void *pvParameters)
       };
       REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
       if (!(xEventGroupWaitBits(revk_group, GROUP_APMODE_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS) & GROUP_APMODE_DONE))
-         xEventGroupWaitBits(revk_group, GROUP_APMODE_NONE, true, true, 60 * 1000LL / portTICK_PERIOD_MS);    // Wait for disconnect if not done yet
+         xEventGroupWaitBits(revk_group, GROUP_APMODE_NONE, true, true, 60 * 1000LL / portTICK_PERIOD_MS);      // Wait for disconnect if not done yet
       else
          sleep(2);              // Allow http close cleanly
       //Send reply maybe...
