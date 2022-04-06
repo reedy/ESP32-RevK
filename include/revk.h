@@ -29,6 +29,9 @@
 #ifdef	CONFIG_REVK_MQTT
 #include "lwmqtt.h"
 #endif
+#ifdef	CONFIG_REVK_APMODE
+#include "esp_http_server.h"
+#endif
 #include "jo.h"
 
 // Types
@@ -139,5 +142,9 @@ void revk_send_unsub(int client, const mac_t);
 void revk_mesh_send_json(const mac_t mac, jo_t * jp);
 #endif
 void revk_blink(uint8_t on, uint8_t off, const char *colours);  // Set LED blink rate and colour sequence for on state (for RGB LED)
+
+#ifdef  CONFIG_REVK_APMODE
+esp_err_t revk_web_config(httpd_req_t * req); // Call for web config for SSID/password/mqtt
+#endif
 
 #endif

@@ -23,9 +23,6 @@ static const char
 #include "esp_task_wdt.h"
 #include "esp_sntp.h"
 #include "esp_phy_init.h"
-#ifdef	CONFIG_REVK_APCONFIG
-#include "esp_http_server.h"
-#endif
 #include <driver/gpio.h>
 #ifdef	CONFIG_REVK_MESH
 #include <esp_mesh.h>
@@ -1903,8 +1900,8 @@ const char *revk_restart(const char *reason, int delay)
    return "";                   /* Done */
 }
 
-#ifdef	CONFIG_REVK_APCONFIG
-static esp_err_t ap_get(httpd_req_t * req)
+#ifdef	CONFIG_REVK_APMODE
+esp_err_t revk_web_config(httpd_req_t * req)
 {
    if (httpd_req_get_url_query_len(req))
    {
@@ -2019,7 +2016,7 @@ static void ap_task(void *pvParameters)
       httpd_uri_t uri = {
          .uri = "/",
          .method = HTTP_GET,
-         .handler = ap_get,
+         .handler = revk_web_config,
          .user_ctx = NULL
       };
       REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));

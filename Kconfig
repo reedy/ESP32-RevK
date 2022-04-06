@@ -279,7 +279,7 @@ menu "RevK"
 		Enable Access point mode
 
 	config REVK_APDNS
-        bool "Enable dummy DNS"
+        bool "Enable dummy DNS in AP mode"
         default y
 	depends on REVK_APMODE
         help
