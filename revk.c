@@ -1903,7 +1903,7 @@ const char *revk_restart(const char *reason, int delay)
    return "";                   /* Done */
 }
 
-#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
 static esp_err_t ap_get(httpd_req_t * req)
 {
    if (httpd_req_get_url_query_len(req))
