@@ -1962,10 +1962,9 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk(req, "><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
-   //if (*wifissid) httpd_resp_sendstr_chunk(req, wifissid);  // Should we show this? Possibly not
+   if (*wifissid) httpd_resp_sendstr_chunk(req, wifissid);
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>Pass</td><td><input name=pass value='");
-   if (*wifipass)
-      httpd_resp_sendstr_chunk(req, wifipass);
+   //if (*wifipass) httpd_resp_sendstr_chunk(req, wifipass); // Let's not show current value shall we
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=host value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
