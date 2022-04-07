@@ -1976,11 +1976,11 @@ esp_err_t revk_web_config(httpd_req_t * req)
                             "document.WIFI.ssid.value=s;"       //
                             "document.WIFI.pass.value='';"      //
                             "document.WIFI.pass.focus();"       //
+                            "return false;"     //
                             "};"        //
                             "b.textContent=s;"  //
                             "document.getElementById('list').appendChild(b);"   //
                             "});"       //
-                            "return false;"     //
                             "}" //
                             "</script>");
    httpd_resp_sendstr_chunk(req, "</body></html>");
@@ -2022,10 +2022,11 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
       ws_pkt.type = HTTPD_WS_TYPE_TEXT;
       httpd_ws_send_frame_async(req->handle, fd, &ws_pkt);
       free(js);
-      httpd_sess_trigger_close(req->handle, fd);
+      //httpd_sess_trigger_close(req->handle, fd); // too soon, makes an error...
       return ESP_OK;
    }
    // No data expected yet
+   // TODO we could take ssid, etc, and return a wifi connect check rather than a form post?
    return ESP_OK;
 }
 #else
