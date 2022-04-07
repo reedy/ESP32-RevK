@@ -1939,8 +1939,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
                jo_free(&j);
             }
          }
-	 // TODO connect and report new IP...
-	 
+         // TODO connect and report new IP... Could this be websocket too
          httpd_resp_sendstr(req, "<h1>Done</h1>");
          xEventGroupSetBits(revk_group, GROUP_APMODE_DONE);
          return ESP_OK;
@@ -1962,37 +1961,76 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>Pass</td><td><input name=pass value='");
    if (*wifipass)
       httpd_resp_sendstr_chunk(req, wifipass);
-   httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=host host' value='");
+   httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=host value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
    httpd_resp_sendstr_chunk(req, "'></td></tr></table><input type=submit value='Set'></form>");
-
-   // Better as a websocket call.
-   esp_wifi_scan_start(NULL, true);
-   uint16_t ap_count = 0;
-   static wifi_ap_record_t ap_info[32]; // Messy being static - should really have mutex
-   memset(ap_info, 0, sizeof(ap_info));
-   uint16_t number = sizeof(ap_info) / sizeof(*ap_info);
-   REVK_ERR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
-   REVK_ERR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-   for (int i = 0; (i < number) && (i < ap_count); i++)
-   {
-      int q;
-      for (q = 0; q < i && strcmp((char *) ap_info[i].ssid, (char *) ap_info[q].ssid); q++);
-      if (q < i)
-         continue;              // Duplicate
-      httpd_resp_sendstr_chunk(req, "<button onclick='");
-      httpd_resp_sendstr_chunk(req, "document.WIFI.ssid.value=\"");
-      httpd_resp_sendstr_chunk(req, (char *) ap_info[i].ssid);
-      httpd_resp_sendstr_chunk(req, "\";document.WIFI.pass.value=\"\";document.WIFI.pass.focus();'>");
-      httpd_resp_sendstr_chunk(req, (char *) ap_info[i].ssid);
-      httpd_resp_sendstr_chunk(req, "</button><br>");
-   }
-
+   httpd_resp_sendstr_chunk(req, "<div id=list></div>");
+   httpd_resp_sendstr_chunk(req, "<script>"     //
+                            "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');" //
+                            "ws.onmessage=function(e){" //
+                            "o=JSON.parse(e.data);"     //
+                            "o.forEach(function(s){"    //
+                            "b=document.createElement('button');"       //
+                            "b.onclick=function(e){"    //
+                            "document.WIFI.ssid.value=s;"       //
+                            "document.WIFI.pass.value='';"      //
+                            "document.WIFI.pass.focus();"       //
+                            "};"        //
+                            "b.textContent=s;"  //
+                            "document.getElementById('list').appendChild(b);"   //
+                            "});"       //
+                            "return false;"     //
+                            "}" //
+                            "</script>");
    httpd_resp_sendstr_chunk(req, "</body></html>");
    httpd_resp_sendstr_chunk(req, NULL);
    return ESP_OK;
 }
+#endif
+
+#ifdef	CONFIG_REVK_APMODE
+#ifdef	CONFIG_WS_TRANSPORT
+esp_err_t revk_web_wifilist(httpd_req_t * req)
+{
+   ESP_LOGI(TAG, "Wifilist %d", req->method);
+   if (req->method == HTTP_GET)
+   {
+      jo_t j = jo_create_alloc();
+      jo_array(j, NULL);
+      esp_wifi_scan_start(NULL, true);
+      uint16_t ap_count = 0;
+      static wifi_ap_record_t ap_info[32];      // Messy being static - should really have mutex
+      memset(ap_info, 0, sizeof(ap_info));
+      uint16_t number = sizeof(ap_info) / sizeof(*ap_info);
+      REVK_ERR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+      REVK_ERR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+      for (int i = 0; (i < number) && (i < ap_count); i++)
+      {
+         int q;
+         for (q = 0; q < i && strcmp((char *) ap_info[i].ssid, (char *) ap_info[q].ssid); q++);
+         if (q < i)
+            continue;           // Duplicate
+         jo_string(j, NULL, (char *) ap_info[i].ssid);
+      }
+      char *js = jo_finisha(&j);
+      int fd = httpd_req_to_sockfd(req);
+      httpd_ws_frame_t ws_pkt;
+      memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+      ws_pkt.payload = (uint8_t *) js;
+      ws_pkt.len = strlen(js);
+      ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+      httpd_ws_send_frame_async(req->handle, fd, &ws_pkt);
+      free(js);
+      httpd_sess_trigger_close(req->handle, fd);
+      return ESP_OK;
+   }
+   // No data expected yet
+   return ESP_OK;
+}
+#else
+#warn	You may want CONFIG_WS_TRANSPORT
+#endif
 #endif
 
 #ifdef	CONFIG_REVK_APMODE
@@ -2046,13 +2084,25 @@ static void ap_task(void *pvParameters)
    httpd_handle_t server = NULL;
    if (!httpd_start(&server, &config))
    {
-      httpd_uri_t uri = {
-         .uri = "/",
-         .method = HTTP_GET,
-         .handler = revk_web_config,
-         .user_ctx = NULL
-      };
-      REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
+      {
+         httpd_uri_t uri = {
+            .uri = "/",
+            .method = HTTP_GET,
+            .handler = revk_web_config,
+         };
+         REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
+      }
+#ifdef	CONFIG_WS_TRANSPORT
+      {
+         httpd_uri_t uri = {
+            .uri = "/wifilist",
+            .method = HTTP_GET,
+            .handler = revk_web_wifilist,
+            .is_websocket = true,
+         };
+         REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
+      }
+#endif
       if (!(xEventGroupWaitBits(revk_group, GROUP_APMODE_DONE, true, true, (aptime ? : 3600) * 1000LL / portTICK_PERIOD_MS) & GROUP_APMODE_DONE))
          xEventGroupWaitBits(revk_group, GROUP_APMODE_NONE, true, true, 60 * 1000LL / portTICK_PERIOD_MS);      // Wait for disconnect if not done yet
       else

@@ -46,7 +46,7 @@ typedef uint8_t mac_t[6];
 // Data
 extern const char *revk_app;    // App name
 extern const char *revk_version;        // App version
-extern const char revk_build_suffix[];	// App build suffix
+extern const char revk_build_suffix[];  // App build suffix
 extern char revk_id[13];        // Chip ID hex (from MAC)
 extern mac_t revk_mac;          // Our mac
 extern uint64_t revk_binid;     // Chip ID binary
@@ -60,14 +60,14 @@ extern char *appname;
 extern char *hostname;
 extern char *nodename;          // Node name
 
-jo_t jo_make(const char *nodename);             // Start object with node name
+jo_t jo_make(const char *nodename);     // Start object with node name
 
 typedef struct {                // Dynamic binary data
    uint16_t len;
    uint8_t data[];
 } revk_bindata_t;
 
-#define freez(x) do{if(x){free((void*)x);x=NULL;}}while(0)     // Just useful - yes free(x) is valid when x is NULL, but this sets x NULL as a result as well
+#define freez(x) do{if(x){free((void*)x);x=NULL;}}while(0)      // Just useful - yes free(x) is valid when x is NULL, but this sets x NULL as a result as well
 
 // Calls
 void revk_boot(app_callback_t * app_callback);
@@ -129,7 +129,7 @@ void revk_mqtt_close(const char *reason);       // Clean close MQTT
 int revk_wait_mqtt(int seconds);
 #endif
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-uint32_t revk_link_down(void);	// How long link down (no IP or no parent if mesh)
+uint32_t revk_link_down(void);  // How long link down (no IP or no parent if mesh)
 #define MESH_PAD        32      // Max extra allocated bytes required on data
 const char *revk_wifi(void);
 void revk_wifi_close(void);
@@ -144,7 +144,8 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp);
 void revk_blink(uint8_t on, uint8_t off, const char *colours);  // Set LED blink rate and colour sequence for on state (for RGB LED)
 
 #ifdef  CONFIG_REVK_APMODE
-esp_err_t revk_web_config(httpd_req_t * req); // Call for web config for SSID/password/mqtt
+esp_err_t revk_web_config(httpd_req_t * req);   // Call for web config for SSID/password/mqtt
+esp_err_t revk_web_wifilist(httpd_req_t * req); // WS for list of SSIDs
 #endif
 
 #endif
