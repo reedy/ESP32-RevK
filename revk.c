@@ -1120,7 +1120,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
 #ifdef CONFIG_REVK_APMODE
-         xEventGroupSetBits(revk_group, GROUP_APMODE_DONE | GROUP_APMODE_NONE);
+         //xEventGroupSetBits(revk_group, GROUP_APMODE_DONE | GROUP_APMODE_NONE);
 #endif
          ESP_LOGI(TAG, "AP STA Disconnect");
          break;
@@ -1962,19 +1962,19 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk(req, "><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
-   if (*wifissid)
-      httpd_resp_sendstr_chunk(req, wifissid);
+   //if (*wifissid) httpd_resp_sendstr_chunk(req, wifissid);  // Should we show this? Possibly not
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>Pass</td><td><input name=pass value='");
    if (*wifipass)
       httpd_resp_sendstr_chunk(req, wifipass);
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=host value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
-   httpd_resp_sendstr_chunk(req, "'></td></tr></table><input type=submit value='Set'>&nbsp;<b id=msg></b></form>");
+   httpd_resp_sendstr_chunk(req, "'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk(req, "<div id=list></div>");
    httpd_resp_sendstr_chunk(req, "<script>"     //
                             "var f=document.WIFI;"      //
                             "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');" //
+                            "ws.onclose=function(e){document.getElementById('set').style.visibility='hidden';};"        //
                             "ws.onmessage=function(e){" //
                             "o=JSON.parse(e.data);"     //
                             "if(typeof o === 'string')document.getElementById('msg').textContent=o;"    //
@@ -2140,14 +2140,13 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                jo_string(s, "mqtthost", host);
                revk_setting(s);
                jo_free(&s);
+               xEventGroupSetBits(revk_group, GROUP_APMODE_DONE);
             } else
             {
                if (ret)
                   msg("Failed to connect");
                else
                   msg("Failed to get IP");
-               sleep(1);
-               wifi_init();
             }
          }
          jo_free(&j);
