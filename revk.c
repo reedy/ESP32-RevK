@@ -878,7 +878,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             for (int n = 0; n < sizeof(addr.addr); n++)
                addr.addr[n] = (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) + (target[1 + n * 2] > '9' ? 9 : 0));
          mesh_encode_send(&addr, &data, MESH_DATA_P2P); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
-         free(data.data);
+         freez(data.data);
       }
 #endif
       // Break up topic
@@ -1034,7 +1034,7 @@ void revk_mqtt_init(void)
             return;
          if (asprintf((void *) &config.client, "%s-%s", appname, revk_id) < 0)
          {
-            free((void *) config.topic);
+            freez(config.topic);
             return;
          }
          ESP_LOGI(TAG, "MQTT%d %s", client, config.hostname);
@@ -1063,8 +1063,8 @@ void revk_mqtt_init(void)
             config.password = mqttpass[client];
          config.port = mqttport[client];
          mqtt_client[client] = lwmqtt_client(&config);
-         free((void *) config.topic);
-         free((void *) config.client);
+         freez(config.topic);
+         freez(config.client);
       }
    }
 }
@@ -1492,7 +1492,6 @@ static void task(void *pvParameters)
 /* External functions */
 void revk_boot(app_callback_t * app_callback_cb)
 {                               /* Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID */
-   ESP_LOGI(TAG, "sem");
 #ifdef	CONFIG_REVK_MESH
    esp_wifi_disconnect();       // Just in case
    mesh_mutex = xSemaphoreCreateBinary();
@@ -1501,9 +1500,9 @@ void revk_boot(app_callback_t * app_callback_cb)
 #endif
 
 #ifdef	CONFIG_REVK_PARTITION_CHECK
-   const esp_partition_t *ota_partition = esp_ota_get_running_partition();
-   if (strchr(ota_partition->label, '0'))
    {                            // Only if we are in the first OTA partition, else changes could be problematic
+      const esp_partition_t *ota_partition = esp_ota_get_running_partition();
+      ESP_LOGI(TAG, "Running from %s at %X (size %u)", ota_partition->label, ota_partition->address, ota_partition->size);
       const char *table = CONFIG_PARTITION_TABLE_FILENAME;
       int size = spi_flash_get_chip_size();
       int expect = 4;
@@ -1521,34 +1520,40 @@ void revk_boot(app_callback_t * app_callback_cb)
 #endif
          /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
          if ((part_end - part_start) > SPI_FLASH_SEC_SIZE)
-         {
             ESP_LOGE(TAG, "Block size error (%d>%d)", part_end - part_start, SPI_FLASH_SEC_SIZE);
-            return;
-         }
-         uint8_t *mem = malloc(SPI_FLASH_SEC_SIZE);
-         if (!mem)
+         else
          {
-            ESP_LOGE(TAG, "Malloc fail: %d", SPI_FLASH_SEC_SIZE);
-            return;
-         }
-         ESP_LOGI(TAG, "read");
-         REVK_ERR_CHECK(spi_flash_read(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
-         ESP_LOGI(TAG, "read done");
-         if (memcmp(mem, part_start, part_end - part_start))
-         {
+            uint8_t *mem = malloc(SPI_FLASH_SEC_SIZE);
+            if (!mem)
+               ESP_LOGE(TAG, "Malloc fail: %d", SPI_FLASH_SEC_SIZE);
+            else
+            {
+               REVK_ERR_CHECK(spi_flash_read(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+               if (memcmp(mem, part_start, part_end - part_start))
+               {
+                  if (strchr(ota_partition->label, '0'))
+                  {
 #ifndef CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
 #error Set CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED to allow CONFIG_REVK_PARTITION_CHECK
 #endif
-            ESP_LOGI(TAG, "Updating partition table");
-            memset(mem, 0, SPI_FLASH_SEC_SIZE);
-            memcpy(mem, part_start, part_end - part_start);
-            REVK_ERR_CHECK(spi_flash_erase_range(CONFIG_PARTITION_TABLE_OFFSET, SPI_FLASH_SEC_SIZE));
-            REVK_ERR_CHECK(spi_flash_write(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
-            esp_restart();
+                     ESP_LOGI(TAG, "Updating partition table at %X", CONFIG_PARTITION_TABLE_OFFSET);
+                     memset(mem, 0, SPI_FLASH_SEC_SIZE);
+                     memcpy(mem, part_start, part_end - part_start);
+                     REVK_ERR_CHECK(spi_flash_erase_range(CONFIG_PARTITION_TABLE_OFFSET, SPI_FLASH_SEC_SIZE));
+                     REVK_ERR_CHECK(spi_flash_write(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+                     esp_restart();
+                  } else
+                     ESP_LOGE(TAG, "Not updating partition as not on ota 0 (%s)", ota_partition->label);
+               } else
+               {
+                  ESP_LOGI(TAG, "Partition table at %X as expected (%s)", CONFIG_PARTITION_TABLE_OFFSET, table);
+                  //ESP_LOG_BUFFER_HEX_LEVEL(TAG, mem, SPI_FLASH_SEC_SIZE, ESP_LOG_INFO);
+               }
+               freez(mem);
+            }
          }
-         freez(mem);
       } else
-         ESP_LOGI(TAG, "Flash partition not updated, size is unexpected: %d", size);
+         ESP_LOGE(TAG, "Flash partition not updated, size is unexpected: %d (%s)", size, table);
    }
 #endif
    ESP_LOGI(TAG, "nvs_flash_init");
@@ -1772,7 +1777,7 @@ const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen
       mesh_data_t data = {.proto = MESH_PROTO_MQTT };
       mesh_make_mqtt(&data, clients | (retain << 7), tlen, topic, plen, payload);       // Ensures MESH_PAD space one end
       mesh_encode_send(NULL, &data, 0); // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
-      free(data.data);
+      freez(data.data);
       return NULL;
    }
 #endif
@@ -1841,7 +1846,7 @@ void revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, 
       char *payload = jo_finisha(jp);
       if (payload)
          revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
-      free(payload);
+      freez(payload);
    } else
    {                            // Static
       char *payload = jo_finish(jp);
@@ -2148,6 +2153,9 @@ static void ota_task(void *pvParameters)
          } else
          {
             jo_t j = jo_make(NULL);
+            jo_string(j, "partition", ota_partition->label);
+            jo_stringf(j, "start", "%X", ota_partition->address);
+            jo_int(j, "space", ota_partition->size);
             jo_int(j, "size", ota_size);
             revk_info("upgrade", &j);
             if (!(err = REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle))))

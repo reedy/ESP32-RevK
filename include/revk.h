@@ -67,7 +67,7 @@ typedef struct {                // Dynamic binary data
    uint8_t data[];
 } revk_bindata_t;
 
-#define freez(x) do{if(x){free(x);x=NULL;}}while(0)     // Just useful
+#define freez(x) do{if(x){free((void*)x);x=NULL;}}while(0)     // Just useful - yes free(x) is valid when x is NULL, but this sets x NULL as a result as well
 
 // Calls
 void revk_boot(app_callback_t * app_callback);
