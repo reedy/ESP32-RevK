@@ -2022,6 +2022,8 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
       wsend(&j);
    }
    esp_err_t scan(void) {
+      if (revk_link_down())
+         esp_wifi_set_mode(WIFI_MODE_APSTA);
       msg("Scanning");
       jo_t j = jo_create_alloc();
       jo_array(j, NULL);
@@ -2090,35 +2092,45 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                   jo_strncpy(j, host, sizeof(host));
                t = jo_skip(j);
             }
-            msg("Connecting");
-            esp_wifi_set_mode(WIFI_MODE_APSTA);
-            wifi_config_t cfg = { 0, };
-            cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-            strncpy((char *) cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
-            strncpy((char *) cfg.sta.password, pass, sizeof(cfg.sta.password));
-            ret = esp_wifi_set_config(ESP_IF_WIFI_STA, &cfg);
-            if (!ret)
-               ret = esp_wifi_connect();
             int ok = 0;
-            if (!ret)
-            {                   // Get IP?
-               setup_ip();
-               int waiting = 10;
-               while (waiting--)
-               {
-                  sleep(1);
-                  tcpip_adapter_ip_info_t ip;
-                  if (!tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip))
+            if (revk_link_down())
+            {
+               msg("Connecting");
+               sleep(1);
+               esp_wifi_set_mode(WIFI_MODE_APSTA);
+               wifi_config_t cfg = { 0, };
+               cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+               strncpy((char *) cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
+               strncpy((char *) cfg.sta.password, pass, sizeof(cfg.sta.password));
+               ret = esp_wifi_set_config(ESP_IF_WIFI_STA, &cfg);
+               if (!ret)
+                  ret = esp_wifi_connect();
+               if (!ret)
+               {                // Get IP?
+                  setup_ip();
+                  int waiting = 10;
+                  while (waiting--)
                   {
-                     jo_t i = jo_object_alloc();
-                     jo_stringf(i, "ip", IPSTR, IP2STR(&ip.ip));
-                     jo_stringf(i, "mask", IPSTR, IP2STR(&ip.netmask));
-                     jo_stringf(i, "gw", IPSTR, IP2STR(&ip.gw));
-                     wsend(&i);
-                     ok = 1;
-                     break;
+                     sleep(1);
+                     tcpip_adapter_ip_info_t ip;
+                     if (!tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip) && ip.ip.addr)
+                     {
+                        // What if no IP yet - check IP 0
+                        // What if access via STA so we already have an IP
+                        jo_t i = jo_object_alloc();
+                        jo_stringf(i, "ip", IPSTR, IP2STR(&ip.ip));
+                        jo_stringf(i, "mask", IPSTR, IP2STR(&ip.netmask));
+                        jo_stringf(i, "gw", IPSTR, IP2STR(&ip.gw));
+                        wsend(&i);
+                        ok = 1;
+                        break;
+                     }
                   }
                }
+            } else
+            {
+               ok = 1;          // We trust it is OK
+               msg("Rebooting");
             }
             if (ok)
             {
@@ -2128,7 +2140,6 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                jo_string(s, "mqtthost", host);
                revk_setting(s);
                jo_free(&s);
-               revk_restart("WiFi config", 3);
             } else
             {
                if (ret)
