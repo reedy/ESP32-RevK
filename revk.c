@@ -1910,6 +1910,7 @@ const char *revk_restart(const char *reason, int delay)
 #ifdef	CONFIG_REVK_APMODE
 esp_err_t revk_web_config(httpd_req_t * req)
 {
+#ifdef  CONFIG_WS_TRANSPORT
    if (httpd_req_get_url_query_len(req))
    {
       char query[200];
@@ -1945,6 +1946,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
          return ESP_OK;
       }
    }
+#endif
    httpd_resp_sendstr_chunk(req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    httpd_resp_sendstr_chunk(req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
    httpd_resp_sendstr_chunk(req, appname);
@@ -1955,7 +1957,11 @@ esp_err_t revk_web_config(httpd_req_t * req)
       httpd_resp_sendstr_chunk(req, hostname);
       httpd_resp_sendstr_chunk(req, "</p>");
    }
-   httpd_resp_sendstr_chunk(req, "<form name=WIFI><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
+   httpd_resp_sendstr_chunk(req, "<form name=WIFI");
+#ifdef  CONFIG_WS_TRANSPORT
+   httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value}));return false;\"");
+#endif
+   httpd_resp_sendstr_chunk(req, "><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>Pass</td><td><input name=pass value='");
@@ -1964,18 +1970,21 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=host value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
-   httpd_resp_sendstr_chunk(req, "'></td></tr></table><input type=submit value='Set'></form>");
+   httpd_resp_sendstr_chunk(req, "'></td></tr></table><input type=submit value='Set'>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk(req, "<div id=list></div>");
    httpd_resp_sendstr_chunk(req, "<script>"     //
+                            "var f=document.WIFI;"      //
                             "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');" //
                             "ws.onmessage=function(e){" //
                             "o=JSON.parse(e.data);"     //
-                            "o.forEach(function(s){"    //
+                            "if(typeof o === 'string')document.getElementById('msg').textContent=o;"    //
+                            "else if(o.ip)document.getElementById('msg').innerHTML='Rebooting <a href=\"http://'+o.ip+'/\">'+o.ip+'</a>';"      //
+                            "else if(typeof o === 'object')o.forEach(function(s){"      //
                             "b=document.createElement('button');"       //
                             "b.onclick=function(e){"    //
-                            "document.WIFI.ssid.value=s;"       //
-                            "document.WIFI.pass.value='';"      //
-                            "document.WIFI.pass.focus();"       //
+                            "f.ssid.value=s;"   //
+                            "f.pass.value='';"  //
+                            "f.pass.focus();"   //
                             "return false;"     //
                             "};"        //
                             "b.textContent=s;"  //
@@ -1993,9 +2002,27 @@ esp_err_t revk_web_config(httpd_req_t * req)
 #ifdef	CONFIG_WS_TRANSPORT
 esp_err_t revk_web_wifilist(httpd_req_t * req)
 {
-   ESP_LOGI(TAG, "Wifilist %d", req->method);
-   if (req->method == HTTP_GET)
-   {
+   int fd = httpd_req_to_sockfd(req);
+   void wsend(jo_t * jp) {
+      char *js = jo_finisha(jp);
+      if (js)
+      {
+         httpd_ws_frame_t ws_pkt;
+         memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+         ws_pkt.payload = (uint8_t *) js;
+         ws_pkt.len = strlen(js);
+         ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+         httpd_ws_send_frame_async(req->handle, fd, &ws_pkt);
+         free(js);
+      }
+   }
+   void msg(const char *msg) {
+      jo_t j = jo_create_alloc();
+      jo_string(j, NULL, msg);
+      wsend(&j);
+   }
+   esp_err_t scan(void) {
+      msg("Scanning");
       jo_t j = jo_create_alloc();
       jo_array(j, NULL);
       esp_wifi_scan_start(NULL, true);
@@ -2005,6 +2032,7 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
       uint16_t number = sizeof(ap_info) / sizeof(*ap_info);
       REVK_ERR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
       REVK_ERR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+      int found = 0;
       for (int i = 0; (i < number) && (i < ap_count); i++)
       {
          int q;
@@ -2012,22 +2040,110 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
          if (q < i)
             continue;           // Duplicate
          jo_string(j, NULL, (char *) ap_info[i].ssid);
+         found++;
       }
-      char *js = jo_finisha(&j);
-      int fd = httpd_req_to_sockfd(req);
-      httpd_ws_frame_t ws_pkt;
-      memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-      ws_pkt.payload = (uint8_t *) js;
-      ws_pkt.len = strlen(js);
-      ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-      httpd_ws_send_frame_async(req->handle, fd, &ws_pkt);
-      free(js);
-      //httpd_sess_trigger_close(req->handle, fd); // too soon, makes an error...
+      wsend(&j);
+      msg(found ? "" : "No WiFI found");
       return ESP_OK;
    }
-   // No data expected yet
-   // TODO we could take ssid, etc, and return a wifi connect check rather than a form post?
-   return ESP_OK;
+   if (req->method == HTTP_GET)
+      return scan();
+   // Send something - new wifi creds
+   httpd_ws_frame_t ws_pkt;
+   uint8_t *buf = NULL;
+   memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+   ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+   esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 0);
+   if (ret)
+      return ret;
+   if (!ws_pkt.len)
+      return scan();
+   buf = calloc(1, ws_pkt.len + 1);
+   if (!buf)
+      return ESP_ERR_NO_MEM;
+   ws_pkt.payload = buf;
+   ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
+   if (!ret)
+   {
+      jo_t j = jo_parse_mem(buf, ws_pkt.len);
+      if (j)
+      {
+         if (jo_here(j) == JO_OBJECT)
+         {
+            char ssid[33];
+            char pass[33];
+            char host[129];
+            strncpy(ssid, wifissid, sizeof(ssid));
+            strncpy(pass, wifipass, sizeof(pass));
+            strncpy(host, mqtthost[0], sizeof(host));
+            jo_type_t t = jo_next(j);   // Start object
+            while (t == JO_TAG)
+            {
+               char tag[10] = "";
+               jo_strncpy(j, tag, sizeof(tag));
+               t = jo_next(j);
+               if (!strcmp(tag, "ssid"))
+                  jo_strncpy(j, ssid, sizeof(ssid));
+               else if (!strcmp(tag, "pass"))
+                  jo_strncpy(j, pass, sizeof(pass));
+               else if (!strcmp(tag, "host"))
+                  jo_strncpy(j, host, sizeof(host));
+               t = jo_skip(j);
+            }
+            msg("Connecting");
+            esp_wifi_set_mode(WIFI_MODE_APSTA);
+            wifi_config_t cfg = { 0, };
+            cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+            strncpy((char *) cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
+            strncpy((char *) cfg.sta.password, pass, sizeof(cfg.sta.password));
+            ret = esp_wifi_set_config(ESP_IF_WIFI_STA, &cfg);
+            if (!ret)
+               ret = esp_wifi_connect();
+            int ok = 0;
+            if (!ret)
+            {                   // Get IP?
+               setup_ip();
+               int waiting = 10;
+               while (waiting--)
+               {
+                  sleep(1);
+                  tcpip_adapter_ip_info_t ip;
+                  if (!tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip))
+                  {
+                     jo_t i = jo_object_alloc();
+                     jo_stringf(i, "ip", IPSTR, IP2STR(&ip.ip));
+                     jo_stringf(i, "mask", IPSTR, IP2STR(&ip.netmask));
+                     jo_stringf(i, "gw", IPSTR, IP2STR(&ip.gw));
+                     wsend(&i);
+                     ok = 1;
+                     break;
+                  }
+               }
+            }
+            if (ok)
+            {
+               jo_t s = jo_object_alloc();
+               jo_string(s, "wifissid", ssid);
+               jo_string(s, "wifipass", pass);
+               jo_string(s, "mqtthost", host);
+               revk_setting(s);
+               jo_free(&s);
+               revk_restart("WiFi config", 3);
+            } else
+            {
+               if (ret)
+                  msg("Failed to connect");
+               else
+                  msg("Failed to get IP");
+               sleep(1);
+               wifi_init();
+            }
+         }
+         jo_free(&j);
+      }
+   }
+   free(buf);
+   return ret;
 }
 #else
 #warn	You may want CONFIG_WS_TRANSPORT
