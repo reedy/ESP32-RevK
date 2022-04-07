@@ -1501,7 +1501,9 @@ void revk_boot(app_callback_t * app_callback_cb)
 #endif
 
 #ifdef	CONFIG_REVK_PARTITION_CHECK
-   {
+   const esp_partition_t *ota_partition = esp_ota_get_running_partition();
+   if (strchr(ota_partition->label, '0'))
+   {                            // Only if we are in the first OTA partition, else changes could be problematic
       const char *table = CONFIG_PARTITION_TABLE_FILENAME;
       int size = spi_flash_get_chip_size();
       int expect = 4;

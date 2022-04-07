@@ -13,20 +13,22 @@ if(! -e "$SDKCONFIG") then
 	exit 0
 endif
 
-# TODO how to do dependant settings e.g. display driver and size and so on together - arguments to script to see them
-
 set add=()
 set rem=()
+set part=""
 
 if("$BUILDSUFFIX" =~ *-PICO*) then
 	set add=($add CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB)
 	set rem=($rem CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE)
+	set part="components/ESP32-RevK/partitions_8m.csv"
 else if("$BUILDSUFFIX" =~ *-SOLO*) then
 	set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE)
 	set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB)
+	set part="components/ESP32-RevK/partitions_4m.csv"
 else
 	set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB)
 	set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_FREERTOS_UNICORE)
+	set part="components/ESP32-RevK/partitions_4m.csv"
 endif
 
 set bs=(`grep _BUILD_SUFFIX_ sdkconfig | sed 's/.*\(CONFIG_[A-Z0-9_]*_BUILD_SUFFIX_[A-Z0-9]*\).*/\1/'`)
@@ -54,5 +56,13 @@ foreach c ($rem)
 		mv -f "$SDKCONFIG".new "$SDKCONFIG"
 	endif
 end
-
+if($part != "") then
+	foreach t (CONFIG_PARTITION_TABLE_CUSTOM_FILENAME CONFIG_PARTITION_TABLE_FILENAME)
+		grep -q "^$t="'"'"$part"'"' "$SDKCONFIG"
+        	if($status) then
+			sed "s:^$t.*:$t="'"'"$part"'"'":" "$SDKCONFIG" > "$SDKCONFIG.new"
+                	mv -f "$SDKCONFIG".new "$SDKCONFIG"
+		endif
+	end
+endif
 
