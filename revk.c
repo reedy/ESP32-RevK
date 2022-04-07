@@ -1939,6 +1939,8 @@ esp_err_t revk_web_config(httpd_req_t * req)
                jo_free(&j);
             }
          }
+	 // TODO connect and report new IP...
+	 
          httpd_resp_sendstr(req, "<h1>Done</h1>");
          xEventGroupSetBits(revk_group, GROUP_APMODE_DONE);
          return ESP_OK;
@@ -1954,7 +1956,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
       httpd_resp_sendstr_chunk(req, hostname);
       httpd_resp_sendstr_chunk(req, "</p>");
    }
-   httpd_resp_sendstr_chunk(req, "<form><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
+   httpd_resp_sendstr_chunk(req, "<form name=WIFI><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>Pass</td><td><input name=pass value='");
@@ -1963,7 +1965,31 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=host host' value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
-   httpd_resp_sendstr_chunk(req, "'></td></tr></table><input type=submit value='Set'></form></body></html>");
+   httpd_resp_sendstr_chunk(req, "'></td></tr></table><input type=submit value='Set'></form>");
+
+   // Better as a websocket call.
+   esp_wifi_scan_start(NULL, true);
+   uint16_t ap_count = 0;
+   static wifi_ap_record_t ap_info[32]; // Messy being static - should really have mutex
+   memset(ap_info, 0, sizeof(ap_info));
+   uint16_t number = sizeof(ap_info) / sizeof(*ap_info);
+   REVK_ERR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+   REVK_ERR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+   for (int i = 0; (i < number) && (i < ap_count); i++)
+   {
+      int q;
+      for (q = 0; q < i && strcmp((char *) ap_info[i].ssid, (char *) ap_info[q].ssid); q++);
+      if (q < i)
+         continue;              // Duplicate
+      httpd_resp_sendstr_chunk(req, "<button onclick='");
+      httpd_resp_sendstr_chunk(req, "document.WIFI.ssid.value=\"");
+      httpd_resp_sendstr_chunk(req, (char *) ap_info[i].ssid);
+      httpd_resp_sendstr_chunk(req, "\";document.WIFI.pass.value=\"\";document.WIFI.pass.focus();'>");
+      httpd_resp_sendstr_chunk(req, (char *) ap_info[i].ssid);
+      httpd_resp_sendstr_chunk(req, "</button><br>");
+   }
+
+   httpd_resp_sendstr_chunk(req, "</body></html>");
    httpd_resp_sendstr_chunk(req, NULL);
    return ESP_OK;
 }
