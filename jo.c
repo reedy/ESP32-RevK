@@ -741,6 +741,7 @@ jo_type_t jo_here(jo_t j)
    }
    if (j->comma)
    {
+      c = jo_ws(j);
       if (!j->level)
       {
          j->err = "Extra value at top level";
