@@ -1910,7 +1910,7 @@ const char *revk_restart(const char *reason, int delay)
 #ifdef	CONFIG_REVK_APMODE
 esp_err_t revk_web_config(httpd_req_t * req)
 {
-#ifdef  CONFIG_WS_TRANSPORT
+#ifdef  CONFIG_HTTPD_WS_SUPPORT
    if (httpd_req_get_url_query_len(req))
    {
       char query[200];
@@ -1958,7 +1958,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
       httpd_resp_sendstr_chunk(req, "</p>");
    }
    httpd_resp_sendstr_chunk(req, "<form name=WIFI");
-#ifdef  CONFIG_WS_TRANSPORT
+#ifdef  CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk(req, "><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
@@ -1998,7 +1998,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
 #endif
 
 #ifdef	CONFIG_REVK_APMODE
-#ifdef	CONFIG_WS_TRANSPORT
+#ifdef	CONFIG_HTTPD_WS_SUPPORT
 esp_err_t revk_web_wifilist(httpd_req_t * req)
 {
    int fd = httpd_req_to_sockfd(req);
@@ -2155,7 +2155,7 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
    return ret;
 }
 #else
-#warn	You may want CONFIG_WS_TRANSPORT
+#warn	You may want CONFIG_HTTPD_WS_SUPPORT
 #endif
 #endif
 
@@ -2218,7 +2218,7 @@ static void ap_task(void *pvParameters)
          };
          REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
       }
-#ifdef	CONFIG_WS_TRANSPORT
+#ifdef	CONFIG_HTTPD_WS_SUPPORT
       {
          httpd_uri_t uri = {
             .uri = "/wifilist",
