@@ -144,6 +144,8 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp);
 void revk_blink(uint8_t on, uint8_t off, const char *colours);  // Set LED blink rate and colour sequence for on state (for RGB LED)
 
 #ifdef  CONFIG_REVK_APMODE
+esp_err_t revk_web_config_start(httpd_handle_t webserver); // Add URLs
+esp_err_t revk_web_config_stop(httpd_handle_t webserver); // Remove URLs
 esp_err_t revk_web_config(httpd_req_t * req);   // Call for web config for SSID/password/mqtt
 esp_err_t revk_web_wifilist(httpd_req_t * req); // WS for list of SSIDs
 #endif

@@ -1925,6 +1925,47 @@ const char *revk_restart(const char *reason, int delay)
 }
 
 #ifdef	CONFIG_REVK_APMODE
+esp_err_t revk_web_config_start(httpd_handle_t webserver)
+{
+#ifdef	CONFIG_REVK_APDNS
+   {
+      httpd_uri_t uri = {
+         .uri = "/hotspot-detect.html",
+         .method = HTTP_GET,
+         .handler = revk_web_config,
+      };
+      REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
+   }
+#endif
+#ifdef	CONFIG_HTTPD_WS_SUPPORT
+   {
+      httpd_uri_t uri = {
+         .uri = "/wifilist",
+         .method = HTTP_GET,
+         .handler = revk_web_wifilist,
+         .is_websocket = true,
+      };
+      REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
+   }
+#endif
+   return 0;
+}
+#endif
+
+#ifdef	CONFIG_REVK_APMODE
+esp_err_t revk_web_config_stop(httpd_handle_t webserver)
+{
+#ifdef	CONFIG_REVK_APDNS
+   REVK_ERR_CHECK(httpd_unregister_uri_handler(webserver, "/hotspot-detect.html", HTTP_GET));
+#endif
+#ifdef	CONFIG_HTTPD_WS_SUPPORT
+   REVK_ERR_CHECK(httpd_unregister_uri_handler(webserver, "/wifilist", HTTP_GET));
+#endif
+   return 0;
+}
+#endif
+
+#ifdef	CONFIG_REVK_APMODE
 esp_err_t revk_web_config(httpd_req_t * req)
 {
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
@@ -2318,27 +2359,7 @@ static void ap_start(void)
          };
          REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
       }
-#ifdef	CONFIG_REVK_APDNS
-      {
-         httpd_uri_t uri = {
-            .uri = "/hotspot-detect.html",
-            .method = HTTP_GET,
-            .handler = revk_web_config,
-         };
-         REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
-      }
-#endif
-#ifdef	CONFIG_HTTPD_WS_SUPPORT
-      {
-         httpd_uri_t uri = {
-            .uri = "/wifilist",
-            .method = HTTP_GET,
-            .handler = revk_web_wifilist,
-            .is_websocket = true,
-         };
-         REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
-      }
-#endif
+      revk_web_config_start(webserver);
    }
 #endif
 #ifdef	CONFIG_REVK_APDNS
