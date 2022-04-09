@@ -2119,7 +2119,7 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                t = jo_skip(j);
             }
             int ok = 0;
-            if (revk_link_down())
+            if (!revk_link_down())
             {                   // Already connected as sta...
                msg("Storing new settings");
                ok = 1;
@@ -2131,30 +2131,27 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
                strncpy((char *) cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
                strncpy((char *) cfg.sta.password, pass, sizeof(cfg.sta.password));
-               ret = esp_wifi_set_config(ESP_IF_WIFI_STA, &cfg);
-               if (!ret)
-                  ret = esp_wifi_connect();
-               if (!ret)
-               {                // Get IP?
-                  esp_netif_dhcpc_stop(sta_netif);
-                  esp_netif_dhcpc_start(sta_netif);     /* Dynamic IP */
-                  int waiting = 10;
-                  while (waiting--)
+               esp_wifi_set_config(ESP_IF_WIFI_STA, &cfg);
+               esp_wifi_connect();
+               // Get IP?
+               esp_netif_dhcpc_stop(sta_netif);
+               esp_netif_dhcpc_start(sta_netif);        /* Dynamic IP */
+               int waiting = 10;
+               while (waiting--)
+               {
+                  sleep(1);
+                  tcpip_adapter_ip_info_t ip;
+                  if (!tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip) && ip.ip.addr)
                   {
-                     sleep(1);
-                     tcpip_adapter_ip_info_t ip;
-                     if (!tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip) && ip.ip.addr)
-                     {
-                        // What if no IP yet - check IP 0
-                        // What if access via STA so we already have an IP
-                        jo_t i = jo_object_alloc();
-                        jo_stringf(i, "ip", IPSTR, IP2STR(&ip.ip));
-                        jo_stringf(i, "mask", IPSTR, IP2STR(&ip.netmask));
-                        jo_stringf(i, "gw", IPSTR, IP2STR(&ip.gw));
-                        wsend(&i);
-                        ok = 1;
-                        break;
-                     }
+                     // What if no IP yet - check IP 0
+                     // What if access via STA so we already have an IP
+                     jo_t i = jo_object_alloc();
+                     jo_stringf(i, "ip", IPSTR, IP2STR(&ip.ip));
+                     jo_stringf(i, "mask", IPSTR, IP2STR(&ip.netmask));
+                     jo_stringf(i, "gw", IPSTR, IP2STR(&ip.gw));
+                     wsend(&i);
+                     ok = 1;
+                     break;
                   }
                }
             }
@@ -2176,11 +2173,6 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                   msg("Failed to connect");
                else
                   msg("Failed to get IP");
-               if (mode == WIFI_MODE_STA || mode == WIFI_MODE_APSTA)
-               {                // Put back
-                  wifi_sta_config();
-                  esp_wifi_connect();
-               }
                esp_wifi_set_mode(mode);
             }
          }
@@ -2198,8 +2190,83 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
 #ifdef	CONFIG_REVK_APDNS
 static void dummy_dns_task(void *pvParameters)
 {
-   while (!dummy_dns_task_end)
-      sleep(1);                 // TODO
+   int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+   if (sock >= 0)
+   {
+      int res = 1;
+      setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &res, sizeof(res));
+      {                         // Bind
+         struct sockaddr_in dest_addr_ip4 = {.sin_addr.s_addr = htonl(INADDR_ANY),.sin_family = AF_INET,.sin_port = htons(53) };
+         res = bind(sock, (struct sockaddr *) &dest_addr_ip4, sizeof(dest_addr_ip4));
+      }
+      if (!res)
+      {
+         ESP_LOGI(TAG, "Dummy DNS start");
+         while (!dummy_dns_task_end)
+         {                      // Process
+            fd_set r;
+            FD_ZERO(&r);
+            FD_SET(sock, &r);
+            struct timeval t = { 1, 0 };
+            res = select(sock + 1, &r, NULL, NULL, &t);
+            if (res < 0)
+               break;
+            if (!res)
+               continue;
+            uint8_t buf[1500];
+            struct sockaddr_storage source_addr;
+            socklen_t socklen = sizeof(source_addr);
+            res = recvfrom(sock, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &source_addr, &socklen);
+            //ESP_LOG_BUFFER_HEX_LEVEL(TAG, buf, res, ESP_LOG_INFO);
+            // Check this looks like a simple query, and answer A record
+            if (res < 12)
+               continue;        // Too short
+            if (buf[2] & 0xFE)
+               continue;        // Check simple QUERY
+            if (buf[4] || buf[5] != 1 || buf[6] || buf[7] || buf[8] || buf[9])
+               continue;        // Wrong counts
+            int p = 12;         // Start of DNS
+            while (p < res && buf[p])
+               p += buf[p] + 1;
+            p++;
+            if (p + 4 > res)
+               continue;        // Length issue
+            if (buf[p] || buf[p + 1] != 1)
+               continue;        // Not A record query
+            p += 2;
+            if (buf[p] || buf[p + 1] != 1)
+               continue;        // Not IN class
+            p += 2;
+            ESP_LOGI(TAG, "Dummy DNS reply");
+            // Let's answer
+            buf[2] = 0x84;      // Response
+            buf[3] = 0x00;
+            buf[7] = 1;         // ANCOUNT=1
+            buf[10] = 0;        // ARCOUNT=0
+            buf[11] = 0;
+            buf[p++] = 0xC0;
+            buf[p++] = 12;      // Name from query
+            buf[p++] = 0;
+            buf[p++] = 1;       // A
+            buf[p++] = 0;
+            buf[p++] = 1;       // IN
+            buf[p++] = 0;
+            buf[p++] = 0;
+            buf[p++] = 0;
+            buf[p++] = 1;       // TTL 1
+            buf[p++] = 0;
+            buf[p++] = 4;       // Len 4
+            buf[p++] = 10;
+            buf[p++] = (uint8_t) (revk_binid >> 8);
+            buf[p++] = (uint8_t) (revk_binid & 255);
+            buf[p++] = 1;       // IP
+            // Send reply
+            sendto(sock, buf, p, 0, (struct sockaddr *) &source_addr, socklen);
+         }
+         ESP_LOGI(TAG, "Dummy DNS stop");
+      }
+      close(sock);
+   }
    vTaskDelete(NULL);
 }
 #endif
@@ -2216,7 +2283,11 @@ static void ap_start(void)
       return;
    // WiFi
    wifi_config_t cfg = { 0, };
+#ifdef	CONFIG_REVK_APDNS
+   cfg.ap.ssid_len = snprintf((char *) cfg.ap.ssid, sizeof(cfg.ap.ssid), "%s-%012llX", appname, revk_binid);
+#else
    cfg.ap.ssid_len = snprintf((char *) cfg.ap.ssid, sizeof(cfg.ap.ssid), "%s-10.%d.%d.1", appname, (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
+#endif
    if (cfg.ap.ssid_len > sizeof(cfg.ap.ssid))
       cfg.ap.ssid_len = sizeof(cfg.ap.ssid);
    ESP_LOGI(TAG, "AP%s config mode start %.*s", mode == WIFI_MODE_STA ? "STA" : "", cfg.ap.ssid_len, cfg.ap.ssid);
@@ -2247,6 +2318,16 @@ static void ap_start(void)
          };
          REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
       }
+#ifdef	CONFIG_REVK_APDNS
+      {
+         httpd_uri_t uri = {
+            .uri = "/hotspot-detect.html",
+            .method = HTTP_GET,
+            .handler = revk_web_config,
+         };
+         REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
+      }
+#endif
 #ifdef	CONFIG_HTTPD_WS_SUPPORT
       {
          httpd_uri_t uri = {
@@ -2266,7 +2347,7 @@ static void ap_start(void)
 #endif
    // Make it go
    esp_wifi_set_mode(mode == WIFI_MODE_STA ? WIFI_MODE_APSTA : WIFI_MODE_AP);
-   REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, aplr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
+   REVK_ERR_CHECK(esp_wifi_set_protocol(ESP_IF_WIFI_AP, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
    REVK_ERR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &cfg));
 }
 #endif
