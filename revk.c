@@ -2048,7 +2048,11 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
       msg("Scanning");
       jo_t j = jo_create_alloc();
       jo_array(j, NULL);
-      esp_wifi_scan_start(NULL, true);
+      if (esp_wifi_scan_start(NULL, true) == ESP_ERR_WIFI_STATE)
+      {
+         esp_wifi_disconnect();
+         esp_wifi_scan_start(NULL, true);
+      }
       uint16_t ap_count = 0;
       static wifi_ap_record_t ap_info[32];      // Messy being static - should really have mutex
       memset(ap_info, 0, sizeof(ap_info));
