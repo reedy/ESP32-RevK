@@ -1465,7 +1465,6 @@ static void task(void *pvParameters)
             if (aptime)
                apstoptime = now + aptime;
          }
-#endif
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
          if (apwait && revk_link_down() > apwait)
             ap_start();
@@ -1473,6 +1472,7 @@ static void task(void *pvParameters)
 #ifdef	CONFIG_REVK_WIFI
          if (!*wifissid)
             ap_start();
+#endif
 #endif
          else if (apstoptime && apstoptime < now)
             ap_stop();
