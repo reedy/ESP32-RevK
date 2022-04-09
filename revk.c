@@ -1473,9 +1473,9 @@ static void task(void *pvParameters)
          if (!*wifissid)
             ap_start();
 #endif
-#endif
          else if (apstoptime && apstoptime < now)
             ap_stop();
+#endif
          if (nvs_time && nvs_time < now)
          {
             REVK_ERR_CHECK(nvs_commit(nvs));
