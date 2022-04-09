@@ -2316,7 +2316,7 @@ static void ap_start(void)
             .method = HTTP_GET,
             .handler = revk_web_config,
          };
-         REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
+         REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
       }
 #ifdef	CONFIG_REVK_APDNS
       {
@@ -2325,7 +2325,7 @@ static void ap_start(void)
             .method = HTTP_GET,
             .handler = revk_web_config,
          };
-         REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
+         REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
       }
 #endif
 #ifdef	CONFIG_HTTPD_WS_SUPPORT
@@ -2336,7 +2336,7 @@ static void ap_start(void)
             .handler = revk_web_wifilist,
             .is_websocket = true,
          };
-         REVK_ERR_CHECK(httpd_register_uri_handler(server, &uri));
+         REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
       }
 #endif
    }
