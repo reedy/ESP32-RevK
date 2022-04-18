@@ -129,7 +129,6 @@ void jo_bool(jo_t, const char *tag, int);
 void jo_null(jo_t, const char *tag);
 // Add a null
 
-
 // Parsing
 
 jo_type_t jo_here(jo_t);
@@ -140,6 +139,9 @@ jo_type_t jo_next(jo_t);
 
 jo_type_t jo_skip(jo_t);
 // Skip this value to next value AT THE SAME LEVEL, typically used where a tag is not what you are looking for, etc
+
+jo_type_t jo_find(jo_t,const char *);
+// Rewind and look for path, e.g. tag/tag.../tag and return type of value for that point. Does not do arrays, etc. JO_END for no find
 
 ssize_t jo_strlen(jo_t);
 // Return byte length, if a string or tag this is the decoded byte length, else length of literal

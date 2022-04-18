@@ -1027,6 +1027,37 @@ jo_type_t jo_skip(jo_t j)
    return t;
 }
 
+jo_type_t jo_find(jo_t j, const char *path)
+{
+   jo_rewind(j);
+   while (*path)
+   {
+      jo_type_t t = jo_here(j);
+      if (t != JO_OBJECT)
+         break;                 // Not an object
+      const char *tag = path;
+      while (*path && *path != '/')
+         path++;
+      int len = path - tag;
+      if (*path == '/')
+         path++;
+      t = jo_next(j);
+      while (t == JO_TAG)
+      {                         // Scan the object
+         if (!jo_strncmp(j, (char*)tag, len))
+            break;              // Found
+         jo_next(j);
+         t = jo_skip(j);
+      }
+      if (t != JO_TAG)
+         break;                 // not found
+      t = jo_next(j);
+      if (!*path)
+         return t;              // Found
+   }
+   return JO_END;
+}
+
 const char *jo_debug(jo_t j)
 {                               // Debug string
    if (!j)
