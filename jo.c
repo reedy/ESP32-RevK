@@ -1028,23 +1028,32 @@ jo_type_t jo_skip(jo_t j)
 }
 
 jo_type_t jo_find(jo_t j, const char *path)
-{
+{                               // Find a path, JSON path style. Does not do [n] or ['name'] yet
    jo_rewind(j);
+   if (*path == '$')
+   {
+      if (!path[1])
+         return jo_here(j);     // root
+      if (path[1] == '.')
+         path += 2;             // We always start from root anyway
+   }
    while (*path)
    {
       jo_type_t t = jo_here(j);
       if (t != JO_OBJECT)
          break;                 // Not an object
       const char *tag = path;
-      while (*path && *path != '/')
+      while (*path && *path != '.')
          path++;
       int len = path - tag;
-      if (*path == '/')
+      if (*path)
          path++;
       t = jo_next(j);
       while (t == JO_TAG)
       {                         // Scan the object
-         if (!jo_strncmp(j, (char*)tag, len))
+         if (len == 1 && *tag == '*')
+            break;              // Found - wildcard - only finds first entry
+         if (!jo_strncmp(j, (char *) tag, len))
             break;              // Found
          jo_next(j);
          t = jo_skip(j);
