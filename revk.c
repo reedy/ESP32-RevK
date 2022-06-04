@@ -915,7 +915,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
                      q++;
                   while (q < plen && payload[q] >= '0' && payload[q] <= '9')
                      q++;
-                  if (q + 1 < plen == payload[q] == '.' && payload[q + 1] >= '0' && payload[q + 1] <= '9')
+                  if (q + 1 < plen && payload[q] == '.' && payload[q + 1] >= '0' && payload[q + 1] <= '9')
                   {
                      q++;
                      while (q < plen && payload[q] >= '0' && payload[q] <= '9')
