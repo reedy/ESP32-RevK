@@ -907,10 +907,22 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
             {                   // Just JSON the argument
                j = jo_create_alloc();
                int q = 0;
-               if (q + 1 < plen && payload[q] == '-' && payload[q + 1] >= '0' && payload[q + 1] <= '9')
-                  q++;
-               while (q < plen && payload[q] >= '0' && payload[q] <= '9')
-                  q++;
+               if ((plen == 4 && !memcmp(payload, "true", plen)) || (plen == 5 && !memcmp(payload, "false", plen)))
+                  q += plen;    // Boolean
+               else
+               {                // Check for int
+                  if (q + 1 < plen && payload[q] == '-' && payload[q + 1] >= '0' && payload[q + 1] <= '9')
+                     q++;
+                  while (q < plen && payload[q] >= '0' && payload[q] <= '9')
+                     q++;
+                  if (q + 1 < plen == payload[q] == '.' && payload[q + 1] >= '0' && payload[q + 1] <= '9')
+                  {
+                     q++;
+                     while (q < plen && payload[q] >= '0' && payload[q] <= '9')
+                        q++;
+                     // Meh, exponents?
+                  }
+               }
                if (plen && q == plen)
                   jo_litf(j, NULL, "%.*s", plen, payload);      // Looks safe as number
                else
