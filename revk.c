@@ -3843,6 +3843,16 @@ uint32_t revk_link_down(void)
 }
 #endif
 
+uint32_t revk_shutting_down(void)
+{
+   if (!restart_time)
+      return 0;
+   int left = restart_time - uptime();
+   if (left <= 0)
+      left = 1;
+   return left;
+}
+
 jo_t jo_make(const char *node)
 {
    jo_t j = jo_object_alloc();
