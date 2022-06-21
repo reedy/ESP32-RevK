@@ -682,25 +682,36 @@ static void client_task(void *pvParameters)
          }
       } else
       {                         // Non TLS
-       struct addrinfo base = { ai_family: AF_UNSPEC, ai_socktype:SOCK_STREAM };
+       struct addrinfo base = { ai_family: AF_INET6, ai_socktype:SOCK_STREAM };
          struct addrinfo *a = 0,
              *p;
          char sport[6];
          snprintf(sport, sizeof(sport), "%d", handle->port);
-         if (!getaddrinfo(handle->hostname, sport, &base, &a) && a)
-            for (p = a; p; p = p->ai_next)
+         if (getaddrinfo(handle->hostname, sport, &base, &a) || !a)
+         { // Try IPv6 first, it really should do this itself
+            if (a)
+               freeaddrinfo(a);
+            a = NULL;
+            base.ai_family = AF_UNSPEC;
+            if (getaddrinfo(handle->hostname, sport, &base, &a) && a)
             {
-               handle->sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-               if (handle->sock < 0)
-                  continue;
-               if (connect(handle->sock, p->ai_addr, p->ai_addrlen))
-               {
-                  close(handle->sock);
-                  handle->sock = -1;
-                  continue;
-               }
-               break;
+               freeaddrinfo(a);
+               a = NULL;
             }
+         }
+         for (p = a; p; p = p->ai_next)
+         {
+            handle->sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+            if (handle->sock < 0)
+               continue;
+            if (connect(handle->sock, p->ai_addr, p->ai_addrlen))
+            {
+               close(handle->sock);
+               handle->sock = -1;
+               continue;
+            }
+            break;
+         }
          if (a)
             freeaddrinfo(a);
          if (handle->sock < 0)
