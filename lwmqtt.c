@@ -10,6 +10,10 @@ static const char
 #warning MQTT server code is not complete
 #endif
 
+#ifndef	CONFIG_LWIP_IPV6_AUTOCONFIG
+#warning No CONFIG_LWIP_IPV6_AUTOCONFIG
+#endif
+
 #include "config.h"
 #include <stdio.h>
 #include <stdint.h>
