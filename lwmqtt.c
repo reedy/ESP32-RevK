@@ -658,6 +658,7 @@ static void client_task(void *pvParameters)
    handle->backoff = 1;
    while (handle->running)
    {                            // Loop connecting and trying repeatedly
+      handle->sock = -1;
       // Connect
       ESP_LOGD(TAG, "Connecting %s:%d", handle->hostname, handle->port);
       // Can connect using TLS or non TLS with just sock set instead
@@ -686,37 +687,34 @@ static void client_task(void *pvParameters)
          }
       } else
       {                         // Non TLS
-       struct addrinfo base = { ai_family: AF_UNSPEC, ai_socktype:SOCK_STREAM };
-         struct addrinfo *a = 0,
-             *p = NULL;
-         char sport[6];
-         snprintf(sport, sizeof(sport), "%d", handle->port);
-         struct addrinfo *tryconnect(struct addrinfo *p) {
-            handle->sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-            if (handle->sock < 0)
-               return NULL;
-            if (connect(handle->sock, p->ai_addr, p->ai_addrlen))
-            {
-               close(handle->sock);
-               handle->sock = -1;
-               return NULL;
-            }
-            return p;
-         }
-         if (getaddrinfo(handle->hostname, sport, &base, &a) && a)
-         {                      // Error response so a should not be set anyway, but tidy up
-            freeaddrinfo(a);
-            a = NULL;
-         }
-         for (p = a; p; p = p->ai_next)
-            if (p->ai_family == AF_INET6 && tryconnect(p))
-               break;
-         if (!p)
+         void tryconnect(int fam) {
+            if (handle->sock >= 0)
+               return;          // connected
+          struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
+            struct addrinfo *a = 0,
+                *p = NULL;
+            char sport[6];
+            snprintf(sport, sizeof(sport), "%d", handle->port);
+            if (getaddrinfo(handle->hostname, sport, &base, &a) || !a)
+               return;
             for (p = a; p; p = p->ai_next)
-               if (tryconnect(p))
-                  break;
-         if (a)
-            freeaddrinfo(a);
+            {
+               handle->sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+               if (handle->sock < 0)
+                  continue;
+               if (connect(handle->sock, p->ai_addr, p->ai_addrlen))
+               {
+                  close(handle->sock);
+                  handle->sock = -1;
+                  continue;
+               }
+               break;
+            }
+            if (a)
+               freeaddrinfo(a);
+         }
+         tryconnect(AF_INET6);
+         tryconnect(AF_INET);
          if (handle->sock < 0)
             ESP_LOGD(TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
       }
