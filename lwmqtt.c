@@ -691,14 +691,14 @@ static void client_task(void *pvParameters)
          // May be better as a generic connect, and we are also rather assuming TLS ^ will connect IPv6 is available
          int tryconnect(int fam) {
             if (handle->sock >= 0)
-               return;          // connected
+               return 0;          // connected
           struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
             struct addrinfo *a = 0,
                 *p = NULL;
             char sport[6];
             snprintf(sport, sizeof(sport), "%d", handle->port);
             if (getaddrinfo(handle->hostname, sport, &base, &a) || !a)
-               return;
+               return 0;
             for (p = a; p; p = p->ai_next)
             {
                handle->sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
@@ -712,8 +712,6 @@ static void client_task(void *pvParameters)
                }
                break;
             }
-            if (!a)
-               return 0;
             freeaddrinfo(a);
             return 1;
          }
