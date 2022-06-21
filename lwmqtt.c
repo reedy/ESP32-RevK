@@ -687,7 +687,9 @@ static void client_task(void *pvParameters)
          }
       } else
       {                         // Non TLS
-         void tryconnect(int fam) {
+         // This is annoying as it should just pick IPv6 as preferred, but it sort of works
+         // May be better as a generic connect, and we are also rather assuming TLS ^ will connect IPv6 is available
+         int tryconnect(int fam) {
             if (handle->sock >= 0)
                return;          // connected
           struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
@@ -710,11 +712,13 @@ static void client_task(void *pvParameters)
                }
                break;
             }
-            if (a)
-               freeaddrinfo(a);
+            if (!a)
+               return 0;
+            freeaddrinfo(a);
+            return 1;
          }
-         tryconnect(AF_INET6);
-         tryconnect(AF_INET);
+         if (!tryconnect(AF_INET6) || uptime() > 20) // Gives IPv6 a chance to actually get started if there is IPv6 DNS for this.
+            tryconnect(AF_INET);
          if (handle->sock < 0)
             ESP_LOGD(TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
       }
