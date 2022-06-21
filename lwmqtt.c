@@ -703,7 +703,11 @@ static void client_task(void *pvParameters)
             }
             return p;
          }
-         getaddrinfo(handle->hostname, sport, &base, &a);
+         if (getaddrinfo(handle->hostname, sport, &base, &a) && a)
+         {                      // Error response so a should not be set anyway, but tidy up
+            freeaddrinfo(a);
+            a = NULL;
+         }
          for (p = a; p; p = p->ai_next)
             if (p->ai_family == AF_INET6 && tryconnect(p))
                break;
