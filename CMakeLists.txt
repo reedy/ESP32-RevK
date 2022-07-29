@@ -1,7 +1,7 @@
 idf_component_register(
 			SRCS "revk.c" "jo.c" "lwmqtt.c"
 			INCLUDE_DIRS "include"
-			REQUIRES nvs_flash app_update esp_http_client esp-tls esp_http_server esp_wifi esp_timer esp_system driver
+			REQUIRES nvs_flash app_update esp_http_client esp-tls esp_http_server esp_wifi esp_timer esp_system driver spi_flash
 			EMBED_FILES "../../build/partition_table/partition-table.bin"
 )
 add_definitions(-DBUILD_ESP32_USING_CMAKE)
