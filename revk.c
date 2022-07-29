@@ -19,7 +19,6 @@ static const char
 #else
 #include "lecert.h"
 #endif
-#include "esp_int_wdt.h"
 #include "esp_task_wdt.h"
 #include "esp_sntp.h"
 #include "esp_phy_init.h"
