@@ -33,10 +33,11 @@ const char JO_BASE64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01
 const char JO_BASE32[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const char JO_BASE16[] = "0123456789ABCDEF";
 
+// Note escaping / is optional but done always to avoid </script> issues
 #define escapes \
         esc ('"', '"') \
         esc ('\\', '\\') \
-        esco ('/', '/') \
+        esc ('/', '/') \
         esc ('b', '\b') \
         esc ('f', '\f') \
         esc ('n', '\n') \
@@ -166,9 +167,7 @@ static int jo_read_str(jo_t j)
             }
          }
 #define esc(a,b) else if(c==a)c=b;
-#define esco(a,b) esc(a,b)      // optional
          escapes
-#undef esco
 #undef esc
              else
             return bad("Bad escape");
@@ -417,9 +416,7 @@ static void jo_write_str(jo_t j, const char *s, ssize_t len)
    {
       uint8_t c = *s++;
 #define esc(a,b) if(c==b){jo_write(j,'\\');jo_write(j,a);continue;}
-#define esco(a,b)               // optional
       escapes
-#undef esco
 #undef esc
           if (c < ' ')
       {
