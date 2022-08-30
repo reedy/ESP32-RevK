@@ -2235,7 +2235,7 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
    return ret;
 }
 #else
-#warn	You may want CONFIG_HTTPD_WS_SUPPORT
+#warning	You may want CONFIG_HTTPD_WS_SUPPORT
 #endif
 #endif
 
