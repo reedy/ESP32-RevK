@@ -1024,15 +1024,10 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
 #ifdef	CONFIG_REVK_MQTT
 void revk_mqtt_init(void)
 {
-   if (mqtt_client[0])
-      return;                   // Already set up
-   if (!*mqtthost[0])           /* No MQTT */
-      return;
    for (int client = 0; client < MQTT_CLIENTS; client++)
-   {
-      xEventGroupSetBits(revk_group, (GROUP_MQTT_DOWN << client));
-      if (*mqtthost[client])
+      if (*mqtthost[client] && !mqtt_client[client])
       {
+         xEventGroupSetBits(revk_group, (GROUP_MQTT_DOWN << client));
          lwmqtt_client_config_t config = {
             .arg = (void *) client,
             .hostname = mqtthost[client],
@@ -1082,7 +1077,6 @@ void revk_mqtt_init(void)
          freez(config.topic);
          freez(config.client);
       }
-   }
 }
 #endif
 
