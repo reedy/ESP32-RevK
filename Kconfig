@@ -333,7 +333,7 @@ menu "RevK"
 		Make a short (6 hex chars) ID rather than full MAC
 
 	config REVK_BUILD_SUFFIX
-	string "Build suffixe"
+	string "Build suffix"
 	default ""
 	help
 		Don't set this manually - it is normally set by Makefile (buildsuffix script)
