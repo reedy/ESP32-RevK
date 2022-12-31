@@ -11,6 +11,8 @@ static const char
 // Note, low wifi buffers breaks mesh
 
 #include "revk.h"
+#include "esp_flash_spi_init.h"
+#include "esp_mac.h"
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
 #include "esp_tls.h"
@@ -1139,7 +1141,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #endif
 #endif
       default:
-         ESP_LOGI(TAG, "WiFi event %d", event_id);
+         ESP_LOGI(TAG, "WiFi event %ld", event_id);
          break;
       }
    }
@@ -1189,7 +1191,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
          ESP_LOGI(TAG, "Got IPv6");
          break;
       default:
-         ESP_LOGI(TAG, "IP event %d", event_id);
+         ESP_LOGI(TAG, "IP event %ld", event_id);
          break;
       }
    }
@@ -1360,12 +1362,12 @@ static void task(void *pvParameters)
       {                         // Slow (once a second)
          last = now;
 #ifdef CONFIG_REVK_MESH
-         ESP_LOGI(TAG, "Up %d, Link down %d, Mesh nodes %d%s", now, revk_link_down(), esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
+         ESP_LOGI(TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", now, revk_link_down(), esp_mesh_get_total_node_num(), esp_mesh_is_root()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
-         ESP_LOGI(TAG, "Up %d, Link down %d", now, revk_link_down());
+         ESP_LOGI(TAG, "Up %ld, Link down %ld", now, revk_link_down());
 #else
-         ESP_LOGI(TAG, "Up %d", now);
+         ESP_LOGI(TAG, "Up %ld", now);
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
@@ -1408,7 +1410,7 @@ static void task(void *pvParameters)
                   jo_string(j, "app", appname);
                   jo_string(j, "version", revk_version);
                   jo_string(j, "build-suffix", revk_build_suffix);
-                  const esp_app_desc_t *app = esp_ota_get_app_description();
+                  const esp_app_desc_t *app = esp_app_get_description();
                   const char *v = app->date;
                   if (v && strlen(v) == 11)
                   {             // Stupid format Jul 10 2021
@@ -1425,7 +1427,11 @@ static void task(void *pvParameters)
                      if (date[8] == ' ')
                         date[8] = '0';
                      jo_stringf(j, "build", "%sT%s", date, app->time);
-                     jo_int(j, "flash", spi_flash_get_chip_size());
+                     {
+                        uint32_t size_flash_chip;
+                        esp_flash_get_size(NULL, &size_flash_chip);
+                        jo_int(j, "flash", size_flash_chip);
+                     }
                      jo_int(j, "rst", esp_reset_reason());
                   }
                }
@@ -1524,9 +1530,11 @@ void revk_boot(app_callback_t * app_callback_cb)
 #ifdef	CONFIG_REVK_PARTITION_CHECK
    {                            // Only if we are in the first OTA partition, else changes could be problematic
       const esp_partition_t *ota_partition = esp_ota_get_running_partition();
-      ESP_LOGI(TAG, "Running from %s at %X (size %u)", ota_partition->label, ota_partition->address, ota_partition->size);
+      ESP_LOGI(TAG, "Running from %s at %lX (size %lu)", ota_partition->label, ota_partition->address, ota_partition->size);
       const char *table = CONFIG_PARTITION_TABLE_FILENAME;
-      int size = spi_flash_get_chip_size();
+      uint32_t size;
+      esp_flash_get_size(NULL, &size);
+      uint32_t secsize=4096; /* TODO */
       int expect = 4;
       if (strstr(table, "8m"))
          expect = 8;
@@ -1541,16 +1549,16 @@ void revk_boot(app_callback_t * app_callback_cb)
 #error Use cmake
 #endif
          /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
-         if ((part_end - part_start) > SPI_FLASH_SEC_SIZE)
-            ESP_LOGE(TAG, "Block size error (%d>%d)", part_end - part_start, SPI_FLASH_SEC_SIZE);
+         if ((part_end - part_start) > secsize)
+            ESP_LOGE(TAG, "Block size error (%d>%ld)", part_end - part_start, secsize);
          else
          {
-            uint8_t *mem = malloc(SPI_FLASH_SEC_SIZE);
+            uint8_t *mem = malloc(secsize);
             if (!mem)
-               ESP_LOGE(TAG, "Malloc fail: %d", SPI_FLASH_SEC_SIZE);
+               ESP_LOGE(TAG, "Malloc fail: %ld", secsize);
             else
             {
-               REVK_ERR_CHECK(spi_flash_read(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+               REVK_ERR_CHECK(esp_flash_read(NULL,mem,CONFIG_PARTITION_TABLE_OFFSET, secsize));
                if (memcmp(mem, part_start, part_end - part_start))
                {
                   if (strchr(ota_partition->label, '0'))
@@ -1559,23 +1567,23 @@ void revk_boot(app_callback_t * app_callback_cb)
 #error Set CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED to allow CONFIG_REVK_PARTITION_CHECK
 #endif
                      ESP_LOGI(TAG, "Updating partition table at %X", CONFIG_PARTITION_TABLE_OFFSET);
-                     memset(mem, 0, SPI_FLASH_SEC_SIZE);
+                     memset(mem, 0, secsize);
                      memcpy(mem, part_start, part_end - part_start);
-                     REVK_ERR_CHECK(spi_flash_erase_range(CONFIG_PARTITION_TABLE_OFFSET, SPI_FLASH_SEC_SIZE));
-                     REVK_ERR_CHECK(spi_flash_write(CONFIG_PARTITION_TABLE_OFFSET, mem, SPI_FLASH_SEC_SIZE));
+                     REVK_ERR_CHECK(esp_flash_erase_region(NULL,CONFIG_PARTITION_TABLE_OFFSET, secsize));
+                     REVK_ERR_CHECK(esp_flash_write(NULL,mem,CONFIG_PARTITION_TABLE_OFFSET,  secsize));
                      esp_restart();
                   } else
                      ESP_LOGE(TAG, "Not updating partition as not on ota 0 (%s)", ota_partition->label);
                } else
                {
                   ESP_LOGI(TAG, "Partition table at %X as expected (%s)", CONFIG_PARTITION_TABLE_OFFSET, table);
-                  //ESP_LOG_BUFFER_HEX_LEVEL(TAG, mem, SPI_FLASH_SEC_SIZE, ESP_LOG_INFO);
+                  //ESP_LOG_BUFFER_HEX_LEVEL(TAG, mem, secsize, ESP_LOG_INFO);
                }
                freez(mem);
             }
          }
       } else
-         ESP_LOGE(TAG, "Flash partition not updated, size is unexpected: %d (%s)", size, table);
+         ESP_LOGE(TAG, "Flash partition not updated, size is unexpected: %ld (%s)", size, table);
    }
 #endif
    ESP_LOGI(TAG, "nvs_flash_init");
@@ -1583,7 +1591,7 @@ void revk_boot(app_callback_t * app_callback_cb)
    ESP_LOGI(TAG, "nvs_flash_init_partition");
    nvs_flash_init_partition(TAG);
    ESP_LOGI(TAG, "nvs_open_from_partition");
-   const esp_app_desc_t *app = esp_ota_get_app_description();
+   const esp_app_desc_t *app = esp_app_get_description();
    if (nvs_open_from_partition(TAG, TAG, NVS_READWRITE, &nvs))
       REVK_ERR_CHECK(nvs_open(TAG, NVS_READWRITE, &nvs));
    revk_register("client", 0, 0, &clientkey, NULL, SETTING_SECRET);     // Parent
@@ -1651,9 +1659,14 @@ void revk_boot(app_callback_t * app_callback_cb)
 #undef bd
 #undef bad
 #undef bdp
-   /* Watchdog */
    if (watchdogtime)
-      esp_task_wdt_init(watchdogtime, true);
+   { /* Watchdog */
+   esp_task_wdt_config_t config={
+	   .timeout_ms=watchdogtime*1000,
+	   .trigger_panic=true,
+   };
+      esp_task_wdt_init(&config );
+   }
    REVK_ERR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));
    /* Application specific settings */
    if (!*appname)
@@ -2186,8 +2199,8 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                while (waiting--)
                {
                   sleep(1);
-                  tcpip_adapter_ip_info_t ip;
-                  if (!tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip) && ip.ip.addr)
+		  esp_netif_ip_info_t ip;
+                  if (!esp_netif_get_ip_info(sta_netif, &ip) && ip.ip.addr)
                   {
                      // What if no IP yet - check IP 0
                      // What if access via STA so we already have an IP
