@@ -1198,7 +1198,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 #ifdef	CONFIG_REVK_MESH
    if (event_base == MESH_EVENT)
    {
-      ESP_LOGI(TAG, "Mesh event %d", event_id);
+      ESP_LOGI(TAG, "Mesh event %ld", event_id);
       switch (event_id)
       {
       case MESH_EVENT_STOPPED:
