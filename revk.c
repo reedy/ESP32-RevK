@@ -16,6 +16,7 @@ static const char
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
 #include "esp_tls.h"
+#include "aes/esp_aes.h"
 #ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
 #include "esp_crt_bundle.h"
 #else
