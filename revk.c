@@ -238,8 +238,8 @@ static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static uint32_t link_down = 1;  // When link last down
-static esp_netif_t *sta_netif = NULL;
-static esp_netif_t *ap_netif = NULL;
+esp_netif_t *sta_netif = NULL;
+esp_netif_t *ap_netif = NULL;
 #endif
 static char wdt_test = 0;
 static uint8_t blink_on = 0,
@@ -1535,7 +1535,7 @@ void revk_boot(app_callback_t * app_callback_cb)
       const char *table = CONFIG_PARTITION_TABLE_FILENAME;
       uint32_t size;
       esp_flash_get_size(NULL, &size);
-      uint32_t secsize=4096; /* TODO */
+      uint32_t secsize = 4096;  /* TODO */
       int expect = 4;
       if (strstr(table, "8m"))
          expect = 8;
@@ -1559,7 +1559,7 @@ void revk_boot(app_callback_t * app_callback_cb)
                ESP_LOGE(TAG, "Malloc fail: %ld", secsize);
             else
             {
-               REVK_ERR_CHECK(esp_flash_read(NULL,mem,CONFIG_PARTITION_TABLE_OFFSET, secsize));
+               REVK_ERR_CHECK(esp_flash_read(NULL, mem, CONFIG_PARTITION_TABLE_OFFSET, secsize));
                if (memcmp(mem, part_start, part_end - part_start))
                {
                   if (strchr(ota_partition->label, '0'))
@@ -1570,8 +1570,8 @@ void revk_boot(app_callback_t * app_callback_cb)
                      ESP_LOGI(TAG, "Updating partition table at %X", CONFIG_PARTITION_TABLE_OFFSET);
                      memset(mem, 0, secsize);
                      memcpy(mem, part_start, part_end - part_start);
-                     REVK_ERR_CHECK(esp_flash_erase_region(NULL,CONFIG_PARTITION_TABLE_OFFSET, secsize));
-                     REVK_ERR_CHECK(esp_flash_write(NULL,mem,CONFIG_PARTITION_TABLE_OFFSET,  secsize));
+                     REVK_ERR_CHECK(esp_flash_erase_region(NULL, CONFIG_PARTITION_TABLE_OFFSET, secsize));
+                     REVK_ERR_CHECK(esp_flash_write(NULL, mem, CONFIG_PARTITION_TABLE_OFFSET, secsize));
                      esp_restart();
                   } else
                      ESP_LOGE(TAG, "Not updating partition as not on ota 0 (%s)", ota_partition->label);
@@ -1661,12 +1661,12 @@ void revk_boot(app_callback_t * app_callback_cb)
 #undef bad
 #undef bdp
    if (watchdogtime)
-   { /* Watchdog */
-   esp_task_wdt_config_t config={
-	   .timeout_ms=watchdogtime*1000,
-	   .trigger_panic=true,
-   };
-      esp_task_wdt_init(&config );
+   {                            /* Watchdog */
+      esp_task_wdt_config_t config = {
+         .timeout_ms = watchdogtime * 1000,
+         .trigger_panic = true,
+      };
+      esp_task_wdt_init(&config);
    }
    REVK_ERR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));
    /* Application specific settings */
@@ -2200,7 +2200,7 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                while (waiting--)
                {
                   sleep(1);
-		  esp_netif_ip_info_t ip;
+                  esp_netif_ip_info_t ip;
                   if (!esp_netif_get_ip_info(sta_netif, &ip) && ip.ip.addr)
                   {
                      // What if no IP yet - check IP 0

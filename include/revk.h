@@ -59,6 +59,8 @@ extern char *prefixerror;
 extern char *appname;
 extern char *hostname;
 extern char *nodename;          // Node name
+extern esp_netif_t *sta_netif;
+extern esp_netif_t *ap_netif;
 
 jo_t jo_make(const char *nodename);     // Start object with node name
 
