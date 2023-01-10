@@ -338,7 +338,7 @@ menu "RevK"
 	help
 		Don't set this manually - it is normally set by Makefile (buildsuffix script)
 
-	config REVK_PCIO
+	config REVK_PICO
         bool "ESP32-PICO"
         default n
         help
