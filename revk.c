@@ -1683,6 +1683,7 @@ void revk_boot(app_callback_t * app_callback_cb)
          if ((p >= 6 && p <= 11) || p == 20)
 #endif
          {
+            ESP_LOGE(TAG, "Not using GPIO %d", p);
             blink[b] = 0;
             continue;
          }
@@ -1699,7 +1700,10 @@ void revk_boot(app_callback_t * app_callback_cb)
 #else
       if ((p >= 6 && p <= 11) || p == 20)
 #endif
+      {
+         ESP_LOGE(TAG, "Not using GPIO %d", p);
          apgpio = 0;
+      }
       if (apgpio)
       {
          gpio_reset_pin(p);
