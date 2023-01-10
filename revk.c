@@ -1676,35 +1676,35 @@ void revk_boot(app_callback_t * app_callback_cb)
    for (int b = 0; b < sizeof(blink) / sizeof(*blink); b++)
       if (blink[b])
       {
-	      uint8_t p=blink[b] & 0x3F;
+         uint8_t p = blink[b] & 0x3F;
 #ifdef	CONFIG_REVK_PICO
-	      if(p==6||(p>=9&&p<=11))
+         if (p == 6 || (p >= 9 && p <= 11))
 #else
-	      if((p>=6&&p<=11)||p==20)
+         if ((p >= 6 && p <= 11) || p == 20)
 #endif
-	      {
-		      blink[b]=0;
-		      continue;
-	      }
+         {
+            blink[b] = 0;
+            continue;
+         }
          gpio_reset_pin(p);
-         gpio_set_level(p, (blink[b] & 0x40) ? 0 : 1);    /* on */
-         gpio_set_direction(p, GPIO_MODE_OUTPUT); /* Blinking LED */
+         gpio_set_level(p, (blink[b] & 0x40) ? 0 : 1);  /* on */
+         gpio_set_direction(p, GPIO_MODE_OUTPUT);       /* Blinking LED */
       }
 #ifdef	CONFIG_REVK_APMODE
    if (apgpio)
    {
-	      uint8_t p=apgpio & 0x3F;
+      uint8_t p = apgpio & 0x3F;
 #ifdef	CONFIG_REVK_PICO
-	      if(p==6||(p>=9&&p<=11))
+      if (p == 6 || (p >= 9 && p <= 11))
 #else
-	      if((p>=6&&p<=11)||p==20)
+      if ((p >= 6 && p <= 11) || p == 20)
 #endif
-		      apgpio=0;
-	      if(apgpio)
-	      {
-      gpio_reset_pin(p);
-      gpio_set_direction(p, GPIO_MODE_INPUT);       /* AP mode button */
-	      }
+         apgpio = 0;
+      if (apgpio)
+      {
+         gpio_reset_pin(p);
+         gpio_set_direction(p, GPIO_MODE_INPUT);        /* AP mode button */
+      }
    }
 #endif
    restart_time = 0;
