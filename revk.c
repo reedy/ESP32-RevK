@@ -2063,6 +2063,16 @@ esp_err_t revk_web_config(httpd_req_t * req)
       httpd_resp_sendstr_chunk(req, hostname);
       httpd_resp_sendstr_chunk(req, "</p>");
    }
+   if (!revk_link_down())
+   {
+      httpd_resp_sendstr_chunk(req, "<form ");
+#ifdef  CONFIG_HTTPD_WS_SUPPORT
+      httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
+#endif
+      httpd_resp_sendstr_chunk(req, "><input name=\"upgrade\" type=submit value=\"Upgrade\">");
+      httpd_resp_sendstr_chunk(req, otahost);
+      httpd_resp_sendstr_chunk(req, "</form>");
+   }
    httpd_resp_sendstr_chunk(req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value}));return false;\"");
@@ -2076,16 +2086,6 @@ esp_err_t revk_web_config(httpd_req_t * req)
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
    httpd_resp_sendstr_chunk(req, "'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
-   if (!revk_link_down())
-   {
-      httpd_resp_sendstr_chunk(req, "<form ");
-#ifdef  CONFIG_HTTPD_WS_SUPPORT
-      httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
-#endif
-      httpd_resp_sendstr_chunk(req, "><input name=\"upgrade\" type=submit value=\"Upgrade\">");
-      httpd_resp_sendstr_chunk(req, otahost);
-      httpd_resp_sendstr_chunk(req, "</form>");
-   }
    httpd_resp_sendstr_chunk(req, "<div id=list></div>");
    httpd_resp_sendstr_chunk(req, "<script>"     //
                             "var f=document.WIFI;"      //
@@ -2223,8 +2223,11 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
             int ok = 0;
             if (!revk_link_down())
             {                   // Already connected as sta...
-               msg("Storing new settings");
-               ok = 1;
+               if (!upgrade)
+               {
+                  msg("Storing new settings");
+                  ok = 1;
+               }
             } else
             {
                msg("Connecting");
