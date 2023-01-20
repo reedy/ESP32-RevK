@@ -2011,12 +2011,17 @@ esp_err_t revk_web_config_stop(httpd_handle_t webserver)
 #ifdef	CONFIG_REVK_APMODE
 esp_err_t revk_web_config(httpd_req_t * req)
 {
-#ifdef  CONFIG_HTTPD_WS_SUPPORT
+#ifndef  CONFIG_HTTPD_WS_SUPPORT
    if (httpd_req_get_url_query_len(req))
    {
       char query[200];
       if (!httpd_req_get_url_query_str(req, query, sizeof(query)))
       {
+         {
+            char ug[10];
+            if (!httpd_query_key_value(query, "upgrade", ug, sizeof(uf)))
+               revk_command("upgrade", NULL);
+         }
          {
             char ssid[33],
              pass[33];
@@ -2071,6 +2076,16 @@ esp_err_t revk_web_config(httpd_req_t * req)
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
    httpd_resp_sendstr_chunk(req, "'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
+   if (!revk_link_down())
+   {
+      httpd_resp_sendstr_chunk(req, "<form ");
+#ifdef  CONFIG_HTTPD_WS_SUPPORT
+      httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
+#endif
+      httpd_resp_sendstr_chunk(req, "><input name=\"upgrade\" type=submit value=\"Upgrade\">");
+      httpd_resp_sendstr_chunk(req, otahost);
+      httpd_resp_sendstr_chunk(req, "</form>");
+   }
    httpd_resp_sendstr_chunk(req, "<div id=list></div>");
    httpd_resp_sendstr_chunk(req, "<script>"     //
                             "var f=document.WIFI;"      //
@@ -2185,6 +2200,7 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
             char ssid[33];
             char pass[33];
             char host[129];
+            uint8_t upgrade = 0;
             strncpy(ssid, wifissid, sizeof(ssid));
             strncpy(pass, wifipass, sizeof(pass));
             strncpy(host, mqtthost[0], sizeof(host));
@@ -2200,6 +2216,8 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                   jo_strncpy(j, pass, sizeof(pass));
                else if (!strcmp(tag, "host"))
                   jo_strncpy(j, host, sizeof(host));
+               else if (!strcmp(tag, "upgrade"))
+                  upgrade = 1;
                t = jo_skip(j);
             }
             int ok = 0;
@@ -2251,6 +2269,10 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                jo_close(s);
                revk_setting(s);
                jo_free(&s);
+            } else if (upgrade)
+            {
+               revk_command("upgrade", NULL);
+               msg("Upgrading");
             } else
             {
                if (ret)
