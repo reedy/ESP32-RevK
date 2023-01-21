@@ -862,7 +862,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          p++;
       if (prefixapp && *p)
       {                         // Expect app name next
-         int l = stlken(appname);
+         int l = strlen(appname);
          if (!strncmp(p + 1, appname, l) && (!p[1 + l] || p[1 + l] == '/'))
          {                      // App name present
             apppart = ++p;
