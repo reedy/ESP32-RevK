@@ -854,7 +854,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       const char *err = NULL;
       // Break up topic
       char *prefix = topic;
-      char *target = "?";
+      char *target = NULL;
       char *suffix = NULL;
       char *apppart = NULL;
       char *p = topic;
@@ -875,7 +875,7 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
       if (*p)
          suffix = ++p;
 #ifdef	CONFIG_REVK_MESH
-      if (esp_mesh_is_root() && ((prefixapp && *target == '*') || strncmp(target, revk_id, strlen(revk_id))))
+      if (esp_mesh_is_root() && target && ((prefixapp && *target == '*') || strncmp(target, revk_id, strlen(revk_id))))
       {                         // pass on to clients as global or not for us
          mesh_data_t data = {.proto = MESH_PROTO_MQTT };
          mesh_make_mqtt(&data, client, -1, topic, plen, payload);       // Ensures MESH_PAD space one end
@@ -893,6 +893,8 @@ static void mqtt_rx(void *arg, char *topic, unsigned short plen, unsigned char *
          apppart[-1] = 0;
       if (target)
          target[-1] = 0;
+      else
+         target = "?";
       if (suffix)
          suffix[-1] = 0;
       jo_t j = NULL;
