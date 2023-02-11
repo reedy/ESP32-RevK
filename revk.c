@@ -2227,7 +2227,8 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
             uint8_t upgrade = 0;
             strncpy(ssid, wifissid, sizeof(ssid));
             strncpy(pass, wifipass, sizeof(pass));
-            strncpy(host, mqtthost[0], sizeof(host));
+            strncpy(host, hostname, sizeof(host));
+            strncpy(mqtt, mqtthost[0], sizeof(mqtt));
             jo_type_t t = jo_next(j);   // Start object
             while (t == JO_TAG)
             {
