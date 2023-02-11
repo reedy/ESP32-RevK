@@ -2097,6 +2097,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host value='");
    if (*hostname)
       httpd_resp_sendstr_chunk(req, hostname);
+   httpd_resp_sendstr_chunk(req, "' placeholder='") httpd_resp_sendstr_chunk(req, revk_id);
    httpd_resp_sendstr_chunk(req, "'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus value='");
    if (*wifissid)
@@ -2104,7 +2105,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass value='");
    //if (*wifipass) httpd_resp_sendstr_chunk(req, wifipass); // Let's not show current value shall we
-   httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
+   httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
    httpd_resp_sendstr_chunk(req, "'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
