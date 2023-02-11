@@ -2042,18 +2042,18 @@ esp_err_t revk_web_config(httpd_req_t * req)
             }
          }
          {
-            char host[129];
-            if (!httpd_query_key_value(query, "mqtt", host, sizeof(host)) && *host)
+            char mqtt[129];
+            if (!httpd_query_key_value(query, "mqtt", mqtt, sizeof(mqtt)) && *mqtt)
             {
                jo_t j = jo_object_alloc();
                jo_object(j, "mqtt");
-               jo_string(j, "host", host);
+               jo_string(j, "host", mqtt);
                revk_setting(j);
                jo_free(&j);
             }
          }
          {
-            char host[129];
+            char host[33];
             if (!httpd_query_key_value(query, "host", host, sizeof(host)) && *host)
             {
                jo_t j = jo_object_alloc();
@@ -2094,7 +2094,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk(req, "><table>");
-   httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host autofocus value='");
+   httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host value='");
    if (*hostname)
       httpd_resp_sendstr_chunk(req, hostname);
    httpd_resp_sendstr_chunk(req, "'></td></tr>");
@@ -2221,7 +2221,8 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
          {
             char ssid[33];
             char pass[33];
-            char host[129];
+            char host[33];
+            char mqtt[129];
             uint8_t upgrade = 0;
             strncpy(ssid, wifissid, sizeof(ssid));
             strncpy(pass, wifipass, sizeof(pass));
@@ -2238,6 +2239,8 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                   jo_strncpy(j, pass, sizeof(pass));
                else if (!strcmp(tag, "host"))
                   jo_strncpy(j, host, sizeof(host));
+               else if (!strcmp(tag, "mqtt"))
+                  jo_strncpy(j, mqtt, sizeof(mqtt));
                else if (!strcmp(tag, "upgrade"))
                   upgrade = 1;
                t = jo_skip(j);
@@ -2285,12 +2288,13 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
             if (ok)
             {
                jo_t s = jo_object_alloc();
+               jo_string(s, "hostname", host);
                jo_object(s, "wifi");    // Ensures all other fields cleared
                jo_string(s, "ssid", ssid);
                jo_string(s, "pass", pass);
                jo_close(s);
                jo_object(s, "mqtt");    // Ensures all other fields cleared
-               jo_string(s, "host", host);
+               jo_string(s, "host", mqtt);
                jo_close(s);
                revk_setting(s);
                jo_free(&s);
