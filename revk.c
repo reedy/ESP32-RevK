@@ -2085,7 +2085,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
       httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
 #endif
-      httpd_resp_sendstr_chunk(req, "><input name=\"upgrade\" type=submit value=\"Upgrade\">");
+      httpd_resp_sendstr_chunk(req, "><input name=\"upgrade\" type=submit value=\"Upgrade\"> ");
       httpd_resp_sendstr_chunk(req, otahost);
       httpd_resp_sendstr_chunk(req, "</form>");
    }
@@ -2097,7 +2097,8 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host value='");
    if (*hostname)
       httpd_resp_sendstr_chunk(req, hostname);
-   httpd_resp_sendstr_chunk(req, "' placeholder='") httpd_resp_sendstr_chunk(req, revk_id);
+   httpd_resp_sendstr_chunk(req, "' placeholder='");
+   httpd_resp_sendstr_chunk(req, revk_id);
    httpd_resp_sendstr_chunk(req, "'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus value='");
    if (*wifissid)
