@@ -2043,11 +2043,21 @@ esp_err_t revk_web_config(httpd_req_t * req)
          }
          {
             char host[129];
-            if (!httpd_query_key_value(query, "host", host, sizeof(host)) && *host)
+            if (!httpd_query_key_value(query, "mqtt", host, sizeof(host)) && *host)
             {
                jo_t j = jo_object_alloc();
                jo_object(j, "mqtt");
                jo_string(j, "host", host);
+               revk_setting(j);
+               jo_free(&j);
+            }
+         }
+         {
+            char host[129];
+            if (!httpd_query_key_value(query, "host", host, sizeof(host)) && *host)
+            {
+               jo_t j = jo_object_alloc();
+               jo_string(j, "hostname", host);
                revk_setting(j);
                jo_free(&j);
             }
@@ -2083,14 +2093,17 @@ esp_err_t revk_web_config(httpd_req_t * req)
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value}));return false;\"");
 #endif
-   httpd_resp_sendstr_chunk(req, "><table><tr><td>SSID</td><td><input name=ssid autofocus value='");
-   if (*wifissid)
-      httpd_resp_sendstr_chunk(req, wifissid);
-   httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>Pass</td><td><input name=pass value='");
+   httpd_resp_sendstr_chunk(req, "><table>");
+   httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host autofocus value='");
+   httpd_resp_sendstr_chunk(req, hostname);
+   httpd_resp_sendstr_chunk(req, "'></td></tr>");
+   httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus value='");
+   httpd_resp_sendstr_chunk(req, wifissid);
+   httpd_resp_sendstr_chunk(req, "'></td></tr>");
+   httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass value='");
    //if (*wifipass) httpd_resp_sendstr_chunk(req, wifipass); // Let's not show current value shall we
-   httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=host value='");
-   if (*mqtthost[0])
-      httpd_resp_sendstr_chunk(req, mqtthost[0]);
+   httpd_resp_sendstr_chunk(req, "'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
+   httpd_resp_sendstr_chunk(req, mqtthost[0]);
    httpd_resp_sendstr_chunk(req, "'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk(req, "<div id=list></div>");
    httpd_resp_sendstr_chunk(req, "<script>"     //
