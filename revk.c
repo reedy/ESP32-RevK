@@ -2095,10 +2095,10 @@ esp_err_t revk_web_config(httpd_req_t * req)
 #endif
    httpd_resp_sendstr_chunk(req, "><table>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host autofocus value='");
-   httpd_resp_sendstr_chunk(req, hostname);
+   httpd_resp_sendstr_chunk(req, hostname ? : "");
    httpd_resp_sendstr_chunk(req, "'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus value='");
-   httpd_resp_sendstr_chunk(req, wifissid);
+   httpd_resp_sendstr_chunk(req, wifissid ? : "");
    httpd_resp_sendstr_chunk(req, "'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass value='");
    //if (*wifipass) httpd_resp_sendstr_chunk(req, wifipass); // Let's not show current value shall we
