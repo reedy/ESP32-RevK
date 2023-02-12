@@ -1768,7 +1768,7 @@ void revk_start(void)
    freez(id);
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
    REVK_ERR_CHECK(mdns_init());
-   mdns_hostname_set(hostname);
+   mdns_hostname_set(*hostname ? hostname : revk_id);
    mdns_instance_name_set(appname);
 #endif
    revk_task(TAG, task, NULL);
