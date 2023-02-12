@@ -2062,7 +2062,6 @@ esp_err_t revk_web_config(httpd_req_t * req)
                jo_free(&j);
             }
          }
-         // TODO connect and report new IP... Could this be websocket too
          httpd_resp_sendstr(req, "<h1>Done</h1>");
          apstoptime = uptime();
          return ESP_OK;
@@ -2099,7 +2098,11 @@ esp_err_t revk_web_config(httpd_req_t * req)
       httpd_resp_sendstr_chunk(req, hostname);
    httpd_resp_sendstr_chunk(req, "' placeholder='");
    httpd_resp_sendstr_chunk(req, revk_id);
-   httpd_resp_sendstr_chunk(req, "'></td></tr>");
+   httpd_resp_sendstr_chunk(req, "'>");
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+   httpd_resp_sendstr_chunk(req, ".local");
+#endif
+   httpd_resp_sendstr_chunk(req, "</td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
