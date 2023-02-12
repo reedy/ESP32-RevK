@@ -2104,7 +2104,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    }
    httpd_resp_sendstr_chunk(req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
-   httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value}));return false;\"");
+   httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtt':f.mqtt.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk(req, "><table>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host value='");
