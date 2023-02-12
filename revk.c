@@ -1763,6 +1763,11 @@ void revk_start(void)
       asprintf(&id, "%s-%06llX", appname, revk_binid & 0xFFFFFF);
    esp_netif_set_hostname(sta_netif, id);
    freez(id);
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+   REVK_ERR_CHECK(mdns_init());
+   mdns_hostname_set(hostname);
+   mdns_instance_name_set(appname);
+#endif
    revk_task(TAG, task, NULL);
 }
 
@@ -1996,6 +2001,9 @@ esp_err_t revk_web_config_start(httpd_handle_t webserver)
       };
       REVK_ERR_CHECK(httpd_register_uri_handler(webserver, &uri));
    }
+#endif
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+   mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
 #endif
    return 0;
 }
