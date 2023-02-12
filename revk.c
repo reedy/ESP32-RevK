@@ -2110,7 +2110,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host value='");
    if (*hostname)
       httpd_resp_sendstr_chunk(req, hostname);
-   httpd_resp_sendstr_chunk(req, "' placeholder='");
+   httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
    httpd_resp_sendstr_chunk(req, revk_id);
    httpd_resp_sendstr_chunk(req, "'>");
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
@@ -2120,14 +2120,14 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
-   httpd_resp_sendstr_chunk(req, "'></td></tr>");
+   httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass value='");
    if (*wifipass)
       httpd_resp_sendstr_chunk(req, "same");    // Not a valid password as too short, used to indicate one is set
    httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
-   httpd_resp_sendstr_chunk(req, "'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
+   httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk(req, "<div id=list></div>");
    httpd_resp_sendstr_chunk(req, "<script>"     //
                             "var f=document.WIFI;"      //
