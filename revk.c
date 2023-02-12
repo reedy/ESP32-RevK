@@ -2036,7 +2036,10 @@ esp_err_t revk_web_config(httpd_req_t * req)
                jo_t j = jo_object_alloc();
                jo_object(j, "wifi");
                jo_string(j, "ssid", ssid);
-               jo_string(j, "pass", pass);
+               if (!strcmp(pass, "same"))
+                  jo_string(j, "pass", wifipass);
+               else
+                  jo_string(j, "pass", pass);
                revk_setting(j);
                jo_free(&j);
             }
@@ -2108,7 +2111,8 @@ esp_err_t revk_web_config(httpd_req_t * req)
       httpd_resp_sendstr_chunk(req, wifissid);
    httpd_resp_sendstr_chunk(req, "'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass value='");
-   //if (*wifipass) httpd_resp_sendstr_chunk(req, wifipass); // Let's not show current value shall we
+   if (*wifipass)
+      httpd_resp_sendstr_chunk(req, "same");    // Not a valid password as too short, used to indicate one is set
    httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
@@ -2297,7 +2301,10 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                jo_string(s, "hostname", host);
                jo_object(s, "wifi");    // Ensures all other fields cleared
                jo_string(s, "ssid", ssid);
-               jo_string(s, "pass", pass);
+               if (!strcmp(pass, "same"))
+                  jo_string(s, "pass", wifipass);
+               else
+                  jo_string(s, "pass", pass);
                jo_close(s);
                jo_object(s, "mqtt");    // Ensures all other fields cleared
                jo_string(s, "host", mqtt);
