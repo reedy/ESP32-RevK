@@ -30,6 +30,9 @@ static const char
 #include <esp_mesh.h>
 #include "freertos/semphr.h"
 #endif
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+#include "mdns.h"
+#endif
 
 const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
