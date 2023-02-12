@@ -1,4 +1,4 @@
-if(CONFIG_MDNS_MAX_INTERFACES)
+if(EXISTS "../components/mdns")
 idf_component_register(
 			SRCS "revk.c" "jo.c" "lwmqtt.c"
 			INCLUDE_DIRS "include"
