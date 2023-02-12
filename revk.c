@@ -1494,7 +1494,7 @@ static void task(void *pvParameters)
          if (!*wifissid)
             ap_start();
 #endif
-         else if (apstoptime && apstoptime < now)
+         if (apstoptime && apstoptime < now)
             ap_stop();
 #endif
          if (nvs_time && nvs_time < now)
