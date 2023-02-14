@@ -34,6 +34,9 @@ static const char
 #include "mdns.h"
 #endif
 
+#define	WIFINOPASS	"none"
+#define	WIFIUNCHANGED	"as is"
+
 const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_tls.html
@@ -2047,8 +2050,10 @@ esp_err_t revk_web_config(httpd_req_t * req)
                jo_t j = jo_object_alloc();
                jo_object(j, "wifi");
                jo_string(j, "ssid", ssid);
-               if (!strcmp(pass, "same"))
+               if (!strcmp(pass, WIFIUNCHANGED))
                   jo_string(j, "pass", wifipass);
+	       else if (!strcmp(pass, WIFINOPASS))
+                  jo_string(j, "pass", "");
                else
                   jo_string(j, "pass", pass);
                revk_setting(j);
@@ -2110,7 +2115,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host value='");
    if (*hostname)
       httpd_resp_sendstr_chunk(req, hostname);
-   httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
    httpd_resp_sendstr_chunk(req, revk_id);
    httpd_resp_sendstr_chunk(req, "'>");
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
@@ -2120,14 +2125,14 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
-   httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass value='");
    if (*wifipass)
-      httpd_resp_sendstr_chunk(req, "same");    // Not a valid password as too short, used to indicate one is set
-   httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
+      httpd_resp_sendstr_chunk(req, WIFIUNCHANGED);    // Not a valid password as too short, used to indicate one is set
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
-   httpd_resp_sendstr_chunk(req, "' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk(req, "<div id=list></div>");
    httpd_resp_sendstr_chunk(req, "<script>"     //
                             "var f=document.WIFI;"      //
@@ -2312,8 +2317,10 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                jo_string(s, "hostname", host);
                jo_object(s, "wifi");    // Ensures all other fields cleared
                jo_string(s, "ssid", ssid);
-               if (!strcmp(pass, "same"))
+               if (!strcmp(pass, WIFIUNCHANGED))
                   jo_string(s, "pass", wifipass);
+	       else if (!strcmp(pass, WIFINOPASS))
+                  jo_string(s, "pass", "");
                else
                   jo_string(s, "pass", pass);
                jo_close(s);
