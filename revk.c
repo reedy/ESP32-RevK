@@ -33,6 +33,9 @@ static const char
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
 #include "mdns.h"
 #endif
+#ifdef  CONFIG_NIMBLE_ENABLED
+#include "esp_bt.h"
+#endif
 
 #define	WIFINOPASS	"none"
 #define	WIFIUNCHANGED	"as is"
