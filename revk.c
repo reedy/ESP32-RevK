@@ -637,7 +637,11 @@ static void sta_init(void)
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
    REVK_ERR_CHECK(esp_wifi_init(&cfg));
    REVK_ERR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+#ifdef  CONFIG_NIMBLE_ENABLED
+   REVK_ERR_CHECK(esp_wifi_set_ps(wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_MIN_MODEM));
+#else
    REVK_ERR_CHECK(esp_wifi_set_ps(wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_NONE));
+#endif
    sta_netif = esp_netif_create_default_wifi_sta();
    ap_netif = esp_netif_create_default_wifi_ap();
    REVK_ERR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -2052,7 +2056,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
                jo_string(j, "ssid", ssid);
                if (!strcmp(pass, WIFIUNCHANGED))
                   jo_string(j, "pass", wifipass);
-	       else if (!strcmp(pass, WIFINOPASS))
+               else if (!strcmp(pass, WIFINOPASS))
                   jo_string(j, "pass", "");
                else
                   jo_string(j, "pass", pass);
@@ -2128,7 +2132,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass value='");
    if (*wifipass)
-      httpd_resp_sendstr_chunk(req, WIFIUNCHANGED);    // Not a valid password as too short, used to indicate one is set
+      httpd_resp_sendstr_chunk(req, WIFIUNCHANGED);     // Not a valid password as too short, used to indicate one is set
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
@@ -2319,7 +2323,7 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                jo_string(s, "ssid", ssid);
                if (!strcmp(pass, WIFIUNCHANGED))
                   jo_string(s, "pass", wifipass);
-	       else if (!strcmp(pass, WIFINOPASS))
+               else if (!strcmp(pass, WIFINOPASS))
                   jo_string(s, "pass", "");
                else
                   jo_string(s, "pass", pass);
@@ -3654,6 +3658,11 @@ static const char *revk_upgrade(const char *target, jo_t j)
 {                               // Upgrade command
    if (ota_task_id)
       return "OTA running";
+#ifdef	CONFIG_NIMBLE_ENABLED
+   esp_bt_controller_disable(); // Kill bluetooth during download - TODO may be better done in RevK library, with a watchdog change
+   esp_wifi_set_ps(WIFI_PS_NONE);       // Full wifi
+   revk_restart("Download started", 10);        // Restart if download does not happen properly
+#endif
 #ifdef CONFIG_REVK_MESH
    if (!esp_mesh_is_root())
       return "";                // OK will be done by root and sent via MESH
