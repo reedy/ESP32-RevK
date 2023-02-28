@@ -2143,10 +2143,10 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
-   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
    if (*mqttuser[0])
       httpd_resp_sendstr_chunk(req, mqttuser[0]);
-   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input maxlength=32 placeholder='password' name=mqttpass value='");
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT pass</td><td><input maxlength=32 placeholder='password' name=mqttpass value='");
    if (*mqttpass[0])
       httpd_resp_sendstr_chunk(req, mqttpass[0]);
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
