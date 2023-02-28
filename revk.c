@@ -2139,7 +2139,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid");
    if (*hostname)
       httpd_resp_sendstr_chunk(req, " autofocus");
-   httpd_resp_sendstr_chunk(req, " maxlength=32 value='");
+   httpd_resp_sendstr_chunk(req, " maxlength=32 placeholder='WiFI name' value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
