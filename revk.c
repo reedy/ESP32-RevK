@@ -2132,7 +2132,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
    httpd_resp_sendstr_chunk(req, ".local");
 #endif
-   httpd_resp_sendstr_chunk(req, "</td></tr>");
+   httpd_resp_sendstr_chunk(req, "</td></tr><tr><td colspan=2><hr></td></tr>");
    httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus maxlength=32 value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
