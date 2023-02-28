@@ -2068,12 +2068,16 @@ esp_err_t revk_web_config(httpd_req_t * req)
             }
          }
          {
-            char mqtt[129];
-            if (!httpd_query_key_value(query, "mqtt", mqtt, sizeof(mqtt)) && *mqtt)
+            char host[129];
+            char user[33];
+            char pass[33];
+            if (!httpd_query_key_value(query, "mqtthost", host, sizeof(host)) && *mqtt && !httpd_query_key_value(query, "mqttuser", user, sizeof(user))&&!httpd_query_key_value(query, "mqttpass", pass, sizeof(pass)))
             {
                jo_t j = jo_object_alloc();
                jo_object(j, "mqtt");
-               jo_string(j, "host", mqtt);
+               jo_string(j, "host", host);
+               jo_string(j, "user", user);
+               jo_string(j, "pass", pass);
                revk_setting(j);
                jo_free(&j);
             }
@@ -2116,7 +2120,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
    }
    httpd_resp_sendstr_chunk(req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
-   httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtt':f.mqtt.value}));return false;\"");
+   httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk(req, "><table>");
    httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host value='");
@@ -2129,16 +2133,22 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, ".local");
 #endif
    httpd_resp_sendstr_chunk(req, "</td></tr>");
-   httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus value='");
+   httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus maxlength=32 value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
-   httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass value='");
+   httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass placeholder='passphrase' maxlength=32 value='");
    if (*wifipass)
       httpd_resp_sendstr_chunk(req, WIFIUNCHANGED);     // Not a valid password as too short, used to indicate one is set
-   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input name=mqtt value='");
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
+   if (*mqttuser[0])
+      httpd_resp_sendstr_chunk(req, mqttuser[0]);
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT</td><td><input maxlength=32 placeholder='password' name=mqttpass value='");
+   if (*mqttpass[0])
+      httpd_resp_sendstr_chunk(req, mqttpass[0]);
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk(req, "<div id=list></div>");
    httpd_resp_sendstr_chunk(req, "<script>"     //
@@ -2254,12 +2264,16 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
             char ssid[33];
             char pass[33];
             char host[33];
-            char mqtt[129];
+            char mhost[129];
+            char muser[33];
+            char mpass[33];
             uint8_t upgrade = 0;
             strncpy(ssid, wifissid, sizeof(ssid));
             strncpy(pass, wifipass, sizeof(pass));
             strncpy(host, hostname, sizeof(host));
-            strncpy(mqtt, mqtthost[0], sizeof(mqtt));
+            strncpy(mhost, mqtthost[0], sizeof(mhost));
+            strncpy(muser, mqttuser[0], sizeof(muser));
+            strncpy(mpass, mqttpass[0], sizeof(mpass));
             jo_type_t t = jo_next(j);   // Start object
             while (t == JO_TAG)
             {
@@ -2272,8 +2286,12 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                   jo_strncpy(j, pass, sizeof(pass));
                else if (!strcmp(tag, "host"))
                   jo_strncpy(j, host, sizeof(host));
-               else if (!strcmp(tag, "mqtt"))
-                  jo_strncpy(j, mqtt, sizeof(mqtt));
+               else if (!strcmp(tag, "mqtthost"))
+                  jo_strncpy(j, mhost, sizeof(mhost));
+               else if (!strcmp(tag, "mqttuser"))
+                  jo_strncpy(j, muser, sizeof(muser));
+               else if (!strcmp(tag, "mqttpass"))
+                  jo_strncpy(j, mpass, sizeof(mpass));
                else if (!strcmp(tag, "upgrade"))
                   upgrade = 1;
                t = jo_skip(j);
@@ -2331,8 +2349,10 @@ esp_err_t revk_web_wifilist(httpd_req_t * req)
                else
                   jo_string(s, "pass", pass);
                jo_close(s);
-               jo_object(s, "mqtt");    // Ensures all other fields cleared
-               jo_string(s, "host", mqtt);
+               jo_object(s, "mqtt");
+               jo_string(s, "host", mhost);
+               jo_string(s, "user", muser);
+               jo_string(s, "pass", mpass);
                jo_close(s);
                revk_setting(s);
                jo_free(&s);
