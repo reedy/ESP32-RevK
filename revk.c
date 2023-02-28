@@ -2071,7 +2071,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
             char host[129];
             char user[33];
             char pass[33];
-            if (!httpd_query_key_value(query, "mqtthost", host, sizeof(host)) && *mqtt && !httpd_query_key_value(query, "mqttuser", user, sizeof(user))&&!httpd_query_key_value(query, "mqttpass", pass, sizeof(pass)))
+            if (!httpd_query_key_value(query, "mqtthost", host, sizeof(host)) && *mqtt && !httpd_query_key_value(query, "mqttuser", user, sizeof(user)) && !httpd_query_key_value(query, "mqttpass", pass, sizeof(pass)))
             {
                jo_t j = jo_object_alloc();
                jo_object(j, "mqtt");
@@ -2123,7 +2123,10 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk(req, "><table>");
-   httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host value='");
+   httpd_resp_sendstr_chunk(req, "<tr><td>Hostname</td><td><input name=host");
+   if (!*hostname)
+      httpd_resp_sendstr_chunk(req, " autofocus");
+   httpd_resp_sendstr_chunk(req, " value='");
    if (*hostname)
       httpd_resp_sendstr_chunk(req, hostname);
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
@@ -2133,7 +2136,10 @@ esp_err_t revk_web_config(httpd_req_t * req)
    httpd_resp_sendstr_chunk(req, ".local");
 #endif
    httpd_resp_sendstr_chunk(req, "</td></tr><tr><td colspan=2><hr></td></tr>");
-   httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid autofocus maxlength=32 value='");
+   httpd_resp_sendstr_chunk(req, "<tr><td>SSID</td><td><input name=ssid");
+   if (*hostname)
+      httpd_resp_sendstr_chunk(req, " autofocus");
+   httpd_resp_sendstr_chunk(req, " maxlength=32 value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
