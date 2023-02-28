@@ -2137,10 +2137,10 @@ esp_err_t revk_web_config(httpd_req_t * req)
    if (*wifissid)
       httpd_resp_sendstr_chunk(req, wifissid);
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
-   httpd_resp_sendstr_chunk(req, "<tr><td>Pass</td><td><input name=pass placeholder='passphrase' maxlength=32 value='");
+   httpd_resp_sendstr_chunk(req, "<tr><td>Passphrase</td><td><input name=pass placeholder='passphrase' maxlength=32 value='");
    if (*wifipass)
       httpd_resp_sendstr_chunk(req, WIFIUNCHANGED);     // Not a valid password as too short, used to indicate one is set
-   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
+   httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk(req, mqtthost[0]);
    httpd_resp_sendstr_chunk(req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
