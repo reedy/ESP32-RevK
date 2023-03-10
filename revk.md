@@ -71,6 +71,14 @@ The device may have any number of commands documents, but there are some command
 
 ### Settings
 
+The settings system currently uses JSON, but does also have a fallback for a single setting using the full setting name.
+
+For example, setting the `otahost` could be done by sending `setting/App/Dev/otahost example.com` or by sending `setting/App/Dev {"otahost":"example.com"}`. The recommended method is to use JSON, which means no suffix on the `setting` message.
+
+Sending a `setting` message with no suffix and no payload causes a `setting` response to be sent with current settings.  If the settings are too long for one message then multiple messages are sent covering all of th settings using a number of distinct objects.
+
+All settings have a simple name, but some settings can also be accessed in a nested style, as a sub object. The settings sent back from the device use this. Also, some settings have have a number of values, and these can be sent as a JSON array.
+
 ## RevK
 
 ## LWMQTT
