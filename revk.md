@@ -77,7 +77,7 @@ For example, setting the `otahost` could be done by sending `setting/App/Dev/ota
 
 Sending a `setting` message with no suffix and no payload causes a `setting` response to be sent with current settings.  If the settings are too long for one message then multiple messages are sent covering all of th settings using a number of distinct objects.
 
-All settings have a simple name, but some settings can also be accessed in a nested style, as a sub object. The settings sent back from the device use this. Also, some settings have have a number of values, and these can be sent as a JSON array.
+All settings have a simple name, but some settings can also be accessed in a nested style, as a sub object. The settings sent back from the device use this. Also, some settings have have a number of values, and these can be sent as a JSON array. For example ther are settings `mqtthost`, `mqttuser`, `mqttpass`, etc. These can be sent as as `{"mqtt":{"host":"whatever","user":"whatever","pass":"whatever"}`. Sending an object like this will mean clearing any sub objects not included in the object, e.g. sending `{"mqtt":{"host":"example.com"}` means that `mqttuser` and `mqttpass` are unset (set to empty string).
 
 ## RevK
 
