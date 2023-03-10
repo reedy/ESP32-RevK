@@ -137,21 +137,18 @@ The type of where you are can be one of:-
 |Type|Meaning|
 |----|-------|
 |`JO_END`|End of JSON parsing|
+|`JO_CLOSE`|End of object or array, i.e. `}` or `]`|
+|`JO_TAG`|The name/tag in an object|
+|`JO_OBJECT`|The `{` at the start of an object|
+|`JO_ARRAY`|The `[` at the start of an array|
+|`JO_STRING`|A string value|
+|`JO_NUMBER`|A number value|
+|`JO_NULL`|A `null` value|
+|`JO_TRUE`|A `true` value|
+|`JO_FALSE`|A `faluse` value|
 
-JO_END,                      // Not a value, we are at the end, or in an error state
-     // JO_END always at start
-     JO_CLOSE,                    // at close of object or array
-     // After JO_END
-     JO_TAG,                      // at a tag
-     JO_OBJECT,                   // value is the '{' of an object, jo_next() goes in to object if it has things in it
-     JO_ARRAY,                    // value is the '[' of an array, jo_next() goes in to array if it has things in it
-     JO_STRING,                   // value is the '"' of a string
-     JO_NUMBER,                   // value is start of an number
-     // Can test >= JO_NULL as test for literal
-     JO_NULL,                     // value is the 'n' in a null
-     // Can test >= JO_TRUE as test for bool
-     JO_TRUE,                     // value is the 't' in true, can compare >= JO_TRUE for boolean
-     JO_FALSE,
+Walking through an object using `jo_next` sees the start (`JO_OBJECT` or `JO_ARRAY`) and end (`JO_CLOSE`) of objects and arrays, and in objects it sees the `JO_TAG` and then the value type of that tag.
+
 
 ### Creating JSON
 
