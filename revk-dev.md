@@ -157,11 +157,39 @@ Walking through an object using `jo_next` sees the start (`JO_OBJECT` or `JO_ARR
 
 Once on the value, e.g. after a `JO_TAG` or within an array, you can get the value using functions. For literals you see if `JO_TRUE`/`JO_FALSE`/`JO_NULL` and can get values using `jo_read_int` or `jo_read_float`.
 
-However strings are more complex as the raw JSON has escaping. `jo_strlen` gives the length of a `JO_STRING` value after de-escaping. `jo_strncpy` can be used to copy and de-escape. `jo_strncmp` can be used to compare to a normal string. `jo_strdup` can be used to copy and de-escape in to malloc'd memory. These string functions can be used at a `JO_STRING` or `JO_TAG` point.
+However strings are more complex as the raw JSON has escaping. `jo_strlen` gives the length of a `JO_STRING` value after de-escaping. `jo_strncpy` can be used to copy and de-escape. `jo_strncmp` can be used to compare to a normal string. `jo_strdup` can be used to copy and de-escape in to malloc'd memory. These string functions can be used at a `JO_STRING` or `JO_TAG` point. There are also `jo_strncpy64` (and `32` and `16`) for decoding base64 string and copying.
+
+There are additional functions such as `jo_level` to tell you what level of nesting you are at, `jo_rewind` to start parsing again.
+
+The function `jo_copy` can copy a whole JSON object if needed.
 
 ### Creating JSON
 
 You create a new object for creating a JSON object using either `jo_create_alloc` which returns an empty JSON object ready to create, or `jo_object_alloc` which returns a JSON structure which has opened an object, i.e. the initial `{` exists and a final `}` will be added when closed. These allocate memory using `malloc` and `realloc` as needed. You can also create one using static memory using `jo_create_mem` which is passed a buffer and length.
+
+The functions to create JSON handle the commands and `{`/`}` and `[`/`]` and tags and so on for you. When done you use `jo_finish` (for static JSON) or `jo_finisha` for malloc'd JSON to get the formatted JSON string. If not sure which then `jo_isalloc` will tell you. The reason for two separate calls is that for malloc'd you have to `free()` the value but not for static, so you are expected to know which it is you are getting.
+
+You build up the JSON with functions... These functions take a *tag* which is needed if adding within an object and must be NULL when adding within an array.
+
+|Functions|Meaning|
+|---------|-------|
+|`jo_array`|Start an array (i.e. add `[`)|
+|`jo_object`|Start an object (i.e. add '{')|
+|`jo_close`|Close currect object or array (i.e. add `}` or `]`)|
+|`jo_json`|Add a JSON value from another JSON pointer|
+|`jo_int`|Add an integer|
+|`jo_bool`|Add a Boolean, e.g. `true` or `false`|
+|`jo_null`|Add a `null`|
+|`jo_string`|Add a string|
+|`jo_stringn`|Add a string with specified length, so allows nulls in the string|
+|`jo_stringf`|Add printf formatted string|
+|`jo_lit`|Add a literal, e.g. `"true"` or `"null`", or a numeric literal, etc.|
+|`jo_litf`|Add a literal using printf formatting, usually for adding a number of some sort.|
+|`jo_datetime`|Add a `time_t` as ISO datetime string|
+|`jo_base64`|Add a base 64 coded value, also `jo_base32` and `jo_base16`|
+
+
+
 
 
 
