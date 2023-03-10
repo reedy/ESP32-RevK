@@ -126,6 +126,12 @@ The main type used is `jo_t` which is an object to handle either constructing or
 
 The `jo_t` type has a pointer in to the object. For creating this is constantly moving forward adding fields and values. For parsing it is possible to rewind and go back and move forward through the object.
 
+Use `jo_free` to free an object, but some functions such as `revk_info`, etc, free for you.
+
+### Error handling
+
+If at any point there is an error, e.g. bad parsing, or bad creating, or memory overrun creating then an error flag is set. You can check with `jo_error` to see if an error. Once set parsing stops (`JO_END` returned) and creating stops (no action).
+
 ### Parsing JSON
 
 To parse a JSON object in memory you start with `jo_parse_mem` which is given a buffer and length.
@@ -149,6 +155,9 @@ The type of where you are can be one of:-
 
 Walking through an object using `jo_next` sees the start (`JO_OBJECT` or `JO_ARRAY`) and end (`JO_CLOSE`) of objects and arrays, and in objects it sees the `JO_TAG` and then the value type of that tag.
 
+Once on the value, e.g. after a `JO_TAG` or within an array, you can get the value using functions. For literals you see if `JO_TRUE`/`JO_FALSE`/`JO_NULL` and can get values using `jo_read_int` or `jo_read_float`.
+
+However strings are more complex as the raw JSON has escaping. `jo_strlen` gives the length of a `JO_STRING` value after de-escaping. `jo_strncpy` can be used to copy and de-escape. `jo_strncmp` can be used to compare to a normal string. `jo_strdup` can be used to copy and de-escape in to malloc'd memory. These string functions can be used at a `JO_STRING` or `JO_TAG` point.
 
 ### Creating JSON
 
