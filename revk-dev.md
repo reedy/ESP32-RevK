@@ -111,4 +111,12 @@ revk_error(const char *suffix,jo_t j); // Send a error message
 ```
 Additional lower level functions are defined in `revk.h` and `lwmqtt.h`
 
+### Example
+```
+jo_t j = jo_object_alloc();
+jo_string(j, "field", tag);
+jo_string(j, "error", err);
+revk_error("control", &j);
+```
+
 ## JO
