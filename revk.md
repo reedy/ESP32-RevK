@@ -35,17 +35,24 @@ There are two styles, which depend on a config option. One style has a *prefix*,
 
 #### Messages to the device
 
+In most cases the payload, if any, is JSON. This could however by a JSON data type such as a number, or string, rather than an actual object.
+
 |Prefix|Meaning|
 |------|-------|
-|command|Does a command. This does not change settings but could change some live status of some sort, or do an action. In some cases commands can talk to external devices, such as the SDC41 in the Environmental monitor.|
-|setting|Changes a setting value, or gets settings. See below|
+|`command`|Does a command. This does not change settings but could change some live status of some sort, or do an action. In some cases commands can talk to external devices, such as the SDC41 in the Environmental monitor.|
+|`setting`|Changes a setting value, or gets settings. See below|
 
 #### Messages from the device
 
+In most cases the payload is JSON.
 
 |Prefix|Meaning|
 |------|-------|
-|state|This is sent with *retain* and relates to the state of some aspect of the device. With no suffix, this is a top level state for the device, in JSON, including either `"up":false` or `"up":`*time*.|
+|`state`|This is sent with *retain* and relates to the state of some aspect of the device. With no suffix, this is a top level state for the device, in JSON, including either `"up":false` or `"up":`*time*. With a suffix this is the state of some aspect of the device.|
+|`event`|This is for an event, rather than a state change. A good example might be a key press on a device.|
+|`info`|This is information of some sort|
+|`error`|This is an error message|
+|`setting`|This is the current settings, as a JSON object, if requested|
 
 ### Commands
 
