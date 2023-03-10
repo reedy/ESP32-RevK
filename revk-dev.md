@@ -76,6 +76,39 @@ And in `app_main` call the `revk_register` like this.
 
 Obviously there could be way more types and flags you can use for different types of settings. This example uses `bl()` for "Boolean, live update", and `u8()` for `uint8_t` with a default value.
 
+### Useful functions tracking state
+
+There are a number of functions to keep track of things...
+```
+uint32_t revk_link_down(void);  // How long link down (no IP or no parent if mesh)
+const char *revk_wifi(void);	// Return wifi SSID
+void revk_wifi_close(void); // Close WiFi
+int revk_wait_wifi(int seconds); // Wait for WiFi to be ready
+char *revk_setting(jo_t); // Store settings
+const char *revk_command(const char *tag, jo_t);        // Do an internal command
+const char *revk_restart(const char *reason, int delay);        // Restart cleanly
+const char *revk_ota(const char *host, const char *target);     // OTA and restart cleanly (target NULL for self as root node)
+uint32_t revk_shutting_down(void); // If we are shutting down (how many seconds to go)
+```
+
 ## LWMQTT
+
+The `lwmqtt` library is a *light weight MQTT* server and client library used internally by the RevK library.
+```
+lwmqtt_t revk_mqtt(int);	// Return the current LWMQTT handle
+void revk_mqtt_close(const char *reason);       // Clean close MQTT
+int revk_wait_mqtt(int seconds);	// Wait for MQTT to connect
+```
+
+Generally you do not need to directly interact with MQTT, but there are some simple functions to generate MQTT messages.
+
+To use these you construct a JSON object then call these to send the message and free the object.
+```
+revk_state(const char *suffix,jo_t j); // Send a state message
+revk_event(const char *suffix,jo_t j); // Send a event message
+revk_info(const char *suffix,jo_t j); // Send a info message
+revk_error(const char *suffix,jo_t j); // Send a error message
+```
+Additional lower level functions are defined in `revk.h` and `lwmqtt.h`
 
 ## JO
