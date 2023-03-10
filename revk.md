@@ -21,12 +21,31 @@ If you select this on an iPhone, it auto loads the config page. On other devices
 
 ![IMG_2448](https://user-images.githubusercontent.com/996983/218394254-e03537f7-09a0-490d-aa38-b6964a5cd77f.PNG)
 
+You can click the buttons for existing SSID, or enter manually, and enter password. It then tries to connect and shows the IP so you can connect to any web interface on the device. Not all devices have a web interface.
 
-
+However, the MQTT settings allow control and settings to be configured over MQTT.
 
 ## MQTT 
 
+The system will connect to an MQTT server and provide information via MQTT, allow commands over MQTT, and allow settings over MQTT.
+
 ### Topics
+
+There are two styles, which depend on a config option. One style has a *prefix*, then *app name*, then *device id*, then an optional suffix. The other format omits the *app name*.
+
+#### Messages to the device
+
+|Prefix|Meaning|
+|------|-------|
+|command|Does a command. This does not change settings but could change some live status of some sort, or do an action. In some cases commands can talk to external devices, such as the SDC41 in the Environmental monitor.|
+|setting|Changes a setting value, or gets settings. See below|
+
+#### Messages from the device
+
+
+|Prefix|Meaning|
+|------|-------|
+|state|This is sent with *retain* and relates to the state of some aspect of the device. With no suffix, this is a top level state for the device, in JSON, including either `"up":false` or `"up":`*time*.|
 
 ### Commands
 
