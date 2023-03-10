@@ -129,6 +129,39 @@ All settings have a simple name, but some settings can also be accessed in a nes
 
 ## RevK
 
+This is how an application uses the RevK library.
+
+### Include
+
+To use the libraries simply add the include file
+```
+#include "revk.h"
+```
+This includes necessary system includes and `lwmqtt.h` and `jo.h` include files needed.
+
+### CMake
+
+In you `main/CMakeLists.txt ` have
+```
+set (COMPONENT_REQUIRES "ESP32-RevK)
+```
+
+### Init
+
+In `void app_main()` you need, close to the start
+```
+revk_boot(&app_callback);
+```
+And once you have done any settings (see below) do
+```
+revk_start();
+```
+
+The `app_callback` is `const char *app_callback(int client, const char *prefix, const char *target, const char *suffix, jo_t j)` which is called for any received MQTT messages. The return value is an empty string for all OK, or an error message. NULL means not handled and not an error (which usually means an error as unknown command).
+
+### Settings
+
+
 ## LWMQTT
 
 ## JO
