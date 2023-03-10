@@ -118,5 +118,47 @@ jo_string(j, "field", tag);
 jo_string(j, "error", err);
 revk_error("control", &j);
 ```
-
 ## JO
+
+The JSON OBJECT library is designed to allow a JSON object to be constructed or parsed to/from a simple in memory string. This is intended to be very memory efficient as it does not create memory structures for the JSON object itself, and for parsing it literally just scans the string itself with minimum overhead.
+
+The main type used is `jo_t` which is an object to handle either constructing or parsing a JSON string. It is possible to construct a string and then rewind and parse the same string.
+
+The `jo_t` type has a pointer in to the object. For creating this is constantly moving forward adding fields and values. For parsing it is possible to rewind and go back and move forward through the object.
+
+### Parsing JSON
+
+To parse a JSON object in memory you start with `jo_parse_mem` which is given a buffer and length.
+
+To move through the object you can use `jo_here` to tell what is at this point, `jo_next` to move to next point and tell what is at that point, `jo_skip` to skip the next value at the same level, e.g. if the next value is an object it skips the whole object, and finally `jo_find` to find a named field in the JSON where you pass a tag that can be *tag*, or *tag.tag*, etc, returning the type of the value it finds.
+
+The type of where you are can be one of:-
+
+|Type|Meaning|
+|----|-------|
+|`JO_END`|End of JSON parsing|
+
+JO_END,                      // Not a value, we are at the end, or in an error state
+     // JO_END always at start
+     JO_CLOSE,                    // at close of object or array
+     // After JO_END
+     JO_TAG,                      // at a tag
+     JO_OBJECT,                   // value is the '{' of an object, jo_next() goes in to object if it has things in it
+     JO_ARRAY,                    // value is the '[' of an array, jo_next() goes in to array if it has things in it
+     JO_STRING,                   // value is the '"' of a string
+     JO_NUMBER,                   // value is start of an number
+     // Can test >= JO_NULL as test for literal
+     JO_NULL,                     // value is the 'n' in a null
+     // Can test >= JO_TRUE as test for bool
+     JO_TRUE,                     // value is the 't' in true, can compare >= JO_TRUE for boolean
+     JO_FALSE,
+
+### Creating JSON
+
+You create a new object for creating a JSON object using either `jo_create_alloc` which returns an empty JSON object ready to create, or `jo_object_alloc` which returns a JSON structure which has opened an object, i.e. the initial `{` exists and a final `}` will be added when closed. These allocate memory using `malloc` and `realloc` as needed. You can also create one using static memory using `jo_create_mem` which is passed a buffer and length.
+
+
+
+
+
+
