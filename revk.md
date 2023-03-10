@@ -172,7 +172,32 @@ Between `revk_boot` and `revk_start` you should add necessary calls to `revk_reg
 ```
 The way this is typically done is a list of settings in a macro, allowing the definition of the settings and the calling of the `revk_register` all to be done from the same list.
 
+For example, define settings like this
+```
+#define settings                \
+        u8(webcontrol,2)        \
+        bl(debug)               \
+```
 
+You can then define the values, e.g.
+```
+#define u8(n,d) uint8_t n;
+#define bl(n) uint8_t n;
+settings
+#undef u8
+#undef bl
+```
+
+And in `app_main` call the `revk_register` like this.
+```
+#define bl(n) revk_register(#n,0,sizeof(n),&n,NULL,SETTING_BOOLEAN|SETTING_LIVE);
+#define u8(n,d) revk_register(#n,0,sizeof(n),&n,str(d),0);
+   settings
+#undef u8
+#undef bl
+```
+
+Obviously there could be way more types and flags you can use for different types of settings. This example uses `bl()` for "Boolean, live update", and `u8()` for `uint8_t` with a default value.
 
 ## LWMQTT
 
