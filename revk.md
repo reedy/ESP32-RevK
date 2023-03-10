@@ -79,6 +79,54 @@ Sending a `setting` message with no suffix and no payload causes a `setting` res
 
 All settings have a simple name, but some settings can also be accessed in a nested style, as a sub object. The settings sent back from the device use this. Also, some settings have have a number of values, and these can be sent as a JSON array. For example ther are settings `mqtthost`, `mqttuser`, `mqttpass`, etc. These can be sent as as `{"mqtt":{"host":"whatever","user":"whatever","pass":"whatever"}`. Sending an object like this will mean clearing any sub objects not included in the object, e.g. sending `{"mqtt":{"host":"example.com"}` means that `mqttuser` and `mqttpass` are unset (set to empty string).
 
+#### Main settings
+
+|Setting|Meaning|
+|-------|-------|
+|`appname`|The name of the application. You do not normally want to override this.|
+|`hostname`|The name to use for this device in topic, and DHCP and so on. This defaults in effect to the MAC address.|
+|`otahost`|Hostname for *over teh air* updates|
+|`wifissid`|WiFi SSID to use|
+|`wifipass`|WiFi passphrase to use|
+|`mqtthost`|MQTT hostname|
+
+#### Advanced settings
+
+|Setting|Meaning|
+|-------|-------|
+|`mqttuser`|MQTT username|
+|`mqttpass`|MQTT password|
+|`mqttport`|MQTT TCP port|
+|`mqttcert`|MQTT certificate - PEM format TLS certificate for the server. If set this forces MQTT over TLS and a default port of `8883`|
+|`clientkey`|PEM format TLS client private key for use on TLS (e.g. for MQTTS and HTTPS)|
+|`clientcert`|PEM format TLS client certificate for use on TLS (e.g. for MQTTS and HTTPS)|
+|`otacert`|PEM format TLS certificate for the server, forces OTA using HTTPS - only sensible on devices with enough RAM. Default is to use HTTP and have signed code.|
+|`nodename`|This is not usually used, but if set it means `"node":`*nodename* will be included in various types of message sent.|
+|`wifichan`|WiFi channel to use, default is scan all channels|
+|`wifibssid`|Hex WiFi BSSID to use, default is any|
+|`wifireset`|Time (in seconds) with no WiFI before resetting device|
+|`wifiip`|Static IPv4 for WiFi|
+|`wifigw`|Static IPv4 gateway for WiFi|
+|`wifidns`|Static IPv4 DNS server for WiFi|
+|`wifimqtt`|This is a special case, an SSID to use if possible (falls back to normal `wifissid`), and connect via MQTT to the router IP address received.|
+|`blink`|Either one GPIO number or an array of GPIO numbers for *R*, *G*, *B* LEDs, prefix each with `-` for active low LED.|
+|`apport`|The TCP port for access point web page (normally 80)|
+|`apwait`|The time in seconds before entering AP mode when no WiFi|
+|`aptime`|The time to stay in AP mode|
+|`apgpio`|The GPIO to check to force in to AP mode, this allows a button to force AP mode, for example.|
+|`apssid`|The SSID to use in AP mode, defaults to the `appname` based AP name|
+|`appass`|The passphrase to use in AP mode, usually you want this as an empty string for no password|
+|`aplr`|Do AP mode using ESP specific *long range* WiFi mode|
+|`aphide`|Do AP mode as hidden SSID|
+|`meshid`|Work in mesh mode and use this as the mesh ID, a 12 character HEX string|
+|`mesgpass`|The passphrase for mesh mode working|
+|`prefixcommand`|The prefix for `command`|
+|`prefixsetting`|The prefix for `setting`|
+|`prefixstate`|The prefix for `state`|
+|`prefixevent`|The prefix for `event`|
+|`prefixinfo`|The prefix for `info`|
+|`prefixerror`|The prefix for `error`|
+
 ## RevK
 
 ## LWMQTT
