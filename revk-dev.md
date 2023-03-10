@@ -190,11 +190,4 @@ You build up the JSON with functions... These functions take a *tag* which is ne
 |`jo_datetime`|Add a `time_t` as ISO datetime string|
 |`jo_base64`|Add a base 64 coded value, also `jo_base32` and `jo_base16`|
 
-
-
-
-
-
-
-
-
+You do not need to close everything, when you finish the construction all necessary closes are applied for you.
