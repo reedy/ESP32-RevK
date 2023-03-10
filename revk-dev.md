@@ -76,6 +76,8 @@ And in `app_main` call the `revk_register` like this.
 
 Obviously there could be way more types and flags you can use for different types of settings. This example uses `bl()` for "Boolean, live update", and `u8()` for `uint8_t` with a default value.
 
+It is possible to flag fields as needing various bit tags based on a string of characters, and even as needing hex encoding of the value. Settings can live, and apply when sent, or by default they are stored and a reboot is done in a few seconds. It is a good idea to look at some of the existing apps to see the ways settings can be used.
+
 ### Useful functions tracking state
 
 There are a number of functions to keep track of things...
