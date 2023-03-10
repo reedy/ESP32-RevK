@@ -31,7 +31,12 @@ The system will connect to an MQTT server and provide information via MQTT, allo
 
 ### Topics
 
-There are two styles, which depend on a config option. One style has a *prefix*, then *app name*, then *device id*, then an optional suffix. The other format omits the *app name*.
+There are two styles, which depend on a config option. One style has (`/` separated) *prefix*, then *app name*, then *device id*, then an optional suffix. The other format omits the *app name*.
+
+The *device id* is either a hex device ID, its MAC address, or the `hostname` setting value if set.
+
+Where the topic has an *app name* you can command all of the device with that *app name* by using a *device name* of `*`.
+Where the topic does not have the *app name* you can command all of the devices with the same *app name* by using the *app name* as the *device name*. 
 
 #### Messages to the device
 
@@ -44,7 +49,7 @@ In most cases the payload, if any, is JSON. This could however by a JSON data ty
 
 #### Messages from the device
 
-In most cases the payload is JSON.
+In most cases the payload is JSON, usually as a JSON object.
 
 |Prefix|Meaning|
 |------|-------|
@@ -55,6 +60,14 @@ In most cases the payload is JSON.
 |`setting`|This is the current settings, as a JSON object, if requested|
 
 ### Commands
+
+The device may have any number of commands documents, but there are some commands provided directly by the library for all devices.
+
+|Command|Meaning|
+|-------|-------|
+|`upgrade`|This does an *over the air* upgrade from the setting defined `otahost`. You can include a URL as the argument (`http://` only, not `https`). Usually the device will be build with code signing to ensure the file is genuine.|
+|`restart`|This does a restart of the device|
+|`factory`|This does a factory reset of all settings, the argument has to be a string of the MAC address and the app name, e.g. `112233445566TestApp`|
 
 ### Settings
 
