@@ -161,6 +161,18 @@ The `app_callback` is `const char *app_callback(int client, const char *prefix, 
 
 ### Settings
 
+Between `revk_boot` and `revk_start` you should add necessary calls to `revk_register(...)` to add any settings you need.
+```
+  void revk_register(const char *name,    // Setting name (note max 15 characters inc any number suffix)
+                     uint8_t array,       // If non zero then settings are suffixed numerically 1 to array
+                     uint16_t size,       // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
+                     void *data,  // The setting itself (for string this points to a char* pointer)
+                     const char *defval,  // default value (default value text, or bitmask[space]default)
+                     uint8_t flags);      // Setting flags
+```
+The way this is typically done is a list of settings in a macro, allowing the definition of the settings and the calling of the `revk_register` all to be done from the same list.
+
+
 
 ## LWMQTT
 
