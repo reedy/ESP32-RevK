@@ -2046,7 +2046,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
       {
          {
             char ug[10];
-            if (!httpd_query_key_value(query, "upgrade", ug, sizeof(uf)))
+            if (!httpd_query_key_value(query, "upgrade", ug, sizeof(ug)))
                revk_command("upgrade", NULL);
          }
          {
@@ -2071,7 +2071,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
             char host[129];
             char user[33];
             char pass[33];
-            if (!httpd_query_key_value(query, "mqtthost", host, sizeof(host)) && *mqtt && !httpd_query_key_value(query, "mqttuser", user, sizeof(user)) && !httpd_query_key_value(query, "mqttpass", pass, sizeof(pass)))
+            if (!httpd_query_key_value(query, "mqtthost", host, sizeof(host)) && *host && !httpd_query_key_value(query, "mqttuser", user, sizeof(user)) && !httpd_query_key_value(query, "mqttpass", pass, sizeof(pass)))
             {
                jo_t j = jo_object_alloc();
                jo_object(j, "mqtt");
