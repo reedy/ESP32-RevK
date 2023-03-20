@@ -1413,16 +1413,6 @@ static void task(void *pvParameters)
                   jo_int(j, "up", now);
                else
                   jo_bool(j, "up", 0);
-               {
-                  esp_netif_ip_info_t ip;
-                  if (!esp_netif_get_ip_info(sta_netif, &ip) && ip.ip.addr)
-                     jo_stringf(j, "ipv4", IPSTR, IP2STR(&ip.ip));
-               }
-               {
-                  esp_ip6_addr_t ip;
-                  if (!esp_netif_get_ip6_global(sta_netif, &ip) && ip.addr)
-                     jo_stringf(j, "ipv6", IPV6STR, IPV62STR(ip));
-               }
                if (restart_time)
                {
                   if (restart_time > now)
@@ -1475,6 +1465,16 @@ static void task(void *pvParameters)
                   jo_int(j, "chan", ap.primary);
                   if (ap.phy_lr)
                      jo_bool(j, "lr", 1);
+                  {
+                     esp_netif_ip_info_t ip;
+                     if (!esp_netif_get_ip_info(sta_netif, &ip) && ip.ip.addr)
+                        jo_stringf(j, "ipv4", IPSTR, IP2STR(&ip.ip));
+                  }
+                  {
+                     esp_ip6_addr_t ip;
+                     if (!esp_netif_get_ip6_global(sta_netif, &ip) && ip.addr)
+                        jo_stringf(j, "ipv6", IPV6STR, IPV62STR(ip));
+                  }
                }
                revk_state_clients(NULL, &j, -1);        // up message goes to all servers
                lastheap = heap;
