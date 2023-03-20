@@ -1182,13 +1182,8 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
             REVK_ERR_CHECK(esp_wifi_sta_get_ap_info(&ap));
             ESP_LOGI(TAG, "Got IP " IPSTR " from %s", IP2STR(&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits(revk_group, GROUP_IP);
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 1, 0)
-            esp_sntp_stop();
-            esp_sntp_init();
-#else
             sntp_stop();
             sntp_init();
-#endif
 #ifdef	CONFIG_REVK_MQTT
             revk_mqtt_init();
 #endif
@@ -1418,6 +1413,16 @@ static void task(void *pvParameters)
                   jo_int(j, "up", now);
                else
                   jo_bool(j, "up", 0);
+               {
+                  esp_netif_ip_info_t ip;
+                  if (!esp_netif_get_ip_info(sta_netif, &ip) && ip.ip.addr)
+                     jo_stringf(j, "ipv4", IPSTR, IP2STR(&ip.ip));
+               }
+               {
+                  esp_ip6_addr_t ip;
+                  if (!esp_netif_get_ip6_global(sta_netif, &ip) && ip.addr)
+                     jo_stringf(j, "ipv6", IPV6STR, IPV62STR(ip));
+               }
                if (restart_time)
                {
                   if (restart_time > now)
@@ -1746,18 +1751,10 @@ void revk_boot(app_callback_t * app_callback_cb)
    char *d = strstr(revk_version, "dirty");
    if (d)
       asprintf((char **) &revk_version, "%.*s%s", d - revk_version, app->version, app->time);
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 1, 0)
-   esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-#else
    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-#endif
    setenv("TZ", tz, 1);
    tzset();
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 1, 0)
-   esp_sntp_setservername(0, ntphost);
-#else
    sntp_setservername(0, ntphost);
-#endif
    app_callback = app_callback_cb;
    {                            /* Chip ID from MAC */
       REVK_ERR_CHECK(esp_efuse_mac_get_default(revk_mac));
@@ -2059,7 +2056,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
       {
          {
             char ug[10];
-            if (!httpd_query_key_value(query, "upgrade", ug, sizeof(ug)))
+            if (!httpd_query_key_value(query, "upgrade", ug, sizeof(uf)))
                revk_command("upgrade", NULL);
          }
          {
@@ -2084,7 +2081,7 @@ esp_err_t revk_web_config(httpd_req_t * req)
             char host[129];
             char user[33];
             char pass[33];
-            if (!httpd_query_key_value(query, "mqtthost", host, sizeof(host)) && *host && !httpd_query_key_value(query, "mqttuser", user, sizeof(user)) && !httpd_query_key_value(query, "mqttpass", pass, sizeof(pass)))
+            if (!httpd_query_key_value(query, "mqtthost", host, sizeof(host)) && *mqtt && !httpd_query_key_value(query, "mqttuser", user, sizeof(user)) && !httpd_query_key_value(query, "mqttpass", pass, sizeof(pass)))
             {
                jo_t j = jo_object_alloc();
                jo_object(j, "mqtt");
