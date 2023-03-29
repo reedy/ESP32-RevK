@@ -411,9 +411,13 @@ static void mesh_task(void *pvParameters)
       esp_err_t e = esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0);
       if (e)
       {
-         if (e != ESP_ERR_MESH_TIMEOUT && e != ESP_ERR_MESH_NOT_START)
+         if (e == ESP_ERR_MESH_NOT_START)
+            sleep(1);
+         else if (e != ESP_ERR_MESH_TIMEOUT)
+         {
             ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
-         usleep(100000);
+            usleep(100000);
+         }
          continue;
       }
       mesh_root_known = 1;      // We are root or we got from root, so let's mark known
@@ -3695,8 +3699,16 @@ static const char *revk_upgrade(const char *target, jo_t j)
 {                               // Upgrade command
    if (ota_task_id)
       return "OTA running";
+   if (watchdogtime)
+   {                            /* Watchdog */
+      esp_task_wdt_config_t config = {
+         .timeout_ms = 120 * 1000,
+         .trigger_panic = true,
+      };
+      esp_task_wdt_reconfigure(&config);
+   }
 #ifdef	CONFIG_NIMBLE_ENABLED
-   esp_bt_controller_disable(); // Kill bluetooth during download - TODO may be better done in RevK library, with a watchdog change
+   esp_bt_controller_disable(); // Kill bluetooth during download
    esp_wifi_set_ps(WIFI_PS_NONE);       // Full wifi
    revk_restart("Download started", 10);        // Restart if download does not happen properly
 #endif
