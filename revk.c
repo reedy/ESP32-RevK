@@ -409,153 +409,152 @@ static void mesh_task(void *pvParameters)
       data.size = MESH_MPS;
       int flag = 0;
       esp_err_t e = esp_mesh_recv(&from, &data, 1000, &flag, NULL, 0);
-      if (e == ESP_ERR_MESH_TIMEOUT)
-         continue;
       if (e)
       {
-         ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
-         usleep(100000);
-      } else
-      {
-         mesh_root_known = 1;   // We are root or we got from root, so let's mark known
-         data.data[data.size] = 0;      // Add a null so we can parse JSON with NULL and log and so on
-         char mac[13];
-         sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
-         // We use MESH_PROTO_BIN for flash (unencrypted)
-         // We use MESH_PROTO_MQTT to relay
-         // We use MESH_PROTO_JSON for messages internally
-         if (data.proto == MESH_PROTO_BIN)
-         {                      // Includes loopback to self
-            static uint8_t ota_ack = 0; // The ACK we send
-            static int ota_size = 0;    // Total size
-            static int ota_data = 0;    // Data received
-            static esp_ota_handle_t ota_handle;
-            static const esp_partition_t *ota_partition = NULL;
-            static int ota_progress = 0;
-            static uint32_t next = 0;
-            uint32_t now = uptime();
-            uint8_t type = *data.data;
-            void send_ack(void) {       // ACK (to root)
-               if (ota_ack)
-               {
-                  mesh_data_t data = {.data = &ota_ack,.size = 1,.proto = MESH_PROTO_BIN };
-                  REVK_ERR_CHECK(mesh_safe_send(&from, &data, MESH_DATA_P2P, NULL, 0));
-               }
-            }
-            switch (type >> 4)
+         if (e != ESP_ERR_MESH_TIMEOUT)
+            ESP_LOGI(TAG, "Rx %s", esp_err_to_name(e));
+         else
+            usleep(100000);
+         continue;
+      }
+      mesh_root_known = 1;      // We are root or we got from root, so let's mark known
+      data.data[data.size] = 0; // Add a null so we can parse JSON with NULL and log and so on
+      char mac[13];
+      sprintf(mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
+      // We use MESH_PROTO_BIN for flash (unencrypted)
+      // We use MESH_PROTO_MQTT to relay
+      // We use MESH_PROTO_JSON for messages internally
+      if (data.proto == MESH_PROTO_BIN)
+      {                         // Includes loopback to self
+         static uint8_t ota_ack = 0;    // The ACK we send
+         static int ota_size = 0;       // Total size
+         static int ota_data = 0;       // Data received
+         static esp_ota_handle_t ota_handle;
+         static const esp_partition_t *ota_partition = NULL;
+         static int ota_progress = 0;
+         static uint32_t next = 0;
+         uint32_t now = uptime();
+         uint8_t type = *data.data;
+         void send_ack(void) {  // ACK (to root)
+            if (ota_ack)
             {
-            case 0x5:          // Start - not checking sequence, expecting to be 0
-               if (data.size == 4)
+               mesh_data_t data = {.data = &ota_ack,.size = 1,.proto = MESH_PROTO_BIN };
+               REVK_ERR_CHECK(mesh_safe_send(&from, &data, MESH_DATA_P2P, NULL, 0));
+            }
+         }
+         switch (type >> 4)
+         {
+         case 0x5:             // Start - not checking sequence, expecting to be 0
+            if (data.size == 4)
+            {
+               ota_ack = 0xA0 + (*data.data & 0xF);
+               send_ack();
+               if (!ota_size)
                {
-                  ota_ack = 0xA0 + (*data.data & 0xF);
-                  send_ack();
-                  if (!ota_size)
+                  ota_size = (data.data[1] << 16) + (data.data[2] << 8) + data.data[3];
+                  ota_partition = esp_ota_get_next_update_partition(esp_ota_get_running_partition());
+                  ESP_LOGI(TAG, "Start flash %d", ota_size);
+                  jo_t j = jo_make(NULL);
+                  jo_int(j, "size", ota_size);
+                  revk_info_clients("upgrade", &j, -1);
+                  if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
                   {
-                     ota_size = (data.data[1] << 16) + (data.data[2] << 8) + data.data[3];
-                     ota_partition = esp_ota_get_next_update_partition(esp_ota_get_running_partition());
-                     ESP_LOGI(TAG, "Start flash %d", ota_size);
-                     jo_t j = jo_make(NULL);
-                     jo_int(j, "size", ota_size);
-                     revk_info_clients("upgrade", &j, -1);
-                     if (REVK_ERR_CHECK(esp_ota_begin(ota_partition, ota_size, &ota_handle)))
-                     {
-                        ota_size = 0;   // Failed
-                        ESP_LOGI(TAG, "Failed to start flash");
-                     }
+                     ota_size = 0;      // Failed
+                     ESP_LOGI(TAG, "Failed to start flash");
                   }
-                  ota_progress = 0;
-                  ota_data = 0;
+               }
+               ota_progress = 0;
+               ota_data = 0;
+               next = now + 5;
+            }
+            break;
+         case 0xD:             // Data
+            if (ota_size && (*data.data & 0xF) == ((ota_ack + 1) & 0xF))
+            {                   // Expected data
+               ota_ack = 0xA0 + (*data.data & 0xF);
+               if (REVK_ERR_CHECK(esp_ota_write_with_offset(ota_handle, data.data + 1, data.size - 1, ota_data)))
+               {
+                  ota_size = 0;
+                  ESP_LOGE(TAG, "Flash failed at %d", ota_data);
+               }
+               ota_data += data.size - 1;
+               int percent = ota_data * 100 / ota_size;
+               if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
+               {
+                  ESP_LOGI(TAG, "Flash %d%%", percent);
+                  jo_t j = jo_make(NULL);
+                  jo_int(j, "size", ota_size);
+                  jo_int(j, "loaded", ota_data);
+                  jo_int(j, "progress", ota_progress = percent);
+                  revk_info_clients("upgrade", &j, -1);
                   next = now + 5;
                }
-               break;
-            case 0xD:          // Data
-               if (ota_size && (*data.data & 0xF) == ((ota_ack + 1) & 0xF))
-               {                // Expected data
-                  ota_ack = 0xA0 + (*data.data & 0xF);
-                  if (REVK_ERR_CHECK(esp_ota_write_with_offset(ota_handle, data.data + 1, data.size - 1, ota_data)))
-                  {
-                     ota_size = 0;
-                     ESP_LOGE(TAG, "Flash failed at %d", ota_data);
-                  }
-                  ota_data += data.size - 1;
-                  int percent = ota_data * 100 / ota_size;
-                  if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
-                  {
-                     ESP_LOGI(TAG, "Flash %d%%", percent);
-                     jo_t j = jo_make(NULL);
-                     jo_int(j, "size", ota_size);
-                     jo_int(j, "loaded", ota_data);
-                     jo_int(j, "progress", ota_progress = percent);
-                     revk_info_clients("upgrade", &j, -1);
-                     next = now + 5;
-                  }
-               }                // else ESP_LOGI(TAG, "Unexpected %02X not %02X+1", *data.data, ota_ack);
-               send_ack();
-               break;
-            case 0xE:          // End - not checking sequence
-               if (ota_size)
+            }                   // else ESP_LOGI(TAG, "Unexpected %02X not %02X+1", *data.data, ota_ack);
+            send_ack();
+            break;
+         case 0xE:             // End - not checking sequence
+            if (ota_size)
+            {
+               if (ota_data != ota_size)
+                  ESP_LOGE(TAG, "Flash missing data %d/%d", ota_data, ota_size);
+               else if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
                {
-                  if (ota_data != ota_size)
-                     ESP_LOGE(TAG, "Flash missing data %d/%d", ota_data, ota_size);
-                  else if (ota_partition && !REVK_ERR_CHECK(esp_ota_end(ota_handle)))
-                  {
-                     jo_t j = jo_make(NULL);
-                     jo_int(j, "size", ota_size);
-                     jo_string(j, "complete", ota_partition->label);
-                     revk_info_clients("upgrade", &j, -1);      // Send from target device so cloud knows target is upgraded
-                     esp_ota_set_boot_partition(ota_partition);
-                     revk_restart("OTA", 3);
-                  }
-                  ota_partition = NULL;
-                  ota_size = 0;
-                  ota_ack = 0xA0 + (*data.data & 0xF);
+                  jo_t j = jo_make(NULL);
+                  jo_int(j, "size", ota_size);
+                  jo_string(j, "complete", ota_partition->label);
+                  revk_info_clients("upgrade", &j, -1); // Send from target device so cloud knows target is upgraded
+                  esp_ota_set_boot_partition(ota_partition);
+                  revk_restart("OTA", 3);
                }
-               send_ack();
-               break;
-            case 0xA:          // Ack
-               if (esp_mesh_is_root() && !memcmp(&mesh_ota_addr, &from, sizeof(mesh_ota_addr)) && mesh_ota_ack && mesh_ota_ack == *data.data)
-               {
-                  mesh_ota_ack = 0;
-                  xSemaphoreGive(mesh_ota_sem);
-               }                // else ESP_LOGI(TAG, "Extra ack %02X", *data.data);
-               break;
+               ota_partition = NULL;
+               ota_size = 0;
+               ota_ack = 0xA0 + (*data.data & 0xF);
             }
-         } else if (data.proto == MESH_PROTO_MQTT)
-         {
-            if (mesh_decode(&from, &data))
-               continue;
-            char *e = (char *) data.data + data.size;
-            char *topic = (char *) data.data;
-            uint8_t tag = *topic++;
-            char *payload = topic;
-            while (payload < e && *payload)
-               payload++;
-            if (payload == e)
-               continue;        // We expect topic ending in NULL
-            payload++;          // Clear the null
-            if (esp_mesh_is_root())
-            {                   // To root: tag is client bit map of which external MQTT server to send to
-               if (memcmp(from.addr, revk_mac, 6))
-               {                // From us is exception, we would have sent direct
-                  for (int client = 0; client < MQTT_CLIENTS; client++)
-                     if (tag & (1 << client))
-                        lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, tag >> 7);      // Out
-               }
-            } else
-            {                   // To leaf: tag is client ID
-               ESP_LOGD(TAG, "Mesh Rx MQTT%02X %s: %s %.*s", tag, mac, topic, (int) (e - payload), payload);
-               mqtt_rx((void *) (int) tag, topic, e - payload, (void *) payload);       // In
-            }
-         } else if (data.proto == MESH_PROTO_JSON)
-         {                      // Internal message
-            if (mesh_decode(&from, &data))
-               continue;
-            ESP_LOGD(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
-            jo_t j = jo_parse_mem(data.data, data.size + 1);    // Include the null
-            if (app_callback)
-               app_callback(0, "mesh", mac, NULL, j);
-            jo_free(&j);
+            send_ack();
+            break;
+         case 0xA:             // Ack
+            if (esp_mesh_is_root() && !memcmp(&mesh_ota_addr, &from, sizeof(mesh_ota_addr)) && mesh_ota_ack && mesh_ota_ack == *data.data)
+            {
+               mesh_ota_ack = 0;
+               xSemaphoreGive(mesh_ota_sem);
+            }                   // else ESP_LOGI(TAG, "Extra ack %02X", *data.data);
+            break;
          }
+      } else if (data.proto == MESH_PROTO_MQTT)
+      {
+         if (mesh_decode(&from, &data))
+            continue;
+         char *e = (char *) data.data + data.size;
+         char *topic = (char *) data.data;
+         uint8_t tag = *topic++;
+         char *payload = topic;
+         while (payload < e && *payload)
+            payload++;
+         if (payload == e)
+            continue;           // We expect topic ending in NULL
+         payload++;             // Clear the null
+         if (esp_mesh_is_root())
+         {                      // To root: tag is client bit map of which external MQTT server to send to
+            if (memcmp(from.addr, revk_mac, 6))
+            {                   // From us is exception, we would have sent direct
+               for (int client = 0; client < MQTT_CLIENTS; client++)
+                  if (tag & (1 << client))
+                     lwmqtt_send_full(mqtt_client[client], -1, topic, e - payload, (void *) payload, tag >> 7); // Out
+            }
+         } else
+         {                      // To leaf: tag is client ID
+            ESP_LOGD(TAG, "Mesh Rx MQTT%02X %s: %s %.*s", tag, mac, topic, (int) (e - payload), payload);
+            mqtt_rx((void *) (int) tag, topic, e - payload, (void *) payload);  // In
+         }
+      } else if (data.proto == MESH_PROTO_JSON)
+      {                         // Internal message
+         if (mesh_decode(&from, &data))
+            continue;
+         ESP_LOGD(TAG, "Mesh Rx JSON %s: %.*s", mac, data.size, (char *) data.data);
+         jo_t j = jo_parse_mem(data.data, data.size + 1);       // Include the null
+         if (app_callback)
+            app_callback(0, "mesh", mac, NULL, j);
+         jo_free(&j);
       }
    }
    vTaskDelete(NULL);
