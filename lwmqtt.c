@@ -691,7 +691,7 @@ static void client_task(void *pvParameters)
          // May be better as a generic connect, and we are also rather assuming TLS ^ will connect IPv6 is available
          int tryconnect(int fam) {
             if (handle->sock >= 0)
-               return 0;          // connected
+               return 0;        // connected
           struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
             struct addrinfo *a = 0,
                 *p = NULL;
@@ -715,7 +715,7 @@ static void client_task(void *pvParameters)
             freeaddrinfo(a);
             return 1;
          }
-         if (!tryconnect(AF_INET6) || uptime() > 20) // Gives IPv6 a chance to actually get started if there is IPv6 DNS for this.
+         if (!tryconnect(AF_INET6) || uptime() > 20)    // Gives IPv6 a chance to actually get started if there is IPv6 DNS for this.
             tryconnect(AF_INET);
          if (handle->sock < 0)
             ESP_LOGD(TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
@@ -731,10 +731,10 @@ static void client_task(void *pvParameters)
       }
       if (!handle->running)
          break;                 // client was stopped
-      if (handle->backoff < 60)
+      if (handle->backoff < 600)
          handle->backoff *= 2;
-      ESP_LOGI(TAG, "Waiting %d (mem:%ld)", handle->backoff, esp_get_free_heap_size());
-      sleep(handle->backoff);
+      ESP_LOGI(TAG, "Waiting %d (mem:%ld)", handle->backoff / 10, esp_get_free_heap_size());
+      sleep(handle->backoff < 10 ? 1 : handle->backoff / 10);
    }
    handle_free(handle);
    vTaskDelete(NULL);
