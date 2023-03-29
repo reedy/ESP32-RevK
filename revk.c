@@ -3706,6 +3706,7 @@ static const char *revk_upgrade(const char *target, jo_t j)
          .trigger_panic = true,
       };
       esp_task_wdt_reconfigure(&config);
+      revk_restart("Download started", 10);     // Restart if download does not happen properly
    }
 #ifdef	CONFIG_NIMBLE_ENABLED
    esp_bt_controller_disable(); // Kill bluetooth during download
