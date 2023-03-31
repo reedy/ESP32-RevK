@@ -102,21 +102,21 @@ esp_err_t revk_err_check(esp_err_t e);
 // Make a task
 TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);
 
-// reporting via main MQTT, copy option is how many additional MQTT to copy, normally 0 or 1. Setting -N means send only to specific additional MQTT
-void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, uint8_t clients);
-void revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients);
-void revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients);
+// reporting via main MQTT, copy option is how many additional MQTT to copy, normally 0 or 1. Setting -N means send only to specific additional MQTT, return NULL for no error
+const char* revk_mqtt_send_raw(const char *topic, int retain, const char *payload, uint8_t clients);
+const char* revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients);
+const char* revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients);
 #define	revk_mqtt_send_str(s) revk_mqtt_send_str_clients(s,0,1);
-void revk_state_clients(const char *suffix, jo_t *, uint8_t clients);
+const char* revk_state_clients(const char *suffix, jo_t *, uint8_t clients);
 #define revk_state(t,j) revk_state_clients(t,j,1)
-void revk_event_clients(const char *suffix, jo_t *, uint8_t clients);
+const char* revk_event_clients(const char *suffix, jo_t *, uint8_t clients);
 #define revk_event(t,j) revk_event_clients(t,j,1)
-void revk_error_clients(const char *suffix, jo_t *, uint8_t clients);
+const char* revk_error_clients(const char *suffix, jo_t *, uint8_t clients);
 #define revk_error(t,j) revk_error_clients(t,j,1)
-void revk_info_clients(const char *suffix, jo_t *, uint8_t clients);
+const char* revk_info_clients(const char *suffix, jo_t *, uint8_t clients);
 #define revk_info(t,j) revk_info_clients(t,j,1)
 
-void revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients);
+const char* revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients);
 #define revk_mqtt_send(p,r,t,j) revk_mqtt_send_clients(p,r,t,j,1)
 
 const char *revk_setting(jo_t); // Store settings

@@ -1865,8 +1865,10 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp)
 #ifdef	CONFIG_REVK_MQTT
 const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen, const unsigned char *payload, char retain)
 {
-   if (!clients || link_down)
+   if (!clients)
       return NULL;
+   if (link_down)
+      return "Link down";
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_device_active() && !esp_mesh_is_root())
    {                            // Send via mesh
@@ -1885,15 +1887,17 @@ const char *revk_mqtt_out(uint8_t clients, int tlen, const char *topic, int plen
 }
 #endif
 
-void revk_mqtt_send_raw(const char *topic, int retain, const char *payload, uint8_t clients)
+const char *revk_mqtt_send_raw(const char *topic, int retain, const char *payload, uint8_t clients)
 {
 #ifdef	CONFIG_REVK_MQTT
    ESP_LOGD(TAG, "MQTT%02X publish %s (%s)", clients, topic ? : "-", payload);
-   revk_mqtt_out(clients, -1, topic, -1, (void *) payload, retain);
+   return revk_mqtt_out(clients, -1, topic, -1, (void *) payload, retain);
+#else
+   return "No MQTT";
 #endif
 }
 
-void revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients)
+const char *revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients)
 {
 #ifdef	CONFIG_REVK_MQTT
    const char *e = str;
@@ -1903,7 +1907,9 @@ void revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clients)
    if (*p)
       p++;
    ESP_LOGD(TAG, "MQTT%02X publish %.*s (%s)", clients, e - str, str, p);
-   revk_mqtt_out(clients, e - str, str, -1, (void *) p, retain);
+   return revk_mqtt_out(clients, e - str, str, -1, (void *) p, retain);
+#else
+   return "No MQTT";
 #endif
 }
 
@@ -1921,13 +1927,16 @@ void revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *
       topic = NULL;
    if (!topic)
       return;
-   revk_mqtt_send_raw(topic, retain, payload, clients);
+   const char *er = revk_mqtt_send_raw(topic, retain, payload, clients);
    if (topic != suffix)
       freez(topic);
+   return er;
+#else
+   return "No MQTT";
 #endif
 }
 
-void revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients)
+const char *revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients)
 {
    if (!jp)
       return;
@@ -1941,39 +1950,40 @@ void revk_mqtt_send_clients(const char *prefix, int retain, const char *suffix, 
    {
       char *payload = jo_finisha(jp);
       if (payload)
-         revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
+         err = revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
       freez(payload);
    } else
    {                            // Static
       char *payload = jo_finish(jp);
       if (payload)
-         revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
+         err = revk_mqtt_send_payload_clients(prefix, retain, suffix, payload, clients);
    }
+   return err;
 }
 
-void revk_state_clients(const char *suffix, jo_t * jp, uint8_t clients)
+const char *revk_state_clients(const char *suffix, jo_t * jp, uint8_t clients)
 {                               // State message (retained)
-   revk_mqtt_send_clients(prefixstate, 1, suffix, jp, clients);
+   return revk_mqtt_send_clients(prefixstate, 1, suffix, jp, clients);
 }
 
-void revk_event_clients(const char *suffix, jo_t * jp, uint8_t clients)
+const char *revk_event_clients(const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Event message (may one day create log entries)
-   revk_mqtt_send_clients(prefixevent, 0, suffix, jp, clients);
+   return revk_mqtt_send_clients(prefixevent, 0, suffix, jp, clients);
 }
 
-void revk_error_clients(const char *suffix, jo_t * jp, uint8_t clients)
+const char *revk_error_clients(const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Error message, waits a while for connection if possible before sending
    xEventGroupWaitBits(revk_group,
 #ifdef	CONFIG_REVK_WIFI
                        GROUP_WIFI |
 #endif
                        GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);
-   revk_mqtt_send_clients(prefixerror, 0, suffix, jp, clients);
+   return revk_mqtt_send_clients(prefixerror, 0, suffix, jp, clients);
 }
 
-void revk_info_clients(const char *suffix, jo_t * jp, uint8_t clients)
+const char *revk_info_clients(const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Info message, nothing special
-   revk_mqtt_send_clients(prefixinfo, 0, suffix, jp, clients);
+   return revk_mqtt_send_clients(prefixinfo, 0, suffix, jp, clients);
 }
 
 const char *revk_restart(const char *reason, int delay)
