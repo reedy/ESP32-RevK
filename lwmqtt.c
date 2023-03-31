@@ -731,10 +731,12 @@ static void client_task(void *pvParameters)
       }
       if (!handle->running)
          break;                 // client was stopped
-      if (handle->backoff < 600)
+      if (handle->backoff < 128)
          handle->backoff *= 2;
-      ESP_LOGI(TAG, "Waiting %d (mem:%ld)", handle->backoff / 10, esp_get_free_heap_size());
-      sleep(handle->backoff < 10 ? 1 : handle->backoff / 10);
+      else
+         handle->backoff = 255;
+      ESP_LOGI(TAG, "Waiting %d (mem:%ld)", handle->backoff / 5, esp_get_free_heap_size());
+      sleep(handle->backoff < 5 ? 1 : handle->backoff / 5);
    }
    handle_free(handle);
    vTaskDelete(NULL);
