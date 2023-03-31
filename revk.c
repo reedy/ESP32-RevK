@@ -1926,7 +1926,7 @@ const char * revk_mqtt_send_payload_clients(const char *prefix, int retain, cons
    else if (asprintf(&topic, suffix ? "%s%s%s/%s/%s" : "%s%s%s/%s", prefix, sl, an, *hostname ? hostname : revk_id, suffix) < 0)
       topic = NULL;
    if (!topic)
-      return;
+      return "No topic";
    const char *er = revk_mqtt_send_raw(topic, retain, payload, clients);
    if (topic != suffix)
       freez(topic);
