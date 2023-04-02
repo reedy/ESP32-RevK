@@ -1913,7 +1913,7 @@ const char *revk_mqtt_send_str_clients(const char *str, int retain, uint8_t clie
 #endif
 }
 
-const char * revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients)
+const char *revk_mqtt_send_payload_clients(const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients)
 {                               // Send to main, and N additional MQTT servers, or only to extra server N if copy -ve
 #ifdef	CONFIG_REVK_MQTT
    const char *an = appname,
@@ -3709,15 +3709,18 @@ static const char *revk_upgrade(const char *target, jo_t j)
 {                               // Upgrade command
    if (ota_task_id)
       return "OTA running";
-   if (watchdogtime)
-   {                            /* Watchdog */
-      esp_task_wdt_config_t config = {
-         .timeout_ms = 120 * 1000,
-         .trigger_panic = true,
-      };
-      esp_task_wdt_reconfigure(&config);
-      revk_restart("Download started", 10);     // Restart if download does not happen properly
-   }
+#ifdef CONFIG_REVK_MESH
+   if (!target)                 // Us
+#endif
+      if (watchdogtime)
+      {                         /* Watchdog */
+         esp_task_wdt_config_t config = {
+            .timeout_ms = 120 * 1000,
+            .trigger_panic = true,
+         };
+         esp_task_wdt_reconfigure(&config);
+         revk_restart("Download started", 10);  // Restart if download does not happen properly
+      }
 #ifdef	CONFIG_NIMBLE_ENABLED
    esp_bt_controller_disable(); // Kill bluetooth during download
    esp_wifi_set_ps(WIFI_PS_NONE);       // Full wifi
