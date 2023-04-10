@@ -776,7 +776,7 @@ static void mesh_init(void)
       }
       REVK_ERR_CHECK(esp_mesh_set_config(&cfg));
       if (meshmax)
-         REVK_ERR_CHECK(esp_mesh_set_capacity_num(meshmax));
+         REVK_ERR_CHECK(esp_mesh_set_capacity_num(meshmax + 10));       // Adding a few is to try and make mesh set up more stable when switching modes, etc, experimental
       REVK_ERR_CHECK(esp_mesh_disable_ps());
       if (meshmax == 1 || meshroot)
          esp_mesh_set_type(MESH_ROOT);  // We are forcing root
