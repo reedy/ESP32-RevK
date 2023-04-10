@@ -1697,7 +1697,8 @@ void revk_boot(app_callback_t * app_callback_cb)
          .timeout_ms = watchdogtime * 1000,
          .trigger_panic = true,
       };
-      esp_task_wdt_init(&config);
+      if (esp_task_wdt_init(&config))
+         esp_task_wdt_reconfigure(&config);
    }
    REVK_ERR_CHECK(nvs_open(app->project_name, NVS_READWRITE, &nvs));
    /* Application specific settings */
