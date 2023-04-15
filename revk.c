@@ -2196,8 +2196,10 @@ revk_web_config (httpd_req_t * req)
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
       httpd_resp_sendstr_chunk (req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
 #endif
-      httpd_resp_sendstr_chunk (req, "><input name=\"upgrade\" type=submit value=\"Upgrade\"> ");
+      httpd_resp_sendstr_chunk (req, "><input name=\"upgrade\" type=submit value=\"Upgrade\"> from ");
       httpd_resp_sendstr_chunk (req, otahost);
+      httpd_resp_sendstr_chunk (req, " current version ");
+      httpd_resp_sendstr_chunk (req, revk_version);
       httpd_resp_sendstr_chunk (req, "</form>");
    }
    httpd_resp_sendstr_chunk (req, "<form name=WIFI");
