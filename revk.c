@@ -2562,6 +2562,16 @@ dummy_dns_task (void *pvParameters)
 }
 #endif
 
+void
+httpd_close_cb (httpd_handle_t hd, int sockfd)
+{
+   struct linger so_linger;
+   so_linger.l_onoff = true;
+   so_linger.l_linger = 0;
+   setsocketopt (sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof (so_linger));
+   close (sockfd);
+}
+
 #ifdef	CONFIG_REVK_APMODE
 static void
 ap_start (void)
@@ -2599,6 +2609,7 @@ ap_start (void)
 #ifdef	CONFIG_REVK_APCONFIG
    // Web server
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   config.close_fn = httpd_close_cb;
    if (apport)
       config.server_port = apport;
    /* Empty handle to esp_http_server */
@@ -3808,15 +3819,15 @@ revk_upgrade (const char *target, jo_t j)
 #ifdef CONFIG_REVK_MESH
    if (!target)                 // Us
 #endif
-      {                         /* Watchdog */
-         ESP_LOGI (TAG, "Resetting watchdog");
-         esp_task_wdt_config_t config = {
-            .timeout_ms = 120 * 1000,
-            .trigger_panic = true,
-         };
-         REVK_ERR_CHECK (esp_task_wdt_reconfigure (&config));
-         revk_restart ("Download started", 10); // Restart if download does not happen properly
-      }
+   {                            /* Watchdog */
+      ESP_LOGI (TAG, "Resetting watchdog");
+      esp_task_wdt_config_t config = {
+         .timeout_ms = 120 * 1000,
+         .trigger_panic = true,
+      };
+      REVK_ERR_CHECK (esp_task_wdt_reconfigure (&config));
+      revk_restart ("Download started", 10);    // Restart if download does not happen properly
+   }
 #ifdef	CONFIG_NIMBLE_ENABLED
    ESP_LOGI (TAG, "Stopping any BLE");
    esp_bt_controller_disable ();        // Kill bluetooth during download
