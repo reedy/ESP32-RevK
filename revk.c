@@ -3805,6 +3805,20 @@ revk_upgrade (const char *target, jo_t j)
 {                               // Upgrade command
    if (ota_task_id)
       return "OTA running";
+#ifdef CONFIG_REVK_MESH
+   if (!target)                 // Us
+#endif
+      if (watchdogtime)
+      {                         /* Watchdog */
+         ESP_LOGI (TAG, "Resetting watchdog");
+         esp_task_wdt_reset ();
+         esp_task_wdt_config_t config = {
+            .timeout_ms = 120 * 1000,
+            .trigger_panic = true,
+         };
+         REVK_ERR_CHECK (esp_task_wdt_reconfigure (&config));
+         revk_restart ("Download started", 10); // Restart if download does not happen properly
+      }
 #ifdef	CONFIG_NIMBLE_ENABLED
    ESP_LOGI (TAG, "Stopping any BLE");
    esp_bt_controller_disable ();        // Kill bluetooth during download
@@ -3812,19 +3826,6 @@ revk_upgrade (const char *target, jo_t j)
    esp_wifi_set_ps (WIFI_PS_NONE);      // Full wifi
    revk_restart ("Download started", 10);       // Restart if download does not happen properly
 #endif
-#ifdef CONFIG_REVK_MESH
-   if (!target)                 // Us
-#endif
-      if (watchdogtime)
-      {                         /* Watchdog */
-         ESP_LOGI (TAG, "Resetting watchdog");
-         esp_task_wdt_config_t config = {
-            .timeout_ms = 120 * 1000,
-            .trigger_panic = true,
-         };
-         esp_task_wdt_reconfigure (&config);
-         revk_restart ("Download started", 10); // Restart if download does not happen properly
-      }
 #ifdef CONFIG_REVK_MESH
    if (!esp_mesh_is_root ())
       return "";                // OK will be done by root and sent via MESH
