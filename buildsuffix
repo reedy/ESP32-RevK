@@ -33,13 +33,15 @@ grep -q CONFIG_ESP32_SPIRAM_SUPPORT=y "$SDKCONFIG"
 if(! $status) 	setenv	SUFFIX	"$SUFFIX-PICO"
 endif
 
-# Min rev build
-grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
-if(! $status) 	setenv	SUFFIX	"$SUFFIX-V3"
+# Min rev build (default now V3)
+#grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
+#if(! $status) 	setenv	SUFFIX	"$SUFFIX-V3"
 grep -q CONFIG_ESP32_REV_MIN_2=y "$SDKCONFIG"
 if(! $status) 	setenv	SUFFIX	"$SUFFIX-V2"
 grep -q CONFIG_ESP32_REV_MIN_1=y "$SDKCONFIG"
 if(! $status) 	setenv	SUFFIX	"$SUFFIX-V1"
+grep -q CONFIG_ESP32_REV_MIN_0=y "$SDKCONFIG"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-V0"
 
 set bs=(`grep _BUILD_SUFFIX_ sdkconfig | sed 's/.*\(CONFIG_[A-Z0-9_]*_BUILD_SUFFIX_[A-Z0-9]*\).*/\1/'`)
 foreach c ($bs)
