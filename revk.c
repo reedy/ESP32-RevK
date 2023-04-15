@@ -2267,7 +2267,7 @@ revk_web_config (httpd_req_t * req)
                              "});"      //
                              "}"        //
                              "</script>");
-   httpd_resp_sendstr_chunk (req, "</body></html>");
+   httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
    return ESP_OK;
 }
