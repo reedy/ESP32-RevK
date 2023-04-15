@@ -152,5 +152,4 @@ esp_err_t revk_web_config_stop(httpd_handle_t webserver); // Remove URLs
 esp_err_t revk_web_config(httpd_req_t * req);   // Call for web config for SSID/password/mqtt
 esp_err_t revk_web_wifilist(httpd_req_t * req); // WS for list of SSIDs
 #endif
-void httpd_close_cb(httpd_handle_t hd, int sockfd);
 #endif

@@ -2562,16 +2562,6 @@ dummy_dns_task (void *pvParameters)
 }
 #endif
 
-void
-httpd_close_cb (httpd_handle_t hd, int sockfd)
-{
-   struct linger so_linger;
-   so_linger.l_onoff = true;
-   so_linger.l_linger = 0;
-   setsocketopt (sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof (so_linger));
-   close (sockfd);
-}
-
 #ifdef	CONFIG_REVK_APMODE
 static void
 ap_start (void)
@@ -2609,7 +2599,6 @@ ap_start (void)
 #ifdef	CONFIG_REVK_APCONFIG
    // Web server
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
-   config.close_fn = httpd_close_cb;
    if (apport)
       config.server_port = apport;
    /* Empty handle to esp_http_server */
