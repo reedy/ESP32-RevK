@@ -3808,10 +3808,8 @@ revk_upgrade (const char *target, jo_t j)
 #ifdef CONFIG_REVK_MESH
    if (!target)                 // Us
 #endif
-      if (watchdogtime)
       {                         /* Watchdog */
          ESP_LOGI (TAG, "Resetting watchdog");
-         esp_task_wdt_reset ();
          esp_task_wdt_config_t config = {
             .timeout_ms = 120 * 1000,
             .trigger_panic = true,
