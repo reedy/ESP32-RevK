@@ -4193,7 +4193,7 @@ revk_build_date (char d[20])
    const char *v = app->date;
    if (!v || strlen (v) != 11)
       return NULL;
-   snprintf (d, 20, "%.4s-xx-%.2sT%s", v + 7, v + 4, app->time);
+   snprintf (d, 20, "%.4s-xx-%.2sT%.8s", v + 7, v + 4, app->time);
    const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
    for (int m = 0; m < 12; m++)
       if (!strncmp (mname + m * 3, v, 3))
