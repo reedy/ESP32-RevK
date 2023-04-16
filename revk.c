@@ -1720,7 +1720,7 @@ revk_boot (app_callback_t * app_callback_cb)
          .timeout_ms = watchdogtime * 1000,
          .trigger_panic = true,
       };
-#ifndef	ESP_TASK_WDT_INIT
+#ifndef	CONFIG_ESP_TASK_WDT_INIT
       if (esp_task_wdt_init (&config))
 #endif
          esp_task_wdt_reconfigure (&config);
