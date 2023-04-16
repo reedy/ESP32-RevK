@@ -2231,7 +2231,7 @@ revk_web_config (httpd_req_t * req)
                              "var f=document.WIFI;"     //
                              "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');"        //
                              "ws.onclose=function(e){document.getElementById('set').style.visibility='hidden';};"       //
-			     "ws.onerror=function(e){ws.close();};"	//
+                             "ws.onerror=function(e){ws.close();};"     //
                              "ws.onmessage=function(e){"        //
                              "o=JSON.parse(e.data);"    //
                              "if(typeof o === 'string')document.getElementById('msg').textContent=o;"   //
@@ -4146,13 +4146,19 @@ revk_link_down (void)
 #endif
 
 uint32_t
-revk_shutting_down (void)
+revk_shutting_down (const char **reason)
 {
    if (!restart_time)
+   {
+      if (*reason)
+         *reason = NULL;
       return 0;
+   }
    int left = restart_time - uptime ();
    if (left <= 0)
       left = 1;
+   if (reason)
+      *reason = restart_reason;
    return left;
 }
 
