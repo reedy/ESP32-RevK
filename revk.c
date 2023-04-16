@@ -4181,3 +4181,28 @@ jo_make (const char *node)
       jo_string (j, "node", nodename);
    return j;
 }
+
+const char *
+revk_build_date (char d[20])
+{
+   if (!d)
+      return NULL;
+   const esp_app_desc_t *app = esp_app_get_description ();
+   if (!app)
+      return NULL;
+   const char *v = app->date;
+   if (!v || strlen (v) != 11)
+      return NULL;
+   snprintf (d, sizeof (d), "%.4s-xx-%.2sT%s", v + 7, v + 4, app->time);
+   const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+   for (int m = 0; m < 12; m++)
+      if (!strncmp (mname + m * 3, v, 3))
+      {
+         d[5] = '0' + (m + 1) / 10;
+         d[6] = '0' + (m + 1) % 10;
+         break;
+      }
+   if (d[8] == ' ')
+      d[8] = '0';
+   return d;
+}

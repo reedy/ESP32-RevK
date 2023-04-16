@@ -124,6 +124,7 @@ const char *revk_command(const char *tag, jo_t);        // Do an internal comman
 const char *revk_restart(const char *reason, int delay);        // Restart cleanly
 const char *revk_ota(const char *host, const char *target);     // OTA and restart cleanly (target NULL for self as root node)
 uint32_t revk_shutting_down(void); // If we are shutting down (how many seconds to go)
+const char *revk_build_date(char d[20]); // Get build date ISO formatted
 
 #ifdef	CONFIG_REVK_MQTT
 void revk_mqtt_init(void);
