@@ -2169,14 +2169,8 @@ revk_web_config (httpd_req_t * req)
 #endif
    httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
-   httpd_resp_sendstr_chunk (req, appname);
+   httpd_resp_sendstr_chunk (req, *hostname?hostname:revk_id);
    httpd_resp_sendstr_chunk (req, "</h1>");
-   if (*hostname)
-   {
-      httpd_resp_sendstr_chunk (req, "<p>");
-      httpd_resp_sendstr_chunk (req, hostname);
-      httpd_resp_sendstr_chunk (req, "</p>");
-   }
    if (!revk_link_down ())
    {
       char temp[20];
@@ -2184,13 +2178,9 @@ revk_web_config (httpd_req_t * req)
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
       httpd_resp_sendstr_chunk (req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
 #endif
-      httpd_resp_sendstr_chunk (req, "><input name=\"upgrade\" type=submit value=\"Upgrade\"> from ");
+      httpd_resp_sendstr_chunk (req, "><input name=\"upgrade\" type=submit value=\"Upgrade\"> from <i>");
       httpd_resp_sendstr_chunk (req, otahost);
-      httpd_resp_sendstr_chunk (req, " current version ");
-      httpd_resp_sendstr_chunk (req, revk_version);
-      httpd_resp_sendstr_chunk (req, " ");
-      httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
-      httpd_resp_sendstr_chunk (req, "</form>");
+      httpd_resp_sendstr_chunk (req, "</i></form>");
    }
    httpd_resp_sendstr_chunk (req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
@@ -2257,7 +2247,13 @@ revk_web_config (httpd_req_t * req)
                              "});"      //
                              "}"        //
                              "</script>");
-   httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p></body></html>");
+   httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p><hr><address>");
+   httpd_resp_sendstr_chunk (req, appname);
+   httpd_resp_sendstr_chunk (req, ": ");
+   httpd_resp_sendstr_chunk (req, revk_version);
+   httpd_resp_sendstr_chunk (req, " ");
+   httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
+   httpd_resp_sendstr_chunk (req, "</address></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
    return ESP_OK;
 }
