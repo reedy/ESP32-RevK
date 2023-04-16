@@ -2230,7 +2230,7 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
                              "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');"        //
-                             "ws.onclose=function(e){ws=undefined;document.getElementById('set').style.visibility='hidden';};"       //
+                             "ws.onclose=function(e){ws=undefined;document.getElementById('set').style.visibility='hidden';};"  //
                              "ws.onerror=function(e){ws.close();};"     //
                              "ws.onmessage=function(e){"        //
                              "o=JSON.parse(e.data);"    //
@@ -2763,6 +2763,10 @@ ota_task (void *pvParameters)
                   break;
                if ((err = REVK_ERR_CHECK (esp_ota_write (ota_handle, buf, len))))
                   break;
+               if (!ota_data)
+                  revk_restart ("OTA Download started", 10);
+               else if (ota_data < ota_size / 2 && (ota_data + len) >= ota_size / 2)
+                  revk_restart ("OTA Download progress", 10);
                ota_data += len;
                now = uptime ();
                int percent = ota_data * 100 / ota_size;
@@ -2785,7 +2789,7 @@ ota_task (void *pvParameters)
                jo_string (j, "complete", ota_partition->label);
                revk_info_clients ("upgrade", &j, -1);
                esp_ota_set_boot_partition (ota_partition);
-               revk_restart ("OTA", 3);
+               revk_restart ("OTA Download complete", 3);
             }
          }
 #endif
@@ -3806,14 +3810,13 @@ revk_upgrade (const char *target, jo_t j)
          .trigger_panic = true,
       };
       REVK_ERR_CHECK (esp_task_wdt_reconfigure (&config));
-      revk_restart ("Download started", 10);    // Restart if download does not happen properly
-   }
+      revk_restart ("OTA Download", 10);        // Restart if download does not happen properly
 #ifdef	CONFIG_NIMBLE_ENABLED
-   ESP_LOGI (TAG, "Stopping any BLE");
-   esp_bt_controller_disable ();        // Kill bluetooth during download
-   esp_wifi_set_ps (WIFI_PS_NONE);      // Full wifi
-   revk_restart ("Download started", 10);       // Restart if download does not happen properly
+      ESP_LOGI (TAG, "Stopping any BLE");
+      esp_bt_controller_disable ();     // Kill bluetooth during download
+      esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
 #endif
+   }
 #ifdef CONFIG_REVK_MESH
    if (!esp_mesh_is_root ())
       return "";                // OK will be done by root and sent via MESH
