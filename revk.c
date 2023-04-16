@@ -3810,7 +3810,6 @@ revk_upgrade (const char *target, jo_t j)
 #ifdef	CONFIG_NIMBLE_ENABLED
    ESP_LOGI (TAG, "Stopping any BLE");
    esp_bt_controller_disable ();        // Kill bluetooth during download
-   sleep (1);
    esp_wifi_set_ps (WIFI_PS_NONE);      // Full wifi
    revk_restart ("Download started", 10);       // Restart if download does not happen properly
 #endif
