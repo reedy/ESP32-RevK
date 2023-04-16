@@ -2231,7 +2231,7 @@ revk_web_config (httpd_req_t * req)
                              "var f=document.WIFI;"     //
                              "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');"        //
                              "ws.onclose=function(e){document.getElementById('set').style.visibility='hidden';};"       //
-                             "ws.onerror=function(e){ws.close();};"     //
+                             "ws.onerror=function(e){this.close();};"     //
                              "ws.onmessage=function(e){"        //
                              "o=JSON.parse(e.data);"    //
                              "if(typeof o === 'string')document.getElementById('msg').textContent=o;"   //
