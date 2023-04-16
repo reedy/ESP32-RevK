@@ -1465,30 +1465,17 @@ task (void *pvParameters)
                   jo_string (j, "app", appname);
                   jo_string (j, "version", revk_version);
                   jo_string (j, "build-suffix", revk_build_suffix);
-                  const esp_app_desc_t *app = esp_app_get_description ();
-                  const char *v = app->date;
-                  if (v && strlen (v) == 11)
                   {             // Stupid format Jul 10 2021
-                     char date[11];
-                     sprintf (date, "%s-xx-%.2s", v + 7, v + 4);
-                     const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
-                     for (int m = 0; m < 12; m++)
-                        if (!strncmp (mname + m * 3, v, 3))
-                        {
-                           date[5] = '0' + (m + 1) / 10;
-                           date[6] = '0' + (m + 1) % 10;
-                           break;
-                        }
-                     if (date[8] == ' ')
-                        date[8] = '0';
-                     jo_stringf (j, "build", "%sT%s", date, app->time);
-                     {
-                        uint32_t size_flash_chip;
-                        esp_flash_get_size (NULL, &size_flash_chip);
-                        jo_int (j, "flash", size_flash_chip);
-                     }
-                     jo_int (j, "rst", esp_reset_reason ());
+                     char temp[20];
+                     if (revk_build_date (temp))
+                        jo_string (j, "build", temp);
                   }
+                  {
+                     uint32_t size_flash_chip;
+                     esp_flash_get_size (NULL, &size_flash_chip);
+                     jo_int (j, "flash", size_flash_chip);
+                  }
+                  jo_int (j, "rst", esp_reset_reason ());
                }
                if (!up_next || heap / 10000 < lastheap / 10000)
                   jo_int (j, "mem", esp_get_free_heap_size ());
@@ -2192,6 +2179,7 @@ revk_web_config (httpd_req_t * req)
    }
    if (!revk_link_down ())
    {
+      char temp[20];
       httpd_resp_sendstr_chunk (req, "<form ");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
       httpd_resp_sendstr_chunk (req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
@@ -2200,6 +2188,8 @@ revk_web_config (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req, otahost);
       httpd_resp_sendstr_chunk (req, " current version ");
       httpd_resp_sendstr_chunk (req, revk_version);
+      httpd_resp_sendstr_chunk (req, " ");
+      httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
       httpd_resp_sendstr_chunk (req, "</form>");
    }
    httpd_resp_sendstr_chunk (req, "<form name=WIFI");
