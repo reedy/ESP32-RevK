@@ -4150,7 +4150,7 @@ revk_shutting_down (const char **reason)
 {
    if (!restart_time)
    {
-      if (*reason)
+      if (reason)
          *reason = NULL;
       return 0;
    }
