@@ -2230,8 +2230,8 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
                              "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');"        //
-                             "ws.onclose=function(e){document.getElementById('set').style.visibility='hidden';};"       //
-                             "ws.onerror=function(e){this.close();};"     //
+                             "ws.onclose=function(e){ws=undefined;document.getElementById('set').style.visibility='hidden';};"       //
+                             "ws.onerror=function(e){ws.close();};"     //
                              "ws.onmessage=function(e){"        //
                              "o=JSON.parse(e.data);"    //
                              "if(typeof o === 'string')document.getElementById('msg').textContent=o;"   //
