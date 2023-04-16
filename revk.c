@@ -2169,11 +2169,10 @@ revk_web_config (httpd_req_t * req)
 #endif
    httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
-   httpd_resp_sendstr_chunk (req, *hostname?hostname:revk_id);
+   httpd_resp_sendstr_chunk (req, *hostname ? hostname : revk_id);
    httpd_resp_sendstr_chunk (req, "</h1>");
    if (!revk_link_down ())
    {
-      char temp[20];
       httpd_resp_sendstr_chunk (req, "<form ");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
       httpd_resp_sendstr_chunk (req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
@@ -2252,6 +2251,7 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, ": ");
    httpd_resp_sendstr_chunk (req, revk_version);
    httpd_resp_sendstr_chunk (req, " ");
+   char temp[20];
    httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
    httpd_resp_sendstr_chunk (req, "</address></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
