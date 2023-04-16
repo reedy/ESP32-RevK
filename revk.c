@@ -1778,7 +1778,7 @@ revk_boot (app_callback_t * app_callback_cb)
    revk_app = appname;
    char *d = strstr (revk_version, "-dirty");
    if (d)
-      asprintf ((char **) &revk_version, "%.*s+", d - revk_version, app->version, app->time);
+      asprintf ((char **) &revk_version, "%.*s+", d - revk_version, app->version);
    sntp_setoperatingmode (SNTP_OPMODE_POLL);
    setenv ("TZ", tz, 1);
    tzset ();
