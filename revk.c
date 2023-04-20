@@ -53,6 +53,13 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 //#ifndef       CONFIG_MBEDTLS_DYNAMIC_BUFFER
 //#warning CONFIG_MBEDTLS_DYNAMIC_BUFFER recommended
 //#endif
+
+#ifdef	CONFIG_LWIP_IPV6
+#ifndef CONFIG_LWIP_IPV6_AUTOCONFIG
+#warning No CONFIG_LWIP_IPV6_AUTOCONFIG
+#endif
+#endif
+
 #ifdef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
 #warning CONFIG_MBEDTLS_DYNAMIC_BUFFER is buggy, sadly
 #endif

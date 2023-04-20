@@ -40,10 +40,6 @@ static const char
 #warning MQTT server code is not complete
 #endif
 
-#ifndef	CONFIG_LWIP_IPV6_AUTOCONFIG
-#warning No CONFIG_LWIP_IPV6_AUTOCONFIG
-#endif
-
 uint32_t uptime(void)
 {
    return esp_timer_get_time() / 1000000LL ? : 1;
