@@ -597,8 +597,10 @@ setup_ip (void)
       esp_netif_dns_info_t dns = { };
       if (!esp_netif_str_to_ip4 (i, &dns.ip.u_addr.ip4))
          dns.ip.type = AF_INET;
+#ifdef	CONFIG_LWIP_IPV6
       else if (!esp_netif_str_to_ip6 (i, &dns.ip.u_addr.ip6))
          dns.ip.type = AF_INET6;
+#endif
       else
       {
          ESP_LOGE (TAG, "Bad DNS IP %s", i);
@@ -1163,7 +1165,9 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "STA Connected");
          xEventGroupSetBits (revk_group, GROUP_WIFI);
          xEventGroupClearBits (revk_group, GROUP_OFFLINE);
+#ifdef	CONFIG_LWIP_IPV6
          esp_netif_create_ip6_linklocal (sta_netif);
+#endif
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
          ESP_LOGI (TAG, "STA Disconnect");
@@ -1493,11 +1497,13 @@ task (void *pvParameters)
                      if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
                         jo_stringf (j, "ipv4", IPSTR, IP2STR (&ip.ip));
                   }
+#ifdef CONFIG_LWIP_IPV6
                   {
                      esp_ip6_addr_t ip;
                      if (!esp_netif_get_ip6_global (sta_netif, &ip) && ip.addr)
                         jo_stringf (j, "ipv6", IPV6STR, IPV62STR (ip));
                   }
+#endif
                }
                revk_state_clients (NULL, &j, -1);       // up message goes to all servers
                lastheap = heap;
