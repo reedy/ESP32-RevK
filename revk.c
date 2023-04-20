@@ -2127,7 +2127,7 @@ revk_web_config (httpd_req_t * req)
       {
          {
             char ug[10];
-            if (!httpd_query_key_value (query, "upgrade", ug, sizeof (uf)))
+            if (!httpd_query_key_value (query, "upgrade", ug, sizeof (ug)))
                revk_command ("upgrade", NULL);
          }
          {
