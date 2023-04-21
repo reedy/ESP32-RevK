@@ -1153,7 +1153,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "AP Start");
          if (app_callback)
          {
-            jo_t j = jo_create_alloc ();
+            jo_t j = jo_object_alloc ();
             jo_string (j, "ssid", apssid);
             jo_rewind (j);
             app_callback (0, prefixcommand, NULL, "ap", j);
