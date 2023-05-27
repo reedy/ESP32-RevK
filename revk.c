@@ -3911,7 +3911,7 @@ revk_upgrade_check (const char *url)
          jo_string (j, "was-time", app->time);
       }
       if (!ret)
-         jo_string (j, "complete", "No upgrade needed");
+         jo_bool (j, "up-to-date", 1);
    } else
       jo_int (j, "fail", ret);
    revk_info ("upgrade", &j);
