@@ -1,5 +1,8 @@
 #!/bin/csh -f
 
+# Force build date/time
+touch "${IDF_PATH}/components/esp_app_format/esp_app_desc.c"
+
 setenv	SUFFIX	""
 
 setenv SDKCONFIG "sdkconfig"
