@@ -1440,7 +1440,10 @@ task (void *pvParameters)
             else
             {                   // Do a check
                ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);     // Next check
-               revk_upgrade (NULL, NULL);       // Checks for upgrade
+#ifdef CONFIG_REVK_MESH
+               if (esp_mesh_is_root ())
+#endif
+                  revk_upgrade (NULL, NULL);    // Checks for upgrade
             }
          }
 #ifdef CONFIG_REVK_MESH
@@ -3939,15 +3942,15 @@ revk_upgrade (const char *target, jo_t j)
       memcpy (mesh_ota_addr.addr, revk_mac, 6); // Us
 #endif
    char *url = revk_upgrade_url (val);
-   if (revk_upgrade_check (url) <= 0)
-   {
-      free (url);
-      return "OTA up to date";
-   }
 #ifdef CONFIG_REVK_MESH
    if (!target)                 // Us
 #endif
-   {                            /* Watchdog */
+   {                            // Upgrading this device (upgrade check only works for this device as comparing this device details)
+      if (revk_upgrade_check (url) <= 0)
+      {
+         free (url);
+         return "OTA up to date";
+      }
       ESP_LOGI (TAG, "Resetting watchdog");
       esp_task_wdt_config_t config = {
          .timeout_ms = 120 * 1000,
