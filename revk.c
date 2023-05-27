@@ -1363,7 +1363,7 @@ task (void *pvParameters)
    int64_t tick = 0;
    uint32_t ota_check = 0;
    if (otaauto)
-      ota_check = esp_random () % (86400 * otaauto);
+      ota_check = 3600 + (esp_random () % (86400 * otaauto));
    while (1)
    {                            /* Idle */
       {                         // Fast (once per 100ms)
@@ -1431,10 +1431,17 @@ task (void *pvParameters)
       {                         // Slow (once a second)
          last = now;
          if (ota_check && ota_check < now)
-         {
-            if (otaauto)
-               ota_check = 86400 * otaauto + (esp_random () % 86400);
-            revk_upgrade (NULL, NULL);  // Checks for upgrade
+         {                      // Check for s/w update
+            time_t t = time (0);
+            struct tm tm = { 0 };
+            localtime_r (&t, &tm);
+            if (t.tm_hour >= 6)
+               ota_check = now + (esp_random () % 21600);       // Try later, ideally middle of the night
+            else
+            {                   // Do a check
+               ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);     // Next check
+               revk_upgrade (NULL, NULL);       // Checks for upgrade
+            }
          }
 #ifdef CONFIG_REVK_MESH
          ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", now, revk_link_down (), esp_mesh_get_total_node_num (),
