@@ -85,12 +85,13 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #define	MQTT_CLIENTS	2       // Smaller that 8 as top bit used for retain
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
-		bd(otacert,CONFIG_REVK_OTACERT);		\
+		u8(otaauto,CONFIG_REVK_OTAAUTO);	\
+		bd(otacert,CONFIG_REVK_OTACERT);	\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
 		u32(watchdogtime,10);			\
 		s(appname,CONFIG_REVK_APPNAME);		\
-    		s(nodename,NULL);				\
+    		s(nodename,NULL);			\
 		s(hostname,NULL);			\
 		p(command);				\
 		p(setting);				\
@@ -273,6 +274,7 @@ static mesh_addr_t mesh_ota_addr = { };
 #endif
 
 /* Local functions */
+static int revk_upgrade_check (const char *url);
 #ifdef	CONFIG_REVK_APCONFIG
 static httpd_handle_t webserver = NULL;
 #endif
@@ -1153,7 +1155,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "AP Start");
          if (app_callback)
          {
-            jo_t j = jo_object_alloc ();
+            jo_t j = jo_create_alloc ();
             jo_string (j, "ssid", apssid);
             jo_rewind (j);
             app_callback (0, prefixcommand, NULL, "ap", j);
@@ -1359,6 +1361,9 @@ task (void *pvParameters)
    pvParameters = pvParameters;
    /* Log if unexpected restart */
    int64_t tick = 0;
+   uint32_t ota_check = 0;
+   if (otaauto)
+      ota_check = esp_random () % (86400 * otaauto);
    while (1)
    {                            /* Idle */
       {                         // Fast (once per 100ms)
@@ -1425,6 +1430,12 @@ task (void *pvParameters)
       if (now != last)
       {                         // Slow (once a second)
          last = now;
+         if (ota_check && ota_check < now)
+         {
+            if (otaauto)
+               ota_check = 86400 * otaauto + (esp_random () % 86400);
+            revk_upgrade (NULL, NULL);  // Checks for upgrade
+         }
 #ifdef CONFIG_REVK_MESH
          ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", now, revk_link_down (), esp_mesh_get_total_node_num (),
                    esp_mesh_is_root ()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
@@ -3808,48 +3819,9 @@ revk_setting (jo_t j)
    return er ? : "";
 }
 
-static const char *
-revk_upgrade (const char *target, jo_t j)
-{                               // Upgrade command
-   if (ota_task_id)
-      return "OTA running";
-#ifdef CONFIG_REVK_MESH
-   if (!target)                 // Us
-#endif
-   {                            /* Watchdog */
-      ESP_LOGI (TAG, "Resetting watchdog");
-      esp_task_wdt_config_t config = {
-         .timeout_ms = 120 * 1000,
-         .trigger_panic = true,
-      };
-      REVK_ERR_CHECK (esp_task_wdt_reconfigure (&config));
-      revk_restart ("OTA Download", 10);        // Restart if download does not happen properly
-#ifdef	CONFIG_NIMBLE_ENABLED
-      ESP_LOGI (TAG, "Stopping any BLE");
-      esp_bt_controller_disable ();     // Kill bluetooth during download
-      esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
-#endif
-   }
-#ifdef CONFIG_REVK_MESH
-   if (!esp_mesh_is_root ())
-      return "";                // OK will be done by root and sent via MESH
-#endif
-   char val[256];
-   if (jo_strncpy (j, val, sizeof (val)) < 0)
-      *val = 0;
-#ifdef CONFIG_REVK_MESH
-   if (target && strlen (target) == 12)
-   {
-      ESP_LOGI (TAG, "Mesh relay upgrade %s %s", target, val);
-      for (int n = 0; n < sizeof (mesh_ota_addr.addr); n++)
-         mesh_ota_addr.addr[n] =
-            (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) +
-                                                                              (target[1 + n * 2] > '9' ? 9 : 0));
-   } else if (target)
-      return "Odd target";
-   else
-      memcpy (mesh_ota_addr.addr, revk_mac, 6); // Us
-#endif
+static char *
+revk_upgrade_url (const char *val)
+{                               // OTA URL (malloc'd)
    char *url;                   // Passed to task
    if (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7))
       url = strdup (val);       // Whole URL provided
@@ -3869,12 +3841,118 @@ revk_upgrade (const char *target, jo_t j)
                 "http",         /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
                 *val ? val : otahost, appname, revk_build_suffix);      // Hostname provided
+   return url;
+}
+
+static int
+revk_upgrade_check (const char *url)
+{                               // Check if upgrade needed, -ve for error, 0 for no, +ve for yes
+   jo_t j = jo_make (NULL);
+   jo_string (j, "url", url);
+   int ret = 0;
+   esp_http_client_config_t config = {
+      .url = url,
+   };
+   esp_http_client_handle_t client = esp_http_client_init (&config);
+   if (!client)
+      ret = -1;
+   char data[96] = { 0 };
+   size_t size = 0;
+   int status = 0;
+   if (!ret && esp_http_client_set_header (client, "Range", "bytes=48-143"))
+      ret = -2;
+   if (!ret && esp_http_client_open (client, 0))
+      ret = -3;
+   if (!ret && (size = esp_http_client_fetch_headers (client)) != sizeof (data))
    {
-      jo_t j = jo_make (NULL);
-      jo_string (j, "url", url);
-      if (target)
-         jo_string (j, "device", target);
-      revk_info ("upgrade", &j);
+      ret = -4;
+      jo_int (j, "size", size);
+   }
+   if (!ret && (status = esp_http_client_get_status_code (client) / 100 != 2))
+   {
+      ret = -5;
+      jo_int (j, "status", status);
+   }
+   if (!ret && esp_http_client_read (client, data, sizeof (data)) != sizeof (data))
+      ret = -6;
+   REVK_ERR_CHECK (esp_http_client_cleanup (client));
+   if (!ret)
+   {                            // Check version
+      jo_stringf (j, "version", "%.32s", data + 0);
+      jo_stringf (j, "project", "%.32s", data + 32);
+      jo_stringf (j, "time", "%.16s", data + 64);
+      jo_stringf (j, "date", "%.16s", data + 80);
+      const esp_app_desc_t *app = esp_app_get_description ();
+      if (strncmp (app->version, data + 0, 32))
+      {
+         ret = 1;               // Different version
+         jo_string (j, "was-version", app->version);
+      } else if (strncmp (app->project_name, data + 32, 32))
+      {
+         ret = 2;               // Different project name
+         jo_string (j, "was-project", app->project_name);
+      } else if (strncmp (app->date, data + 80, 16))
+      {
+         ret = 4;               // Different date
+         jo_string (j, "was-date", app->date);
+      } else if (strncmp (app->time, data + 64, 16))
+      {
+         ret = 4;               // Different time
+         jo_string (j, "was-time", app->time);
+      }
+   } else
+      jo_int (j, "fail", ret);
+   revk_info ("upgrade", &j);
+   return ret;
+}
+
+static const char *
+revk_upgrade (const char *target, jo_t j)
+{                               // Upgrade command
+   if (ota_task_id)
+      return "OTA running";
+#ifdef CONFIG_REVK_MESH
+   if (!esp_mesh_is_root ())
+      return "";                // OK will be done by root and sent via MESH
+#endif
+   char val[256] = { 0 };
+   if (j && jo_strncpy (j, val, sizeof (val)) < 0)
+      *val = 0;
+#ifdef CONFIG_REVK_MESH
+   if (target && strlen (target) == 12)
+   {
+      ESP_LOGI (TAG, "Mesh relay upgrade %s %s", target, val);
+      for (int n = 0; n < sizeof (mesh_ota_addr.addr); n++)
+         mesh_ota_addr.addr[n] =
+            (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) +
+                                                                              (target[1 + n * 2] > '9' ? 9 : 0));
+   } else if (target)
+      return "Odd target";
+   else
+      memcpy (mesh_ota_addr.addr, revk_mac, 6); // Us
+#endif
+   char *url = revk_upgrade_url (val);
+   if (revk_upgrade_check (url) <= 0)
+   {
+      free (url);
+      return "OTA up to date";
+   }
+#ifdef CONFIG_REVK_MESH
+   if (!target)                 // Us
+#endif
+   {                            /* Watchdog */
+      ESP_LOGI (TAG, "Resetting watchdog");
+      esp_task_wdt_config_t config = {
+         .timeout_ms = 120 * 1000,
+         .trigger_panic = true,
+      };
+      REVK_ERR_CHECK (esp_task_wdt_reconfigure (&config));
+      revk_restart ("OTA Download", 10);        // Restart if download does not happen properly
+#ifdef	CONFIG_NIMBLE_ENABLED
+      ESP_LOGI (TAG, "Stopping any BLE");
+      esp_bt_controller_disable ();     // Kill bluetooth during download
+      esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
+#endif
    }
    ota_task_id = revk_task ("OTA", ota_task, url);
    return "";

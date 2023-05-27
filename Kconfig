@@ -253,6 +253,12 @@ menu "RevK"
 	help
 		This defines the factory reset default OTA host (https)
 
+	config REVK_OTAAUTO
+	int "Default auto upgrade check (days)"
+	default 7
+	help
+		Number of days between checks for auto upgrade (0 for don't auto upgrade)
+
 	config REVK_OTACERT
 	string "Default OTA certificate"
 	default ""
