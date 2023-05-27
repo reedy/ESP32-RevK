@@ -3910,6 +3910,8 @@ revk_upgrade_check (const char *url)
          ret = 4;               // Different time
          jo_string (j, "was-time", app->time);
       }
+      if (!ret)
+         jo_string (j, "complete", "No upgrade needed");
    } else
       jo_int (j, "fail", ret);
    revk_info ("upgrade", &j);
@@ -3949,7 +3951,7 @@ revk_upgrade (const char *target, jo_t j)
       if (revk_upgrade_check (url) <= 0)
       {
          free (url);
-         return "OTA up to date";
+         return "";
       }
       ESP_LOGI (TAG, "Resetting watchdog");
       esp_task_wdt_config_t config = {
