@@ -1363,7 +1363,7 @@ task (void *pvParameters)
    int64_t tick = 0;
    uint32_t ota_check = 0;
    if (otaauto)
-      ota_check = 3600 + (esp_random () % (86400 * otaauto));
+      ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
    while (1)
    {                            /* Idle */
       {                         // Fast (once per 100ms)
@@ -1435,11 +1435,11 @@ task (void *pvParameters)
             time_t t = time (0);
             struct tm tm = { 0 };
             localtime_r (&t, &tm);
-            if (tm.tm_hour >= 6)
-               ota_check = now + (esp_random () % 21600);       // Try later, ideally middle of the night
+            if (now > 7200 && tm.tm_hour >= 6)
+               ota_check = now + (esp_random () % 21600);       // A periodic check should be in the middle of the night, so wait a bit more (<7200 is startup check)
             else
             {                   // Do a check
-               ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);     // Next check
+               ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);     // Next check approx otaauto days later
 #ifdef CONFIG_REVK_MESH
                if (esp_mesh_is_root ())
 #endif
