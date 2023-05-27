@@ -1435,7 +1435,7 @@ task (void *pvParameters)
             time_t t = time (0);
             struct tm tm = { 0 };
             localtime_r (&t, &tm);
-            if (t.tm_hour >= 6)
+            if (tm.tm_hour >= 6)
                ota_check = now + (esp_random () % 21600);       // Try later, ideally middle of the night
             else
             {                   // Do a check
