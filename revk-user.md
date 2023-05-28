@@ -24,6 +24,16 @@ You can click the buttons for existing SSID, or enter manually, and enter passwo
 
 However, the MQTT settings allow control and settings to be configured over MQTT.
 
+## Software updates
+
+It is usually a good idea to ensure software is up to date. The system has a setting for the `otahost` which will default to `ota.revk.uk` but can be your own server, obviously.
+
+You can do an upgrade from the web control pages for most apps with a link from the WiFi settings page. You can also do an `upgrade` command from MQTT (which allows the full URL and file to be specified, if needed).
+
+However, for most apps (based on the `otaauto` settings) upgrades will be checked every few days, and done if needed. This is normally within one to two hours of start up (to allow you time to make any changes if needed, including turning off auto update), or the middle of the night (to minimise disruption). The server is checked and the update and restart is only done if there is a new version.
+
+
+
 ## MQTT 
 
 The system will connect to an MQTT server and provide information via MQTT, allow commands over MQTT, and allow settings over MQTT.

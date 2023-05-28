@@ -4,6 +4,12 @@ The `ESP32-RevK` support library is used in almost all of the ESP32 projects on 
 
 This manual covers the use of teh library in an app.
 
+## Software update server
+
+If you are running your own server for software upgrades you need to ensure `http://` is allowed with access to the `.bin` file at the top level. This is because multiple TLS connections are a memory issue on many ESP32 modules. One trick is to allow `http://` if the `User-Agent` is `ESP32 HTTP Client/1.0` and redirect to `https://` for all other cases. As it is not `https://`, you should always build with code signing and checking. Your server also needs to allow `Range:` header for the version check to be done.
+
+The upgrade checks the `.bin` file using `Range:`, and does not upgrade if no change, so make sure new code has a new `version`, `product_name`, `date` or `time` set, touching `${IDF_PATH}/components/esp_app_format/esp_app_desc.c` as part of your build can ensure this. The `Makefile` for apps usually uses the `buildsuffix` script provided, which does this for you.
+
 ## RevK
 
 This is how an application uses the RevK library.
@@ -50,6 +56,7 @@ Between `revk_boot` and `revk_start` you should add necessary calls to `revk_reg
 The way this is typically done is a list of settings in a macro, allowing the definition of the settings and the calling of the `revk_register` all to be done from the same list.
 
 For example, define settings like this
+
 ```
 #define settings                \
         u8(webcontrol,2)        \
@@ -57,6 +64,7 @@ For example, define settings like this
 ```
 
 You can then define the values, e.g.
+
 ```
 #define u8(n,d) uint8_t n;
 #define bl(n) uint8_t n;
@@ -66,6 +74,7 @@ settings
 ```
 
 And in `app_main` call the `revk_register` like this.
+
 ```
 #define bl(n) revk_register(#n,0,sizeof(n),&n,NULL,SETTING_BOOLEAN|SETTING_LIVE);
 #define u8(n,d) revk_register(#n,0,sizeof(n),&n,str(d),0);
@@ -114,12 +123,55 @@ revk_error(const char *suffix,jo_t j); // Send a error message
 Additional lower level functions are defined in `revk.h` and `lwmqtt.h`
 
 ### Example
+
 ```
 jo_t j = jo_object_alloc();
 jo_string(j, "field", tag);
 jo_string(j, "error", err);
 revk_error("control", &j);
 ```
+
+## Build tools
+
+There are also some useful scripts.
+
+### `buildsuffix`
+
+This returns a build suffix, based on the `sdkconfig`. The idea is that you can build different versions for different target chips and accessories, and make a build file for each case. e.g.
+
+E.g. `Makefile` or other build script having:
+
+```
+PROJECT_NAME := LED
+SUFFIX := $(shell components/ESP32-RevK/buildsuffix)
+
+all:
+        @echo Make: build/$(PROJECT_NAME)$(SUFFIX).bin
+        @idf.py build
+        @cp --remove-destination build/$(PROJECT_NAME).bin $(PROJECT_NAME)$(SUFFIX).bin
+        @echo Done: build/$(PROJECT_NAME)$(SUFFIX).bin
+```
+
+### `setbuildsuffix`
+
+This sets `sdkconfig` based on a requested build suffix. This can link in to some other components in some cases (see [GFX](https://github.com/revk/ESP32-GFX)), but the simple factors are `S1` for the `S1` silicon, or `S2`, `S3`, etc, and `PICO` for the `ESP32-PICO` chips, and `SOLO` for single processor chips as used in Shelly modules. This means you can make targets, e.g.
+
+```
+pico:
+        components/ESP32-RevK/setbuildsuffix -S1-PICO
+        @make
+        
+wroom:
+        components/ESP32-RevK/setbuildsuffix -S1
+        @make
+
+solo:
+        components/ESP32-RevK/setbuildsuffix -S1-SOLO
+        @make
+```
+
+The suffix is then known in the code as `CONFIG_REVK_BUILD_SUFFIX` and used as part of the upgrade process, e.g. in the above examples, the binary file would be `LED-S1-PICO.bin` for the `pico` build.
+
 ## JO
 
 The JSON OBJECT library is designed to allow a JSON object to be constructed or parsed to/from a simple in memory string. This is intended to be very memory efficient as it does not create memory structures for the JSON object itself, and for parsing it literally just scans the string itself with minimum overhead.
