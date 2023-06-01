@@ -1332,24 +1332,26 @@ blink_default (const char *user)
 {                               // What blinking to do
    if (restart_time)
       return "W";               // Rebooting - override user even
-   if (user)
+   if (user && *user)
       return user;
    if (!*wifissid)
-      return "RW";               // No wifi SSID
+      return "RW";              // No wifi SSID
 #ifdef  CONFIG_REVK_APMODE
    wifi_mode_t mode = 0;
    esp_wifi_get_mode (&mode);
    if (mode == WIFI_MODE_APSTA)
-      return "BW";               // AP+sta mode
+      return "BW";              // AP+sta mode
    if (mode == WIFI_MODE_AP)
-      return "CW";               // AP mode only
+      return "CW";              // AP mode only
    if (mode == WIFI_MODE_NULL)
-      return "MW";               // Off?
+      return "MW";              // Off?
 #endif
    if (!(xEventGroupGetBits (revk_group) & GROUP_WIFI))
-      return "MW";               // No WiFi
+      return "MW";              // No WiFi
    if (revk_link_down ())
-      return "YW";               // Link down
+      return "YW";              // Link down
+   if (user)
+      return "K";
    return "RYGCBM";             // Idle
 }
 
