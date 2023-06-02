@@ -2285,7 +2285,37 @@ revk_web_config (httpd_req_t * req)
                              "});"      //
                              "}"        //
                              "</script>");
-   httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p><hr><address>");
+   httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p>");
+   {                            // IP info
+      httpd_resp_sendstr_chunk (req, "<table>");
+      char temp[100];
+      {
+         esp_netif_ip_info_t ip;
+         if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+         {
+            sprintf (temp, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip));
+            httpd_resp_sendstr_chunk (req, temp);
+            sprintf (temp, "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.gw));
+            httpd_resp_sendstr_chunk (req, temp);
+         }
+      }
+#ifdef CONFIG_LWIP_IPV6
+      {
+         esp_ip6_addr_t ip;
+         if (!esp_netif_get_ip6_global (sta_netif, &ip) && ip.addr)
+         {
+            sprintf (temp, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
+            httpd_resp_sendstr_chunk (req, temp);
+         }
+      }
+#endif
+#ifdef  CONFIG_REVK_MQTT
+      if (revk_mqtt (0))
+         httpd_resp_sendstr_chunk (req, "<tr><td>MQTT</td><td>Connected</td></tr>");
+      httpd_resp_sendstr_chunk (req, "</table>");
+#endif
+   }
+   httpd_resp_sendstr_chunk (req, "<hr><address>");
    httpd_resp_sendstr_chunk (req, appname);
    httpd_resp_sendstr_chunk (req, ": ");
    httpd_resp_sendstr_chunk (req, revk_version);
