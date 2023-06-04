@@ -2205,6 +2205,7 @@ revk_web_config (httpd_req_t * req)
       }
    }
 #endif
+   httpd_resp_set_type(req,"text/html;charset=utf-8");
    httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
    httpd_resp_sendstr_chunk (req, *hostname ? hostname : revk_id);
