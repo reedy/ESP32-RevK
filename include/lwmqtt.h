@@ -21,12 +21,13 @@
 // Called as server for subscribe
 // - Topic is subscribe pattern
 // - Payload is NULL
-typedef void lwmqtt_callback_t(void *arg, char *topic, unsigned short len, unsigned char *payload);
+typedef void lwmqtt_callback_t (void *arg, char *topic, unsigned short len, unsigned char *payload);
 
 typedef struct lwmqtt_client_config_s lwmqtt_client_config_t;
 
 // Config for connection
-struct lwmqtt_client_config_s {
+struct lwmqtt_client_config_s
+{
    lwmqtt_callback_t *callback;
    void *arg;
    const char *client;
@@ -48,7 +49,7 @@ struct lwmqtt_client_config_s {
    int client_cert_bytes;
    void *client_key_buf;        // For client auth
    int client_key_bytes;
-    esp_err_t(*crt_bundle_attach) (void *conf);
+     esp_err_t (*crt_bundle_attach) (void *conf);
    uint8_t hostname_ref:1;      // The _buf above is fixed and so we do not need to make a copy
    uint8_t tlsname_ref:1;       // The _buf above is fixed and so we do not need to make a copy
    uint8_t ca_cert_ref:1;       // The _buf above is fixed and so we do not need to make a copy
@@ -60,7 +61,8 @@ struct lwmqtt_client_config_s {
 typedef struct lwmqtt_server_config_s lwmqtt_server_config_t;
 
 // Config for connection
-struct lwmqtt_server_config_s {
+struct lwmqtt_server_config_s
+{
    lwmqtt_callback_t *callback;
    unsigned short port;         // Port 0=auto
    // TLS
@@ -79,30 +81,33 @@ struct lwmqtt_server_config_s {
 // Handle for connection
 typedef struct lwmqtt_s *lwmqtt_t;
 
-uint32_t uptime(void);          // Seconds uptime
+uint32_t uptime (void);         // Seconds uptime
+
+int lwmqtt_connected (lwmqtt_t);        // If connected
+int lwmqtt_failed (lwmqtt_t);   // If failed connect
 
 // Create a client connection (NULL if failed)
-lwmqtt_t lwmqtt_client(lwmqtt_client_config_t *);
+lwmqtt_t lwmqtt_client (lwmqtt_client_config_t *);
 
 #ifdef	CONFIG_REVK_MQTT_SERVER
 // Start a server (the return value is only usable in lwmqtt_end)
-lwmqtt_t lwmqtt_server(lwmqtt_server_config_t *);
+lwmqtt_t lwmqtt_server (lwmqtt_server_config_t *);
 #endif
 
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call
-void lwmqtt_end(lwmqtt_t *);
+void lwmqtt_end (lwmqtt_t *);
 
 // Subscribe (return is non null error message if failed)
-const char *lwmqtt_subscribeub(lwmqtt_t, const char *topic, char unsubscribe);
+const char *lwmqtt_subscribeub (lwmqtt_t, const char *topic, char unsubscribe);
 #define lwmqtt_subscribe(h,t) lwmqtt_subscribeub(h,t,0);
 #define lwmqtt_unsubscribe(h,t) lwmqtt_subscribeub(h,t,1);
 
 // Send (return is non null error message if failed) (-1 tlen or plen do strlen)
-const char *lwmqtt_send_full(lwmqtt_t, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
+const char *lwmqtt_send_full (lwmqtt_t, int tlen, const char *topic, int plen, const unsigned char *payload, char retain);
 // Simpler
 #define lwmqtt_send(h,t,l,p) lwmqtt_send_full(h,-1,t,l,p,0,0);
 
 // Simple send - non retained no wait topic ends on space then payload
-const char *lwmqtt_send_str(lwmqtt_t, const char *msg);
+const char *lwmqtt_send_str (lwmqtt_t, const char *msg);
 #endif

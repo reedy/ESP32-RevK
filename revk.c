@@ -2252,8 +2252,11 @@ revk_web_config (httpd_req_t * req)
                              "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk (req, mqtthost[0]);
+   httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'>");
+   if (mqtt_client[0])
+      httpd_resp_sendstr_chunk (req, lwmqtt_connected (mqtt_client[0]) ? "✓" : lwmqtt_failed (mqtt_client[0]) ? "✘" : "…");       // MQTT status
    httpd_resp_sendstr_chunk (req,
-                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
+                             "</td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
    if (*mqttuser[0])
       httpd_resp_sendstr_chunk (req, mqttuser[0]);
    httpd_resp_sendstr_chunk (req,
@@ -2309,11 +2312,7 @@ revk_web_config (httpd_req_t * req)
          }
       }
 #endif
-#ifdef  CONFIG_REVK_MQTT
-      if (revk_mqtt (0))
-         httpd_resp_sendstr_chunk (req, "<tr><td>MQTT</td><td>Connected</td></tr>");
       httpd_resp_sendstr_chunk (req, "</table>");
-#endif
    }
    httpd_resp_sendstr_chunk (req, "<hr><address>");
    httpd_resp_sendstr_chunk (req, appname);
