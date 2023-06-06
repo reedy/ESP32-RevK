@@ -2286,7 +2286,7 @@ revk_web_config (httpd_req_t * req)
                              "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></td></tr>");
    httpd_resp_sendstr_chunk (req, "</table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk (req, "<div id=list></div>");
-   httpd_resp_sendstr_chunk (req, "<script>document.onload=function(e){"    //
+   httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
                              "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');"        //
                              "ws.onclose=function(e){ws=undefined;document.getElementById('set').style.visibility='hidden';};"  //
@@ -2306,7 +2306,6 @@ revk_web_config (httpd_req_t * req)
                              "b.textContent=s;" //
                              "document.getElementById('list').appendChild(b);"  //
                              "});"      //
-                             "}"        //
                              "}"        //
                              "</script>");
    httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p>");
