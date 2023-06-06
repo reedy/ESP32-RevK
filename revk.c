@@ -2202,6 +2202,16 @@ revk_web_config (httpd_req_t * req)
                jo_free (&j);
             }
          }
+         {
+            char settz[129];
+            if (!httpd_query_key_value (query, "tz", settz, sizeof (settz)) && *settz)
+            {
+               jo_t j = jo_object_alloc ();
+               jo_string (j, "tz", settz);
+               revk_setting (j);
+               jo_free (&j);
+            }
+         }
          httpd_resp_sendstr (req, "<h1>Done</h1>");
          apstoptime = uptime ();
          return ESP_OK;
@@ -2226,7 +2236,7 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk (req,
-                             " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value}));return false;\"");
+                             " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value,'tz':f.tz.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk (req, "><table>");
    httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=host");
@@ -2268,7 +2278,12 @@ revk_web_config (httpd_req_t * req)
    if (*mqttpass[0])
       httpd_resp_sendstr_chunk (req, mqttpass[0]);
    httpd_resp_sendstr_chunk (req,
-                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
+                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>Timezone</td><td><input maxlength=128 name=tz value='");
+   if (*tz)
+      httpd_resp_sendstr_chunk (req, tz);
+   httpd_resp_sendstr_chunk (req,
+                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></tr>");
+   httpd_resp_sendstr_chunk (req, "</table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk (req, "<div id=list></div>");
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
@@ -2431,6 +2446,7 @@ revk_web_wifilist (httpd_req_t * req)
             char mhost[129];
             char muser[33];
             char mpass[33];
+            char settz[129];
             uint8_t upgrade = 0;
             strncpy (ssid, wifissid, sizeof (ssid));
             strncpy (pass, wifipass, sizeof (pass));
@@ -2438,6 +2454,7 @@ revk_web_wifilist (httpd_req_t * req)
             strncpy (mhost, mqtthost[0], sizeof (mhost));
             strncpy (muser, mqttuser[0], sizeof (muser));
             strncpy (mpass, mqttpass[0], sizeof (mpass));
+            strncpy (settz, tz, sizeof (settz));
             jo_type_t t = jo_next (j);  // Start object
             while (t == JO_TAG)
             {
@@ -2456,6 +2473,8 @@ revk_web_wifilist (httpd_req_t * req)
                   jo_strncpy (j, muser, sizeof (muser));
                else if (!strcmp (tag, "mqttpass"))
                   jo_strncpy (j, mpass, sizeof (mpass));
+               else if (!strcmp (tag, "tz"))
+                  jo_strncpy (j, settz, sizeof (settz));
                else if (!strcmp (tag, "upgrade"))
                   upgrade = 1;
                t = jo_skip (j);
@@ -2517,6 +2536,7 @@ revk_web_wifilist (httpd_req_t * req)
                jo_string (s, "host", mhost);
                jo_string (s, "user", muser);
                jo_string (s, "pass", mpass);
+               jo_string (s, "tz", settz);
                jo_close (s);
                revk_setting (s);
                jo_free (&s);
