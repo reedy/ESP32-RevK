@@ -2215,9 +2215,9 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "</h1>");
    if (!revk_link_down ())
    {
-      httpd_resp_sendstr_chunk (req, "<form ");
+      httpd_resp_sendstr_chunk (req, "<form");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
-      httpd_resp_sendstr_chunk (req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
+      httpd_resp_sendstr_chunk (req, " action='/' onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));\"");
 #endif
       httpd_resp_sendstr_chunk (req, "><input name=\"upgrade\" type=submit value=\"Upgrade\"> from <i>");
       httpd_resp_sendstr_chunk (req, otahost);
