@@ -2306,7 +2306,7 @@ revk_web_config (httpd_req_t * req)
                              "b.textContent=s;" //
                              "document.getElementById('list').appendChild(b);"  //
                              "});"      //
-                             "}"        //
+                             "};"        //
                              "</script>");
    httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p>");
    {                            // IP info
