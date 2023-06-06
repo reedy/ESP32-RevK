@@ -1850,10 +1850,11 @@ revk_start (void)
 #endif
    /* DHCP */
    char *id = NULL;
-   if (*hostname)
-      asprintf (&id, "%s-%s", appname, hostname);
-   else
-      asprintf (&id, "%s-%06llX", appname, revk_binid & 0xFFFFFF);
+#ifdef	CONFIG_REVK_PREFIXAPP
+   asprintf (&id, "%s-%s", appname, hostname);
+#else
+   asprintf (&id, "%s", hostname);
+#endif
    esp_netif_set_hostname (sta_netif, id);
    freez (id);
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
