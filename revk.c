@@ -227,7 +227,7 @@ struct setting_s
 /* Public */
 const char *revk_version = "";  /* Git version */
 const char *revk_app = "";      /* App name */
-char revk_id[13];               /* Chip ID as hex (from MAC) */
+char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
 
@@ -1104,7 +1104,7 @@ revk_mqtt_init (void)
             *sl = "/";
          if (!prefixapp)
             an = sl = "";
-         if (asprintf ((void *) &config.topic, "%s%s%s/%s", prefixstate, sl, an, *hostname ? hostname : revk_id) < 0)
+         if (asprintf ((void *) &config.topic, "%s%s%s/%s", prefixstate, sl, an, hostname) < 0)
             return;
          if (asprintf ((void *) &config.client, "%s-%s", appname, revk_id) < 0)
          {
@@ -1832,6 +1832,8 @@ revk_boot (app_callback_t * app_callback_cb)
          ((uint64_t) revk_mac[3] << 16) + ((uint64_t) revk_mac[4] << 8) + ((uint64_t) revk_mac[5]);
       snprintf (revk_id, sizeof (revk_id), "%012llX", revk_binid);
 #endif
+      if (!hostname || !*hostname)
+         hostname = revk_id;    // default hostname
    }
    revk_group = xEventGroupCreate ();
    xEventGroupSetBits (revk_group, GROUP_OFFLINE);
@@ -1856,7 +1858,7 @@ revk_start (void)
    freez (id);
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
    REVK_ERR_CHECK (mdns_init ());
-   mdns_hostname_set (*hostname ? hostname : revk_id);
+   mdns_hostname_set (hostname);
    mdns_instance_name_set (appname);
 #endif
    revk_task (TAG, task, NULL);
@@ -1996,7 +1998,7 @@ revk_mqtt_send_payload_clients (const char *prefix, int retain, const char *suff
    char *topic = NULL;
    if (!prefix)
       topic = (char *) suffix;  /* Set fixed topic */
-   else if (asprintf (&topic, suffix ? "%s%s%s/%s/%s" : "%s%s%s/%s", prefix, sl, an, *hostname ? hostname : revk_id, suffix) < 0)
+   else if (asprintf (&topic, suffix ? "%s%s%s/%s/%s" : "%s%s%s/%s", prefix, sl, an, hostname, suffix) < 0)
       topic = NULL;
    if (!topic)
       return "No topic";
@@ -2205,10 +2207,10 @@ revk_web_config (httpd_req_t * req)
       }
    }
 #endif
-   httpd_resp_set_type(req,"text/html;charset=utf-8");
+   httpd_resp_set_type (req, "text/html;charset=utf-8");
    httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
-   httpd_resp_sendstr_chunk (req, *hostname ? hostname : revk_id);
+   httpd_resp_sendstr_chunk (req, hostname);
    httpd_resp_sendstr_chunk (req, "</h1>");
    if (!revk_link_down ())
    {
@@ -2230,7 +2232,7 @@ revk_web_config (httpd_req_t * req)
    if (!*hostname)
       httpd_resp_sendstr_chunk (req, " autofocus");
    httpd_resp_sendstr_chunk (req, " value='");
-   if (*hostname)
+   if (hostname != revk_id)
       httpd_resp_sendstr_chunk (req, hostname);
    httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
    httpd_resp_sendstr_chunk (req, revk_id);
