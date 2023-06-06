@@ -743,7 +743,8 @@ wifi_init (void)
    }
    setup_ip ();
    REVK_ERR_CHECK (esp_wifi_start ());
-   REVK_ERR_CHECK (esp_wifi_connect ());
+   if (*wifissid)
+      REVK_ERR_CHECK (esp_wifi_connect ());
 }
 #endif
 
