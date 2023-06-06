@@ -2313,10 +2313,13 @@ revk_web_config (httpd_req_t * req)
       char temp[100];
       {
          time_t now = time (0);
-         struct tm t;
-         localtime_r (&now, &t);
-         strftime (temp, sizeof (temp), "<tr><td>Time</td><td>%F %T %Z</td></tr>", &t);
-         httpd_resp_sendstr_chunk (req, temp);
+         if (now > 1000000000)
+         {
+            struct tm t;
+            localtime_r (&now, &t);
+            strftime (temp, sizeof (temp), "<tr><td>Time</td><td>%F %T %Z</td></tr>", &t);
+            httpd_resp_sendstr_chunk (req, temp);
+         }
       }
       {
          esp_netif_ip_info_t ip;
