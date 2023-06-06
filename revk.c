@@ -2527,6 +2527,7 @@ revk_web_wifilist (httpd_req_t * req)
             {
                jo_t s = jo_object_alloc ();
                jo_string (s, "hostname", host);
+               jo_string (s, "tz", settz);
                jo_object (s, "wifi");   // Ensures all other fields cleared
                jo_string (s, "ssid", ssid);
                if (!strcmp (pass, WIFIUNCHANGED))
@@ -2540,7 +2541,6 @@ revk_web_wifilist (httpd_req_t * req)
                jo_string (s, "host", mhost);
                jo_string (s, "user", muser);
                jo_string (s, "pass", mpass);
-               jo_string (s, "tz", settz);
                jo_close (s);
                revk_setting (s);
                jo_free (&s);
