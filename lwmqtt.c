@@ -34,6 +34,7 @@ static const char __attribute__((unused)) * TAG = "LWMQTT";
 #endif
 
 #include "lwmqtt.h"
+#include "esp8266_tls_compat.h"
 
 #ifdef	CONFIG_REVK_MQTT_SERVER
 #warning MQTT server code is not complete
@@ -756,7 +757,9 @@ client_task (void *pvParameters)
          handle->backoff *= 2;
       else
          handle->backoff = 255;
-      ESP_LOGI (TAG, "Waiting %d (mem:%ld)", handle->backoff / 5, esp_get_free_heap_size ());
+      // On ESP32 uint32_t, returned by this func, appears to be long, while on ESP8266 it's a pure unsigned int
+      // The easiest and least ugly way to get around is to cast to long explicitly
+      ESP_LOGI (TAG, "Waiting %d (mem:%ld)", handle->backoff / 5, (long)esp_get_free_heap_size ());
       sleep (handle->backoff < 5 ? 1 : handle->backoff / 5);
    }
    handle_free (handle);
