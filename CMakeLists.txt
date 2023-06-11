@@ -1,4 +1,5 @@
-if(EXISTS "../components/mdns")
+if(EXISTS "../managed_components/espressif__mdns")
+# idf.py add-dependency espressif/mdns
 idf_component_register(
 			SRCS "revk.c" "jo.c" "lwmqtt.c"
 			INCLUDE_DIRS "include"
