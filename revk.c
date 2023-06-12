@@ -700,8 +700,10 @@ wifi_sta_config (void)
    cfg.sta.scan_method = ((esp_reset_reason () == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
    strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
    strncpy ((char *) cfg.sta.password, wifipass, sizeof (cfg.sta.password));
+#ifndef CONFIG_IDF_TARGET_ESP8266
    REVK_ERR_CHECK (esp_wifi_set_protocol
                    (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
+#endif
    REVK_ERR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg));
 }
 #endif
@@ -1171,6 +1173,12 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       case WIFI_EVENT_STA_START:
          ESP_LOGI (TAG, "STA Start");
+#ifdef CONFIG_IDF_TARGET_ESP8266
+         // Fails with ESP_ERR_WIFI_IF on esp8266 if called where it was
+         // originally placed. I've looked this up in examples.
+         REVK_ERR_CHECK (esp_wifi_set_protocol
+            (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
+#endif
          break;
       case WIFI_EVENT_STA_STOP:
          ESP_LOGI (TAG, "STA Stop");
