@@ -4181,7 +4181,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
          char tag[16];          /* NVS tag size */
          if (snprintf (tag, sizeof (tag), "%s%u", s->name, i + 1) < sizeof (tag) && get_val (tag, i) < 0)
          {
-            e = revk_setting_internal (s, 0, NULL, i, SETTING_LIVE & (flags & SETTING_FIX));    /* Defaulting logic */
+            e = revk_setting_internal (s, 0, NULL, i, SETTING_LIVE | (flags & SETTING_FIX));    /* Defaulting logic */
             if (e && *e)
                ESP_LOGE (TAG, "Setting %s failed %s", tag, e);
             else
@@ -4190,7 +4190,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
       }
    } else if (get_val (s->name, 0) < 0)
    {                            /* Simple setting, not array */
-      e = revk_setting_internal (s, 0, NULL, 0, SETTING_LIVE & (flags & SETTING_FIX));  /* Defaulting logic */
+      e = revk_setting_internal (s, 0, NULL, 0, SETTING_LIVE | (flags & SETTING_FIX));  /* Defaulting logic */
       if (e && *e)
          ESP_LOGE (TAG, "Setting %s failed %s", s->name, e);
       else
