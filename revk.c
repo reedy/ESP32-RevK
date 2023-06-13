@@ -4102,7 +4102,7 @@ revk_command (const char *tag, jo_t j)
 }
 
 void
-revk_register (const char *name, uint8_t array, uint16_t size, void *data, const char *defval, uint8_t flags)
+revk_register (const char *name, uint8_t array, uint16_t size, void *data, const char *defval, int flags)
 {                               /* Register setting (not expected to be thread safe, should be called from init) */
    ESP_LOGD (TAG, "Register %s", name);
    if (flags & SETTING_BITFIELD)
