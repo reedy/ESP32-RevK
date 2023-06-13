@@ -93,7 +93,7 @@ All settings have a simple name, but some settings can also be accessed in a nes
 |Setting|Meaning|
 |-------|-------|
 |`appname`|The name of the application. You do not normally want to override this.|
-|`hostname`|The name to use for this device in topic, and DHCP and so on. This defaults in effect to the MAC address.|
+|`hostname`|The name to use for this device in topic, and DHCP and so on. This defaults the hex MAC address if not set or set to an empty string.|
 |`otahost`|Hostname for *over the air* updates|
 |`otaauto`|If not `0` then check for updates periodically (this many days, approx), and do upgrade if needed.|
 |`wifissid`|WiFi SSID to use|
