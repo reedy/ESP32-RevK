@@ -227,7 +227,7 @@ struct setting_s
 /* Public */
 const char *revk_version = "";  /* Git version */
 const char *revk_app = "";      /* App name */
-char revk_id[13];               /* Chip ID as hex (from MAC) */
+char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
 
@@ -743,7 +743,8 @@ wifi_init (void)
    }
    setup_ip ();
    REVK_ERR_CHECK (esp_wifi_start ());
-   REVK_ERR_CHECK (esp_wifi_connect ());
+   if (*wifissid)
+      REVK_ERR_CHECK (esp_wifi_connect ());
 }
 #endif
 
@@ -1104,7 +1105,7 @@ revk_mqtt_init (void)
             *sl = "/";
          if (!prefixapp)
             an = sl = "";
-         if (asprintf ((void *) &config.topic, "%s%s%s/%s", prefixstate, sl, an, *hostname ? hostname : revk_id) < 0)
+         if (asprintf ((void *) &config.topic, "%s%s%s/%s", prefixstate, sl, an, hostname) < 0)
             return;
          if (asprintf ((void *) &config.client, "%s-%s", appname, revk_id) < 0)
          {
@@ -1249,10 +1250,16 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #ifdef	CONFIG_REVK_APMODE
             apstoptime = uptime () + 10;        // Stop ap mode soon
 #endif
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+	    mdns_netif_action(sta_netif,MDNS_EVENT_ENABLE_IP4);
+#endif
          }
          break;
       case IP_EVENT_GOT_IP6:
          ESP_LOGI (TAG, "Got IPv6");
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+	    mdns_netif_action(sta_netif,MDNS_EVENT_ENABLE_IP6);
+#endif
          break;
       default:
          ESP_LOGI (TAG, "IP event %ld", event_id);
@@ -1329,27 +1336,29 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 
 static const char *
 blink_default (const char *user)
-{                               // What blinking to do
+{                               // What blinking to do - NULL means do default, "" means off if none of the default special cases apply, otherwise the requested colour sequence, unless restarting (white)
    if (restart_time)
       return "W";               // Rebooting - override user even
-   if (user)
+   if (user && *user)
       return user;
    if (!*wifissid)
-      return "R";               // No wifi SSID
+      return "RW";              // No wifi SSID
 #ifdef  CONFIG_REVK_APMODE
    wifi_mode_t mode = 0;
    esp_wifi_get_mode (&mode);
    if (mode == WIFI_MODE_APSTA)
-      return "B";               // AP+sta mode
+      return "BW";              // AP+sta mode
    if (mode == WIFI_MODE_AP)
-      return "C";               // AP mode only
+      return "CW";              // AP mode only
    if (mode == WIFI_MODE_NULL)
-      return "M";               // Off?
+      return "MW";              // Off?
 #endif
    if (!(xEventGroupGetBits (revk_group) & GROUP_WIFI))
-      return "M";               // No WiFi
+      return "MW";              // No WiFi
    if (revk_link_down ())
-      return "Y";               // Link down
+      return "YW";              // Link down
+   if (user)
+      return "K";
    return "RYGCBM";             // Idle
 }
 
@@ -1830,6 +1839,8 @@ revk_boot (app_callback_t * app_callback_cb)
          ((uint64_t) revk_mac[3] << 16) + ((uint64_t) revk_mac[4] << 8) + ((uint64_t) revk_mac[5]);
       snprintf (revk_id, sizeof (revk_id), "%012llX", revk_binid);
 #endif
+      if (!hostname || !*hostname)
+         hostname = revk_id;    // default hostname
    }
    revk_group = xEventGroupCreate ();
    xEventGroupSetBits (revk_group, GROUP_OFFLINE);
@@ -1846,15 +1857,16 @@ revk_start (void)
 #endif
    /* DHCP */
    char *id = NULL;
-   if (*hostname)
-      asprintf (&id, "%s-%s", appname, hostname);
-   else
-      asprintf (&id, "%s-%06llX", appname, revk_binid & 0xFFFFFF);
+#ifdef	CONFIG_REVK_PREFIXAPP
+   asprintf (&id, "%s-%s", appname, hostname);
+#else
+   asprintf (&id, "%s", hostname);
+#endif
    esp_netif_set_hostname (sta_netif, id);
    freez (id);
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
    REVK_ERR_CHECK (mdns_init ());
-   mdns_hostname_set (*hostname ? hostname : revk_id);
+   mdns_hostname_set (hostname);
    mdns_instance_name_set (appname);
 #endif
    revk_task (TAG, task, NULL);
@@ -1994,7 +2006,7 @@ revk_mqtt_send_payload_clients (const char *prefix, int retain, const char *suff
    char *topic = NULL;
    if (!prefix)
       topic = (char *) suffix;  /* Set fixed topic */
-   else if (asprintf (&topic, suffix ? "%s%s%s/%s/%s" : "%s%s%s/%s", prefix, sl, an, *hostname ? hostname : revk_id, suffix) < 0)
+   else if (asprintf (&topic, suffix ? "%s%s%s/%s/%s" : "%s%s%s/%s", prefix, sl, an, hostname, suffix) < 0)
       topic = NULL;
    if (!topic)
       return "No topic";
@@ -2197,21 +2209,32 @@ revk_web_config (httpd_req_t * req)
                jo_free (&j);
             }
          }
+         {
+            char settz[129];
+            if (!httpd_query_key_value (query, "tz", settz, sizeof (settz)) && *settz)
+            {
+               jo_t j = jo_object_alloc ();
+               jo_string (j, "tz", settz);
+               revk_setting (j);
+               jo_free (&j);
+            }
+         }
          httpd_resp_sendstr (req, "<h1>Done</h1>");
          apstoptime = uptime ();
          return ESP_OK;
       }
    }
 #endif
+   httpd_resp_set_type (req, "text/html;charset=utf-8");
    httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
-   httpd_resp_sendstr_chunk (req, *hostname ? hostname : revk_id);
+   httpd_resp_sendstr_chunk (req, hostname);
    httpd_resp_sendstr_chunk (req, "</h1>");
    if (!revk_link_down ())
    {
-      httpd_resp_sendstr_chunk (req, "<form ");
+      httpd_resp_sendstr_chunk (req, "<form");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
-      httpd_resp_sendstr_chunk (req, " onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));return false;\"");
+      httpd_resp_sendstr_chunk (req, " action='/' onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));\"");
 #endif
       httpd_resp_sendstr_chunk (req, "><input name=\"upgrade\" type=submit value=\"Upgrade\"> from <i>");
       httpd_resp_sendstr_chunk (req, otahost);
@@ -2220,14 +2243,14 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk (req,
-                             " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value}));return false;\"");
+                             " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value,'tz':f.tz.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk (req, "><table>");
    httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=host");
    if (!*hostname)
       httpd_resp_sendstr_chunk (req, " autofocus");
    httpd_resp_sendstr_chunk (req, " value='");
-   if (*hostname)
+   if (hostname != revk_id)
       httpd_resp_sendstr_chunk (req, hostname);
    httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
    httpd_resp_sendstr_chunk (req, revk_id);
@@ -2250,8 +2273,11 @@ revk_web_config (httpd_req_t * req)
                              "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
    if (*mqtthost[0])
       httpd_resp_sendstr_chunk (req, mqtthost[0]);
+   httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'>");
+   if (mqtt_client[0])
+      httpd_resp_sendstr_chunk (req, lwmqtt_connected (mqtt_client[0]) ? "✓" : lwmqtt_failed (mqtt_client[0]) ? "✘" : "…");       // MQTT status
    httpd_resp_sendstr_chunk (req,
-                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
+                             "</td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
    if (*mqttuser[0])
       httpd_resp_sendstr_chunk (req, mqttuser[0]);
    httpd_resp_sendstr_chunk (req,
@@ -2259,7 +2285,12 @@ revk_web_config (httpd_req_t * req)
    if (*mqttpass[0])
       httpd_resp_sendstr_chunk (req, mqttpass[0]);
    httpd_resp_sendstr_chunk (req,
-                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr></table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
+                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>Timezone</td><td><input maxlength=128 name=tz value='");
+   if (*tz)
+      httpd_resp_sendstr_chunk (req, tz);
+   httpd_resp_sendstr_chunk (req,
+                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></td></tr>");
+   httpd_resp_sendstr_chunk (req, "</table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk (req, "<div id=list></div>");
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
@@ -2281,9 +2312,45 @@ revk_web_config (httpd_req_t * req)
                              "b.textContent=s;" //
                              "document.getElementById('list').appendChild(b);"  //
                              "});"      //
-                             "}"        //
+                             "};"        //
                              "</script>");
-   httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p><hr><address>");
+   httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p>");
+   {                            // IP info
+      httpd_resp_sendstr_chunk (req, "<table>");
+      char temp[100];
+      {
+         time_t now = time (0);
+         if (now > 1000000000)
+         {
+            struct tm t;
+            localtime_r (&now, &t);
+            strftime (temp, sizeof (temp), "<tr><td>Time</td><td>%F %T %Z</td></tr>", &t);
+            httpd_resp_sendstr_chunk (req, temp);
+         }
+      }
+      {
+         esp_netif_ip_info_t ip;
+         if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+         {
+            sprintf (temp, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip));
+            httpd_resp_sendstr_chunk (req, temp);
+            sprintf (temp, "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.gw));
+            httpd_resp_sendstr_chunk (req, temp);
+         }
+      }
+#ifdef CONFIG_LWIP_IPV6
+      {
+         esp_ip6_addr_t ip;
+         if (!esp_netif_get_ip6_global (sta_netif, &ip) && ip.addr)
+         {
+            sprintf (temp, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
+            httpd_resp_sendstr_chunk (req, temp);
+         }
+      }
+#endif
+      httpd_resp_sendstr_chunk (req, "</table>");
+   }
+   httpd_resp_sendstr_chunk (req, "<hr><address>");
    httpd_resp_sendstr_chunk (req, appname);
    httpd_resp_sendstr_chunk (req, ": ");
    httpd_resp_sendstr_chunk (req, revk_version);
@@ -2389,6 +2456,7 @@ revk_web_wifilist (httpd_req_t * req)
             char mhost[129];
             char muser[33];
             char mpass[33];
+            char settz[129];
             uint8_t upgrade = 0;
             strncpy (ssid, wifissid, sizeof (ssid));
             strncpy (pass, wifipass, sizeof (pass));
@@ -2396,6 +2464,7 @@ revk_web_wifilist (httpd_req_t * req)
             strncpy (mhost, mqtthost[0], sizeof (mhost));
             strncpy (muser, mqttuser[0], sizeof (muser));
             strncpy (mpass, mqttpass[0], sizeof (mpass));
+            strncpy (settz, tz, sizeof (settz));
             jo_type_t t = jo_next (j);  // Start object
             while (t == JO_TAG)
             {
@@ -2414,6 +2483,8 @@ revk_web_wifilist (httpd_req_t * req)
                   jo_strncpy (j, muser, sizeof (muser));
                else if (!strcmp (tag, "mqttpass"))
                   jo_strncpy (j, mpass, sizeof (mpass));
+               else if (!strcmp (tag, "tz"))
+                  jo_strncpy (j, settz, sizeof (settz));
                else if (!strcmp (tag, "upgrade"))
                   upgrade = 1;
                t = jo_skip (j);
@@ -2462,6 +2533,7 @@ revk_web_wifilist (httpd_req_t * req)
             {
                jo_t s = jo_object_alloc ();
                jo_string (s, "hostname", host);
+               jo_string (s, "tz", settz);
                jo_object (s, "wifi");   // Ensures all other fields cleared
                jo_string (s, "ssid", ssid);
                if (!strcmp (pass, WIFIUNCHANGED))
