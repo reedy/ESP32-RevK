@@ -3048,7 +3048,7 @@ nvs_set (setting_t * s, const char *tag, void *data)
 }
 
 static const char *
-revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *value, unsigned char index, unsigned char flags)
+revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *value, unsigned char index, int flags)
 {                               // Value is expected to already be binary if using binary
    flags |= s->flags;
    {                            // Overlap check

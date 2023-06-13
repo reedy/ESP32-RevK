@@ -81,7 +81,7 @@ void revk_register(const char *name,    // Setting name (note max 15 characters 
                    uint16_t size,       // Base setting size, -8/-4/-2/-1 signed, 1/2/4/8 unsigned, 0=null terminated string.
                    void *data,  // The setting itself (for string this points to a char* pointer)
                    const char *defval,  // default value (default value text, or bitmask[space]default)
-                   uint8_t flags);      // Setting flags
+                   int flags);      // Setting flags
 #define	SETTING_LIVE		1       // Setting update live (else reboots shortly after any change)
 #define	SETTING_BINDATA		2       // Binary block (text is base64 or hex) rather than numeric. Fixed is just the data (malloc), variable is pointer to revk_bin_t
 #define	SETTING_SIGNED		4       // Numeric is signed
