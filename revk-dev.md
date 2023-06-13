@@ -87,6 +87,20 @@ Obviously there could be way more types and flags you can use for different type
 
 It is possible to flag fields as needing various bit tags based on a string of characters, and even as needing hex encoding of the value. Settings can live, and apply when sent, or by default they are stored and a reboot is done in a few seconds. It is a good idea to look at some of the existing apps to see the ways settings can be used.
 
+#### Flags
+
+|Flag|meaning|
+|----|-------|
+|`LIVE`|The setting is always applied live, it also gets written to flash but does not cause a reboot.|
+|`BINDATA`|This is a binary block. If fixed size then this is just a malloc'd block. If variable then this is a pointer to `revk_bin_t` which incldes a length|
+|`SIGNED`|Numeric value is signed|
+|`BOOLEAN`|Boolean - if an array then an array of bits in a value|
+|`BITFIELD`|Numeric value has high bits reserved for a series of character flags (initial string in the default value string followed by a space and actual default)|
+|`HEX`|Source is hex coded|
+|`SET`|Top bit of numeric value is reserved - set if the value has been set|
+|`SECRET`|Don't output this setting|
+|`FIX`|This setting is always written to flash, meaning any defaults are only every used on first run|
+
 ### Useful functions tracking state
 
 There are a number of functions to keep track of things...

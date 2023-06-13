@@ -216,13 +216,13 @@ struct setting_s
    void *data;                  // Stored data
    uint16_t size;               // Size of data, 0=dynamic
    uint8_t array;               // array size
-   uint8_t flags;               // flags 
    uint8_t namelen;             // Length of name
-   uint8_t set:1;               // Has been set
-   uint8_t parent:1;            // Parent setting
-   uint8_t child:1;             // Child setting
-   uint8_t dup:1;               // Set in parent if it is a duplicate of a child
-   uint8_t used:1;              // Used in settings as temp
+   uint16_t flags:9;            // flags 
+   uint16_t set:1;              // Has been set
+   uint16_t parent:1;           // Parent setting
+   uint16_t child:1;            // Child setting
+   uint16_t dup:1;              // Set in parent if it is a duplicate of a child
+   uint16_t used:1;             // Used in settings as temp
 };
 /* Public */
 const char *revk_version = "";  /* Git version */
@@ -1251,14 +1251,14 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             apstoptime = uptime () + 10;        // Stop ap mode soon
 #endif
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-	    mdns_netif_action(sta_netif,MDNS_EVENT_ENABLE_IP4);
+            mdns_netif_action (sta_netif, MDNS_EVENT_ENABLE_IP4);
 #endif
          }
          break;
       case IP_EVENT_GOT_IP6:
          ESP_LOGI (TAG, "Got IPv6");
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-	    mdns_netif_action(sta_netif,MDNS_EVENT_ENABLE_IP6);
+         mdns_netif_action (sta_netif, MDNS_EVENT_ENABLE_IP6);
 #endif
          break;
       default:
@@ -1709,8 +1709,8 @@ revk_boot (app_callback_t * app_callback_cb)
 #define	u8(n,d)		revk_register(#n,0,1,&n,str(d),0)
 #define	b(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_BOOLEAN)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_SIGNED)
-#define io(n,d)		revk_register(#n,0,sizeof(n),&n,"- "str(d),SETTING_SET|SETTING_BITFIELD)
-#define ioa(n,a,d)	revk_register(#n,a,sizeof(*n),&n,"- "str(d),SETTING_SET|SETTING_BITFIELD)
+#define io(n,d)		revk_register(#n,0,sizeof(n),&n,"- "str(d),SETTING_SET|SETTING_BITFIELD|SETTING_FIX)
+#define ioa(n,a,d)	revk_register(#n,a,sizeof(*n),&n,"- "str(d),SETTING_SET|SETTING_BITFIELD|SETTING_FIX)
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
 #define hs(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX|SETTING_SECRET)
@@ -2312,7 +2312,7 @@ revk_web_config (httpd_req_t * req)
                              "b.textContent=s;" //
                              "document.getElementById('list').appendChild(b);"  //
                              "});"      //
-                             "};"        //
+                             "};"       //
                              "</script>");
    httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p>");
    {                            // IP info
@@ -3074,8 +3074,8 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    }
    ESP_LOGD (TAG, "MQTT setting %s (%d)", tag, len);
    char erase = 0;
-   /* Using default, so remove from flash(as defaults may change later, don 't store the default in flash) */
-   unsigned char *temp = NULL;  // Malloced space to be freed
+   /* Using default, so remove from flash (as defaults may change later, don't store the default in flash) */
+   unsigned char *temp = NULL;  // Malloc'd space to be freed
    const char *defval = s->defval;
    if (defval && (flags & SETTING_BITFIELD))
    {                            /* default is after bitfields and a space */
@@ -3339,7 +3339,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       }
       if (o < 0)
       {                         /* Flash changed */
-         if (erase)
+         if (erase && !(flags & SETTING_FIX))
          {
             esp_err_t __attribute__((unused)) err = nvs_erase_key (s->nvs, tag);
             if (err == ESP_ERR_NVS_NOT_FOUND)
@@ -4181,7 +4181,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
          char tag[16];          /* NVS tag size */
          if (snprintf (tag, sizeof (tag), "%s%u", s->name, i + 1) < sizeof (tag) && get_val (tag, i) < 0)
          {
-            e = revk_setting_internal (s, 0, NULL, i, SETTING_LIVE);    /* Defaulting logic */
+            e = revk_setting_internal (s, 0, NULL, i, SETTING_LIVE & (flags & SETTING_FIX));    /* Defaulting logic */
             if (e && *e)
                ESP_LOGE (TAG, "Setting %s failed %s", tag, e);
             else
@@ -4190,7 +4190,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
       }
    } else if (get_val (s->name, 0) < 0)
    {                            /* Simple setting, not array */
-      e = revk_setting_internal (s, 0, NULL, 0, SETTING_LIVE);  /* Defaulting logic */
+      e = revk_setting_internal (s, 0, NULL, 0, SETTING_LIVE & (flags & SETTING_FIX));  /* Defaulting logic */
       if (e && *e)
          ESP_LOGE (TAG, "Setting %s failed %s", s->name, e);
       else

@@ -90,6 +90,7 @@ void revk_register(const char *name,    // Setting name (note max 15 characters 
 #define	SETTING_HEX		32      // Source string is hex coded
 #define	SETTING_SET		64      // Set top bit of numeric if a value is present at all
 #define	SETTING_SECRET		128     // Don't dump setting
+#define	SETTING_FIX		256	// Store in flash regardless, so default only used on initial s/w run
 
 #if CONFIG_LOG_DEFAULT_LEVEL > 2
 esp_err_t revk_err_check(esp_err_t, const char *file, int line, const char *func, const char *cmd);     // Log if error
