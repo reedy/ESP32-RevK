@@ -1250,16 +1250,10 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #ifdef	CONFIG_REVK_APMODE
             apstoptime = uptime () + 10;        // Stop ap mode soon
 #endif
-#ifdef  CONFIG_MDNS_MAX_INTERFACES
-            mdns_netif_action (sta_netif, MDNS_EVENT_ENABLE_IP4);
-#endif
          }
          break;
       case IP_EVENT_GOT_IP6:
          ESP_LOGI (TAG, "Got IPv6");
-#ifdef  CONFIG_MDNS_MAX_INTERFACES
-         mdns_netif_action (sta_netif, MDNS_EVENT_ENABLE_IP6);
-#endif
          break;
       default:
          ESP_LOGI (TAG, "IP event %ld", event_id);
@@ -1439,6 +1433,15 @@ task (void *pvParameters)
       if (now != last)
       {                         // Slow (once a second)
          last = now;
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+         if (!(now % 60))
+         {
+            mdns_netif_action (sta_netif, MDNS_EVENT_ANNOUNCE_IP4);
+#ifdef CONFIG_LWIP_IPV6
+            mdns_netif_action (sta_netif, MDNS_EVENT_ANNOUNCE_IP6);
+#endif
+         }
+#endif
          if (ota_check && ota_check < now)
          {                      // Check for s/w update
             time_t t = time (0);
