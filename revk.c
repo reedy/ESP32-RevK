@@ -1433,15 +1433,6 @@ task (void *pvParameters)
       if (now != last)
       {                         // Slow (once a second)
          last = now;
-#ifdef  CONFIG_MDNS_MAX_INTERFACES
-         if (!(now % 60))
-         {
-            mdns_netif_action (sta_netif, MDNS_EVENT_ANNOUNCE_IP4);
-#ifdef CONFIG_LWIP_IPV6
-            mdns_netif_action (sta_netif, MDNS_EVENT_ANNOUNCE_IP6);
-#endif
-         }
-#endif
          if (ota_check && ota_check < now)
          {                      // Check for s/w update
             time_t t = time (0);
