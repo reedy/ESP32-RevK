@@ -34,6 +34,9 @@
 #endif
 #include "jo.h"
 
+#include "esp8266_httpd_compat.h"
+#include "esp8266_netif_compat.h"
+
 // Types
 
         // MQTT rx callback: Do not consume jo_t! Return error or NULL. Returning "" means handled the command with no error.

@@ -13,6 +13,13 @@ if(! -e "$SDKCONFIG") then
 	exit 0
 endif
 
+# We don't seem to have any SoC variations with 8266
+grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
+if(! $status) then
+    echo setbuildsuffix is not supported on ESP8266
+	exit 255
+endif
+
 set add=()
 set rem=()
 set part=""

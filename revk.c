@@ -10,12 +10,13 @@ static const char __attribute__((unused)) * TAG = "RevK";
 // Note, low wifi buffers breaks mesh
 
 #include "revk.h"
-#include "esp_flash_spi_init.h"
+#ifndef CONFIG_IDF_TARGET_ESP8266
 #include "esp_mac.h"
+#include "aes/esp_aes.h"
+#endif
 #include "esp_http_client.h"
 #include "esp_ota_ops.h"
 #include "esp_tls.h"
-#include "aes/esp_aes.h"
 #ifdef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
 #include "esp_crt_bundle.h"
 #else
@@ -36,8 +37,22 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include "esp_bt.h"
 #endif
 
+#include "esp8266_ota_compat.h"
+#include "esp8266_flash_compat.h"
+#include "esp8266_gpio_compat.h"
+#include "esp8266_wdt_compat.h"
+
 #define	WIFINOPASS	"none"
 #define	WIFIUNCHANGED	"as is"
+
+static bool no_change(const char *pass)
+{
+   // When pressing "Set" my browser actually supplies "pass=as+is" on the URL,
+   // and this string gets passed unmodified to the app. Maybe it's esp866
+   // webserver flaw, maybe it's an overlook from the original code - i don't know
+   return !(strcmp (pass, WIFIUNCHANGED) &&
+            strcmp (pass, "as+is"));
+}
 
 const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
@@ -694,8 +709,10 @@ wifi_sta_config (void)
    cfg.sta.scan_method = ((esp_reset_reason () == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
    strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
    strncpy ((char *) cfg.sta.password, wifipass, sizeof (cfg.sta.password));
+#ifndef CONFIG_IDF_TARGET_ESP8266
    REVK_ERR_CHECK (esp_wifi_set_protocol
                    (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
+#endif
    REVK_ERR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg));
 }
 #endif
@@ -1165,6 +1182,12 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       case WIFI_EVENT_STA_START:
          ESP_LOGI (TAG, "STA Start");
+#ifdef CONFIG_IDF_TARGET_ESP8266
+         // Fails with ESP_ERR_WIFI_IF on esp8266 if called where it was
+         // originally placed. I've looked this up in examples.
+         REVK_ERR_CHECK (esp_wifi_set_protocol
+            (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
+#endif
          break;
       case WIFI_EVENT_STA_STOP:
          ESP_LOGI (TAG, "STA Stop");
@@ -1206,7 +1229,9 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #endif
 #endif
       default:
-         ESP_LOGI (TAG, "WiFi event %ld", event_id);
+         // On ESP32 uint32_t, returned by this func, appears to be long, while on ESP8266 it's a pure unsigned int
+         // The easiest and least ugly way to get around is to cast to long explicitly
+         ESP_LOGI (TAG, "WiFi event %ld", (long)event_id);
          break;
       }
    }
@@ -1256,14 +1281,14 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "Got IPv6");
          break;
       default:
-         ESP_LOGI (TAG, "IP event %ld", event_id);
+         ESP_LOGI (TAG, "IP event %ld", (long)event_id);
          break;
       }
    }
 #ifdef	CONFIG_REVK_MESH
    if (event_base == MESH_EVENT)
    {
-      ESP_LOGI (TAG, "Mesh event %ld", event_id);
+      ESP_LOGI (TAG, "Mesh event %ld", (long)event_id);
       switch (event_id)
       {
       case MESH_EVENT_STOPPED:
@@ -1360,7 +1385,7 @@ static void
 task (void *pvParameters)
 {                               /* Main RevK task */
    if (watchdogtime)
-      esp_task_wdt_add (NULL);
+      compat_task_wdt_add ();
    pvParameters = pvParameters;
    /* Log if unexpected restart */
    int64_t tick = 0;
@@ -1450,13 +1475,13 @@ task (void *pvParameters)
             }
          }
 #ifdef CONFIG_REVK_MESH
-         ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", now, revk_link_down (), esp_mesh_get_total_node_num (),
+         ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long)now, revk_link_down (), esp_mesh_get_total_node_num (),
                    esp_mesh_is_root ()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
-         ESP_LOGI (TAG, "Up %ld, Link down %ld", now, revk_link_down ());
+         ESP_LOGI (TAG, "Up %ld, Link down %ld", (long)now, (long)revk_link_down ());
 #else
-         ESP_LOGI (TAG, "Up %ld", now);
+         ESP_LOGI (TAG, "Up %ld", (long)now);
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
@@ -1642,12 +1667,12 @@ revk_boot (app_callback_t * app_callback_cb)
 #endif
          /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
          if ((part_end - part_start) > secsize)
-            ESP_LOGE (TAG, "Block size error (%d>%ld)", part_end - part_start, secsize);
+            ESP_LOGE (TAG, "Block size error (%d>%ld)", (long)part_end - part_start, (long)secsize);
          else
          {
             uint8_t *mem = malloc (secsize);
             if (!mem)
-               ESP_LOGE (TAG, "Malloc fail: %ld", secsize);
+               ESP_LOGE (TAG, "Malloc fail: %ld", (long)secsize);
             else
             {
                REVK_ERR_CHECK (esp_flash_read (NULL, mem, CONFIG_PARTITION_TABLE_OFFSET, secsize));
@@ -1675,7 +1700,7 @@ revk_boot (app_callback_t * app_callback_cb)
             }
          }
       } else
-         ESP_LOGE (TAG, "Flash partition not updated, size is unexpected: %ld (%s)", size, table);
+         ESP_LOGE (TAG, "Flash partition not updated, size is unexpected: %ld (%s)", (long)size, table);
    }
 #endif
    ESP_LOGI (TAG, "nvs_flash_init");
@@ -1753,14 +1778,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #undef bdp
    if (watchdogtime)
    {                            /* Watchdog */
-      esp_task_wdt_config_t config = {
-         .timeout_ms = watchdogtime * 1000,
-         .trigger_panic = true,
-      };
-#ifndef	CONFIG_ESP_TASK_WDT_INIT
-      if (esp_task_wdt_init (&config))
-#endif
-         esp_task_wdt_reconfigure (&config);
+      compat_task_wdt_reconfigure(true, watchdogtime * 1000, true);
    }
    REVK_ERR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs));
    /* Application specific settings */
@@ -2166,7 +2184,7 @@ revk_web_config (httpd_req_t * req)
                jo_t j = jo_object_alloc ();
                jo_object (j, "wifi");
                jo_string (j, "ssid", ssid);
-               if (!strcmp (pass, WIFIUNCHANGED))
+               if (no_change(pass))
                   jo_string (j, "pass", wifipass);
                else if (!strcmp (pass, WIFINOPASS))
                   jo_string (j, "pass", "");
@@ -2180,7 +2198,7 @@ revk_web_config (httpd_req_t * req)
             char host[129];
             char user[33];
             char pass[33];
-            if (!httpd_query_key_value (query, "mqtthost", host, sizeof (host)) && *host
+            if (!httpd_query_key_value (query, "mqtthost", host, sizeof (host))
                 && !httpd_query_key_value (query, "mqttuser", user, sizeof (user))
                 && !httpd_query_key_value (query, "mqttpass", pass, sizeof (pass)))
             {
@@ -2213,7 +2231,11 @@ revk_web_config (httpd_req_t * req)
                jo_free (&j);
             }
          }
-         httpd_resp_sendstr (req, "<h1>Done</h1>");
+         httpd_resp_sendstr_chunk (req, "<html><body><h1>Done</h1>");
+         httpd_resp_sendstr_chunk (req, "<a href=\"/\">Go to main page</a><br>");
+         httpd_resp_sendstr_chunk (req, "<a href=\"/wifi\">Back to settings</a>");
+         httpd_resp_sendstr_chunk (req, "</body></html>");
+         httpd_resp_sendstr_chunk (req, NULL);
          apstoptime = uptime ();
          return ESP_OK;
       }
@@ -2286,6 +2308,7 @@ revk_web_config (httpd_req_t * req)
                              "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></td></tr>");
    httpd_resp_sendstr_chunk (req, "</table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
    httpd_resp_sendstr_chunk (req, "<div id=list></div>");
+#ifdef CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
                              "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');"        //
@@ -2308,6 +2331,7 @@ revk_web_config (httpd_req_t * req)
                              "});"      //
                              "};"       //
                              "</script>");
+#endif
    httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p>");
    {                            // IP info
       httpd_resp_sendstr_chunk (req, "<table>");
@@ -2564,9 +2588,11 @@ revk_web_wifilist (httpd_req_t * req)
    return ret;
 }
 #else
+#ifndef CONFIG_IDF_TARGET_ESP8266
 #warning	You may want CONFIG_HTTPD_WS_SUPPORT
 #endif
-#endif
+#endif // CONFIG_HTTPD_WS_SUPPORT
+#endif // CONFIG_REVK_APMODE
 
 #ifdef	CONFIG_REVK_APDNS
 static void
@@ -4020,11 +4046,7 @@ revk_upgrade (const char *target, jo_t j)
          return "";
       }
       ESP_LOGI (TAG, "Resetting watchdog");
-      esp_task_wdt_config_t config = {
-         .timeout_ms = 120 * 1000,
-         .trigger_panic = true,
-      };
-      REVK_ERR_CHECK (esp_task_wdt_reconfigure (&config));
+      REVK_ERR_CHECK (compat_task_wdt_reconfigure (false, 120 * 1000, true));
       revk_restart ("OTA Download", 10);        // Restart if download does not happen properly
 #ifdef	CONFIG_NIMBLE_ENABLED
       ESP_LOGI (TAG, "Stopping any BLE");
