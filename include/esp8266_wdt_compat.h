@@ -20,7 +20,7 @@ static inline esp_err_t compat_task_wdt_add(void)
 	return esp_task_wdt_add(NULL);
 }
 
-static inline void compat_task_wdt_reconfigure(bool init, uint32_t timeout, bool panic)
+static inline esp_err_t compat_task_wdt_reconfigure(bool init, uint32_t timeout, bool panic)
 {
     esp_task_wdt_config_t config = {
        .timeout_ms = timeout,

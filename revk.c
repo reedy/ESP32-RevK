@@ -45,6 +45,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #define	WIFINOPASS	"none"
 #define	WIFIUNCHANGED	"as is"
 
+#ifndef  CONFIG_HTTPD_WS_SUPPORT
 static bool no_change(const char *pass)
 {
    // When pressing "Set" my browser actually supplies "pass=as+is" on the URL,
@@ -53,6 +54,7 @@ static bool no_change(const char *pass)
    return !(strcmp (pass, WIFIUNCHANGED) &&
             strcmp (pass, "as+is"));
 }
+#endif
 
 const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
@@ -1667,7 +1669,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #endif
          /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
          if ((part_end - part_start) > secsize)
-            ESP_LOGE (TAG, "Block size error (%d>%ld)", (long)part_end - part_start, (long)secsize);
+            ESP_LOGE (TAG, "Block size error (%ld>%ld)", (long)(part_end - part_start), (long)secsize);
          else
          {
             uint8_t *mem = malloc (secsize);
