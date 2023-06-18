@@ -3,11 +3,14 @@ set(RECS nvs_flash app_update esp_http_client esp-tls esp_http_server spi_flash 
 
 # Add extra dependancies
 
-# This one does not work as cannot see CONFIG_ at this point, needs to be another test TODO
-#if(${CONFIG_IDF_TARGET_ESP8266})
-#	set(SOURCES ${SOURCES} "esp8266_compat.c")
-#	set(RECS ${RECS} esp8266)
-#endif()
+# Unfortunately we can't simply test for ${CONFIG_IDF_TARGET_ESP8266} here
+# because requirements are evaluated in a separate pass, where any CONFIG_
+# settings haven't been evaluated yet.
+# The same applied to mdns check below
+if(EXISTS $ENV{IDF_PATH}/components/esp8266)
+	set(SOURCES ${SOURCES} "esp8266_compat.c")
+	set(RECS nvs_flash app_update esp_http_client esp-tls esp_http_server esp8266 spi_flash)
+endif()
 
 if(EXISTS "../managed_components/espressif__mdns")
 	set(RECS ${RECS} mdns)
