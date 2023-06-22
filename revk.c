@@ -46,13 +46,13 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #define	WIFIUNCHANGED	"as is"
 
 #ifndef  CONFIG_HTTPD_WS_SUPPORT
-static bool no_change(const char *pass)
+static bool
+no_change (const char *pass)
 {
    // When pressing "Set" my browser actually supplies "pass=as+is" on the URL,
    // and this string gets passed unmodified to the app. Maybe it's esp866
    // webserver flaw, maybe it's an overlook from the original code - i don't know
-   return !(strcmp (pass, WIFIUNCHANGED) &&
-            strcmp (pass, "as+is"));
+   return !(strcmp (pass, WIFIUNCHANGED) && strcmp (pass, "as+is"));
 }
 #endif
 
@@ -1187,8 +1187,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #ifdef CONFIG_IDF_TARGET_ESP8266
          // Fails with ESP_ERR_WIFI_IF on esp8266 if called where it was
          // originally placed. I've looked this up in examples.
-         REVK_ERR_CHECK (esp_wifi_set_protocol
-            (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
+         REVK_ERR_CHECK (esp_wifi_set_protocol (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
 #endif
          break;
       case WIFI_EVENT_STA_STOP:
@@ -1233,7 +1232,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
       default:
          // On ESP32 uint32_t, returned by this func, appears to be long, while on ESP8266 it's a pure unsigned int
          // The easiest and least ugly way to get around is to cast to long explicitly
-         ESP_LOGI (TAG, "WiFi event %ld", (long)event_id);
+         ESP_LOGI (TAG, "WiFi event %ld", (long) event_id);
          break;
       }
    }
@@ -1283,14 +1282,14 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "Got IPv6");
          break;
       default:
-         ESP_LOGI (TAG, "IP event %ld", (long)event_id);
+         ESP_LOGI (TAG, "IP event %ld", (long) event_id);
          break;
       }
    }
 #ifdef	CONFIG_REVK_MESH
    if (event_base == MESH_EVENT)
    {
-      ESP_LOGI (TAG, "Mesh event %ld", (long)event_id);
+      ESP_LOGI (TAG, "Mesh event %ld", (long) event_id);
       switch (event_id)
       {
       case MESH_EVENT_STOPPED:
@@ -1477,13 +1476,13 @@ task (void *pvParameters)
             }
          }
 #ifdef CONFIG_REVK_MESH
-         ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long)now, revk_link_down (), esp_mesh_get_total_node_num (),
+         ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long) now, revk_link_down (), esp_mesh_get_total_node_num (),
                    esp_mesh_is_root ()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
-         ESP_LOGI (TAG, "Up %ld, Link down %ld", (long)now, (long)revk_link_down ());
+         ESP_LOGI (TAG, "Up %ld, Link down %ld", (long) now, (long) revk_link_down ());
 #else
-         ESP_LOGI (TAG, "Up %ld", (long)now);
+         ESP_LOGI (TAG, "Up %ld", (long) now);
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
@@ -1669,12 +1668,12 @@ revk_boot (app_callback_t * app_callback_cb)
 #endif
          /* Check and update partition table - expects some code to stay where it can run, i.e.0x10000, but may clear all settings */
          if ((part_end - part_start) > secsize)
-            ESP_LOGE (TAG, "Block size error (%ld>%ld)", (long)(part_end - part_start), (long)secsize);
+            ESP_LOGE (TAG, "Block size error (%ld>%ld)", (long) (part_end - part_start), (long) secsize);
          else
          {
             uint8_t *mem = malloc (secsize);
             if (!mem)
-               ESP_LOGE (TAG, "Malloc fail: %ld", (long)secsize);
+               ESP_LOGE (TAG, "Malloc fail: %ld", (long) secsize);
             else
             {
                REVK_ERR_CHECK (esp_flash_read (NULL, mem, CONFIG_PARTITION_TABLE_OFFSET, secsize));
@@ -1702,7 +1701,7 @@ revk_boot (app_callback_t * app_callback_cb)
             }
          }
       } else
-         ESP_LOGE (TAG, "Flash partition not updated, size is unexpected: %ld (%s)", (long)size, table);
+         ESP_LOGE (TAG, "Flash partition not updated, size is unexpected: %ld (%s)", (long) size, table);
    }
 #endif
    ESP_LOGI (TAG, "nvs_flash_init");
@@ -1780,7 +1779,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #undef bdp
    if (watchdogtime)
    {                            /* Watchdog */
-      compat_task_wdt_reconfigure(true, watchdogtime * 1000, true);
+      compat_task_wdt_reconfigure (true, watchdogtime * 1000, true);
    }
    REVK_ERR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs));
    /* Application specific settings */
@@ -2186,7 +2185,7 @@ revk_web_config (httpd_req_t * req)
                jo_t j = jo_object_alloc ();
                jo_object (j, "wifi");
                jo_string (j, "ssid", ssid);
-               if (no_change(pass))
+               if (no_change (pass))
                   jo_string (j, "pass", wifipass);
                else if (!strcmp (pass, WIFINOPASS))
                   jo_string (j, "pass", "");
@@ -2248,7 +2247,7 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
    httpd_resp_sendstr_chunk (req, hostname);
    httpd_resp_sendstr_chunk (req, "</h1>");
-   if (!revk_link_down ())
+   if (!revk_link_down () && *otahost)
    {
       httpd_resp_sendstr_chunk (req, "<form");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
@@ -2335,6 +2334,12 @@ revk_web_config (httpd_req_t * req)
                              "</script>");
 #endif
    httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p>");
+   if (otaauto && *otahost)
+   {
+      httpd_resp_sendstr_chunk (req, "<p>Note, automatic upgrade from <i>");
+      httpd_resp_sendstr_chunk (req, otahost);
+      httpd_resp_sendstr_chunk (req, "</i> is enabled. See instructions to make changes.</p>");
+   }
    {                            // IP info
       httpd_resp_sendstr_chunk (req, "<table>");
       char temp[100];
