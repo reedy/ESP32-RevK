@@ -45,6 +45,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #define	WIFINOPASS	"none"
 #define	WIFIUNCHANGED	"as is"
 
+#ifdef  CONFIG_REVK_APMODE
 #ifndef  CONFIG_HTTPD_WS_SUPPORT
 static bool
 no_change (const char *pass)
@@ -54,6 +55,7 @@ no_change (const char *pass)
    // webserver flaw, maybe it's an overlook from the original code - i don't know
    return !(strcmp (pass, WIFIUNCHANGED) && strcmp (pass, "as+is"));
 }
+#endif
 #endif
 
 const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
