@@ -1,8 +1,5 @@
 #!/bin/csh -f
 
-# Force build date/time
-touch "${IDF_PATH}/components/esp_app_format/esp_app_desc.c"
-
 setenv	SUFFIX	""
 
 setenv SDKCONFIG "sdkconfig"
@@ -12,6 +9,16 @@ if(! -e "$SDKCONFIG") then
         echo "Missing $SDKCONFIG"
         exit 0
 endif
+
+# processor/SDK family
+set esp8266=0
+grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
+if (! $status) set esp8266=1
+
+# Force build date/time
+set app_desc="${IDF_PATH}/components/esp_app_format/esp_app_desc.c"
+if($esp8266) set app_desc="${IDF_PATH}/components/app_update/esp_app_desc.c"
+touch $app_desc
 
 # processor type
 grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
@@ -25,8 +32,7 @@ if(! $status) 	setenv	SUFFIX	"$SUFFIX-C3"
 grep -q CONFIG_IDF_TARGET_ESPH2=y "$SDKCONFIG"
 if(! $status) 	setenv	SUFFIX	"$SUFFIX-H2"
 
-grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
-if(! $status) 	setenv	SUFFIX	"$SUFFIX-8266"
+if($esp8266) 	setenv	SUFFIX	"$SUFFIX-8266"
 else
 # ESP32 Single core
 grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
