@@ -2220,7 +2220,7 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk (req,
-                             " onsubmit=\"o ={};for(f of document.WIFI.elements){if(f.name){o[f.name]=f.value;}};ws.send(JSON.stringify(o));}));return false;\"");
+                             " onsubmit=\"o={};for(f of document.WIFI.elements){if(f.name){o[f.name]=f.value;}};ws.send(JSON.stringify(o));return false;\"");
 #endif
    httpd_resp_sendstr_chunk (req, "><table>");
    httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
