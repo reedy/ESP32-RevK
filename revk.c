@@ -3956,7 +3956,7 @@ revk_upgrade (const char *target, jo_t j)
       }
       ESP_LOGI (TAG, "Resetting watchdog");
       REVK_ERR_CHECK (compat_task_wdt_reconfigure (false, 120 * 1000, true));
-      revk_restart ("OTA Download", 10);        // Restart if download does not happen properly
+      revk_restart ("OTA Download", 30);        // Restart if download does not happen properly
 #ifdef	CONFIG_NIMBLE_ENABLED
       ESP_LOGI (TAG, "Stopping any BLE");
       esp_bt_controller_disable ();     // Kill bluetooth during download
