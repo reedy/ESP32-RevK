@@ -2826,6 +2826,7 @@ ota_task (void *pvParameters)
                esp_ota_set_boot_partition (ota_partition);
                revk_restart ("OTA Download complete", 3);
             }
+	    else revk_restart ("OTA Download fail", 3);
          }
 #endif
       }
