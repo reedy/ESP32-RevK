@@ -1239,8 +1239,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
             ESP_LOGI (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits (revk_group, GROUP_IP);
-            sntp_stop ();
-            sntp_init ();
+            esp_sntp_stop ();
+            esp_sntp_init ();
 #ifdef	CONFIG_REVK_MQTT
             revk_mqtt_init ();
 #endif
@@ -1543,7 +1543,7 @@ task (void *pvParameters)
 #ifdef CONFIG_LWIP_IPV6
                   {
                      esp_ip6_addr_t ip;
-                     if (!esp_netif_get_ip6_global (sta_netif, &ip) && ip.addr)
+                     if (!esp_netif_get_ip6_global (sta_netif, &ip))
                         jo_stringf (j, "ipv6", IPV6STR, IPV62STR (ip));
                   }
 #endif
@@ -1821,10 +1821,10 @@ revk_boot (app_callback_t * app_callback_cb)
    char *d = strstr (revk_version, "-dirty");
    if (d)
       asprintf ((char **) &revk_version, "%.*s+", d - revk_version, app->version);
-   sntp_setoperatingmode (SNTP_OPMODE_POLL);
+   esp_sntp_setoperatingmode (SNTP_OPMODE_POLL);
    setenv ("TZ", tz, 1);
    tzset ();
-   sntp_setservername (0, ntphost);
+   esp_sntp_setservername (0, ntphost);
    app_callback = app_callback_cb;
    {                            /* Chip ID from MAC */
       REVK_ERR_CHECK (esp_efuse_mac_get_default (revk_mac));
@@ -2327,7 +2327,7 @@ revk_web_config (httpd_req_t * req)
 #ifdef CONFIG_LWIP_IPV6
       {
          esp_ip6_addr_t ip;
-         if (!esp_netif_get_ip6_global (sta_netif, &ip) && ip.addr)
+         if (!esp_netif_get_ip6_global (sta_netif, &ip))
          {
             sprintf (temp, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
             httpd_resp_sendstr_chunk (req, temp);
