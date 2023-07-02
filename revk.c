@@ -42,22 +42,6 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include "esp8266_gpio_compat.h"
 #include "esp8266_wdt_compat.h"
 
-#define	WIFINOPASS	"none"
-#define	WIFIUNCHANGED	"as is"
-
-#ifdef  CONFIG_REVK_APMODE
-#ifndef  CONFIG_HTTPD_WS_SUPPORT
-static bool
-no_change (const char *pass)
-{
-   // When pressing "Set" my browser actually supplies "pass=as+is" on the URL,
-   // and this string gets passed unmodified to the app. Maybe it's esp866
-   // webserver flaw, maybe it's an overlook from the original code - i don't know
-   return !(strcmp (pass, WIFIUNCHANGED) && strcmp (pass, "as+is"));
-}
-#endif
-#endif
-
 const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
 // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_tls.html
@@ -2167,88 +2151,62 @@ revk_web_config_stop (httpd_handle_t webserver)
 esp_err_t
 revk_web_config (httpd_req_t * req)
 {
+   void head (void)
+   {
+      httpd_resp_set_type (req, "text/html;charset=utf-8");
+      httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
+      httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
+      httpd_resp_sendstr_chunk (req, hostname);
+      httpd_resp_sendstr_chunk (req, "</h1>");
+   }
+   esp_err_t foot (void)
+   {
+      httpd_resp_sendstr_chunk (req, "<hr><address>");
+      httpd_resp_sendstr_chunk (req, appname);
+      httpd_resp_sendstr_chunk (req, ": ");
+      httpd_resp_sendstr_chunk (req, revk_version);
+      httpd_resp_sendstr_chunk (req, " ");
+      char temp[20];
+      httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
+      httpd_resp_sendstr_chunk (req, "</address></body></html>");
+      httpd_resp_sendstr_chunk (req, NULL);
+      return ESP_OK;
+   }
 #ifndef  CONFIG_HTTPD_WS_SUPPORT
    if (httpd_req_get_url_query_len (req))
    {
       char query[200];
       if (!httpd_req_get_url_query_str (req, query, sizeof (query)))
       {
+         head ();
+         httpd_resp_sendstr_chunk (req, "<p>");
+         jo_t j = jo_parse_query (query);
+         if (jo_find (j, "upgrade"))
          {
-            char ug[10];
-            if (!httpd_query_key_value (query, "upgrade", ug, sizeof (ug)))
-               revk_command ("upgrade", NULL);
-         }
+            const char *e = revk_command ("upgrade", NULL);
+            if (e && *e)
+               httpd_resp_sendstr_chunk (req, e);
+            else
+               httpd_resp_sendstr_chunk (req, "Upgrade started");
+         } else
          {
-            char ssid[33],
-              pass[33];
-            if (!httpd_query_key_value (query, "ssid", ssid, sizeof (ssid)) && *ssid
-                && !httpd_query_key_value (query, "pass", pass, sizeof (pass)))
+            const char *e = revk_setting (j) ? : "Settings saved";
+            if (e && *e)
             {
-               jo_t j = jo_object_alloc ();
-               jo_object (j, "wifi");
-               jo_string (j, "ssid", ssid);
-               if (no_change (pass))
-                  jo_string (j, "pass", wifipass);
-               else if (!strcmp (pass, WIFINOPASS))
-                  jo_string (j, "pass", "");
-               else
-                  jo_string (j, "pass", pass);
-               revk_setting (j);
-               jo_free (&j);
-            }
+               httpd_resp_sendstr_chunk (req, e);
+               httpd_resp_sendstr_chunk (req, " @ ");
+               httpd_resp_sendstr_chunk (req, jo_debug (j));
+            } else
+               httpd_resp_sendstr_chunk (req, "Settings saved");
          }
-         {
-            char host[129];
-            char user[33];
-            char pass[33];
-            if (!httpd_query_key_value (query, "mqtthost", host, sizeof (host))
-                && !httpd_query_key_value (query, "mqttuser", user, sizeof (user))
-                && !httpd_query_key_value (query, "mqttpass", pass, sizeof (pass)))
-            {
-               jo_t j = jo_object_alloc ();
-               jo_object (j, "mqtt");
-               jo_string (j, "host", host);
-               jo_string (j, "user", user);
-               jo_string (j, "pass", pass);
-               revk_setting (j);
-               jo_free (&j);
-            }
-         }
-         {
-            char host[33];
-            if (!httpd_query_key_value (query, "host", host, sizeof (host)) && *host)
-            {
-               jo_t j = jo_object_alloc ();
-               jo_string (j, "hostname", host);
-               revk_setting (j);
-               jo_free (&j);
-            }
-         }
-         {
-            char settz[129];
-            if (!httpd_query_key_value (query, "tz", settz, sizeof (settz)) && *settz)
-            {
-               jo_t j = jo_object_alloc ();
-               jo_string (j, "tz", settz);
-               revk_setting (j);
-               jo_free (&j);
-            }
-         }
-         httpd_resp_sendstr_chunk (req, "<html><body><h1>Done</h1>");
-         httpd_resp_sendstr_chunk (req, "<a href=\"/\">Go to main page</a><br>");
-         httpd_resp_sendstr_chunk (req, "<a href=\"/wifi\">Back to settings</a>");
-         httpd_resp_sendstr_chunk (req, "</body></html>");
-         httpd_resp_sendstr_chunk (req, NULL);
-         apstoptime = uptime ();
-         return ESP_OK;
+         jo_free (&j);
+         httpd_resp_sendstr_chunk (req, "</p>");
+         httpd_resp_sendstr_chunk (req, "<p><a href=\"/\">Go to main page</a></p><p><a href=\"/wifi\">Back to settings</a></p>");
+         return foot ();
       }
    }
 #endif
-   httpd_resp_set_type (req, "text/html;charset=utf-8");
-   httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
-   httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
-   httpd_resp_sendstr_chunk (req, hostname);
-   httpd_resp_sendstr_chunk (req, "</h1>");
+   head ();
    if (!revk_link_down () && *otahost)
    {
       httpd_resp_sendstr_chunk (req, "<form");
@@ -2262,10 +2220,10 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk (req,
-                             " onsubmit=\"ws.send(JSON.stringify({'ssid':f.ssid.value,'pass':f.pass.value,'host':f.host.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value,'tz':f.tz.value}));return false;\"");
+                             " onsubmit=\"ws.send(JSON.stringify({'wifissid':f.wifissid.value,'wifipass':f.wifipass.value,'hostname':f.hostname.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value,'tz':f.tz.value}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk (req, "><table>");
-   httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=host");
+   httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
    if (!*hostname)
       httpd_resp_sendstr_chunk (req, " autofocus");
    httpd_resp_sendstr_chunk (req, " value='");
@@ -2278,16 +2236,17 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, ".local");
 #endif
    httpd_resp_sendstr_chunk (req, "</td></tr><tr><td colspan=2><hr></td></tr>");
-   httpd_resp_sendstr_chunk (req, "<tr><td>SSID</td><td><input name=ssid");
+   httpd_resp_sendstr_chunk (req, "<tr><td>SSID</td><td><input name=wifissid");
    if (*hostname)
       httpd_resp_sendstr_chunk (req, " autofocus");
    httpd_resp_sendstr_chunk (req, " maxlength=32 placeholder='WiFI name' value='");
    if (*wifissid)
       httpd_resp_sendstr_chunk (req, wifissid);
    httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
-   httpd_resp_sendstr_chunk (req, "<tr><td>Passphrase</td><td><input name=pass placeholder='passphrase' maxlength=32 value='");
+   httpd_resp_sendstr_chunk (req,
+                             "<tr><td>Passphrase</td><td><input name=wifipass placeholder='passphrase' type=password maxlength=32 value='");
    if (*wifipass)
-      httpd_resp_sendstr_chunk (req, WIFIUNCHANGED);    // Not a valid password as too short, used to indicate one is set
+      httpd_resp_sendstr_chunk (req, wifipass); // Not a valid password as too short, used to indicate one is set
    httpd_resp_sendstr_chunk (req,
                              "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
    if (*mqtthost[0])
@@ -2377,16 +2336,8 @@ revk_web_config (httpd_req_t * req)
 #endif
       httpd_resp_sendstr_chunk (req, "</table>");
    }
-   httpd_resp_sendstr_chunk (req, "<hr><address>");
-   httpd_resp_sendstr_chunk (req, appname);
-   httpd_resp_sendstr_chunk (req, ": ");
-   httpd_resp_sendstr_chunk (req, revk_version);
-   httpd_resp_sendstr_chunk (req, " ");
-   char temp[20];
-   httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
-   httpd_resp_sendstr_chunk (req, "</address></body></html>");
-   httpd_resp_sendstr_chunk (req, NULL);
-   return ESP_OK;
+
+   return foot ();
 }
 #endif
 
@@ -2477,45 +2428,7 @@ revk_web_wifilist (httpd_req_t * req)
       {
          if (jo_here (j) == JO_OBJECT)
          {
-            char ssid[33];
-            char pass[33];
-            char host[33];
-            char mhost[129];
-            char muser[33];
-            char mpass[33];
-            char settz[129];
-            uint8_t upgrade = 0;
-            strncpy (ssid, wifissid, sizeof (ssid));
-            strncpy (pass, wifipass, sizeof (pass));
-            strncpy (host, hostname, sizeof (host));
-            strncpy (mhost, mqtthost[0], sizeof (mhost));
-            strncpy (muser, mqttuser[0], sizeof (muser));
-            strncpy (mpass, mqttpass[0], sizeof (mpass));
-            strncpy (settz, tz, sizeof (settz));
-            jo_type_t t = jo_next (j);  // Start object
-            while (t == JO_TAG)
-            {
-               char tag[10] = "";
-               jo_strncpy (j, tag, sizeof (tag));
-               t = jo_next (j);
-               if (!strcmp (tag, "ssid"))
-                  jo_strncpy (j, ssid, sizeof (ssid));
-               else if (!strcmp (tag, "pass"))
-                  jo_strncpy (j, pass, sizeof (pass));
-               else if (!strcmp (tag, "host"))
-                  jo_strncpy (j, host, sizeof (host));
-               else if (!strcmp (tag, "mqtthost"))
-                  jo_strncpy (j, mhost, sizeof (mhost));
-               else if (!strcmp (tag, "mqttuser"))
-                  jo_strncpy (j, muser, sizeof (muser));
-               else if (!strcmp (tag, "mqttpass"))
-                  jo_strncpy (j, mpass, sizeof (mpass));
-               else if (!strcmp (tag, "tz"))
-                  jo_strncpy (j, settz, sizeof (settz));
-               else if (!strcmp (tag, "upgrade"))
-                  upgrade = 1;
-               t = jo_skip (j);
-            }
+            uint8_t upgrade = jo_find (j, "upgrade");
             int ok = 0;
             if (!revk_link_down ())
             {                   // Already connected as sta...
@@ -2524,8 +2437,13 @@ revk_web_wifilist (httpd_req_t * req)
                   msg ("Storing new settings");
                   ok = 1;
                }
-            } else
-            {
+            } else if (jo_find (j, "wifissid") == JO_STRING)
+            {                   // Try connect
+               char ssid[33] = "";
+               char pass[33] = "";
+               jo_strncpy (j, ssid, sizeof (ssid));
+               if (jo_find (j, "wifipass") == JO_STRING)
+                  jo_strncpy (j, pass, sizeof (pass));
                msg ("Connecting");
                esp_wifi_set_mode (mode == WIFI_MODE_NULL ? WIFI_MODE_STA : WIFI_MODE_APSTA);
                wifi_config_t cfg = { 0, };
@@ -2558,25 +2476,7 @@ revk_web_wifilist (httpd_req_t * req)
             }
             if (ok)
             {
-               jo_t s = jo_object_alloc ();
-               jo_string (s, "hostname", host);
-               jo_string (s, "tz", settz);
-               jo_object (s, "wifi");   // Ensures all other fields cleared
-               jo_string (s, "ssid", ssid);
-               if (!strcmp (pass, WIFIUNCHANGED))
-                  jo_string (s, "pass", wifipass);
-               else if (!strcmp (pass, WIFINOPASS))
-                  jo_string (s, "pass", "");
-               else
-                  jo_string (s, "pass", pass);
-               jo_close (s);
-               jo_object (s, "mqtt");
-               jo_string (s, "host", mhost);
-               jo_string (s, "user", muser);
-               jo_string (s, "pass", mpass);
-               jo_close (s);
-               revk_setting (s);
-               jo_free (&s);
+               revk_setting (j);
             } else if (upgrade)
             {
                revk_command ("upgrade", NULL);
