@@ -2220,7 +2220,7 @@ revk_web_config (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<form name=WIFI");
 #ifdef  CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk (req,
-                             " onsubmit=\"ws.send(JSON.stringify({'wifissid':f.wifissid.value,'wifipass':f.wifipass.value,'hostname':f.hostname.value,'mqtthost':f.mqtthost.value,'mqttuser':f.mqttuser.value,'mqttpass':f.mqttpass.value,'tz':f.tz.value}));return false;\"");
+                             " onsubmit=\"o ={};for(f of document.WIFI.elements){if(f.name){o[f.name]=f.value;}};ws.send(JSON.stringify(o));}));return false;\"");
 #endif
    httpd_resp_sendstr_chunk (req, "><table>");
    httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
@@ -2283,9 +2283,9 @@ revk_web_config (httpd_req_t * req)
                              "else if(typeof o === 'object')o.forEach(function(s){"     //
                              "b=document.createElement('button');"      //
                              "b.onclick=function(e){"   //
-                             "f.ssid.value=s;"  //
-                             "f.pass.value='';" //
-                             "f.pass.focus();"  //
+                             "f.wifissid.value=s;"  //
+                             "f.wifipass.value='';" //
+                             "f.wifipass.focus();"  //
                              "return false;"    //
                              "};"       //
                              "b.textContent=s;" //
