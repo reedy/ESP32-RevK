@@ -1874,7 +1874,7 @@ revk_start (void)
 TaskHandle_t
 revk_task (const char *tag, TaskFunction_t t, const void *param, int kstack)
 {                               /* General user task make */
-   if (!kstack = 0)
+   if (!kstack)
       kstack = 8;               // Default 8k
    TaskHandle_t task_id = NULL;
 #ifdef	CONFIG_FREERTOS_UNICORE
