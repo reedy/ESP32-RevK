@@ -2556,7 +2556,6 @@ dummy_dns_task (void *pvParameters)
             if (buf[p] || buf[p + 1] != 1)
                continue;        // Not IN class
             p += 2;
-            ESP_LOGI (TAG, "Dummy DNS reply");
             // Let's answer
             buf[2] = 0x84;      // Response
             buf[3] = 0x00;
@@ -2581,12 +2580,12 @@ dummy_dns_task (void *pvParameters)
             buf[p++] = 1;       // IP
             // Send reply
             sendto (sock, buf, p, 0, (struct sockaddr *) &source_addr, socklen);
+            ESP_LOGI (TAG, "Dummy DNS reply (stack free %d)", uxTaskGetStackHighWaterMark (NULL));
          }
          ESP_LOGI (TAG, "Dummy DNS stop");
       }
       close (sock);
    }
-   ESP_LOGI (TAG, "DNS: Stack spare %d", uxTaskGetStackHighWaterMark (NULL));
    vTaskDelete (NULL);
 }
 #endif
