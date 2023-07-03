@@ -3967,7 +3967,7 @@ revk_upgrade (const char *target, jo_t j)
       esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
 #endif
    }
-   ota_task_id = revk_task ("OTA", ota_task, url, 4);
+   ota_task_id = revk_task ("OTA", ota_task, url, 5);
    return "";
 }
 
