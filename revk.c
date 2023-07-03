@@ -1847,7 +1847,7 @@ revk_boot (app_callback_t * app_callback_cb)
 
 void
 revk_start (void)
-{                               // Start stuff, init all doned
+{                               // Start stuff, init all done
 #ifdef	CONFIG_REVK_WIFI
    wifi_init ();
 #endif
@@ -1868,7 +1868,7 @@ revk_start (void)
    mdns_hostname_set (hostname);
    mdns_instance_name_set (appname);
 #endif
-   revk_task (TAG, task, NULL, 0);
+   revk_task (TAG, task, NULL, 4);
 }
 
 TaskHandle_t
