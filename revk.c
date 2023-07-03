@@ -1239,8 +1239,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
             ESP_LOGI (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits (revk_group, GROUP_IP);
-            sntp_stop ();
-            sntp_init ();
+            esp_sntp_stop ();
+            esp_sntp_init ();
 #ifdef	CONFIG_REVK_MQTT
             revk_mqtt_init ();
 #endif
@@ -1821,10 +1821,10 @@ revk_boot (app_callback_t * app_callback_cb)
    char *d = strstr (revk_version, "-dirty");
    if (d)
       asprintf ((char **) &revk_version, "%.*s+", d - revk_version, app->version);
-   sntp_setoperatingmode (SNTP_OPMODE_POLL);
+   esp_sntp_setoperatingmode (SNTP_OPMODE_POLL);
    setenv ("TZ", tz, 1);
    tzset ();
-   sntp_setservername (0, ntphost);
+   esp_sntp_setservername (0, ntphost);
    app_callback = app_callback_cb;
    {                            /* Chip ID from MAC */
       REVK_ERR_CHECK (esp_efuse_mac_get_default (revk_mac));
@@ -2283,9 +2283,9 @@ revk_web_config (httpd_req_t * req)
                              "else if(typeof o === 'object')o.forEach(function(s){"     //
                              "b=document.createElement('button');"      //
                              "b.onclick=function(e){"   //
-                             "f.wifissid.value=s;"  //
-                             "f.wifipass.value='';" //
-                             "f.wifipass.focus();"  //
+                             "f.wifissid.value=s;"      //
+                             "f.wifipass.value='';"     //
+                             "f.wifipass.focus();"      //
                              "return false;"    //
                              "};"       //
                              "b.textContent=s;" //
@@ -2825,8 +2825,8 @@ ota_task (void *pvParameters)
                revk_info_clients ("upgrade", &j, -1);
                esp_ota_set_boot_partition (ota_partition);
                revk_restart ("OTA Download complete", 3);
-            }
-	    else revk_restart ("OTA Download fail", 3);
+            } else
+               revk_restart ("OTA Download fail", 3);
          }
 #endif
       }
@@ -4022,6 +4022,47 @@ revk_command (const char *tag, jo_t j)
    {
       ap_stop ();
       return "";
+   }
+#endif
+#ifdef	configUSE_TRACE_FACILITY
+   if (!e && !strcmp (tag, "ps"))
+   { // Process list
+      TaskStatus_t *pxTaskStatusArray;
+      volatile UBaseType_t uxArraySize,
+        x;
+      uint32_t ulTotalRunTime;
+
+      // Take a snapshot of the number of tasks in case it changes while this
+      // function is executing.
+      uxArraySize = uxTaskGetNumberOfTasks ();
+
+      // Allocate a TaskStatus_t structure for each task.  An array could be
+      // allocated statically at compile time.
+      pxTaskStatusArray = pvPortMalloc (uxArraySize * sizeof (TaskStatus_t));
+
+      if (pxTaskStatusArray != NULL)
+      {
+         // Generate raw status information about each task.
+         uxArraySize = uxTaskGetSystemState (pxTaskStatusArray, uxArraySize, &ulTotalRunTime);
+
+         // Avoid divide by zero errors.
+         if (ulTotalRunTime > 0)
+         {
+            // For each populated position in the pxTaskStatusArray array,
+            // format the raw data as human readable ASCII data
+            for (x = 0; x < uxArraySize; x++)
+            {
+               jo_t j = jo_create_alloc ();
+               jo_string (j, "task", pxTaskStatusArray[x].pcTaskName);
+               jo_int (j, "priority", pxTaskStatusArray[x].uxCurrentPriority);
+               jo_int (j, "free-stack", pxTaskStatusArray[x].usStackHighWaterMark);
+               jo_int (j, "load", pxTaskStatusArray[x].ulRunTimeCounter * 100 / ulTotalRunTime);
+               revk_info ("ps", &j);
+            }
+         }
+         // The array is no longer needed, free the memory it consumes.
+         vPortFree (pxTaskStatusArray);
+      }
    }
 #endif
    return e;
