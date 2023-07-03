@@ -817,7 +817,7 @@ mesh_init (void)
       REVK_ERR_CHECK (esp_mesh_disable_ps ());
       if (meshmax == 1 || meshroot)
          esp_mesh_set_type (MESH_ROOT); // We are forcing root
-      revk_task ("Mesh", mesh_task, NULL);
+      revk_task ("Mesh", mesh_task, NULL, 4);
    }
    REVK_ERR_CHECK (esp_mesh_start ());
 }
@@ -1868,20 +1868,22 @@ revk_start (void)
    mdns_hostname_set (hostname);
    mdns_instance_name_set (appname);
 #endif
-   revk_task (TAG, task, NULL);
+   revk_task (TAG, task, NULL, 0);
 }
 
 TaskHandle_t
-revk_task (const char *tag, TaskFunction_t t, const void *param)
+revk_task (const char *tag, TaskFunction_t t, const void *param, int kstack)
 {                               /* General user task make */
+   if (!kstack = 0)
+      kstack = 8;               // Default 8k
    TaskHandle_t task_id = NULL;
 #ifdef	CONFIG_FREERTOS_UNICORE
-   xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id); // Only one code anyway and not CPU1
+   xTaskCreate (t, tag, kstack * 1024, (void *) param, 2, &task_id);    // Only one code anyway and not CPU1
 #else
 #ifdef REVK_LOCK_CPU1
-   xTaskCreatePinnedToCore (t, tag, 8 * 1024, (void *) param, 2, &task_id, 1);
+   xTaskCreatePinnedToCore (t, tag, kstack * 1024, (void *) param, 2, &task_id, 1);
 #else
-   xTaskCreate (t, tag, 8 * 1024, (void *) param, 2, &task_id);
+   xTaskCreate (t, tag, kstack * 1024, (void *) param, 2, &task_id);
 #endif
 #endif
    if (!task_id)
@@ -2643,7 +2645,7 @@ ap_start (void)
 #endif
 #ifdef	CONFIG_REVK_APDNS
    dummy_dns_task_end = 0;
-   revk_task ("DNS", dummy_dns_task, NULL);
+   revk_task ("DNS", dummy_dns_task, NULL, 0);
 #endif
    // Make it go
    esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_APSTA : WIFI_MODE_AP);
@@ -3964,7 +3966,7 @@ revk_upgrade (const char *target, jo_t j)
       esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
 #endif
    }
-   ota_task_id = revk_task ("OTA", ota_task, url);
+   ota_task_id = revk_task ("OTA", ota_task, url, 0);
    return "";
 }
 

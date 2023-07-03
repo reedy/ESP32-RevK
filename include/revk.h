@@ -104,7 +104,7 @@ esp_err_t revk_err_check(esp_err_t e);
 #endif
 
 // Make a task
-TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param);
+TaskHandle_t revk_task(const char *tag, TaskFunction_t t, const void *param,int kstack);
 
 // reporting via main MQTT, copy option is how many additional MQTT to copy, normally 0 or 1. Setting -N means send only to specific additional MQTT, return NULL for no error
 const char* revk_mqtt_send_raw(const char *topic, int retain, const char *payload, uint8_t clients);
