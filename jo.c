@@ -1235,7 +1235,9 @@ jo_parse_query (const char *buf)
       while (*buf && *buf != '&')
       {
          int c = *buf++;
-         if (c == '%' && isxdigit ((int) *buf) && isxdigit ((int) buf[1]))
+         if (c == '+')
+            c = ' ';
+         else if (c == '%' && isxdigit ((int) *buf) && isxdigit ((int) buf[1]))
          {
             c = (*buf & 0xF) + (isalpha ((int) *buf) ? 9 : 0);
             buf++;
