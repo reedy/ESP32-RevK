@@ -4024,9 +4024,9 @@ revk_command (const char *tag, jo_t j)
       return "";
    }
 #endif
-#ifdef	configUSE_TRACE_FACILITY
+#ifdef  CONFIG_FREERTOS_USE_TRACE_FACILITY
    if (!e && !strcmp (tag, "ps"))
-   { // Process list
+   {                            // Process list
       TaskStatus_t *pxTaskStatusArray;
       volatile UBaseType_t uxArraySize,
         x;
@@ -4040,29 +4040,26 @@ revk_command (const char *tag, jo_t j)
       // allocated statically at compile time.
       pxTaskStatusArray = pvPortMalloc (uxArraySize * sizeof (TaskStatus_t));
 
-      if (pxTaskStatusArray != NULL)
-      {
-         // Generate raw status information about each task.
-         uxArraySize = uxTaskGetSystemState (pxTaskStatusArray, uxArraySize, &ulTotalRunTime);
+      if (!pxTaskStatusArray)
+         return "alloc fail";
 
-         // Avoid divide by zero errors.
-         if (ulTotalRunTime > 0)
-         {
-            // For each populated position in the pxTaskStatusArray array,
-            // format the raw data as human readable ASCII data
-            for (x = 0; x < uxArraySize; x++)
-            {
-               jo_t j = jo_create_alloc ();
-               jo_string (j, "task", pxTaskStatusArray[x].pcTaskName);
-               jo_int (j, "priority", pxTaskStatusArray[x].uxCurrentPriority);
-               jo_int (j, "free-stack", pxTaskStatusArray[x].usStackHighWaterMark);
-               jo_int (j, "load", pxTaskStatusArray[x].ulRunTimeCounter * 100 / ulTotalRunTime);
-               revk_info ("ps", &j);
-            }
-         }
-         // The array is no longer needed, free the memory it consumes.
-         vPortFree (pxTaskStatusArray);
+      // Generate raw status information about each task.
+      uxArraySize = uxTaskGetSystemState (pxTaskStatusArray, uxArraySize, &ulTotalRunTime);
+
+      // For each populated position in the pxTaskStatusArray array,
+      // format the raw data as human readable ASCII data
+      for (x = 0; x < uxArraySize; x++)
+      {
+         jo_t j = jo_object_alloc ();
+         jo_string (j, "task", pxTaskStatusArray[x].pcTaskName);
+         jo_int (j, "priority", pxTaskStatusArray[x].uxCurrentPriority);
+         jo_int (j, "free-stack", pxTaskStatusArray[x].usStackHighWaterMark);
+         if (ulTotalRunTime)
+            jo_int (j, "load", pxTaskStatusArray[x].ulRunTimeCounter * 100 / ulTotalRunTime);
+         revk_info_clients ("ps", &j, -1);
       }
+      vPortFree (pxTaskStatusArray);
+      return "";
    }
 #endif
    return e;
