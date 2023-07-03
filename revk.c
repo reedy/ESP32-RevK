@@ -2646,7 +2646,7 @@ ap_start (void)
 #endif
 #ifdef	CONFIG_REVK_APDNS
    dummy_dns_task_end = 0;
-   revk_task ("DNS", dummy_dns_task, NULL, 2);
+   revk_task ("DNS", dummy_dns_task, NULL, 5);
 #endif
    // Make it go
    esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_APSTA : WIFI_MODE_AP);
