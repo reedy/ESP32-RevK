@@ -774,13 +774,13 @@ mesh_init (void)
                          (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
       }
       REVK_ERR_CHECK (esp_mesh_set_max_layer (meshdepth));
-      REVK_ERR_CHECK (esp_mesh_set_xon_qsize (16));
+      //REVK_ERR_CHECK (esp_mesh_set_xon_qsize (16));
       esp_wifi_set_mode (WIFI_MODE_NULL);       // Set by mesh
       REVK_ERR_CHECK (esp_wifi_start ());
       REVK_ERR_CHECK (esp_mesh_init ());
       REVK_ERR_CHECK (esp_mesh_disable_ps ());
       REVK_ERR_CHECK (esp_mesh_allow_root_conflicts (0));
-      REVK_ERR_CHECK (esp_mesh_send_block_time (1000)); // Note sure if needed or what but a second it a long time - send calls should check return code
+      //REVK_ERR_CHECK (esp_mesh_send_block_time (1000)); // Note sure if needed or what but a second it a long time - send calls should check return code
       REVK_ERR_CHECK (esp_event_handler_register (MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT ();
       memcpy ((uint8_t *) & cfg.mesh_id, meshid, 6);
