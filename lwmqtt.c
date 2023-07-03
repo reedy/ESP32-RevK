@@ -285,7 +285,7 @@ lwmqtt_client (lwmqtt_client_config_t * config)
    xSemaphoreGive (handle->mutex);
    handle->running = 1;
    TaskHandle_t task_id = NULL;
-   xTaskCreate (client_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);
+   xTaskCreate (client_task, "mqtt-client", 5 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
 
@@ -308,7 +308,7 @@ lwmqtt_server (lwmqtt_server_config_t * config)
       return handle_free (handle);
    handle->running = 1;
    TaskHandle_t task_id = NULL;
-   xTaskCreate (listen_task, "mqtt", 5 * 1024, (void *) handle, 2, &task_id);
+   xTaskCreate (listen_task, "mqtt-server", 5 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
 #endif
@@ -843,7 +843,7 @@ listen_task (void *pvParameters)
                if (h->running)
                {
                   TaskHandle_t task_id = NULL;
-                  xTaskCreate (server_task, "mqtt", 5 * 1024, (void *) h, 2, &task_id);
+                  xTaskCreate (server_task, "mqtt-listen", 5 * 1024, (void *) h, 2, &task_id);
                } else
                {                // Close
                   ESP_LOGI (TAG, "MQTT aborted");
