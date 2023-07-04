@@ -35,14 +35,14 @@ if(! $status) 	setenv	SUFFIX	"$SUFFIX-H2"
 if($esp8266) 	then
 	setenv	SUFFIX	"$SUFFIX-8266"
 else
-	grep -q CONFIG_REVK_D4 "$SDKCONFIG"
+	grep -q CONFIG_REVK_D4=y "$SDKCONFIG"
 	if(! $status) 	then
 		setenv	SUFFIX	"$SUFFIX-D4"
 	else
 		# ESP32 Single core
 		grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
 		if(! $status) 	setenv	SUFFIX	"$SUFFIX-SOLO"
-		grep -q CONFIG_REVK_PICO "$SDKCONFIG"
+		grep -q CONFIG_REVK_PICO=y "$SDKCONFIG"
 		if(! $status) 	setenv	SUFFIX	"$SUFFIX-PICO"
 	endif
 endif
