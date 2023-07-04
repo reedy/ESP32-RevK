@@ -350,5 +350,10 @@ menu "RevK"
         help
 		If this is built for ESP32-PICO
 
+	config REVK_D4
+        bool "ESP32-D4"
+        default n
+        help
+		If this is built for ESP32-D4
 
 endmenu

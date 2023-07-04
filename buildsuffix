@@ -41,11 +41,10 @@ else
 endif
 
 # Specific processor (ESP32-PICO)
-grep -q CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y "$SDKCONFIG"
-if(! $status) then
-	grep -q CONFIG_ESP32_SPIRAM_SUPPORT=y "$SDKCONFIG"
-	if(! $status) 	setenv	SUFFIX	"$SUFFIX-PICO"
-endif
+grep -q CONFIG_REVK_PICO "$SDKCONFIG"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-PICO"
+grep -q CONFIG_REVK_D4 "$SDKCONFIG"
+if(! $status) 	setenv	SUFFIX	"$SUFFIX-D4"
 
 # Min rev build (default now V3)
 #grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
