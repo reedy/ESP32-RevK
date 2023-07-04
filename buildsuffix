@@ -35,16 +35,17 @@ if(! $status) 	setenv	SUFFIX	"$SUFFIX-H2"
 if($esp8266) 	then
 	setenv	SUFFIX	"$SUFFIX-8266"
 else
-	# ESP32 Single core
-	grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
-	if(! $status) 	setenv	SUFFIX	"$SUFFIX-SOLO"
+	grep -q CONFIG_REVK_D4 "$SDKCONFIG"
+	if(! $status) 	then
+		setenv	SUFFIX	"$SUFFIX-D4"
+	else
+		# ESP32 Single core
+		grep -q CONFIG_FREERTOS_UNICORE=y "$SDKCONFIG"
+		if(! $status) 	setenv	SUFFIX	"$SUFFIX-SOLO"
+		grep -q CONFIG_REVK_PICO "$SDKCONFIG"
+		if(! $status) 	setenv	SUFFIX	"$SUFFIX-PICO"
+	endif
 endif
-
-# Specific processor (ESP32-PICO)
-grep -q CONFIG_REVK_PICO "$SDKCONFIG"
-if(! $status) 	setenv	SUFFIX	"$SUFFIX-PICO"
-grep -q CONFIG_REVK_D4 "$SDKCONFIG"
-if(! $status) 	setenv	SUFFIX	"$SUFFIX-D4"
 
 # Min rev build (default now V3)
 #grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
