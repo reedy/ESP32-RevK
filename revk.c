@@ -1777,7 +1777,7 @@ revk_boot (app_callback_t * app_callback_cb)
       {
          uint8_t p = blink[b] & 0x3F;
 #ifdef	CONFIG_REVK_D4
-         if ((p>=6&&p<=8) || p==11) || p==20)
+         if ((p >= 6 && p <= 8) || p == 11 || p == 20)
 #else
 #ifdef	CONFIG_REVK_PICO
          if (p == 6 || (p >= 9 && p <= 11))
