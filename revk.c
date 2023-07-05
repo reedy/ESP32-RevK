@@ -1239,8 +1239,13 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
             ESP_LOGI (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits (revk_group, GROUP_IP);
+#if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0
+            esp_sntp_stop ();
+            esp_sntp_init ();
+#else
             sntp_stop ();
             sntp_init ();
+#endif
 #ifdef	CONFIG_REVK_MQTT
             revk_mqtt_init ();
 #endif
@@ -1825,10 +1830,15 @@ revk_boot (app_callback_t * app_callback_cb)
    char *d = strstr (revk_version, "-dirty");
    if (d)
       asprintf ((char **) &revk_version, "%.*s+", d - revk_version, app->version);
-   sntp_setoperatingmode (SNTP_OPMODE_POLL);
    setenv ("TZ", tz, 1);
    tzset ();
+#if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0
+   esp_sntp_setoperatingmode (SNTP_OPMODE_POLL);
+   esp_sntp_setservername (0, ntphost);
+#else
+   sntp_setoperatingmode (SNTP_OPMODE_POLL);
    sntp_setservername (0, ntphost);
+#endif
    app_callback = app_callback_cb;
    {                            /* Chip ID from MAC */
       REVK_ERR_CHECK (esp_efuse_mac_get_default (revk_mac));
