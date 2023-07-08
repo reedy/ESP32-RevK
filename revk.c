@@ -695,7 +695,7 @@ wifi_sta_config (void)
       cfg.sta.bssid_set = 1;
    }
    cfg.sta.channel = wifichan;
-   cfg.sta.scan_method = (esp_sleep_get_wakeup_cause() ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
+   cfg.sta.scan_method = (esp_sleep_get_wakeup_cause ()? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
    strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
    strncpy ((char *) cfg.sta.password, wifipass, sizeof (cfg.sta.password));
 #ifndef CONFIG_IDF_TARGET_ESP8266
@@ -1821,26 +1821,9 @@ revk_boot (app_callback_t * app_callback_cb)
    }
 #endif
    restart_time = 0;
-   /* If settings change at start up we can ignore. */
-   esp_netif_init ();
-#ifndef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-   REVK_ERR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
-#endif
-   revk_version = app->version;
-   revk_app = appname;
-   char *d = strstr (revk_version, "-dirty");
-   if (d)
-      asprintf ((char **) &revk_version, "%.*s+", d - revk_version, app->version);
-   setenv ("TZ", tz, 1);
-   tzset ();
-#if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0
-   esp_sntp_setoperatingmode (SNTP_OPMODE_POLL);
-   esp_sntp_setservername (0, ntphost);
-#else
-   sntp_setoperatingmode (SNTP_OPMODE_POLL);
-   sntp_setservername (0, ntphost);
-#endif
    app_callback = app_callback_cb;
+   revk_group = xEventGroupCreate ();
+   xEventGroupSetBits (revk_group, GROUP_OFFLINE);
    {                            /* Chip ID from MAC */
       REVK_ERR_CHECK (esp_efuse_mac_get_default (revk_mac));
 #ifdef	CONFIG_REVK_SHORT_ID
@@ -1856,13 +1839,29 @@ revk_boot (app_callback_t * app_callback_cb)
       if (!hostname || !*hostname)
          hostname = revk_id;    // default hostname
    }
-   revk_group = xEventGroupCreate ();
-   xEventGroupSetBits (revk_group, GROUP_OFFLINE);
+   revk_version = app->version;
+   revk_app = appname;
+   char *d = strstr (revk_version, "-dirty");
+   if (d)
+      asprintf ((char **) &revk_version, "%.*s+", d - revk_version, app->version);
+   setenv ("TZ", tz, 1);
+   tzset ();
 }
 
 void
 revk_start (void)
 {                               // Start stuff, init all done
+   esp_netif_init ();
+#ifndef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
+   REVK_ERR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
+#endif
+#if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0
+   esp_sntp_setoperatingmode (SNTP_OPMODE_POLL);
+   esp_sntp_setservername (0, ntphost);
+#else
+   sntp_setoperatingmode (SNTP_OPMODE_POLL);
+   sntp_setservername (0, ntphost);
+#endif
 #ifdef	CONFIG_REVK_WIFI
    wifi_init ();
 #endif
