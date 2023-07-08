@@ -694,7 +694,7 @@ wifi_sta_config (void)
       cfg.sta.bssid_set = 1;
    }
    cfg.sta.channel = wifichan;
-   cfg.sta.scan_method = ((esp_reset_reason () == ESP_RST_DEEPSLEEP) ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
+   cfg.sta.scan_method = (esp_sleep_get_wakeup_cause() ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
    strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
    strncpy ((char *) cfg.sta.password, wifipass, sizeof (cfg.sta.password));
 #ifndef CONFIG_IDF_TARGET_ESP8266
