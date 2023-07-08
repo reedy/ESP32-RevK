@@ -668,7 +668,7 @@ sta_init (void)
    REVK_ERR_CHECK (esp_event_loop_create_default ());
    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
    REVK_ERR_CHECK (esp_wifi_init (&cfg));
-   REVK_ERR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_RAM));
+   REVK_ERR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_FLASH));
 #ifdef  CONFIG_NIMBLE_ENABLED
    REVK_ERR_CHECK (esp_wifi_set_ps (wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_MIN_MODEM));
 #else
