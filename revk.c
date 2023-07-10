@@ -2232,10 +2232,12 @@ revk_web_settings (httpd_req_t * req)
    {
       revk_web_head (req, "WiFi Setup");
       httpd_resp_sendstr_chunk (req, "<h1>");
-      httpd_resp_sendstr_chunk (req, hostname);
+      if (*hostname)
+         httpd_resp_sendstr_chunk (req, hostname);
       httpd_resp_sendstr_chunk (req,
                                 "</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%;}</style>");
    }
+
    head ();
 
    if (req->method == HTTP_POST)
@@ -2254,48 +2256,52 @@ revk_web_settings (httpd_req_t * req)
                httpd_resp_sendstr_chunk (req, e);
          } else
          {
+            wifi_mode_t mode = 0;
+            esp_wifi_get_mode (&mode);
             char ok = 0;
-            if (jo_find (j, "wifissid"))
+            if (mode == WIFI_MODE_STA)
+               ok = 1;          // We don't test wifi if in STA mode as it kills the page load, D'Oh
+            else if (jo_find (j, "wifissid"))
             {                   // Test WiFi
-               wifi_mode_t mode = 0;
-               esp_wifi_get_mode (&mode);
                char ssid[33] = "";
                char pass[33] = "";
                jo_strncpy (j, ssid, sizeof (ssid));
                if (!*ssid)
-               {
                   httpd_resp_sendstr_chunk (req, "No WiFi SSID. ");
-                  if (mode == WIFI_MODE_STA)
-                     ok = 1;    // Deliberate we assume
-               } else
+               else
                {
                   if (jo_find (j, "wifipass") == JO_STRING)
                      jo_strncpy (j, pass, sizeof (pass));
-                  esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_STA : WIFI_MODE_APSTA);
-                  wifi_config_t cfg = { 0, };
-                  cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-                  strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
-                  strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
-                  esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
-                  esp_wifi_connect ();
-                  esp_netif_dhcpc_stop (sta_netif);
-                  esp_netif_dhcpc_start (sta_netif);
-                  int waiting = 10;
-                  while (waiting--)
+                  if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
+                     ok = 1;
+                  else
                   {
-                     sleep (1);
-                     esp_netif_ip_info_t ip;
-                     if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                     {          // Got IP (TODO IPv6)
-                        char temp[50];
-                        snprintf (temp, sizeof (temp), "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
-                        httpd_resp_sendstr_chunk (req, temp);
-                        ok = 1;
-                        break;
+                     esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_STA : WIFI_MODE_APSTA);
+                     wifi_config_t cfg = { 0, };
+                     cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+                     strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
+                     strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
+                     esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
+                     esp_wifi_connect ();
+                     esp_netif_dhcpc_stop (sta_netif);
+                     esp_netif_dhcpc_start (sta_netif);
+                     int waiting = 10;
+                     while (waiting--)
+                     {
+                        sleep (1);
+                        esp_netif_ip_info_t ip;
+                        if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+                        {       // Got IP (TODO IPv6)
+                           char temp[50];
+                           snprintf (temp, sizeof (temp), "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
+                           httpd_resp_sendstr_chunk (req, temp);
+                           ok = 1;
+                           break;
+                        }
                      }
+                     if (!ok)
+                        httpd_resp_sendstr_chunk (req, "WiFi did not connect, try again.");
                   }
-                  if (!ok)
-                     httpd_resp_sendstr_chunk (req, "WiFi did not connect, try again.");
                }
             } else
                ok = 1;
@@ -2305,8 +2311,12 @@ revk_web_settings (httpd_req_t * req)
                if (e && *e)
                {
                   httpd_resp_sendstr_chunk (req, e);
-                  httpd_resp_sendstr_chunk (req, " @ ");
-                  httpd_resp_sendstr_chunk (req, jo_debug (j));
+                  e = jo_debug (j);
+                  if (e && *e)
+                  {
+                     httpd_resp_sendstr_chunk (req, " @ ");
+                     httpd_resp_sendstr_chunk (req, e);
+                  }
                } else
                   httpd_resp_sendstr_chunk (req, "Settings stored.");
             }
@@ -2324,8 +2334,7 @@ revk_web_settings (httpd_req_t * req)
    {
       httpd_resp_sendstr_chunk (req, "<table>");
       httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
-      if (!*hostname)
-         httpd_resp_sendstr_chunk (req, " autofocus");
+      httpd_resp_sendstr_chunk (req, " autofocus");
       httpd_resp_sendstr_chunk (req, " value='");
       if (hostname != revk_id)
          httpd_resp_sendstr_chunk (req, hostname);
@@ -2701,12 +2710,6 @@ ap_start (void)
          };
          REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
       }
-      httpd_uri_t uri = {
-         .uri = "/",
-         .method = HTTP_POST,
-         .handler = revk_web_settings,
-      };
-      REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
       revk_web_settings_add (webserver);
    }
 #endif
