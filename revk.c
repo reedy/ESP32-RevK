@@ -2374,7 +2374,8 @@ revk_web_settings (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
-   httpd_resp_sendstr_chunk (req, "<div id=list>WiFi:</div>");
+   if (!revk_shutting_down (NULL))
+      httpd_resp_sendstr_chunk (req, "<div id=list>WiFi:</div>");
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
                              "var reboot=0;"    //
