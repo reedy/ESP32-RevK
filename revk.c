@@ -2124,6 +2124,9 @@ revk_restart (const char *reason, int delay)
 }
 
 #ifdef	CONFIG_REVK_APMODE
+#if	CONFIG_HTTPD_MAX_REQ_HDR_LEN < 800
+#warning You may want CONFIG_HTTPD_MAX_REQ_HDR_LEN larger, e.g. 800
+#endif
 esp_err_t
 revk_web_settings_add (httpd_handle_t webserver)
 {
@@ -2231,7 +2234,7 @@ revk_web_settings (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req, "<h1>");
       httpd_resp_sendstr_chunk (req, hostname);
       httpd_resp_sendstr_chunk (req,
-                                "</h1><style>input[type=submit],button{color:black;margin:5px;background-image:linear-gradient(#8fc,#4f8);border-radius:1em;}</style>");
+                                "</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%;}</style>");
    }
    head ();
 
@@ -2316,7 +2319,7 @@ revk_web_settings (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>&nbsp;</b></p>");
 #endif
    httpd_resp_sendstr_chunk (req,
-                             "<form action='/revk-settings' name=WIFI method=post onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
+                             "<form action=/revk-settings name=WIFI method=post onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
    if (!revk_shutting_down (NULL))
    {
       httpd_resp_sendstr_chunk (req, "<table>");
