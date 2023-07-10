@@ -2230,7 +2230,8 @@ revk_web_settings (httpd_req_t * req)
       revk_web_head (req, "WiFi Setup");
       httpd_resp_sendstr_chunk (req, "<h1>");
       httpd_resp_sendstr_chunk (req, hostname);
-      httpd_resp_sendstr_chunk (req, "</h1>");
+      httpd_resp_sendstr_chunk (req,
+                                "</h1><style>input[type=submit],button{color:black;margin:5px;background-image:linear-gradient(#8fc,#4f8);border-radius:1em;}</style>");
    }
    head ();
 
@@ -2262,7 +2263,10 @@ revk_web_settings (httpd_req_t * req)
          httpd_resp_sendstr_chunk (req, "</p>");
       }
    }
-   httpd_resp_sendstr_chunk (req, "<form method=post>");
+#ifdef CONFIG_HTTPD_WS_SUPPORT
+   httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>&nbsp;</b></p>");
+#endif
+   httpd_resp_sendstr_chunk (req, "<form action='/revk-settings' name=WIFI method=post>");
    if (!revk_shutting_down (NULL))
    {
       httpd_resp_sendstr_chunk (req, "<table>");
@@ -2313,14 +2317,14 @@ revk_web_settings (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req, "</table><p><input id=set type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
       {
-         httpd_resp_sendstr_chunk (req, " <input name=\"upgrade\" type=submit value='Upgrade firmware from ");
+         httpd_resp_sendstr_chunk (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from ");
          httpd_resp_sendstr_chunk (req, otahost);
          httpd_resp_sendstr_chunk (req, "'>");
       }
       httpd_resp_sendstr_chunk (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
-   httpd_resp_sendstr_chunk (req, "<p><b id=msg></b></p><div id=list></div>");
+   httpd_resp_sendstr_chunk (req, "<div id=list>WiFi:</div>");
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
                              "var reboot=0;"    //
@@ -2609,7 +2613,7 @@ ap_start (void)
    // WiFi
    wifi_config_t cfg = { 0, };
 #ifdef	CONFIG_REVK_APDNS
-   cfg.ap.ssid_len = snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-%012llX", appname, revk_binid);
+   cfg.ap.ssid_len = snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s:%012llX", appname, revk_binid);
 #else
    cfg.ap.ssid_len =
       snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-10.%d.%d.1", appname, (uint8_t) (revk_binid >> 8),
@@ -2645,12 +2649,12 @@ ap_start (void)
          };
          REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
       }
-         httpd_uri_t uri = {
-            .uri = "/",
-            .method = HTTP_POST,
-            .handler = revk_web_settings,
-         };
-         REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
+      httpd_uri_t uri = {
+         .uri = "/",
+         .method = HTTP_POST,
+         .handler = revk_web_settings,
+      };
+      REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
       revk_web_settings_add (webserver);
    }
 #endif
