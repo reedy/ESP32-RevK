@@ -695,7 +695,7 @@ wifi_sta_config (void)
       cfg.sta.bssid_set = 1;
    }
    cfg.sta.channel = wifichan;
-   cfg.sta.scan_method = (esp_sleep_get_wakeup_cause ()? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
+   cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
    strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
    strncpy ((char *) cfg.sta.password, wifipass, sizeof (cfg.sta.password));
 #ifndef CONFIG_IDF_TARGET_ESP8266
@@ -1602,28 +1602,34 @@ task (void *pvParameters)
             nvs_time = 0;
          }
          if (restart_time && restart_time < now)
-         {                      /* Restart */
-            if (!restart_reason)
-               restart_reason = "Unknown";
-            ESP_LOGI (TAG, "Restart %s", restart_reason);
-            if (app_callback)
-            {
-               jo_t j = jo_create_alloc ();
-               jo_string (j, NULL, restart_reason);
-               jo_rewind (j);
-               app_callback (0, prefixcommand, NULL, "shutdown", j);
-               jo_free (&j);
-            }
-            revk_mqtt_close (restart_reason);
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-            revk_wifi_close ();
-#endif
-            REVK_ERR_CHECK (nvs_commit (nvs));
+         {
+            revk_pre_shutdown ();
             esp_restart ();
-            restart_time = 0;
          }
       }
    }
+}
+
+void
+revk_pre_shutdown (void)
+{                               /* Restart */
+   if (!restart_reason)
+      restart_reason = "Unknown";
+   ESP_LOGI (TAG, "Restart %s", restart_reason);
+   if (app_callback)
+   {
+      jo_t j = jo_create_alloc ();
+      jo_string (j, NULL, restart_reason);
+      jo_rewind (j);
+      app_callback (0, prefixcommand, NULL, "shutdown", j);
+      jo_free (&j);
+   }
+   revk_mqtt_close (restart_reason);
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+   revk_wifi_close ();
+#endif
+   REVK_ERR_CHECK (nvs_commit (nvs));
+   restart_time = 0;
 }
 
 /* External functions */
@@ -2119,14 +2125,14 @@ revk_restart (const char *reason, int delay)
 
 #ifdef	CONFIG_REVK_APMODE
 esp_err_t
-revk_web_config_start (httpd_handle_t webserver)
+revk_web_settings_add (httpd_handle_t webserver)
 {
 #ifdef	CONFIG_REVK_APDNS
    {
       httpd_uri_t uri = {
          .uri = "/hotspot-detect.html",
          .method = HTTP_GET,
-         .handler = revk_web_config,
+         .handler = revk_web_settings,
       };
       REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
    }
@@ -2134,14 +2140,30 @@ revk_web_config_start (httpd_handle_t webserver)
 #ifdef	CONFIG_HTTPD_WS_SUPPORT
    {
       httpd_uri_t uri = {
-         .uri = "/wifilist",
+         .uri = "/revk-status",
          .method = HTTP_GET,
-         .handler = revk_web_wifilist,
+         .handler = revk_web_status,
          .is_websocket = true,
       };
       REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
    }
 #endif
+   {
+      httpd_uri_t uri = {
+         .uri = "/revk-settings",
+         .method = HTTP_GET,
+         .handler = revk_web_settings,
+      };
+      REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
+   }
+   {
+      httpd_uri_t uri = {
+         .uri = "/revk-settings",
+         .method = HTTP_POST,
+         .handler = revk_web_settings,
+      };
+      REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
+   }
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
    mdns_service_add (NULL, "_http", "_tcp", 80, NULL, 0);
 #endif
@@ -2151,50 +2173,74 @@ revk_web_config_start (httpd_handle_t webserver)
 
 #ifdef	CONFIG_REVK_APMODE
 esp_err_t
-revk_web_config_stop (httpd_handle_t webserver)
+revk_web_config_remove (httpd_handle_t webserver)
 {
 #ifdef	CONFIG_REVK_APDNS
    REVK_ERR_CHECK (httpd_unregister_uri_handler (webserver, "/hotspot-detect.html", HTTP_GET));
 #endif
 #ifdef	CONFIG_HTTPD_WS_SUPPORT
-   REVK_ERR_CHECK (httpd_unregister_uri_handler (webserver, "/wifilist", HTTP_GET));
+   REVK_ERR_CHECK (httpd_unregister_uri_handler (webserver, "/revk-status", HTTP_GET));
 #endif
+   REVK_ERR_CHECK (httpd_unregister_uri_handler (webserver, "/revk-settings", HTTP_GET));
+   REVK_ERR_CHECK (httpd_unregister_uri_handler (webserver, "/revk-settings", HTTP_POST));
    return 0;
 }
 #endif
 
 #ifdef	CONFIG_REVK_APMODE
+void
+revk_web_head (httpd_req_t * req, const char *title)
+{                               // Generic HTML heading
+   httpd_resp_set_type (req, "text/html;charset=utf-8");
+   httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
+   if (title && *title)
+   {
+      httpd_resp_sendstr_chunk (req, "<title>");
+      httpd_resp_sendstr_chunk (req, title);
+      httpd_resp_sendstr_chunk (req, "</title>");
+   }
+   httpd_resp_sendstr_chunk (req,
+                             "<html><body style='font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);'>");
+}
+
 esp_err_t
-revk_web_config (httpd_req_t * req)
+revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi)
+{                               // Generic html footing and return
+   httpd_resp_sendstr_chunk (req, "<hr><address>");
+   if (home)
+      httpd_resp_sendstr_chunk (req, "<a href=/>Home</a> ");
+   if (wifi)
+      httpd_resp_sendstr_chunk (req, "<a href=/revk-settings>Settings</a> ");
+   httpd_resp_sendstr_chunk (req, appname);
+   httpd_resp_sendstr_chunk (req, ": ");
+   httpd_resp_sendstr_chunk (req, revk_version);
+   httpd_resp_sendstr_chunk (req, " ");
+   char temp[20];
+   httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
+   httpd_resp_sendstr_chunk (req, "</address></body></html>");
+   httpd_resp_sendstr_chunk (req, NULL);
+   return ESP_OK;
+}
+
+esp_err_t
+revk_web_settings (httpd_req_t * req)
 {
    void head (void)
    {
-      httpd_resp_set_type (req, "text/html;charset=utf-8");
-      httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
-      httpd_resp_sendstr_chunk (req, "<html><body style='font-family:sans-serif;background:#8cf;'><h1>");
+      revk_web_head (req, "WiFi Setup");
+      httpd_resp_sendstr_chunk (req, "<h1>");
       httpd_resp_sendstr_chunk (req, hostname);
       httpd_resp_sendstr_chunk (req, "</h1>");
    }
-   esp_err_t foot (void)
-   {
-      httpd_resp_sendstr_chunk (req, "<hr><address>");
-      httpd_resp_sendstr_chunk (req, appname);
-      httpd_resp_sendstr_chunk (req, ": ");
-      httpd_resp_sendstr_chunk (req, revk_version);
-      httpd_resp_sendstr_chunk (req, " ");
-      char temp[20];
-      httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
-      httpd_resp_sendstr_chunk (req, "</address></body></html>");
-      httpd_resp_sendstr_chunk (req, NULL);
-      return ESP_OK;
-   }
-#ifndef  CONFIG_HTTPD_WS_SUPPORT
-   if (httpd_req_get_url_query_len (req))
+   head ();
+
+   if (req->method == HTTP_POST)
    {
       char query[200];
-      if (!httpd_req_get_url_query_str (req, query, sizeof (query)))
+      int len = httpd_req_recv (req, query, sizeof (query) - 1);
+      if (len > 0)
       {
-         head ();
+         query[len] = 0;
          httpd_resp_sendstr_chunk (req, "<p>");
          jo_t j = jo_parse_query (query);
          if (jo_find (j, "upgrade"))
@@ -2202,100 +2248,90 @@ revk_web_config (httpd_req_t * req)
             const char *e = revk_command ("upgrade", NULL);
             if (e && *e)
                httpd_resp_sendstr_chunk (req, e);
-            else
-               httpd_resp_sendstr_chunk (req, "Upgrade started");
          } else
          {
-            const char *e = revk_setting (j) ? : "Settings saved";
+            const char *e = revk_setting (j);
             if (e && *e)
             {
                httpd_resp_sendstr_chunk (req, e);
                httpd_resp_sendstr_chunk (req, " @ ");
                httpd_resp_sendstr_chunk (req, jo_debug (j));
-            } else
-               httpd_resp_sendstr_chunk (req, "Settings saved");
+            }
          }
          jo_free (&j);
          httpd_resp_sendstr_chunk (req, "</p>");
-         httpd_resp_sendstr_chunk (req, "<p><a href=\"/\">Go to main page</a></p><p><a href=\"/wifi\">Back to settings</a></p>");
-         return foot ();
       }
    }
-#endif
-   head ();
-   if (!revk_link_down () && *otahost)
+   httpd_resp_sendstr_chunk (req, "<form method=post>");
+   if (!revk_shutting_down (NULL))
    {
-      httpd_resp_sendstr_chunk (req, "<form");
-#ifdef  CONFIG_HTTPD_WS_SUPPORT
-      httpd_resp_sendstr_chunk (req, " action='/' onsubmit=\"ws.send(JSON.stringify({'upgrade':true}));\"");
-#endif
-      httpd_resp_sendstr_chunk (req, "><input name=\"upgrade\" type=submit value=\"Upgrade\"> from <i>");
-      httpd_resp_sendstr_chunk (req, otahost);
-      httpd_resp_sendstr_chunk (req, "</i></form>");
-   }
-   httpd_resp_sendstr_chunk (req, "<form name=WIFI");
-#ifdef  CONFIG_HTTPD_WS_SUPPORT
-   httpd_resp_sendstr_chunk (req,
-                             " onsubmit=\"o={};for(f of document.WIFI.elements){if(f.name){o[f.name]=f.value;}};ws.send(JSON.stringify(o));return false;\"");
-#endif
-   httpd_resp_sendstr_chunk (req, "><table>");
-   httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
-   if (!*hostname)
-      httpd_resp_sendstr_chunk (req, " autofocus");
-   httpd_resp_sendstr_chunk (req, " value='");
-   if (hostname != revk_id)
-      httpd_resp_sendstr_chunk (req, hostname);
-   httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
-   httpd_resp_sendstr_chunk (req, revk_id);
-   httpd_resp_sendstr_chunk (req, "'>");
+      httpd_resp_sendstr_chunk (req, "<table>");
+      httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
+      if (!*hostname)
+         httpd_resp_sendstr_chunk (req, " autofocus");
+      httpd_resp_sendstr_chunk (req, " value='");
+      if (hostname != revk_id)
+         httpd_resp_sendstr_chunk (req, hostname);
+      httpd_resp_sendstr_chunk (req,
+                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
+      httpd_resp_sendstr_chunk (req, revk_id);
+      httpd_resp_sendstr_chunk (req, "'>");
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-   httpd_resp_sendstr_chunk (req, ".local");
+      httpd_resp_sendstr_chunk (req, ".local");
 #endif
-   httpd_resp_sendstr_chunk (req, "</td></tr><tr><td colspan=2><hr></td></tr>");
-   httpd_resp_sendstr_chunk (req, "<tr><td>SSID</td><td><input name=wifissid");
-   if (*hostname)
-      httpd_resp_sendstr_chunk (req, " autofocus");
-   httpd_resp_sendstr_chunk (req, " maxlength=32 placeholder='WiFI name' value='");
-   if (*wifissid)
-      httpd_resp_sendstr_chunk (req, wifissid);
-   httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
-   httpd_resp_sendstr_chunk (req,
-                             "<tr><td>Passphrase</td><td><input name=wifipass placeholder='passphrase' type=password maxlength=32 value='");
-   if (*wifipass)
-      httpd_resp_sendstr_chunk (req, wifipass); // Not a valid password as too short, used to indicate one is set
-   httpd_resp_sendstr_chunk (req,
-                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
-   if (*mqtthost[0])
-      httpd_resp_sendstr_chunk (req, mqtthost[0]);
-   httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'>");
-   if (mqtt_client[0])
-      httpd_resp_sendstr_chunk (req, lwmqtt_connected (mqtt_client[0]) ? "✓" : lwmqtt_failed (mqtt_client[0]) ? "✘" : "…");       // MQTT status
-   httpd_resp_sendstr_chunk (req,
-                             "</td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
-   if (*mqttuser[0])
-      httpd_resp_sendstr_chunk (req, mqttuser[0]);
-   httpd_resp_sendstr_chunk (req,
-                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT pass</td><td><input maxlength=32 placeholder='password' name=mqttpass value='");
-   if (*mqttpass[0])
-      httpd_resp_sendstr_chunk (req, mqttpass[0]);
-   httpd_resp_sendstr_chunk (req,
-                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>Timezone</td><td><input maxlength=128 name=tz value='");
-   if (*tz)
-      httpd_resp_sendstr_chunk (req, tz);
-   httpd_resp_sendstr_chunk (req,
-                             "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></td></tr>");
-   httpd_resp_sendstr_chunk (req, "</table><input id=set type=submit value=Set>&nbsp;<b id=msg></b></form>");
-   httpd_resp_sendstr_chunk (req, "<div id=list></div>");
+      httpd_resp_sendstr_chunk (req, "</td></tr><tr><td colspan=2><hr></td></tr>");
+      httpd_resp_sendstr_chunk (req, "<tr><td>SSID</td><td><input name=wifissid");
+      if (*hostname)
+         httpd_resp_sendstr_chunk (req, " autofocus");
+      httpd_resp_sendstr_chunk (req, " maxlength=32 placeholder='WiFI name' value='");
+      if (*wifissid)
+         httpd_resp_sendstr_chunk (req, wifissid);
+      httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
+      httpd_resp_sendstr_chunk (req,
+                                "<tr><td>Passphrase</td><td><input name=wifipass placeholder='passphrase' maxlength=32 value='");
+      if (*wifipass)
+         httpd_resp_sendstr_chunk (req, wifipass);      // Not a valid password as too short, used to indicate one is set
+      httpd_resp_sendstr_chunk (req,
+                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
+      if (*mqtthost[0])
+         httpd_resp_sendstr_chunk (req, mqtthost[0]);
+      httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'>");
+      httpd_resp_sendstr_chunk (req,
+                                "</td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
+      if (*mqttuser[0])
+         httpd_resp_sendstr_chunk (req, mqttuser[0]);
+      httpd_resp_sendstr_chunk (req,
+                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT pass</td><td><input maxlength=32 placeholder='password' name=mqttpass value='");
+      if (*mqttpass[0])
+         httpd_resp_sendstr_chunk (req, mqttpass[0]);
+      httpd_resp_sendstr_chunk (req,
+                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>Timezone</td><td><input maxlength=128 name=tz value='");
+      if (*tz)
+         httpd_resp_sendstr_chunk (req, tz);
+      httpd_resp_sendstr_chunk (req,
+                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></td></tr>");
+      httpd_resp_sendstr_chunk (req, "</table><p><input id=set type=submit value='Change settings'>");
+      if (!revk_link_down () && *otahost)
+      {
+         httpd_resp_sendstr_chunk (req, " <input name=\"upgrade\" type=submit value='Upgrade firmware from ");
+         httpd_resp_sendstr_chunk (req, otahost);
+         httpd_resp_sendstr_chunk (req, "'>");
+      }
+      httpd_resp_sendstr_chunk (req, "</p></form>");
+   }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
+   httpd_resp_sendstr_chunk (req, "<p><b id=msg></b></p><div id=list></div>");
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
-                             "var ws = new WebSocket('ws://'+window.location.host+'/wifilist');"        //
-                             "ws.onclose=function(e){ws=undefined;document.getElementById('set').style.visibility='hidden';};"  //
-                             "ws.onerror=function(e){ws.close();};"     //
+                             "var reboot=0;"    //
+                             "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"     //
+                             "ws.onopen=function(v){ws.send('scan');};" //
+                             "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"   //
+                             "ws.onerror=function(v){ws.close();};"     //
                              "ws.onmessage=function(e){"        //
                              "o=JSON.parse(e.data);"    //
-                             "if(typeof o === 'string')document.getElementById('msg').textContent=o;"   //
-                             "else if(o.ip)document.getElementById('msg').innerHTML='Rebooting <a href=\"http://'+o.ip+'/\">'+o.ip+'</a>';"     //
+                             "if(typeof o === 'number')reboot=1;"       //
+                             "else if(typeof o === 'string'){document.getElementById('msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"  //
                              "else if(typeof o === 'object')o.forEach(function(s){"     //
                              "b=document.createElement('button');"      //
                              "b.onclick=function(e){"   //
@@ -2310,7 +2346,6 @@ revk_web_config (httpd_req_t * req)
                              "};"       //
                              "</script>");
 #endif
-   httpd_resp_sendstr_chunk (req, "<p><a href='/'>Home</a></p>");
    if (otaauto && *otahost)
    {
       httpd_resp_sendstr_chunk (req, "<p>Note, automatic upgrade from <i>");
@@ -2353,14 +2388,14 @@ revk_web_config (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req, "</table>");
    }
 
-   return foot ();
+   return revk_web_foot (req, 1, 0);
 }
 #endif
 
 #ifdef	CONFIG_REVK_APMODE
 #ifdef	CONFIG_HTTPD_WS_SUPPORT
 esp_err_t
-revk_web_wifilist (httpd_req_t * req)
+revk_web_status (httpd_req_t * req)
 {
    wifi_mode_t mode = 0;
    esp_wifi_get_mode (&mode);
@@ -2391,7 +2426,6 @@ revk_web_wifilist (httpd_req_t * req)
          esp_wifi_set_mode (WIFI_MODE_STA);
       else if (mode == WIFI_MODE_AP)
          esp_wifi_set_mode (WIFI_MODE_APSTA);
-      msg ("Scanning");
       jo_t j = jo_create_alloc ();
       jo_array (j, NULL);
       if (esp_wifi_scan_start (NULL, true) == ESP_ERR_WIFI_STATE)
@@ -2416,101 +2450,58 @@ revk_web_wifilist (httpd_req_t * req)
          found++;
       }
       wsend (&j);
-      msg (found ? "" : "No WiFI found");
       esp_wifi_set_mode (mode);
       return ESP_OK;
    }
+   esp_err_t status (void)
+   {                            // Status message
+      const char *r;
+      int n = revk_shutting_down (&r);
+      if (n)
+      {
+         jo_t j = jo_create_alloc ();
+         jo_int (j, NULL, n);
+         wsend (&j);
+         msg (r);
+      } else if (!*wifissid)
+         msg ("WiFi not configured");
+      else if (revk_link_down ())
+         msg ("WiFi not connected");
+#ifdef  CONFIG_REVK_MQTT
+      else if (!revk_mqtt (0))
+         msg ("WiFi connected, no MQTT");
+      else if (uptime () > 30 && lwmqtt_failed (revk_mqtt (0)))
+         msg ("MQTT failed");
+      else if (!lwmqtt_connected (revk_mqtt (0)))
+         msg ("MQTT not yet connected");
+      else
+         msg ("MQTT connected");
+#else
+      else
+         msg ("WiFI online");
+#endif
+      return ESP_OK;
+   }
    if (req->method == HTTP_GET)
-      return scan ();
-   // Send something - new wifi creds
+      return status ();
+   // received packet
    httpd_ws_frame_t ws_pkt;
-   uint8_t *buf = NULL;
    memset (&ws_pkt, 0, sizeof (httpd_ws_frame_t));
    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
    esp_err_t ret = httpd_ws_recv_frame (req, &ws_pkt, 0);
    if (ret)
       return ret;
    if (!ws_pkt.len)
-      return scan ();
-   buf = calloc (1, ws_pkt.len + 1);
+      return status ();
+   uint8_t *buf = calloc (1, ws_pkt.len + 1);
    if (!buf)
       return ESP_ERR_NO_MEM;
    ws_pkt.payload = buf;
    ret = httpd_ws_recv_frame (req, &ws_pkt, ws_pkt.len);
-   if (!ret)
-   {
-      jo_t j = jo_parse_mem (buf, ws_pkt.len);
-      if (j)
-      {
-         if (jo_here (j) == JO_OBJECT)
-         {
-            uint8_t upgrade = jo_find (j, "upgrade");
-            int ok = 0;
-            if (!revk_link_down ())
-            {                   // Already connected as sta...
-               if (!upgrade)
-               {
-                  msg ("Storing new settings");
-                  ok = 1;
-               }
-            } else if (jo_find (j, "wifissid") == JO_STRING)
-            {                   // Try connect
-               char ssid[33] = "";
-               char pass[33] = "";
-               jo_strncpy (j, ssid, sizeof (ssid));
-               if (jo_find (j, "wifipass") == JO_STRING)
-                  jo_strncpy (j, pass, sizeof (pass));
-               msg ("Connecting");
-               esp_wifi_set_mode (mode == WIFI_MODE_NULL ? WIFI_MODE_STA : WIFI_MODE_APSTA);
-               wifi_config_t cfg = { 0, };
-               cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-               strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
-               strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
-               esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
-               esp_wifi_connect ();
-               // Get IP?
-               esp_netif_dhcpc_stop (sta_netif);
-               esp_netif_dhcpc_start (sta_netif);       /* Dynamic IP */
-               int waiting = 10;
-               while (waiting--)
-               {
-                  sleep (1);
-                  esp_netif_ip_info_t ip;
-                  if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                  {
-                     // What if no IP yet - check IP 0
-                     // What if access via STA so we already have an IP
-                     jo_t i = jo_object_alloc ();
-                     jo_stringf (i, "ip", IPSTR, IP2STR (&ip.ip));
-                     jo_stringf (i, "mask", IPSTR, IP2STR (&ip.netmask));
-                     jo_stringf (i, "gw", IPSTR, IP2STR (&ip.gw));
-                     wsend (&i);
-                     ok = 1;
-                     break;
-                  }
-               }
-            }
-            if (ok)
-            {
-               revk_setting (j);
-            } else if (upgrade)
-            {
-               revk_command ("upgrade", NULL);
-               msg ("Upgrading");
-            } else
-            {
-               if (ret)
-                  msg ("Failed to connect");
-               else
-                  msg ("Failed to get IP");
-               esp_wifi_set_mode (mode);
-            }
-         }
-         jo_free (&j);
-      }
-   }
    free (buf);
-   return ret;
+   if (!revk_shutting_down (NULL))
+      return scan ();
+   return ESP_OK;
 }
 #else
 #ifndef CONFIG_IDF_TARGET_ESP8266
@@ -3967,10 +3958,11 @@ revk_upgrade (const char *target, jo_t j)
    if (!target)                 // Us
 #endif
    {                            // Upgrading this device (upgrade check only works for this device as comparing this device details)
-      if (revk_upgrade_check (url) <= 0)
+      int8_t check = revk_upgrade_check (url);
+      if (check <= 0)
       {
          free (url);
-         return "";
+         return check ? "Upgrade check failed" : "Up to date";
       }
       ESP_LOGI (TAG, "Resetting watchdog");
       REVK_ERR_CHECK (compat_task_wdt_reconfigure (false, 120 * 1000, true));

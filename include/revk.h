@@ -77,6 +77,7 @@ typedef struct {                // Dynamic binary data
 // Calls
 void revk_boot(app_callback_t * app_callback);
 void revk_start(void);
+void revk_pre_shutdown(void);
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
 // Note, a setting that is SECRET that is a root name followed by sub names creates parent/child. Only shown if parent has value or default value (usually overlap a key child)
 void revk_register(const char *name,    // Setting name (note max 15 characters inc any number suffix)
@@ -152,9 +153,13 @@ void revk_mesh_send_json(const mac_t mac, jo_t * jp);
 void revk_blink(uint8_t on, uint8_t off, const char *colours);  // Set LED blink rate and colour sequence for on state (for RGB LED)
 
 #ifdef  CONFIG_REVK_APMODE
-esp_err_t revk_web_config_start(httpd_handle_t webserver); // Add URLs
-esp_err_t revk_web_config_stop(httpd_handle_t webserver); // Remove URLs
-esp_err_t revk_web_config(httpd_req_t * req);   // Call for web config for SSID/password/mqtt
+esp_err_t revk_web_settings_add(httpd_handle_t webserver); // Add URLs
+esp_err_t revk_web_settings_remove(httpd_handle_t webserver); // Remove URLs
+esp_err_t revk_web_settings(httpd_req_t * req);   // Call for web config for SSID/password/mqtt (GET/POST) - needs 4 URLS
+esp_err_t revk_web_status(httpd_req_t * req);   // Call for web config for SSID/password/mqtt (WS)
 esp_err_t revk_web_wifilist(httpd_req_t * req); // WS for list of SSIDs
+void revk_web_head(httpd_req_t * req,const char *title); // Generic html heading
+esp_err_t revk_web_foot(httpd_req_t * req,uint8_t home,uint8_t wifi); // Generic html footing and return
+
 #endif
 #endif
