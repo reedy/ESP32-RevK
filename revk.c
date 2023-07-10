@@ -2325,12 +2325,17 @@ revk_web_settings (httpd_req_t * req)
          httpd_resp_sendstr_chunk (req, "</p>");
       }
    }
+   const char *shutdown = NULL;
+   revk_shutting_down (&shutdown);
 #ifdef CONFIG_HTTPD_WS_SUPPORT
-   httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>&nbsp;</b></p>");
+   httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
+   if (shutdown && *shutdown)
+      httpd_resp_sendstr_chunk (req, shutdown);
+   httpd_resp_sendstr_chunk (req, "</b></p>");
 #endif
    httpd_resp_sendstr_chunk (req,
                              "<form action=/revk-settings name=WIFI method=post onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
-   if (!revk_shutting_down (NULL))
+   if (!shutdown)
    {
       httpd_resp_sendstr_chunk (req, "<table>");
       httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
@@ -2386,7 +2391,7 @@ revk_web_settings (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
-   if (!revk_shutting_down (NULL))
+   if (!shutdown)
       httpd_resp_sendstr_chunk (req, "<div id=list>WiFi:</div>");
    httpd_resp_sendstr_chunk (req, "<script>"    //
                              "var f=document.WIFI;"     //
