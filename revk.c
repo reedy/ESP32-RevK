@@ -2641,11 +2641,17 @@ ap_start (void)
          httpd_uri_t uri = {
             .uri = "/",
             .method = HTTP_GET,
-            .handler = revk_web_config,
+            .handler = revk_web_settings,
          };
          REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
       }
-      revk_web_config_start (webserver);
+         httpd_uri_t uri = {
+            .uri = "/",
+            .method = HTTP_POST,
+            .handler = revk_web_settings,
+         };
+         REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
+      revk_web_settings_add (webserver);
    }
 #endif
 #ifdef	CONFIG_REVK_APDNS
