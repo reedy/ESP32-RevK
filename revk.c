@@ -2252,7 +2252,7 @@ revk_web_settings (httpd_req_t * req)
          } else
          {
             char ok = 0;
-            if (revk_link_down () && jo_find (j, "wifissid"))
+            if (jo_find (j, "wifissid"))
             {                   // Test WiFi
                wifi_mode_t mode = 0;
                esp_wifi_get_mode (&mode);
@@ -2260,13 +2260,15 @@ revk_web_settings (httpd_req_t * req)
                char pass[33] = "";
                jo_strncpy (j, ssid, sizeof (ssid));
                if (!*ssid)
-                  httpd_resp_sendstr_chunk (req, "No WiFi SSID");
-               else
                {
-                  httpd_resp_sendstr_chunk (req, "Checking WIFI:");
+                  httpd_resp_sendstr_chunk (req, "No WiFi SSID. ");
+                  if (mode == WIFI_MODE_STA)
+                     ok = 1;    // Deliberate we assume
+               } else
+               {
                   if (jo_find (j, "wifipass") == JO_STRING)
                      jo_strncpy (j, pass, sizeof (pass));
-                  esp_wifi_set_mode (mode == WIFI_MODE_NULL ? WIFI_MODE_STA : WIFI_MODE_APSTA);
+                  esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_STA : WIFI_MODE_APSTA);
                   wifi_config_t cfg = { 0, };
                   cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
                   strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
@@ -2283,12 +2285,14 @@ revk_web_settings (httpd_req_t * req)
                      if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
                      {          // Got IP (TODO IPv6)
                         char temp[50];
-                        snprintf (temp, sizeof (temp), "Connected " IPSTR, IP2STR (&ip.ip));
+                        snprintf (temp, sizeof (temp), "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
                         httpd_resp_sendstr_chunk (req, temp);
                         ok = 1;
                         break;
                      }
                   }
+                  if (!ok)
+                     httpd_resp_sendstr_chunk (req, "WiFi did not connect, try again.");
                }
             } else
                ok = 1;
@@ -2300,9 +2304,9 @@ revk_web_settings (httpd_req_t * req)
                   httpd_resp_sendstr_chunk (req, e);
                   httpd_resp_sendstr_chunk (req, " @ ");
                   httpd_resp_sendstr_chunk (req, jo_debug (j));
-               }
-            } else
-               httpd_resp_sendstr_chunk (req, "Did not connect, try again");
+               } else
+                  httpd_resp_sendstr_chunk (req, "Settings stored.");
+            }
          }
          jo_free (&j);
          httpd_resp_sendstr_chunk (req, "</p>");
@@ -2513,10 +2517,8 @@ revk_web_status (httpd_req_t * req)
          jo_int (j, NULL, n);
          wsend (&j);
          msg (r);
-      } else if (!*wifissid)
-         msg ("WiFi not configured");
-      else if (revk_link_down ())
-         msg ("WiFi not connected");
+      } else if (revk_link_down ())
+         msg (*wifissid ? "WiFi not connected" : "WiFi not configured");
 #ifdef  CONFIG_REVK_MQTT
       else if (!revk_mqtt (0))
          msg ("WiFi connected, no MQTT");
