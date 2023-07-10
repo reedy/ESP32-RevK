@@ -2251,13 +2251,58 @@ revk_web_settings (httpd_req_t * req)
                httpd_resp_sendstr_chunk (req, e);
          } else
          {
-            const char *e = revk_setting (j);
-            if (e && *e)
+            char ok = 0;
+            if (revk_link_down () && jo_find (j, "wifissid"))
+            {                   // Test WiFi
+               wifi_mode_t mode = 0;
+               esp_wifi_get_mode (&mode);
+               char ssid[33] = "";
+               char pass[33] = "";
+               jo_strncpy (j, ssid, sizeof (ssid));
+               if (!*ssid)
+                  httpd_resp_sendstr_chunk (req, "No WiFi SSID");
+               else
+               {
+                  httpd_resp_sendstr_chunk (req, "Checking WIFI:");
+                  if (jo_find (j, "wifipass") == JO_STRING)
+                     jo_strncpy (j, pass, sizeof (pass));
+                  esp_wifi_set_mode (mode == WIFI_MODE_NULL ? WIFI_MODE_STA : WIFI_MODE_APSTA);
+                  wifi_config_t cfg = { 0, };
+                  cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+                  strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
+                  strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
+                  esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
+                  esp_wifi_connect ();
+                  esp_netif_dhcpc_stop (sta_netif);
+                  esp_netif_dhcpc_start (sta_netif);
+                  int waiting = 10;
+                  while (waiting--)
+                  {
+                     sleep (1);
+                     esp_netif_ip_info_t ip;
+                     if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+                     {          // Got IP (TODO IPv6)
+                        char temp[50];
+                        snprintf (temp, sizeof (temp), "Connected " IPSTR, IP2STR (&ip.ip));
+                        httpd_resp_sendstr_chunk (req, temp);
+                        ok = 1;
+                        break;
+                     }
+                  }
+               }
+            } else
+               ok = 1;
+            if (ok)
             {
-               httpd_resp_sendstr_chunk (req, e);
-               httpd_resp_sendstr_chunk (req, " @ ");
-               httpd_resp_sendstr_chunk (req, jo_debug (j));
-            }
+               const char *e = revk_setting (j);
+               if (e && *e)
+               {
+                  httpd_resp_sendstr_chunk (req, e);
+                  httpd_resp_sendstr_chunk (req, " @ ");
+                  httpd_resp_sendstr_chunk (req, jo_debug (j));
+               }
+            } else
+               httpd_resp_sendstr_chunk (req, "Did not connect, try again");
          }
          jo_free (&j);
          httpd_resp_sendstr_chunk (req, "</p>");
@@ -2266,7 +2311,8 @@ revk_web_settings (httpd_req_t * req)
 #ifdef CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>&nbsp;</b></p>");
 #endif
-   httpd_resp_sendstr_chunk (req, "<form action='/revk-settings' name=WIFI method=post>");
+   httpd_resp_sendstr_chunk (req,
+                             "<form action='/revk-settings' name=WIFI method=post onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
    if (!revk_shutting_down (NULL))
    {
       httpd_resp_sendstr_chunk (req, "<table>");
@@ -2613,7 +2659,7 @@ ap_start (void)
    // WiFi
    wifi_config_t cfg = { 0, };
 #ifdef	CONFIG_REVK_APDNS
-   cfg.ap.ssid_len = snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s:%012llX", appname, revk_binid);
+   cfg.ap.ssid_len = snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-%012llX", appname, revk_binid);
 #else
    cfg.ap.ssid_len =
       snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-10.%d.%d.1", appname, (uint8_t) (revk_binid >> 8),
