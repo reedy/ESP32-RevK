@@ -254,7 +254,7 @@ lwmqtt_t mqtt_client[MQTT_CLIENTS] = { };
 static uint32_t restart_time = 0;
 static uint32_t nvs_time = 0;
 static uint8_t setting_dump_requested = 0;
-static const char *restart_reason = "Unknown";
+static const char *restart_reason = NULL;
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
@@ -2863,6 +2863,7 @@ ota_task (void *pvParameters)
             jo_string (j, "description", "No OTA partition available");
             revk_error ("upgrade", &j);
             ota_size = 0;
+            ota_percent = -3;
          } else
          {
             jo_t j = jo_make (NULL);
@@ -2910,7 +2911,10 @@ ota_task (void *pvParameters)
                esp_ota_set_boot_partition (ota_partition);
                revk_restart ("OTA Download complete", 3);
             } else
+            {
                revk_restart ("OTA Download fail", 3);
+               ota_percent = -4;
+            }
          }
 #endif
       }
