@@ -1826,7 +1826,6 @@ revk_boot (app_callback_t * app_callback_cb)
       }
    }
 #endif
-   restart_time = 0;
    app_callback = app_callback_cb;
    revk_group = xEventGroupCreate ();
    xEventGroupSetBits (revk_group, GROUP_OFFLINE);
@@ -2754,6 +2753,13 @@ ap_stop (void)
 }
 #endif
 
+static int8_t ota_percent = -1;
+int8_t
+revk_ota_progress (void)
+{                               // Progress (-2=up to date, -1=not, 0-100 is progress, 101=done)
+   return ota_percent;
+}
+
 static void
 ota_task (void *pvParameters)
 {
@@ -2881,14 +2887,14 @@ ota_task (void *pvParameters)
                   revk_restart ("OTA Download progress", 10);
                ota_data += len;
                now = uptime ();
-               int percent = ota_data * 100 / ota_size;
-               if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
+               ota_percent = ota_data * 100 / ota_size;
+               if (ota_percent != ota_progress && (ota_percent == 100 || next < now || ota_percent / 10 != ota_progress / 10))
                {
-                  ESP_LOGI (TAG, "Flash %d%%", percent);
+                  ESP_LOGI (TAG, "Flash %d%%", ota_percent);
                   jo_t j = jo_make (NULL);
                   jo_int (j, "size", ota_size);
                   jo_int (j, "loaded", ota_data);
-                  jo_int (j, "progress", ota_progress = percent);
+                  jo_int (j, "progress", ota_progress = ota_percent);
                   revk_info_clients ("upgrade", &j, -1);
                   next = now + 5;
                }
@@ -2896,6 +2902,7 @@ ota_task (void *pvParameters)
             // End
             if (!err && !(err = REVK_ERR_CHECK (esp_ota_end (ota_handle))))
             {
+               ota_percent = 101;
                jo_t j = jo_make (NULL);
                jo_int (j, "size", ota_size);
                jo_string (j, "complete", ota_partition->label);
@@ -4032,6 +4039,7 @@ revk_upgrade (const char *target, jo_t j)
       if (check <= 0)
       {
          free (url);
+         ota_percent = check ? -3 : -2;
          return check ? "Upgrade check failed" : "Up to date";
       }
       ESP_LOGI (TAG, "Resetting watchdog");
@@ -4325,6 +4333,10 @@ revk_mqtt_close (const char *reason)
 void
 revk_wifi_close (void)
 {
+   wifi_mode_t mode = 0;
+   esp_wifi_get_mode (&mode);
+   if (mode == WIFI_MODE_NULL)
+      return;
    ESP_LOGI (TAG, "WIFi Close");
 #ifdef	CONFIG_REVK_MESH
    esp_mesh_stop ();
