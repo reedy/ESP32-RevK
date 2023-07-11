@@ -4343,6 +4343,7 @@ revk_wifi_close (void)
    if (mode == WIFI_MODE_NULL)
       return;
    ESP_LOGI (TAG, "WIFi Close");
+   esp_wifi_deauth_sta(0);
 #ifdef	CONFIG_REVK_MESH
    esp_mesh_stop ();
    esp_mesh_deinit ();
