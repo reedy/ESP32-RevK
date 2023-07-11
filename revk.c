@@ -4352,6 +4352,8 @@ revk_wifi_close (void)
    esp_wifi_disconnect ();
    esp_wifi_set_mode (WIFI_MODE_NULL);
    esp_wifi_deinit ();
+   esp_wifi_clear_fast_connect();
+   esp_wifi_stop();
    ESP_LOGI (TAG, "WIFi Closed");
 }
 #endif
