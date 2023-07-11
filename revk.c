@@ -2884,9 +2884,9 @@ ota_task (void *pvParameters)
                if ((err = REVK_ERR_CHECK (esp_ota_write (ota_handle, buf, len))))
                   break;
                if (!ota_data)
-                  revk_restart ("OTA Download started", 60);
+                  revk_restart ("OTA Download started", 10);
                else if (ota_data < ota_size / 2 && (ota_data + len) >= ota_size / 2)
-                  revk_restart ("OTA Download progress", 60);
+                  revk_restart ("OTA Download progress", 10);
                ota_data += len;
                now = uptime ();
                ota_percent = ota_data * 100 / ota_size;
@@ -4049,7 +4049,7 @@ revk_upgrade (const char *target, jo_t j)
       }
       ESP_LOGI (TAG, "Resetting watchdog");
       REVK_ERR_CHECK (compat_task_wdt_reconfigure (false, 120 * 1000, true));
-      revk_restart ("OTA Download", 60);        // Restart if download does not happen properly
+      revk_restart ("OTA Download", 30);        // Restart if download does not happen properly
 #ifdef	CONFIG_NIMBLE_ENABLED
       ESP_LOGI (TAG, "Stopping any BLE");
       esp_bt_controller_disable ();     // Kill bluetooth during download
