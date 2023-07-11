@@ -234,6 +234,7 @@ const char *revk_app = "";      /* App name */
 char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
+static int8_t ota_percent = -1;
 
 /* Local */
 static uint32_t up_next;        // next up report (uptime)
@@ -1069,7 +1070,8 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          app_callback (client, prefixcommand, NULL, "connect", j);
          jo_free (&j);
       }
-      revk_restart ("Online", -1);      // Cancel restart
+      if (ota_percent < 0)
+         revk_restart ("Online", -1);   // Cancel restart
    } else
    {
       if (xEventGroupGetBits (revk_group) & (GROUP_MQTT << client))
@@ -2753,7 +2755,6 @@ ap_stop (void)
 }
 #endif
 
-static int8_t ota_percent = -1;
 int8_t
 revk_ota_progress (void)
 {                               // Progress (-2=up to date, -1=not, 0-100 is progress, 101=done)
@@ -4048,7 +4049,7 @@ revk_upgrade (const char *target, jo_t j)
       }
       ESP_LOGI (TAG, "Resetting watchdog");
       REVK_ERR_CHECK (compat_task_wdt_reconfigure (false, 120 * 1000, true));
-      revk_restart ("OTA Download", 30);        // Restart if download does not happen properly
+      revk_restart ("OTA Download", 60);        // Restart if download does not happen properly
 #ifdef	CONFIG_NIMBLE_ENABLED
       ESP_LOGI (TAG, "Stopping any BLE");
       esp_bt_controller_disable ();     // Kill bluetooth during download
