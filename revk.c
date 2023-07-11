@@ -1070,7 +1070,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          app_callback (client, prefixcommand, NULL, "connect", j);
          jo_free (&j);
       }
-      if (ota_percent < 0)
+      if (!ota_task_id)
          revk_restart ("Online", -1);   // Cancel restart
    } else
    {
