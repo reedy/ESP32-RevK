@@ -2883,9 +2883,9 @@ ota_task (void *pvParameters)
                if ((err = REVK_ERR_CHECK (esp_ota_write (ota_handle, buf, len))))
                   break;
                if (!ota_data)
-                  revk_restart ("OTA Download started", 10);
+                  revk_restart ("OTA Download started", 60);
                else if (ota_data < ota_size / 2 && (ota_data + len) >= ota_size / 2)
-                  revk_restart ("OTA Download progress", 10);
+                  revk_restart ("OTA Download progress", 60);
                ota_data += len;
                now = uptime ();
                ota_percent = ota_data * 100 / ota_size;
