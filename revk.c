@@ -1203,9 +1203,15 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       case WIFI_EVENT_AP_STACONNECTED:
          ESP_LOGI (TAG, "AP STA Connect");
+#ifdef	CONFIG_REVK_APMODE
+            apstoptime = 0; // Stay
+#endif
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
          ESP_LOGI (TAG, "AP STA Disconnect");
+#ifdef	CONFIG_REVK_APMODE
+            apstoptime = uptime () + 10;        // Stop ap mode soon
+#endif
          break;
       case WIFI_EVENT_AP_PROBEREQRECVED:
          ESP_LOGE (TAG, "AP PROBEREQRECVED");
@@ -1268,7 +1274,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             }
 #endif
 #ifdef	CONFIG_REVK_APMODE
-            apstoptime = uptime () + 10;        // Stop ap mode soon
+            apstoptime = uptime () + 60;        // Stop ap mode soon
 #endif
          }
          break;
