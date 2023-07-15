@@ -285,7 +285,7 @@ lwmqtt_client (lwmqtt_client_config_t * config)
    xSemaphoreGive (handle->mutex);
    handle->running = 1;
    TaskHandle_t task_id = NULL;
-   xTaskCreate (client_task, "mqtt-client", 6 * 1024, (void *) handle, 2, &task_id);
+   xTaskCreate (client_task, "mqtt-client", 8 * 1024, (void *) handle, 2, &task_id);
    return handle;
 }
 
