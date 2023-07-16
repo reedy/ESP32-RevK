@@ -1895,7 +1895,7 @@ revk_start (void)
    mdns_hostname_set (hostname);
    mdns_instance_name_set (appname);
 #endif
-   revk_task (TAG, task, NULL, 4);
+   revk_task (TAG, task, NULL, 5);
 }
 
 TaskHandle_t
