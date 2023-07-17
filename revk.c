@@ -1312,6 +1312,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                   ESP_LOGI (TAG, "Link up");
                   link_down = 0;        // As child we assume parent has a link
                }
+               up_next = 0;
             }
          }
          break;
