@@ -2385,7 +2385,7 @@ revk_web_settings (httpd_req_t * req)
          httpd_resp_sendstr_chunk (req, tz);
       httpd_resp_sendstr_chunk (req,
                                 "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></td></tr>");
-      httpd_resp_sendstr_chunk (req, "</table><p><input id=set type=submit value='Change settings'>");
+      httpd_resp_sendstr_chunk (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
       {
          httpd_resp_sendstr_chunk (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from ");
