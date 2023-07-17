@@ -1261,8 +1261,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             {
                jo_t j = jo_object_alloc ();
                jo_string (j, "ssid", (char *) ap.ssid);
-               if (ap.phy_lr)
-                  jo_bool (j, "lr", 1);
+               //if (ap.phy_lr) jo_bool (j, "lr", 1); // This just says it can do LR, not that we are using LR
                jo_stringf (j, "ip", IPSTR, IP2STR (&event->ip_info.ip));
                jo_stringf (j, "gw", IPSTR, IP2STR (&event->ip_info.gw));
                jo_rewind (j);
@@ -1544,8 +1543,7 @@ task (void *pvParameters)
                               (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
                   jo_int (j, "rssi", ap.rssi);
                   jo_int (j, "chan", ap.primary);
-                  if (ap.phy_lr)
-                     jo_bool (j, "lr", 1);
+                  //if (ap.phy_lr) jo_bool (j, "lr", 1); // This just says it can do LR, not that we are using LR
                   {
                      esp_netif_ip_info_t ip;
                      if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
