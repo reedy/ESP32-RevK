@@ -4152,6 +4152,9 @@ revk_command (const char *tag, jo_t j)
       for (x = 0; x < uxArraySize; x++)
       {
          jo_t j = jo_object_alloc ();
+#ifdef	CONFIG_REVK_MESH
+         jo_string (j, "node", nodename);
+#endif
          jo_string (j, "task", pxTaskStatusArray[x].pcTaskName);
          jo_int (j, "priority", pxTaskStatusArray[x].uxCurrentPriority);
          jo_int (j, "free-stack", pxTaskStatusArray[x].usStackHighWaterMark);
