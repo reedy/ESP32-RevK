@@ -1204,13 +1204,13 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
       case WIFI_EVENT_AP_STACONNECTED:
          ESP_LOGI (TAG, "AP STA Connect");
 #ifdef	CONFIG_REVK_APMODE
-            apstoptime = 0; // Stay
+         apstoptime = 0;        // Stay
 #endif
          break;
       case WIFI_EVENT_AP_STADISCONNECTED:
          ESP_LOGI (TAG, "AP STA Disconnect");
 #ifdef	CONFIG_REVK_APMODE
-            apstoptime = uptime () + 10;        // Stop ap mode soon
+         apstoptime = uptime () + 10;   // Stop ap mode soon
 #endif
          break;
       case WIFI_EVENT_AP_PROBEREQRECVED:
@@ -1895,7 +1895,7 @@ revk_start (void)
    mdns_hostname_set (hostname);
    mdns_instance_name_set (appname);
 #endif
-   revk_task (TAG, task, NULL, 6);
+   revk_task (TAG, task, NULL, 4);
 }
 
 TaskHandle_t
@@ -3441,7 +3441,9 @@ revk_setting_dump (void)
 #ifdef	CONFIG_REVK_MESH
    maxpacket -= MESH_PAD;
 #endif
-   char buf[maxpacket];         // Allows for topic, header, etc
+   char *buf = malloc (maxpacket);      // Allows for topic, header, etc
+   if (!buf)
+      return "malloc";
    const char *hasdef (setting_t * s)
    {
       const char *d = s->defval;
@@ -3728,6 +3730,7 @@ revk_setting_dump (void)
       }
    }
    send ();
+   free (buf);
    return NULL;
 }
 
@@ -4349,7 +4352,7 @@ revk_wifi_close (void)
    if (mode == WIFI_MODE_NULL)
       return;
    ESP_LOGI (TAG, "WIFi Close");
-   esp_wifi_deauth_sta(0);
+   esp_wifi_deauth_sta (0);
 #ifdef	CONFIG_REVK_MESH
    esp_mesh_stop ();
    esp_mesh_deinit ();
@@ -4358,8 +4361,8 @@ revk_wifi_close (void)
    esp_wifi_disconnect ();
    esp_wifi_set_mode (WIFI_MODE_NULL);
    esp_wifi_deinit ();
-   esp_wifi_clear_fast_connect();
-   esp_wifi_stop();
+   esp_wifi_clear_fast_connect ();
+   esp_wifi_stop ();
    ESP_LOGI (TAG, "WIFi Closed");
 }
 #endif
