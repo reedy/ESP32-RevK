@@ -767,14 +767,11 @@ mesh_init (void)
       esp_wifi_stop ();
       sta_init ();
       REVK_ERR_CHECK (esp_netif_dhcps_stop (ap_netif));
-      if (meshlr)
-      {                         // Set up LR mode
-         REVK_ERR_CHECK (esp_wifi_set_mode (WIFI_MODE_APSTA));
-         REVK_ERR_CHECK (esp_wifi_set_protocol
-                         (ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
-         REVK_ERR_CHECK (esp_wifi_set_protocol
-                         (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
-      }
+      REVK_ERR_CHECK (esp_wifi_set_mode (WIFI_MODE_APSTA));
+      REVK_ERR_CHECK (esp_wifi_set_protocol
+                      (ESP_IF_WIFI_AP, meshlr ? WIFI_PROTOCOL_LR : (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)));
+      REVK_ERR_CHECK (esp_wifi_set_protocol
+                      (ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR));
       REVK_ERR_CHECK (esp_mesh_set_max_layer (meshdepth));
       REVK_ERR_CHECK (esp_mesh_set_xon_qsize (16));
       esp_wifi_set_mode (WIFI_MODE_NULL);       // Set by mesh
