@@ -300,6 +300,15 @@ void mesh_make_mqtt (mesh_data_t * data, uint8_t tag, int tlen, const char *topi
 static SemaphoreHandle_t mesh_mutex = NULL;
 #endif
 
+void *
+revk_malloc (size_t size)
+{                               // Malloc, preferred SPIRAM
+   void *mem = heap_caps_malloc (size, MALLOC_CAP_SPIRAM);
+   if (!mem)
+      mem = malloc (size);
+   return mem;
+}
+
 #if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static void
 makeip (esp_netif_ip_info_t * info, const char *ip, const char *gw)
@@ -2544,9 +2553,9 @@ revk_web_status (httpd_req_t * req)
 #ifdef  CONFIG_REVK_MQTT
       else if (!revk_mqtt (0))
          msg ("WiFi connected, no MQTT");
-      else if (lwmqtt_failed (revk_mqtt (0))<0)
+      else if (lwmqtt_failed (revk_mqtt (0)) < 0)
          msg ("MQTT failed");
-      else if (lwmqtt_failed (revk_mqtt (0))>5)
+      else if (lwmqtt_failed (revk_mqtt (0)) > 5)
          msg ("MQTT not connecting");
       else if (!lwmqtt_connected (revk_mqtt (0)))
          msg ("MQTT connecting");

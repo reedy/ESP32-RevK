@@ -3,9 +3,10 @@
 
 #ifdef CONFIG_IDF_TARGET_ESP8266
 
-static const esp_app_desc_t *esp_app_get_description(void)
+static const esp_app_desc_t *
+esp_app_get_description (void)
 {
-    return esp_ota_get_app_description();
+   return esp_ota_get_app_description ();
 }
 
 #endif

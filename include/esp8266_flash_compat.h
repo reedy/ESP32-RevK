@@ -3,7 +3,7 @@
 
 #ifdef CONFIG_IDF_TARGET_ESP8266
 
-esp_err_t esp_flash_get_size(void *chip, uint32_t *out_size);
+esp_err_t esp_flash_get_size (void *chip, uint32_t * out_size);
 
 #else
 #include "esp_flash_spi_init.h"

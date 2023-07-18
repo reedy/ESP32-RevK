@@ -152,7 +152,7 @@ handle_certs (lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void *ca_cert_
       h->ca_cert_bytes = ca_cert_bytes;
       if ((h->ca_cert_ref = ca_cert_ref))
          h->ca_cert_buf = ca_cert_buf;  // No malloc as reference will stay valid
-      else if (!(h->ca_cert_buf = malloc (ca_cert_bytes)))
+      else if (!(h->ca_cert_buf = revk_malloc (ca_cert_bytes)))
          fail++;                // malloc failed
       else
          memcpy (h->ca_cert_buf, ca_cert_buf, ca_cert_bytes);
@@ -162,7 +162,7 @@ handle_certs (lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void *ca_cert_
       h->our_cert_bytes = our_cert_bytes;
       if ((h->our_cert_ref = our_cert_ref))
          h->our_cert_buf = our_cert_buf;        // No malloc as reference will stay valid
-      else if (!(h->our_cert_buf = malloc (our_cert_bytes)))
+      else if (!(h->our_cert_buf = revk_malloc (our_cert_bytes)))
          fail++;                // malloc failed
       else
          memcpy (h->our_cert_buf, our_cert_buf, our_cert_bytes);
@@ -172,7 +172,7 @@ handle_certs (lwmqtt_t h, uint8_t ca_cert_ref, int ca_cert_bytes, void *ca_cert_
       h->our_key_bytes = our_key_bytes;
       if ((h->our_key_ref = our_cert_ref))
          h->our_key_buf = our_key_buf;  // No malloc as reference will stay valid
-      else if (!(h->our_key_buf = malloc (our_key_bytes)))
+      else if (!(h->our_key_buf = revk_malloc (our_key_bytes)))
          fail++;                // malloc failed
       else
          memcpy (h->our_key_buf, our_key_buf, our_key_bytes);
@@ -191,7 +191,7 @@ lwmqtt_client (lwmqtt_client_config_t * config)
 {
    if (!config || !config->hostname)
       return NULL;
-   lwmqtt_t handle = malloc (sizeof (*handle));
+   lwmqtt_t handle = revk_malloc (sizeof (*handle));
    if (!handle)
       return handle_free (handle);
    memset (handle, 0, sizeof (*handle));
@@ -229,7 +229,7 @@ lwmqtt_client (lwmqtt_client_config_t * config)
    if (mlen >= 128)
       mlen++;                   // two byte len
    mlen += 2;                   // header and one byte len
-   if (!(handle->connect = malloc (mlen)))
+   if (!(handle->connect = revk_malloc (mlen)))
       return handle_free (handle);
    unsigned char *p = handle->connect;
    void str (int l, const char *s)
@@ -296,7 +296,7 @@ lwmqtt_server (lwmqtt_server_config_t * config)
 {
    if (!config)
       return NULL;
-   lwmqtt_t handle = malloc (sizeof (*handle));
+   lwmqtt_t handle = revk_malloc (sizeof (*handle));
    if (!handle)
       return handle_free (handle);
    memset (handle, 0, sizeof (*handle));
@@ -350,7 +350,7 @@ lwmqtt_subscribeub (lwmqtt_t handle, const char *topic, char unsubscribe)
          if (mlen >= 128)
             mlen++;             // two byte len
          mlen += 2;             // header and one byte len
-         unsigned char *buf = malloc (mlen);
+         unsigned char *buf = revk_malloc (mlen);
          if (!buf)
             ret = "Malloc";
          else
@@ -420,7 +420,7 @@ lwmqtt_send_full (lwmqtt_t handle, int tlen, const char *topic, int plen, const 
          if (mlen >= 128)
             mlen++;             // two byte len
          mlen += 2;             // header and one byte len
-         unsigned char *buf = malloc (mlen);
+         unsigned char *buf = revk_malloc (mlen);
          if (!buf)
             ret = "Malloc";
          else
@@ -812,7 +812,7 @@ listen_task (void *pvParameters)
                if (s < 0)
                   break;
                ESP_LOGD (TAG, "Connect on MQTT %d", handle->port);
-               lwmqtt_t h = malloc (sizeof (*h));
+               lwmqtt_t h = revk_malloc (sizeof (*h));
                if (!h)
                   break;
                memset (h, 0, sizeof (*h));
