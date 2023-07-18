@@ -76,7 +76,6 @@ typedef struct
 #define freez(x) do{if(x){free((void*)x);x=NULL;}}while(0)      // Just useful - yes free(x) is valid when x is NULL, but this sets x NULL as a result as well
 
 // Calls
-void *revk_malloc (size_t size);
 void revk_boot (app_callback_t * app_callback);
 void revk_start (void);
 void revk_pre_shutdown (void);

@@ -300,15 +300,6 @@ void mesh_make_mqtt (mesh_data_t * data, uint8_t tag, int tlen, const char *topi
 static SemaphoreHandle_t mesh_mutex = NULL;
 #endif
 
-void *
-revk_malloc (size_t size)
-{                               // Malloc, preferred SPIRAM
-   void *mem = heap_caps_malloc (size, MALLOC_CAP_SPIRAM);
-   if (!mem)
-      mem = malloc (size);
-   return mem;
-}
-
 #if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static void
 makeip (esp_netif_ip_info_t * info, const char *ip, const char *gw)
@@ -431,7 +422,7 @@ mesh_task (void *pvParameters)
 {                               // Mesh root
    pvParameters = pvParameters;
    mesh_data_t data = { };
-   data.data = malloc (MESH_MPS + 1);   // One extra for a null
+   data.data = mallocspi (MESH_MPS + 1);   // One extra for a null
    while (1)
    {                            // Mesh receive loop
       mesh_addr_t from = { };
@@ -1683,7 +1674,7 @@ revk_boot (app_callback_t * app_callback_cb)
             ESP_LOGE (TAG, "Block size error (%ld>%ld)", (long) (part_end - part_start), (long) secsize);
          else
          {
-            uint8_t *mem = malloc (secsize);
+            uint8_t *mem = mallocspi (secsize);
             if (!mem)
                ESP_LOGE (TAG, "Malloc fail: %ld", (long) secsize);
             else
@@ -1936,7 +1927,7 @@ mesh_make_mqtt (mesh_data_t * data, uint8_t tag, int tlen, const char *topic, in
    if (tlen < 0)
       tlen = strlen (topic);
    data->size = 1 + tlen + 1 + plen;
-   data->data = malloc (data->size + MESH_PAD);
+   data->data = mallocspi (data->size + MESH_PAD);
    char *p = (char *) data->data;
    *p++ = tag;
    memcpy (p, topic, tlen);
@@ -3150,12 +3141,12 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          {
             l = jo_strncpy16 (j, NULL, 0);
             if (l > 0)
-               jo_strncpy16 (j, temp = malloc (l), l);
+               jo_strncpy16 (j, temp = mallocspi (l), l);
          } else
          {
             l = jo_strncpy64 (j, NULL, 0);
             if (l > 0)
-               jo_strncpy64 (j, temp = malloc (l), l);
+               jo_strncpy64 (j, temp = mallocspi (l), l);
          }
          value = temp;          // temp gets freed at end
          len = l;
@@ -3191,7 +3182,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          if (!s->size)
          {                      /* Dynamic */
             l += sizeof (revk_bindata_t);
-            revk_bindata_t *d = malloc (l);
+            revk_bindata_t *d = mallocspi (l);
             o = n = (void *) d;
             if (o)
             {
@@ -3203,7 +3194,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          {                      // Fixed size binary
             if (l && l != s->size)
                return "Wrong size";
-            o = n = malloc (s->size);
+            o = n = mallocspi (s->size);
             if (o)
             {
                if (l)
@@ -3215,7 +3206,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       } else if (!s->size)
       {                         /* String */
          l++;
-         n = malloc (l);        /* One byte for null termination */
+         n = mallocspi (l);        /* One byte for null termination */
          if (len)
             memcpy (n, value, len);
          n[len] = 0;
@@ -3317,23 +3308,23 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          if (flags & SETTING_SIGNED)
          {
             if (s->size == 8)
-               *((int64_t *) (n = malloc (l = 8))) = v;
+               *((int64_t *) (n = mallocspi (l = 8))) = v;
             else if (s->size == 4)
-               *((int32_t *) (n = malloc (l = 4))) = v;
+               *((int32_t *) (n = mallocspi (l = 4))) = v;
             else if (s->size == 2)
-               *((int16_t *) (n = malloc (l = 2))) = v;
+               *((int16_t *) (n = mallocspi (l = 2))) = v;
             else if (s->size == 1)
-               *((int8_t *) (n = malloc (l = 1))) = v;
+               *((int8_t *) (n = mallocspi (l = 1))) = v;
          } else
          {
             if (s->size == 8)
-               *((int64_t *) (n = malloc (l = 8))) = v;
+               *((int64_t *) (n = mallocspi (l = 8))) = v;
             else if (s->size == 4)
-               *((int32_t *) (n = malloc (l = 4))) = v;
+               *((int32_t *) (n = mallocspi (l = 4))) = v;
             else if (s->size == 2)
-               *((int16_t *) (n = malloc (l = 2))) = v;
+               *((int16_t *) (n = mallocspi (l = 2))) = v;
             else if (s->size == 1)
-               *((int8_t *) (n = malloc (l = 1))) = v;
+               *((int8_t *) (n = mallocspi (l = 1))) = v;
          }
       }
       if (!n)
@@ -3354,7 +3345,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       }
       if (o > 0)
       {
-         unsigned char *d = malloc (l);
+         unsigned char *d = mallocspi (l);
          if (nvs_get (s, tag, d, l) != o)
          {
             freez (n);
@@ -3449,7 +3440,7 @@ revk_setting_dump (void)
 #ifdef	CONFIG_REVK_MESH
    maxpacket -= MESH_PAD;
 #endif
-   char *buf = malloc (maxpacket);      // Allows for topic, header, etc
+   char *buf = mallocspi (maxpacket);      // Allows for topic, header, etc
    if (!buf)
       return "malloc";
    const char *hasdef (setting_t * s)
@@ -3787,7 +3778,7 @@ revk_setting (jo_t j)
       int l = jo_strlen (j);
       if (l < 0)
          break;
-      char *tag = malloc (l + 1);
+      char *tag = mallocspi (l + 1);
       if (!tag)
          er = "Malloc";
       else
@@ -3828,18 +3819,18 @@ revk_setting (jo_t j)
                      {
                         l = jo_strncpy16 (j, NULL, 0);
                         if (l)
-                           jo_strncpy16 (j, val = malloc (l), l);
+                           jo_strncpy16 (j, val = mallocspi (l), l);
                      } else
                      {
                         l = jo_strncpy64 (j, NULL, 0);
                         if (l)
-                           jo_strncpy64 (j, val = malloc (l), l);
+                           jo_strncpy64 (j, val = mallocspi (l), l);
                      }
                   } else
                   {
                      l = jo_strlen (j);
                      if (l >= 0)
-                        jo_strncpy (j, val = malloc (l + 1), l + 1);
+                        jo_strncpy (j, val = mallocspi (l + 1), l + 1);
                   }
                   er = revk_setting_internal (s, l, (const unsigned char *) (val ? : ""), index, 0);
                } else if (t == JO_NULL)
@@ -3869,7 +3860,7 @@ revk_setting (jo_t j)
                   if (t == JO_TAG)
                   {
                      int l2 = jo_strlen (j);
-                     char *tag2 = malloc (s->namelen + l2 + 1);
+                     char *tag2 = mallocspi (s->namelen + l2 + 1);
                      if (tag2)
                      {
                         strcpy (tag2, s->name);
@@ -4200,7 +4191,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
    for (s = setting; s && strcmp (s->name, name); s = s->next);
    if (s)
       ESP_LOGE (TAG, "%s duplicate", name);
-   s = malloc (sizeof (*s));
+   s = mallocspi (sizeof (*s));
    memset (s, 0, sizeof (*s));
    s->nvs = nvs;
    s->name = name;
@@ -4239,7 +4230,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
          l = nvs_get (s, tag, NULL, 0);
          if (l >= 0)
          {                      // Has data
-            d = malloc (l);
+            d = mallocspi (l);
             l = nvs_get (s, tag, d, l);
             *((void **) data) = d;
          } else
