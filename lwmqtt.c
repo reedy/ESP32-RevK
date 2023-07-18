@@ -40,9 +40,10 @@ static const char __attribute__((unused)) * TAG = "LWMQTT";
 #warning MQTT server code is not complete
 #endif
 
-void *mallocspi(size_t size)
+void *
+mallocspi (size_t size)
 {
-	   void *mem = heap_caps_malloc (size, MALLOC_CAP_SPIRAM);
+   void *mem = heap_caps_malloc (size, MALLOC_CAP_SPIRAM);
    if (!mem)
       mem = malloc (size);
    return mem;

@@ -1538,10 +1538,12 @@ task (void *pvParameters)
                   }
                   jo_int (j, "rst", esp_reset_reason ());
                }
-               if (!up_next || heap / 10000 < lastheap / 10000)
+               if (!up_next || heapspi / 10000 < lastheapspi / 10000 || heap / 10000 < lastheap / 10000)
+               {
                   jo_int (j, "mem", heap);
-               if (heapspi && (!up_next || heapspi / 10000 < lastheapspi / 10000))
-                  jo_int (j, "spi", heapspi);
+                  if (heapspi)
+                     jo_int (j, "spi", heapspi);
+               }
                if (!up_next || lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6))
                {                // Wifi
                   jo_string (j, "ssid", (char *) ap.ssid);
