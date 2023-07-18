@@ -2544,10 +2544,12 @@ revk_web_status (httpd_req_t * req)
 #ifdef  CONFIG_REVK_MQTT
       else if (!revk_mqtt (0))
          msg ("WiFi connected, no MQTT");
-      else if (uptime () > 30 && lwmqtt_failed (revk_mqtt (0)))
+      else if (lwmqtt_failed (revk_mqtt (0))<0)
          msg ("MQTT failed");
+      else if (lwmqtt_failed (revk_mqtt (0))>5)
+         msg ("MQTT not connecting");
       else if (!lwmqtt_connected (revk_mqtt (0)))
-         msg ("MQTT not yet connected");
+         msg ("MQTT connecting");
       else
          msg ("MQTT connected");
 #else

@@ -61,11 +61,11 @@ struct lwmqtt_s
    unsigned short keepalive;
    unsigned short seq;
    uint32_t ka;                 // Keep alive next ping
-   uint8_t backoff;             // Reconnect backoff
+   uint8_t backoff:4;           // Reconnect backoff
    uint8_t running:1;           // Should still run
    uint8_t server:1;            // This is a server
    uint8_t connected:1;         // Login sent/received
-   uint8_t failed:1;            // Login sent/received
+   uint8_t failed:3;            // Login received error
    uint8_t hostname_ref;        // The buf below is not malloc'd
    uint8_t tlsname_ref;         // The buf below is not malloc'd
    uint8_t ca_cert_ref:1;       // The _buf below is not malloc'd
@@ -566,11 +566,20 @@ lwmqtt_loop (lwmqtt_t handle)
       case 2:                  // conack
          if (handle->server)
             break;
-         ESP_LOGI (TAG, "Connected %s:%d", handle->hostname, handle->port);
-         handle->backoff = 1;
-         if (handle->callback)
-            handle->callback (handle->arg, NULL, strlen (handle->hostname), (void *) handle->hostname);
-         handle->connected = 1;
+         if (p[0])
+         {                      // Failed
+            ESP_LOGI (TAG, "Connect failed %s:%d code %d", handle->hostname, handle->port, p[0]);
+            handle->running = 0;
+            handle->failed = (p[0] > 7 ? 7 : 0);;
+         } else
+         {
+            ESP_LOGI (TAG, "Connected %s:%d", handle->hostname, handle->port);
+            handle->failed = 0;
+            handle->backoff = 0;
+            if (handle->callback)
+               handle->callback (handle->arg, NULL, strlen (handle->hostname), (void *) handle->hostname);
+            handle->connected = 1;
+         }
          break;
       case 3:                  // pub
          {                      // Topic
@@ -645,6 +654,10 @@ lwmqtt_loop (lwmqtt_t handle)
          break;
       case 13:                 // pingresp - no action - though we could use lack of reply to indicate broken connection I guess
          break;
+#ifdef CONFIG_REVK_MQTT_SERVER
+      case 14:                 // disconnect
+         break;
+#endif
       default:
          ESP_LOGE (TAG, "Unknown MQTT %02X (%d)", *buf, pos);
       }
@@ -674,7 +687,7 @@ client_task (void *pvParameters)
       vTaskDelete (NULL);
       return;
    }
-   handle->backoff = 1;
+   handle->backoff = 0;
    while (handle->running)
    {                            // Loop connecting and trying repeatedly
       handle->sock = -1;
@@ -742,25 +755,21 @@ client_task (void *pvParameters)
       }
       if (handle->sock < 0)
       {                         // Failed before we even start
-         handle->failed = 1;
          if (handle->callback)
             handle->callback (handle->arg, NULL, 0, NULL);
       } else
       {
-         handle->failed = 0;
          hwrite (handle, handle->connect, handle->connectlen);
          lwmqtt_loop (handle);
       }
       if (!handle->running)
          break;                 // client was stopped
-      if (handle->backoff < 128)
-         handle->backoff *= 2;
-      else
-         handle->backoff = 255;
+      if (handle->backoff < 10)
+         handle->backoff++;     // 100 seconds max
       // On ESP32 uint32_t, returned by this func, appears to be long, while on ESP8266 it's a pure unsigned int
       // The easiest and least ugly way to get around is to cast to long explicitly
-      ESP_LOGI (TAG, "Waiting %d (mem:%ld)", handle->backoff / 5, (long)esp_get_free_heap_size ());
-      sleep (handle->backoff < 5 ? 1 : handle->backoff / 5);
+      ESP_LOGI (TAG, "Retry %d (mem:%ld)", handle->backoff, (long) esp_get_free_heap_size ());
+      usleep (100000LL << handle->backoff);
    }
    handle_free (handle);
    vTaskDelete (NULL);
@@ -888,5 +897,11 @@ lwmqtt_connected (lwmqtt_t handle)
 int
 lwmqtt_failed (lwmqtt_t handle)
 {                               // Confirm failed
-   return handle && handle->failed;
+   if (!handle)
+      return 255;               // non existent
+   if (handle->connected)
+      return 0;                 // Actually connected
+   if (handle->failed)
+      return -handle->failed;   // failed
+   return handle->backoff;      // Trying
 }
