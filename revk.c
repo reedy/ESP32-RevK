@@ -422,7 +422,7 @@ mesh_task (void *pvParameters)
 {                               // Mesh root
    pvParameters = pvParameters;
    mesh_data_t data = { };
-   data.data = mallocspi (MESH_MPS + 1);   // One extra for a null
+   data.data = mallocspi (MESH_MPS + 1);        // One extra for a null
    while (1)
    {                            // Mesh receive loop
       mesh_addr_t from = { };
@@ -1488,12 +1488,14 @@ task (void *pvParameters)
             static uint8_t lastch = 0;
             static mac_t lastbssid;
             static uint32_t lastheap = 0;
-            uint32_t heap = esp_get_free_heap_size ();
+            static uint32_t lastheapspi = 0;
+            uint32_t heapspi = heap_caps_get_free_size (MALLOC_CAP_SPIRAM);
+            uint32_t heap = esp_get_free_heap_size () - heapspi;
             wifi_ap_record_t ap = {
             };
             esp_wifi_sta_get_ap_info (&ap);
-            if (lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000 || now > up_next
-                || restart_time)
+            if (lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6) || heap / 10000 < lastheap / 10000
+                || heapspi / 10000 < lastheapspi / 10000 || now > up_next || restart_time)
             {
                if (restart_time && ota_task_id)
                   restart_time++;       // wait
@@ -1537,7 +1539,9 @@ task (void *pvParameters)
                   jo_int (j, "rst", esp_reset_reason ());
                }
                if (!up_next || heap / 10000 < lastheap / 10000)
-                  jo_int (j, "mem", esp_get_free_heap_size ());
+                  jo_int (j, "mem", heap);
+               if (heapspi && (!up_next || heapspi / 10000 < lastheapspi / 10000))
+                  jo_int (j, "spi", heapspi);
                if (!up_next || lastch != ap.primary || memcmp (lastbssid, ap.bssid, 6))
                {                // Wifi
                   jo_string (j, "ssid", (char *) ap.ssid);
@@ -1561,6 +1565,7 @@ task (void *pvParameters)
                }
                revk_state_clients (NULL, &j, -1);       // up message goes to all servers
                lastheap = heap;
+               lastheapspi = heapspi;
                lastch = ap.primary;
                memcpy (lastbssid, ap.bssid, 6);
                up_next = now + 3600;
@@ -3206,7 +3211,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
       } else if (!s->size)
       {                         /* String */
          l++;
-         n = mallocspi (l);        /* One byte for null termination */
+         n = mallocspi (l);     /* One byte for null termination */
          if (len)
             memcpy (n, value, len);
          n[len] = 0;
@@ -3440,7 +3445,7 @@ revk_setting_dump (void)
 #ifdef	CONFIG_REVK_MESH
    maxpacket -= MESH_PAD;
 #endif
-   char *buf = mallocspi (maxpacket);      // Allows for topic, header, etc
+   char *buf = mallocspi (maxpacket);   // Allows for topic, header, etc
    if (!buf)
       return "malloc";
    const char *hasdef (setting_t * s)
