@@ -1393,6 +1393,8 @@ task (void *pvParameters)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
    while (1)
    {                            /* Idle */
+      if (!wdt_test && watchdogtime)
+         esp_task_wdt_reset ();
       {                         // Fast (once per 100ms)
          int64_t now = esp_timer_get_time ();
          if (now < tick)
@@ -1401,8 +1403,6 @@ task (void *pvParameters)
             now = tick;
          }
          tick += 100000ULL;     /* 10th second */
-         if (!wdt_test && watchdogtime)
-            esp_task_wdt_reset ();
          if (blink[0])
          {                      // LED blinking
             static uint8_t lit = 0,
@@ -1899,7 +1899,7 @@ revk_start (void)
    mdns_hostname_set (hostname);
    mdns_instance_name_set (appname);
 #endif
-   revk_task (TAG, task, NULL, 4);
+   revk_task (TAG, task, NULL, 3);
 }
 
 TaskHandle_t
@@ -1911,7 +1911,7 @@ revk_task (const char *tag, TaskFunction_t t, const void *param, int kstack)
 #ifdef	CONFIG_FREERTOS_UNICORE
    xTaskCreate (t, tag, kstack * 1024, (void *) param, 2, &task_id);    // Only one code anyway and not CPU1
 #else
-#ifdef REVK_LOCK_CPU1
+#ifdef CONFIG_REVK_LOCK_CPU1
    xTaskCreatePinnedToCore (t, tag, kstack * 1024, (void *) param, 2, &task_id, 1);
 #else
    xTaskCreate (t, tag, kstack * 1024, (void *) param, 2, &task_id);
