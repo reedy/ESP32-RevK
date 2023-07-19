@@ -2115,13 +2115,12 @@ revk_restart (const char *reason, int delay)
       delay -= 2;               // For when lots of devices done at once, do root later
 #endif
    if (restart_reason != reason && delay >= 0)
-      ESP_LOGI (TAG, "Restart %d %s", delay, reason);
+      ESP_LOGE (TAG, "Restart %d %s", delay, reason);
    restart_reason = reason;
    if (delay < 0)
       restart_time = 0;         /* Cancelled */
    else
    {
-      ESP_LOGE (TAG, "Restart %d %s", delay, reason);
       if (delay || !restart_time)
          restart_time = uptime () + delay;
       if (app_callback)
