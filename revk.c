@@ -93,7 +93,7 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 		bd(otacert,CONFIG_REVK_OTACERT);	\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
-		u32(watchdogtime,REVK_WATCHDOG);			\
+		u32(watchdogtime,CONFIG_REVK_WATCHDOG);			\
 		s(appname,CONFIG_REVK_APPNAME);		\
     		s(nodename,NULL);			\
 		s(hostname,NULL);			\
