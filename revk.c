@@ -2121,6 +2121,7 @@ revk_restart (const char *reason, int delay)
       restart_time = 0;         /* Cancelled */
    else
    {
+      ESP_LOGE (TAG, "Restart %d %s", delay, reason);
       if (delay || !restart_time)
          restart_time = uptime () + delay;
       if (app_callback)
