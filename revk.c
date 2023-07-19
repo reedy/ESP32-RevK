@@ -2092,11 +2092,12 @@ revk_event_clients (const char *suffix, jo_t * jp, uint8_t clients)
 const char *
 revk_error_clients (const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Error message, waits a while for connection if possible before sending
-   xEventGroupWaitBits (revk_group,
+   if (*mqtthost)
+      xEventGroupWaitBits (revk_group,
 #ifdef	CONFIG_REVK_WIFI
-                        GROUP_WIFI |
+                           GROUP_WIFI |
 #endif
-                        GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);
+                           GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);
    return revk_mqtt_send_clients (prefixerror, 0, suffix, jp, clients);
 }
 
