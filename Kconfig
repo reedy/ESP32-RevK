@@ -18,6 +18,12 @@ menu "RevK"
         help
 		One or more (space separated) LED GPIOs
 
+	config REVK_WATCHDOG
+	int "Watchdog time"
+	default 60
+	help
+		Seconds
+
 	config REVK_WIFI
 	bool "Manage WiFi client"
 	default y
