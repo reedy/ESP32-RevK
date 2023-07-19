@@ -2114,7 +2114,7 @@ revk_restart (const char *reason, int delay)
    if (delay >= 2 && !esp_mesh_is_root ())
       delay -= 2;               // For when lots of devices done at once, do root later
 #endif
-   if (restart_reason != reason && delay >= 0)
+   if (restart_reason != reason)
       ESP_LOGE (TAG, "Restart %d %s", delay, reason);
    restart_reason = reason;
    if (delay < 0)
