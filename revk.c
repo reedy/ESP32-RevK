@@ -64,6 +64,10 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #endif
 #endif
 
+#ifndef	CONFIG_LWIP_TCPIP_CORE_LOCKING
+#warning	Suggest CONFIG_LWIP_TCPIP_CORE_LOCKING
+#endif
+
 #ifdef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
 #warning CONFIG_MBEDTLS_DYNAMIC_BUFFER is buggy, sadly
 #endif
