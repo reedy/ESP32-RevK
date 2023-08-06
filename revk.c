@@ -1072,8 +1072,6 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          app_callback (client, prefixcommand, NULL, "connect", j);
          jo_free (&j);
       }
-      if (!ota_task_id)
-         revk_restart ("Online", -1);   // Cancel restart
    } else
    {
       if (xEventGroupGetBits (revk_group) & (GROUP_MQTT << client))
