@@ -578,7 +578,6 @@ lwmqtt_loop (lwmqtt_t handle)
          if (p[1])
          {                      // Failed
             ESP_LOGI (TAG, "Connect failed %s:%d code %d", handle->hostname, handle->port, p[1]);
-            handle->running = 0;
             handle->failed = (p[0] > 7 ? 7 : 0);;
          } else
          {
