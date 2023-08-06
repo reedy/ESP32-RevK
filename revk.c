@@ -2334,7 +2334,7 @@ revk_web_settings (httpd_req_t * req)
                      httpd_resp_sendstr_chunk (req, e);
                   }
                } else
-                  httpd_resp_sendstr_chunk (req, "Settings stored.");
+                  httpd_resp_sendstr_chunk (req, revk_shutting_down (NULL) ? "Settings stored." : "No changes.");
             }
          }
          jo_free (&j);
