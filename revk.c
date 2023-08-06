@@ -2258,87 +2258,98 @@ revk_web_settings (httpd_req_t * req)
 
    if (req->method == HTTP_POST)
    {
-      char query[200];
-      int len = httpd_req_recv (req, query, sizeof (query) - 1);
-      if (len > 0)
+      if (req->content_len <= 0)
+         httpd_resp_sendstr_chunk (req, "Bad post");
+      else if (req->content_len > 1000)
+         httpd_resp_sendstr_chunk (req, "Post too long");
+      else
       {
-         query[len] = 0;
-         httpd_resp_sendstr_chunk (req, "<p>");
-         jo_t j = jo_parse_query (query);
-         if (jo_find (j, "upgrade"))
+         char *query = malloc (req->content_len + 1);
+         if (query)
          {
-            const char *e = revk_command ("upgrade", NULL);
-            if (e && *e)
-               httpd_resp_sendstr_chunk (req, e);
-         } else
-         {
-            wifi_mode_t mode = 0;
-            esp_wifi_get_mode (&mode);
-            char ok = 0;
-            if (mode == WIFI_MODE_STA)
-               ok = 1;          // We don't test wifi if in STA mode as it kills the page load, D'Oh
-            else if (jo_find (j, "wifissid"))
-            {                   // Test WiFi
-               char ssid[33] = "";
-               char pass[33] = "";
-               jo_strncpy (j, ssid, sizeof (ssid));
-               if (!*ssid)
-                  httpd_resp_sendstr_chunk (req, "No WiFi SSID. ");
-               else
+            int len = httpd_req_recv (req, query, req->content_len);
+            if (len > 0)
+            {
+               query[len] = 0;
+               httpd_resp_sendstr_chunk (req, "<p>");
+               jo_t j = jo_parse_query (query);
+               if (jo_find (j, "upgrade"))
                {
-                  if (jo_find (j, "wifipass") == JO_STRING)
-                     jo_strncpy (j, pass, sizeof (pass));
-                  if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
-                     ok = 1;
-                  else
-                  {
-                     esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_STA : WIFI_MODE_APSTA);
-                     wifi_config_t cfg = { 0, };
-                     cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-                     strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
-                     strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
-                     esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
-                     esp_wifi_connect ();
-                     esp_netif_dhcpc_stop (sta_netif);
-                     esp_netif_dhcpc_start (sta_netif);
-                     int waiting = 10;
-                     while (waiting--)
+                  const char *e = revk_command ("upgrade", NULL);
+                  if (e && *e)
+                     httpd_resp_sendstr_chunk (req, e);
+               } else
+               {
+                  wifi_mode_t mode = 0;
+                  esp_wifi_get_mode (&mode);
+                  char ok = 0;
+                  if (mode == WIFI_MODE_STA)
+                     ok = 1;    // We don't test wifi if in STA mode as it kills the page load, D'Oh
+                  else if (jo_find (j, "wifissid"))
+                  {             // Test WiFi
+                     char ssid[33] = "";
+                     char pass[33] = "";
+                     jo_strncpy (j, ssid, sizeof (ssid));
+                     if (!*ssid)
+                        httpd_resp_sendstr_chunk (req, "No WiFi SSID. ");
+                     else
                      {
-                        sleep (1);
-                        esp_netif_ip_info_t ip;
-                        if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                        {       // Got IP (TODO IPv6)
-                           char temp[50];
-                           snprintf (temp, sizeof (temp), "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
-                           httpd_resp_sendstr_chunk (req, temp);
+                        if (jo_find (j, "wifipass") == JO_STRING)
+                           jo_strncpy (j, pass, sizeof (pass));
+                        if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
                            ok = 1;
-                           break;
+                        else
+                        {
+                           esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_STA : WIFI_MODE_APSTA);
+                           wifi_config_t cfg = { 0, };
+                           cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+                           strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
+                           strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
+                           esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
+                           esp_wifi_connect ();
+                           esp_netif_dhcpc_stop (sta_netif);
+                           esp_netif_dhcpc_start (sta_netif);
+                           int waiting = 10;
+                           while (waiting--)
+                           {
+                              sleep (1);
+                              esp_netif_ip_info_t ip;
+                              if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+                              { // Got IP (TODO IPv6)
+                                 char temp[50];
+                                 snprintf (temp, sizeof (temp), "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
+                                 httpd_resp_sendstr_chunk (req, temp);
+                                 ok = 1;
+                                 break;
+                              }
+                           }
+                           if (!ok)
+                              httpd_resp_sendstr_chunk (req, "WiFi did not connect, try again.");
                         }
                      }
-                     if (!ok)
-                        httpd_resp_sendstr_chunk (req, "WiFi did not connect, try again.");
+                  } else
+                     ok = 1;
+                  if (ok)
+                  {
+                     const char *e = revk_setting (j);
+                     if (e && *e)
+                     {
+                        httpd_resp_sendstr_chunk (req, e);
+                        e = jo_debug (j);
+                        if (e && *e)
+                        {
+                           httpd_resp_sendstr_chunk (req, " @ ");
+                           httpd_resp_sendstr_chunk (req, e);
+                        }
+                     } else
+                        httpd_resp_sendstr_chunk (req, revk_shutting_down (NULL) ? "Settings stored." : "No changes.");
                   }
                }
-            } else
-               ok = 1;
-            if (ok)
-            {
-               const char *e = revk_setting (j);
-               if (e && *e)
-               {
-                  httpd_resp_sendstr_chunk (req, e);
-                  e = jo_debug (j);
-                  if (e && *e)
-                  {
-                     httpd_resp_sendstr_chunk (req, " @ ");
-                     httpd_resp_sendstr_chunk (req, e);
-                  }
-               } else
-                  httpd_resp_sendstr_chunk (req, revk_shutting_down (NULL) ? "Settings stored." : "No changes.");
+               jo_free (&j);
+               httpd_resp_sendstr_chunk (req, "</p>");
             }
+            free (query);
          }
-         jo_free (&j);
-         httpd_resp_sendstr_chunk (req, "</p>");
       }
    }
    const char *shutdown = NULL;
