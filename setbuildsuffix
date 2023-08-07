@@ -27,7 +27,7 @@ if("$BUILDSUFFIX" =~ *-8622*) then
 	endif
 else
 	grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
-	if($status) then
+	if(! $status) then
 		echo This build environment is for ESP8266, change to ESP32 based
 		exit 1
 	endif
