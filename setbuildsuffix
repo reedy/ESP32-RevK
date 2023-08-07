@@ -35,7 +35,7 @@ endif
 
 if("$BUILDSUFFIX" =~ *-S1*) then
 	grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32
+	if($status)	idf.py set-target=esp32
 
 	# The settings PICO/D4/SOLO impact flash and PSRAM
 
@@ -77,13 +77,13 @@ endif
 
 if("$BUILDSUFFIX" =~ *-S2*) then
 	grep -q CONFIG_IDF_TARGET_ESP32S2=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32s2
+	if($status)	idf.py set-target=esp32s2
 
 endif
 
 if("$BUILDSUFFIX" =~ *-S3*) then
 	grep -q CONFIG_IDF_TARGET_ESP32S3=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32s3
+	if($status)	idf.py set-target=esp32s3
 
 	if("$BUILDSUFFIX" =~ *-V2*) then
 		set add=($add CONFIG_ESP32S3_REV_MIN_2)
@@ -121,13 +121,13 @@ endif
 
 if("$BUILDSUFFIX" =~ *-C3*) then
 	grep -q CONFIG_IDF_TARGET_ESP32C3=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32c3
+	if($status)	idf.py set-target=esp32c3
 
 endif
 
 if("$BUILDSUFFIX" =~ *-H2*) then
 	grep -q CONFIG_IDF_TARGET_ESP32H2=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32h2
+	if($status)	idf.py set-target=esp32h2
 
 endif
 
