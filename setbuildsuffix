@@ -113,9 +113,9 @@ if("$BUILDSUFFIX" =~ *-S3*) then
 	endif
 
 	if("$BUILDSUFFIX" =~ *-R2*) then
-		set add=($add CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_SPIRAM)
+		set add=($add CONFIG_ESP32S3_SPIRAM_SUPPORT CONFIG_SPIRAM)
 	else
-		set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_SPIRAM)
+		set rem=($rem CONFIG_ESP32S3_SPIRAM_SUPPORT CONFIG_SPIRAM)
 	endif
 endif
 

@@ -65,7 +65,7 @@ if(! $status) 	then
 	grep -q CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y "$SDKCONFIG"
 	if(! $status)   setenv  SUFFIX  "$SUFFIX-N8"
 
-	grep -q CONFIG_ESP32_SPIRAM_SUPPORT=y "$SDKCONFIG"
+	grep -q CONFIG_ESP32S3_SPIRAM_SUPPORT=y "$SDKCONFIG"
 	if(! $status)   setenv  SUFFIX  "$SUFFIX-R2"
 endif
 
