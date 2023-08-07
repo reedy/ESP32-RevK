@@ -97,9 +97,9 @@ if("$BUILDSUFFIX" =~ *-S3*) then
 	endif
 
 	if("$BUILDSUFFIX" =~ *-MINI*) then
-		set add=($add CONFIG_REVK_PICO)
+		set add=($add CONFIG_REVK_MINI)
 	else
-		set rem=($rem CONFIG_REVK_PICO)
+		set rem=($rem CONFIG_REVK_MINI)
 	endif
 
 	if("$BUILDSUFFIX" =~ *-N4*) then
