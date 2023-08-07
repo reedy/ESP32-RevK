@@ -13,50 +13,122 @@ if(! -e "$SDKCONFIG") then
 	exit 0
 endif
 
-# We don't seem to have any SoC variations with 8266
-grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
-if(! $status) then
-    echo setbuildsuffix is not supported on ESP8266
-	exit 255
-endif
+# The variants are per silicon, e.g. 8266, ESP32, ESP32S1, ESP32S2, ESP32S3, ESP32C3, ESP32H2 can all have different options
 
 set add=()
 set rem=()
 set part=""
 
-if("$BUILDSUFFIX" =~ *-PICO*) then
-	set add=($add CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_SPIRAM CONFIG_REVK_PICO)
-	set rem=($rem CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE CONFIG_REVK_D4)
-	set part="components/ESP32-RevK/partitions_8m.csv"
-else if("$BUILDSUFFIX" =~ *-D4*) then
-	set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE CONFIG_REVK_D4)
-	set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_SPIRAM CONFIG_REVK_PICO)
-	set part="components/ESP32-RevK/partitions_4m.csv"
-else if("$BUILDSUFFIX" =~ *-SOLO*) then
-	set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE)
-	set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_SPIRAM CONFIG_REVK_PICO CONFIG_REVK_D4)
-	set part="components/ESP32-RevK/partitions_4m.csv"
+if("$BUILDSUFFIX" =~ *-8622*) then
+	grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
+	if($status) then
+		echo You need to manually set ESP8266 build environment
+		exit 1
+	endif
 else
-	set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB)
-	set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_FREERTOS_UNICORE CONFIG_SPIRAM CONFIG_REVK_PICO CONFIG_REVK_D4)
-	set part="components/ESP32-RevK/partitions_4m.csv"
+	grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
+	if($status) then
+		echo This build environment is for ESP8266, change to ESP32 based
+		exit 1
+	endif
 endif
 
-if("$BUILDSUFFIX" =~ *-V3*) then
-	set add=($add CONFIG_ESP32_REV_MIN_3)
-	set rem=($rem CONFIG_ESP32_REV_MIN_2 CONFIG_ESP32_REV_MIN_1 CONFIG_ESP32_REV_MIN_0 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
-else if("$BUILDSUFFIX" =~ *-V2*) then
-	set add=($add CONFIG_ESP32_REV_MIN_2)
-	set rem=($rem CONFIG_ESP32_REV_MIN_3 CONFIG_ESP32_REV_MIN_1 CONFIG_ESP32_REV_MIN_0 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
-else if("$BUILDSUFFIX" =~ *-V1*) then
-	set add=($add CONFIG_ESP32_REV_MIN_1)
-	set rem=($rem CONFIG_ESP32_REV_MIN_3 CONFIG_ESP32_REV_MIN_2 CONFIG_ESP32_REV_MIN_0 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
-else if("$BUILDSUFFIX" =~ *-V0*) then
-	set add=($add CONFIG_ESP32_REV_MIN_0)
-	set rem=($rem CONFIG_ESP32_REV_MIN_3 CONFIG_ESP32_REV_MIN_2 CONFIG_ESP32_REV_MIN_1 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
-else 	# Default is V3
-	set add=($add CONFIG_ESP32_REV_MIN_3)
-	set rem=($rem CONFIG_ESP32_REV_MIN_2 CONFIG_ESP32_REV_MIN_1 CONFIG_ESP32_REV_MIN_0 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
+if("$BUILDSUFFIX" =~ *-S1*) then
+	grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
+	if($status)	idf.py set-target esp32
+
+	# The settings PICO/D4/SOLO impact flash and PSRAM
+
+	if("$BUILDSUFFIX" =~ *-PICO*) then
+		set add=($add CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_SPIRAM CONFIG_REVK_PICO)
+		set rem=($rem CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE CONFIG_REVK_D4)
+		set part="components/ESP32-RevK/partitions_8m.csv"
+	else if("$BUILDSUFFIX" =~ *-D4*) then
+		set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE CONFIG_REVK_D4)
+		set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_SPIRAM CONFIG_REVK_PICO)
+		set part="components/ESP32-RevK/partitions_4m.csv"
+	else if("$BUILDSUFFIX" =~ *-SOLO*) then
+		set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE)
+		set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_SPIRAM CONFIG_REVK_PICO CONFIG_REVK_D4)
+		set part="components/ESP32-RevK/partitions_4m.csv"
+	else
+		set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB)
+		set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_FREERTOS_UNICORE CONFIG_SPIRAM CONFIG_REVK_PICO CONFIG_REVK_D4)
+		set part="components/ESP32-RevK/partitions_4m.csv"
+	endif
+	
+	if("$BUILDSUFFIX" =~ *-V3*) then
+		set add=($add CONFIG_ESP32_REV_MIN_3)
+		set rem=($rem CONFIG_ESP32_REV_MIN_2 CONFIG_ESP32_REV_MIN_1 CONFIG_ESP32_REV_MIN_0 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
+	else if("$BUILDSUFFIX" =~ *-V2*) then
+		set add=($add CONFIG_ESP32_REV_MIN_2)
+		set rem=($rem CONFIG_ESP32_REV_MIN_3 CONFIG_ESP32_REV_MIN_1 CONFIG_ESP32_REV_MIN_0 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
+	else if("$BUILDSUFFIX" =~ *-V1*) then
+		set add=($add CONFIG_ESP32_REV_MIN_1)
+		set rem=($rem CONFIG_ESP32_REV_MIN_3 CONFIG_ESP32_REV_MIN_2 CONFIG_ESP32_REV_MIN_0 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
+	else if("$BUILDSUFFIX" =~ *-V0*) then
+		set add=($add CONFIG_ESP32_REV_MIN_0)
+		set rem=($rem CONFIG_ESP32_REV_MIN_3 CONFIG_ESP32_REV_MIN_2 CONFIG_ESP32_REV_MIN_1 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
+	else 	# Default is V3
+		set add=($add CONFIG_ESP32_REV_MIN_3)
+		set rem=($rem CONFIG_ESP32_REV_MIN_2 CONFIG_ESP32_REV_MIN_1 CONFIG_ESP32_REV_MIN_0 CONFIG_ESP32_REV_MIN_1_1 CONFIG_ESP32_REV_MIN_3_1)
+	endif
+endif
+
+if("$BUILDSUFFIX" =~ *-S2*) then
+	grep -q CONFIG_IDF_TARGET_ESP32S2=y "$SDKCONFIG"
+	if($status)	idf.py set-target esp32s2
+
+endif
+
+if("$BUILDSUFFIX" =~ *-S3*) then
+	grep -q CONFIG_IDF_TARGET_ESP32S3=y "$SDKCONFIG"
+	if($status)	idf.py set-target esp32s3
+
+	if("$BUILDSUFFIX" =~ *-V2*) then
+		set add=($add CONFIG_ESP32S3_REV_MIN_2)
+		set rem=($rem CONFIG_ESP32S3_REV_MIN_3 CONFIG_ESP32S3_REV_MIN_1 CONFIG_ESP32S3_REV_MIN_0 CONFIG_ESP32S3_REV_MIN_1_1 CONFIG_ESP32S3_REV_MIN_3_1)
+	else if("$BUILDSUFFIX" =~ *-V1*) then
+		set add=($add CONFIG_ESP32S3_REV_MIN_1)
+		set rem=($rem CONFIG_ESP32S3_REV_MIN_3 CONFIG_ESP32S3_REV_MIN_2 CONFIG_ESP32S3_REV_MIN_0 CONFIG_ESP32S3_REV_MIN_1_1 CONFIG_ESP32S3_REV_MIN_3_1)
+	else 	# Default is V0
+		set add=($add CONFIG_ESP32S3_REV_MIN_0)
+		set rem=($rem CONFIG_ESP32S3_REV_MIN_3 CONFIG_ESP32S3_REV_MIN_2 CONFIG_ESP32S3_REV_MIN_1 CONFIG_ESP32S3_REV_MIN_1_1 CONFIG_ESP32S3_REV_MIN_3_1)
+	endif
+
+	if("$BUILDSUFFIX" =~ *-MINI*) then
+		set add=($add CONFIG_REVK_PICO)
+	else
+		set rem=($rem CONFIG_REVK_PICO)
+	endif
+
+	if("$BUILDSUFFIX" =~ *-N4*) then
+		set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB)
+		set rem=($rem CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_FREERTOS_UNICORE)
+		set part="components/ESP32-RevK/partitions_4m.csv"
+	else if("$BUILDSUFFIX" =~ *-N8*) then
+		set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_8MB)
+		set rem=($rem CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_FREERTOS_UNICORE)
+		set part="components/ESP32-RevK/partitions_8m.csv"
+	endif
+
+	if("$BUILDSUFFIX" =~ *-R2*) then
+		set add=($add CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_SPIRAM)
+	else
+		set rem=($rem CONFIG_ESP32_SPIRAM_SUPPORT CONFIG_SPIRAM)
+	endif
+endif
+
+if("$BUILDSUFFIX" =~ *-C3*) then
+	grep -q CONFIG_IDF_TARGET_ESP32C3=y "$SDKCONFIG"
+	if($status)	idf.py set-target esp32c3
+
+endif
+
+if("$BUILDSUFFIX" =~ *-H2*) then
+	grep -q CONFIG_IDF_TARGET_ESP32H2=y "$SDKCONFIG"
+	if($status)	idf.py set-target esp32h2
+
 endif
 
 set bs=(`grep _BUILD_SUFFIX_ sdkconfig | sed 's/.*\(CONFIG_[A-Z0-9_]*_BUILD_SUFFIX_[A-Z0-9]*\).*/\1/'`)

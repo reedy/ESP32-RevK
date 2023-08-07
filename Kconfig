@@ -352,14 +352,23 @@ menu "RevK"
 
 	config REVK_PICO
         bool "ESP32-PICO"
+	sepends on IDF_TARGET_ESP32
         default n
         help
-		If this is built for ESP32-PICO
+		If this is built for ESP32-PICO - don't set this manually - it is normally set by Makefile (buildsuffix script)
 
 	config REVK_D4
         bool "ESP32-D4"
+	sepends on IDF_TARGET_ESP32
         default n
         help
-		If this is built for ESP32-D4
+		If this is built for ESP32-D4 - don't set this manually - it is normally set by Makefile (buildsuffix script)
+
+	config REVK_MINI
+        bool "ESP32-MINI"
+	sepends on IDF_TARGET_ESP32S3
+        default n
+        help
+		If this is built for ESP32S3-MINI - don't set this manually - it is normally set by Makefile (buildsuffix script)
 
 endmenu
