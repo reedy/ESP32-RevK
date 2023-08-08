@@ -1647,7 +1647,7 @@ revk_pre_shutdown (void)
 }
 
 int
-gpio_ok (uint8_t gpio)
+gpio_ok (uint8_t p)
 {                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK
 #ifdef	CONFIG_IDF_TARGET_ESP32
    if (p > 39)
@@ -1843,11 +1843,6 @@ revk_boot (app_callback_t * app_callback_cb)
             blink[b] = 0;
             continue;
          }
-         {
-            ESP_LOGE (TAG, "Not using GPIO %d", p);
-            blink[b] = 0;
-            continue;
-         }
          gpio_reset_pin (p);
          gpio_set_level (p, (blink[b] & 0x40) ? 0 : 1); /* on */
          gpio_set_direction (p, GPIO_MODE_OUTPUT);      /* Blinking LED */
@@ -1856,11 +1851,7 @@ revk_boot (app_callback_t * app_callback_cb)
    if (apgpio)
    {
       uint8_t p = apgpio & 0x3F;
-#ifdef	CONFIG_REVK_PICO
-      if (p == 6 || (p >= 9 && p <= 11))
-#else
-      if ((p >= 6 && p <= 11) || p == 20)
-#endif
+      if (!(gpio_ok (p) & 2))
       {
          ESP_LOGE (TAG, "Not using GPIO %d", p);
          apgpio = 0;
