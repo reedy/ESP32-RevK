@@ -1646,6 +1646,41 @@ revk_pre_shutdown (void)
    restart_time = 0;
 }
 
+int
+gpio_ok (uint8_t gpio)
+{                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK
+#ifdef	CONFIG_IDF_TARGET_ESP32
+   if (p > 39)
+      return 0;
+#ifdef	CONFIG_REVK_D4
+   if ((p >= 6 && p <= 8) || p == 11 || p == 20)
+      return 0;
+#else
+#ifdef	CONFIG_REVK_PICO
+   if (p == 6 || (p >= 9 && p <= 11))
+      return 0;
+#else
+   if ((p >= 6 && p <= 11) || p == 20)
+      return 0;
+#endif
+#endif
+   if (p >= 34)
+      return 2;                 // Input only
+   return 3;                    // Input and output
+#endif
+#ifdef	CONFIG_IDF_TARGET_ESP32S3
+   if (p > 47)
+      return 0;
+   if ((p > 21 && p < 26) || (p > 26 && p < 33))
+      return 0;
+#ifdef	CONFIG_SPIRAM
+   if (p == 26)
+      return 0;
+#endif
+   return 3;                    // All input and output
+#endif
+}
+
 /* External functions */
 void
 revk_boot (app_callback_t * app_callback_cb)
@@ -1802,15 +1837,12 @@ revk_boot (app_callback_t * app_callback_cb)
       if (blink[b])
       {
          uint8_t p = blink[b] & 0x3F;
-#ifdef	CONFIG_REVK_D4
-         if ((p >= 6 && p <= 8) || p == 11 || p == 20)
-#else
-#ifdef	CONFIG_REVK_PICO
-         if (p == 6 || (p >= 9 && p <= 11))
-#else
-         if ((p >= 6 && p <= 11) || p == 20)
-#endif
-#endif
+         if (!(gpio_ok (p) & 1))
+         {
+            ESP_LOGE (TAG, "Not using GPIO %d", p);
+            blink[b] = 0;
+            continue;
+         }
          {
             ESP_LOGE (TAG, "Not using GPIO %d", p);
             blink[b] = 0;
