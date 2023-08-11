@@ -12,9 +12,16 @@ menu "RevK"
         help
 		The MQTT strings have prefix (e.g. command) then appname then the hostname. The appname can be turned off
 
+	config REVK_BLINK_DEFAULT
+	bool "Blink LED GPIO(s) defined in library"
+	default y
+        help
+		If blink LED GPIO(s) defined in library or in app. If in app then uint16_t blink[3] is needed.
+
 	config REVK_BLINK
         string "Blink GPIOs"
         default ""
+	depends on REVK_BLINK_DEFAULT
         help
 		One or more (space separated) LED GPIOs
 

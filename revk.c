@@ -108,7 +108,7 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 		p(info);				\
 		p(error);				\
     		b(prefixapp,CONFIG_REVK_PREFIXAPP);	\
-		ioa(blink,3,CONFIG_REVK_BLINK);				\
+		led(blink,3,CONFIG_REVK_BLINK);				\
     		bdp(clientkey,NULL);			\
     		bd(clientcert,NULL);			\
 
@@ -169,8 +169,13 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #define	u8(n,d)		uint8_t n;
 #define	b(n,d)		uint8_t n;
 #define	s8(n,d)		int8_t n;
-#define	io(n,d)		uint8_t n;
-#define	ioa(n,a,d)	uint8_t n[a];
+#define	io(n,d)		uint16_t n;
+#define	ioa(n,a,d)	uint16_t n[a];
+#ifndef	CONFIG_REVK_BLINK
+#define	led(n,a,d)	extern uint16_t n[a];
+#else
+#define	led(n,a,d)	uint16_t n[a];
+#endif
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
 #define hs(n,l,d)	uint8_t n[l];
@@ -207,6 +212,7 @@ settings
 #undef s8
 #undef io
 #undef ioa
+#undef led
 #undef p
 #undef h
 #undef hs
@@ -1440,11 +1446,11 @@ task (void *pvParameters)
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
-                     gpio_set_level (blink[0] & 0x3F, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x40) ? 1 : 0));    // Red LED
-                     gpio_set_level (blink[1] & 0x3F, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x40) ? 1 : 0));    // Green LED
-                     gpio_set_level (blink[2] & 0x3F, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x40) ? 1 : 0));    // Blue LED
+                     gpio_set_level (blink[0] & 0x3FFF, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x4000) ? 1 : 0));    // Red LED
+                     gpio_set_level (blink[1] & 0x3FFF, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x4000) ? 1 : 0));    // Green LED
+                     gpio_set_level (blink[2] & 0x3FFF, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x4000) ? 1 : 0));    // Blue LED
                   } else
-                     gpio_set_level (blink[0] & 0x3F, lit ^ ((blink[0] & 0x40) ? 1 : 0));       // Single LED
+                     gpio_set_level (blink[0] & 0x3FFF, lit ^ ((blink[0] & 0x4000) ? 1 : 0));       // Single LED
                }
             }
          }
@@ -1593,7 +1599,7 @@ task (void *pvParameters)
             revk_restart ("Offline too long", 0);
 #endif
 #ifdef	CONFIG_REVK_APMODE
-         if (apgpio && (gpio_get_level (apgpio & 0x3F) ^ (apgpio & 0x40 ? 1 : 0)))
+         if (apgpio && (gpio_get_level (apgpio & 0x3FFF) ^ (apgpio & 0x4000 ? 1 : 0)))
          {
             ap_start ();
             if (aptime)
@@ -1669,7 +1675,7 @@ gpio_ok (uint8_t p)
    return 3;                    // Input and output
 #endif
 #ifdef	CONFIG_IDF_TARGET_ESP32S3
-   if (p > 47)
+   if (p > 48)
       return 0;
    if ((p > 21 && p < 26) || (p > 26 && p < 33))
       return 0;
@@ -1778,6 +1784,11 @@ revk_boot (app_callback_t * app_callback_cb)
 #define	s8(n,d)		revk_register(#n,0,1,&n,str(d),SETTING_SIGNED)
 #define io(n,d)		revk_register(#n,0,sizeof(n),&n,"- "str(d),SETTING_SET|SETTING_BITFIELD|SETTING_FIX)
 #define ioa(n,a,d)	revk_register(#n,a,sizeof(*n),&n,"- "str(d),SETTING_SET|SETTING_BITFIELD|SETTING_FIX)
+#ifdef CONFIG_REVK_BLINK
+#define led(n,a,d)	revk_register(#n,a,sizeof(*n),&n,"- "str(d),SETTING_SET|SETTING_BITFIELD|SETTING_FIX)
+#else
+#define led(n,a,d)
+#endif
 #define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
 #define hs(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX|SETTING_SECRET)
@@ -1832,25 +1843,10 @@ revk_boot (app_callback_t * app_callback_cb)
    /* Application specific settings */
    if (!*appname)
       appname = strdup (app->project_name);
-   /* Default is from build */
-   for (int b = 0; b < sizeof (blink) / sizeof (*blink); b++)
-      if (blink[b])
-      {
-         uint8_t p = blink[b] & 0x3F;
-         if (!(gpio_ok (p) & 1))
-         {
-            ESP_LOGE (TAG, "Not using GPIO %d", p);
-            blink[b] = 0;
-            continue;
-         }
-         gpio_reset_pin (p);
-         gpio_set_level (p, (blink[b] & 0x40) ? 0 : 1); /* on */
-         gpio_set_direction (p, GPIO_MODE_OUTPUT);      /* Blinking LED */
-      }
 #ifdef	CONFIG_REVK_APMODE
    if (apgpio)
    {
-      uint8_t p = apgpio & 0x3F;
+      uint8_t p = apgpio & 0x3FFF;
       if (!(gpio_ok (p) & 2))
       {
          ESP_LOGE (TAG, "Not using GPIO %d", p);
@@ -1893,6 +1889,22 @@ revk_boot (app_callback_t * app_callback_cb)
 void
 revk_start (void)
 {                               // Start stuff, init all done
+   for (int b = 0; b < sizeof (blink) / sizeof (*blink); b++)
+   {
+      if (blink[b])
+      {
+         uint8_t p = blink[b] & 0x3FFF;
+         if (!(gpio_ok (p) & 1))
+         {
+            ESP_LOGE (TAG, "Not using GPIO %d", p);
+            blink[b] = 0;
+            continue;
+         }
+         gpio_reset_pin (p);
+         gpio_set_level (p, (blink[b] & 0x4000) ? 0 : 1); /* on */
+         gpio_set_direction (p, GPIO_MODE_OUTPUT);      /* Blinking LED */
+      }
+   }
    esp_netif_init ();
 #ifndef	CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
    REVK_ERR_CHECK (esp_tls_set_global_ca_store (LECert, sizeof (LECert)));
