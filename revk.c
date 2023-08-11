@@ -76,8 +76,8 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #warning CONFIG_FREERTOS_HZ recommend set to 1000
 #endif
 
-#ifndef CONFIG_TASK_WDT_PANIC
-#warning CONFIG_TASK_WDT_PANIC recommended
+#ifndef CONFIG_ESP_TASK_WDT_PANIC
+#warning CONFIG_ESP_TASK_WDT_PANIC recommended
 #endif
 
 #ifndef CONFIG_MQTT_BUFFER_SIZE
