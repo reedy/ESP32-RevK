@@ -156,6 +156,9 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 		b(meshlr,CONFIG_REVK_MESHLR);		\
     		b(meshroot,"false");			\
 
+#define	IO_MASK		0x3F
+#define	IO_INV		0x40
+
 #define s(n,d)		char *n;
 #define sp(n,d)		char *n;
 #define sa(n,a,d)	char *n[a];
@@ -1446,11 +1449,11 @@ task (void *pvParameters)
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
-                     gpio_set_level (blink[0] & 0x3FFF, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x4000) ? 1 : 0));        // Red LED
-                     gpio_set_level (blink[1] & 0x3FFF, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x4000) ? 1 : 0));        // Green LED
-                     gpio_set_level (blink[2] & 0x3FFF, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x4000) ? 1 : 0));        // Blue LED
+                     gpio_set_level (blink[0] & IO_MASK, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & IO_INV) ? 1 : 0));        // Red LED
+                     gpio_set_level (blink[1] & IO_MASK, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & IO_INV) ? 1 : 0));        // Green LED
+                     gpio_set_level (blink[2] & IO_MASK, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & IO_INV) ? 1 : 0));        // Blue LED
                   } else
-                     gpio_set_level (blink[0] & 0x3FFF, lit ^ ((blink[0] & 0x4000) ? 1 : 0));   // Single LED
+                     gpio_set_level (blink[0] & IO_MASK, lit ^ ((blink[0] & IO_INV) ? 1 : 0));   // Single LED
                }
             }
          }
@@ -1599,7 +1602,7 @@ task (void *pvParameters)
             revk_restart ("Offline too long", 0);
 #endif
 #ifdef	CONFIG_REVK_APMODE
-         if (apgpio && (gpio_get_level (apgpio & 0x3FFF) ^ (apgpio & 0x4000 ? 1 : 0)))
+         if (apgpio && (gpio_get_level (apgpio & IO_MASK) ^ (apgpio & IO_INV ? 1 : 0)))
          {
             ap_start ();
             if (aptime)
@@ -1848,7 +1851,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #ifdef	CONFIG_REVK_APMODE
    if (apgpio)
    {
-      uint8_t p = apgpio & 0x3FFF;
+      uint8_t p = apgpio & IO_MASK;
       if (!(gpio_ok (p) & 2))
       {
          ESP_LOGE (TAG, "Not using GPIO %d", p);
@@ -1895,7 +1898,7 @@ revk_start (void)
    {
       if (blink[b])
       {
-         uint8_t p = blink[b] & 0x3FFF;
+         uint8_t p = blink[b] & IO_MASK;
          if (!(gpio_ok (p) & 1))
          {
             ESP_LOGE (TAG, "Not using GPIO %d", p);
@@ -1903,7 +1906,7 @@ revk_start (void)
             continue;
          }
          gpio_reset_pin (p);
-         gpio_set_level (p, (blink[b] & 0x4000) ? 0 : 1);       /* on */
+         gpio_set_level (p, (blink[b] & IO_INV) ? 0 : 1);       /* on */
          gpio_set_direction (p, GPIO_MODE_OUTPUT);      /* Blinking LED */
       }
    }
