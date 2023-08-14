@@ -2446,6 +2446,10 @@ revk_web_settings (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req,
                                 "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></td></tr>");
 #endif
+#ifdef	CONFIG_REVK_WEB_EXTRA
+      extern void revk_web_extra (httpd_req_t *);
+      revk_web_extra (req);
+#endif
       httpd_resp_sendstr_chunk (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
       {

@@ -384,4 +384,10 @@ menu "RevK"
         help
 		Include timezone in web config
 
+	config REVK_WEB_EXTRA
+	bool "Include extra settings in web config"
+	default n
+        help
+		Include extra settings in web config (call to revk_web_extra(httpd_req_t*))
+
 endmenu
