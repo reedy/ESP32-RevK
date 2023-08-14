@@ -378,4 +378,10 @@ menu "RevK"
         help
 		If this is built for ESP32S3-MINI - don't set this manually - it is normally set by Makefile (buildsuffix script)
 
+	config REVK_WEB_TZ
+	bool "Include timezone in web config"
+	default y
+        help
+		Include timezone in web config
+
 endmenu
