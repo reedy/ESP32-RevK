@@ -2441,7 +2441,7 @@ revk_web_settings (httpd_req_t * req)
       if (*mqttpass[0])
          httpd_resp_sendstr_chunk (req, mqttpass[0]);
       httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
-#if defined(CONFIG_REVK_WEB_TZ) || defined(cCONFIG_REVK_WEB_TZ)
+#if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
       httpd_resp_sendstr_chunk (req, "<tr><td colspan=2><hr></td></tr>");
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
