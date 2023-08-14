@@ -1446,11 +1446,11 @@ task (void *pvParameters)
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
-                     gpio_set_level (blink[0] & 0x3FFF, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x4000) ? 1 : 0));    // Red LED
-                     gpio_set_level (blink[1] & 0x3FFF, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x4000) ? 1 : 0));    // Green LED
-                     gpio_set_level (blink[2] & 0x3FFF, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x4000) ? 1 : 0));    // Blue LED
+                     gpio_set_level (blink[0] & 0x3FFF, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & 0x4000) ? 1 : 0));        // Red LED
+                     gpio_set_level (blink[1] & 0x3FFF, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & 0x4000) ? 1 : 0));        // Green LED
+                     gpio_set_level (blink[2] & 0x3FFF, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & 0x4000) ? 1 : 0));        // Blue LED
                   } else
-                     gpio_set_level (blink[0] & 0x3FFF, lit ^ ((blink[0] & 0x4000) ? 1 : 0));       // Single LED
+                     gpio_set_level (blink[0] & 0x3FFF, lit ^ ((blink[0] & 0x4000) ? 1 : 0));   // Single LED
                }
             }
          }
@@ -1654,7 +1654,7 @@ revk_pre_shutdown (void)
 
 int
 gpio_ok (uint8_t p)
-{                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK
+{                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK. bit 2 for special use (e.g. USB)
 #ifdef	CONFIG_IDF_TARGET_ESP32
    if (p > 39)
       return 0;
@@ -1677,6 +1677,8 @@ gpio_ok (uint8_t p)
 #ifdef	CONFIG_IDF_TARGET_ESP32S3
    if (p > 48)
       return 0;
+   if (p == 19 || p == 20)
+      return 4;                 // special use (USB)
    if ((p > 21 && p < 26) || (p > 26 && p < 33))
       return 0;
 #ifdef	CONFIG_SPIRAM
@@ -1901,7 +1903,7 @@ revk_start (void)
             continue;
          }
          gpio_reset_pin (p);
-         gpio_set_level (p, (blink[b] & 0x4000) ? 0 : 1); /* on */
+         gpio_set_level (p, (blink[b] & 0x4000) ? 0 : 1);       /* on */
          gpio_set_direction (p, GPIO_MODE_OUTPUT);      /* Blinking LED */
       }
    }
