@@ -2438,9 +2438,11 @@ revk_web_settings (httpd_req_t * req)
       if (*mqttpass[0])
          httpd_resp_sendstr_chunk (req, mqttpass[0]);
       httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
+#if defined(CONFIG_REVK_WEB_TZ) || defined(cCONFIG_REVK_WEB_TZ)
+      httpd_resp_sendstr_chunk (req, "<tr><td colspan=2><hr></td></tr>");
+#endif
 #ifdef	CONFIG_REVK_WEB_TZ
-      httpd_resp_sendstr_chunk (req,
-                                "<tr><td colspan=2><hr></td></tr><tr><td>Timezone</td><td><input maxlength=128 name=tz value='");
+      httpd_resp_sendstr_chunk (req, "<tr><td>Timezone</td><td><input maxlength=128 name=tz value='");
       if (*tz)
          httpd_resp_sendstr_chunk (req, tz);
       httpd_resp_sendstr_chunk (req,
