@@ -16,13 +16,12 @@ if (! $status) then
 	setenv  SUFFIX  "$SUFFIX-8266"
 # ensure date/time set
 	touch "${IDF_PATH}/components/esp_app_format/esp_app_desc.c"
-else
-# ensure date/time set
-	touch "${IDF_PATH}/components/app_update/esp_app_desc.c"
 endif
 
 grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
 if(! $status) 	then
+	touch "${IDF_PATH}/components/app_update/esp_app_desc.c"
+
 	setenv	SUFFIX	"$SUFFIX-S1"
 	# Min rev build (default now V3)
 	#grep -q CONFIG_ESP32_REV_MIN_3=y "$SDKCONFIG"
@@ -46,11 +45,15 @@ endif
 
 grep -q CONFIG_IDF_TARGET_ESP32S2=y "$SDKCONFIG"
 if(! $status) 	then
+	touch "${IDF_PATH}/components/app_update/esp_app_desc.c"
+
 	setenv	SUFFIX	"$SUFFIX-S2"
 endif
 
 grep -q CONFIG_IDF_TARGET_ESP32S3=y "$SDKCONFIG"
 if(! $status) 	then
+	touch "${IDF_PATH}/components/esp_app_format/esp_app_desc.c"
+
 	setenv	SUFFIX	"$SUFFIX-S3"
 	grep -q CONFIG_ESP32S3_REV_MIN_2=y "$SDKCONFIG"
 	if(! $status) 	setenv	SUFFIX	"$SUFFIX-V2"
