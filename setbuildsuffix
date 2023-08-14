@@ -37,6 +37,8 @@ if("$BUILDSUFFIX" =~ *-S1*) then
 	grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
 	if($status)	idf.py set-target esp32
 
+	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
+
 	# The settings PICO/D4/SOLO impact flash and PSRAM
 
 	if("$BUILDSUFFIX" =~ *-PICO*) then
@@ -79,11 +81,16 @@ if("$BUILDSUFFIX" =~ *-S2*) then
 	grep -q CONFIG_IDF_TARGET_ESP32S2=y "$SDKCONFIG"
 	if($status)	idf.py set-target esp32s2
 
+	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
+
 endif
 
 if("$BUILDSUFFIX" =~ *-S3*) then
 	grep -q CONFIG_IDF_TARGET_ESP32S3=y "$SDKCONFIG"
 	if($status)	idf.py set-target esp32s3
+
+	# THIS IS TEMPORARY - UNTIL OTA SIGNATURE CHECKING FIXED
+	set rem=($rem CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
 
 	if("$BUILDSUFFIX" =~ *-V2*) then
 		set add=($add CONFIG_ESP32S3_REV_MIN_2)
