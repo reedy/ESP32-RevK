@@ -16,7 +16,7 @@ menu "RevK"
 	bool "Blink LED GPIO(s) defined in library"
 	default y
         help
-		If blink LED GPIO(s) defined in library or in app. If in app then uint16_t blink[3] is needed.
+		If blink LED GPIO(s) defined in library or in app. If in app then uint8_t blink[3] is needed.
 
 	config REVK_BLINK
         string "Blink GPIOs"

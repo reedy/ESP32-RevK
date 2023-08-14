@@ -169,10 +169,10 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #define	u8(n,d)		uint8_t n;
 #define	b(n,d)		uint8_t n;
 #define	s8(n,d)		int8_t n;
-#define	io(n,d)		uint16_t n;
-#define	ioa(n,a,d)	uint16_t n[a];
+#define	io(n,d)		uint8_t n;
+#define	ioa(n,a,d)	uint8_t n[a];
 #ifndef	CONFIG_REVK_BLINK
-#define	led(n,a,d)	extern uint16_t n[a];
+#define	led(n,a,d)	extern uint8_t n[a];
 #else
 #define	led(n,a,d)	uint16_t n[a];
 #endif
