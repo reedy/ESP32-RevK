@@ -1720,7 +1720,7 @@ revk_boot (app_callback_t * app_callback_cb)
       {
 #ifdef  BUILD_ESP32_USING_CMAKE
          extern const uint8_t part_start[] asm ("_binary_partition_table_bin_start");
-         extern const uint8_t part_end[] asm ("_binary_partition_table_bin_start");
+         extern const uint8_t part_end[] asm ("_binary_partition_table_bin_end");
 #else
 #error Use cmake
 #endif
@@ -1741,7 +1741,7 @@ revk_boot (app_callback_t * app_callback_cb)
                   const uint8_t *p = part_start;
                   while (p < part_end)
                   {
-                     if (p[0] == 0xAA && !strncmp ((char*)p + 12, "ota_", 4))
+                     if (p[0] == 0xAA && !strncmp ((char *) p + 12, "ota_", 4))
                      {
                         uint32_t a = (p[4] | (p[5] << 8) | (p[6] << 16) | (p[7] << 24));
                         if (a == ota_partition->address)
@@ -1754,7 +1754,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #ifndef CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
 #error Set CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED to allow CONFIG_REVK_PARTITION_CHECK
 #endif
-                     ESP_LOGI (TAG, "Updating partition table at %X", CONFIG_PARTITION_TABLE_OFFSET);
+                     ESP_LOGE (TAG, "Updating partition table at %X", CONFIG_PARTITION_TABLE_OFFSET);
                      memset (mem, 0, secsize);
                      memcpy (mem, part_start, part_end - part_start);
                      REVK_ERR_CHECK (esp_flash_erase_region (NULL, CONFIG_PARTITION_TABLE_OFFSET, secsize));
@@ -1765,7 +1765,9 @@ revk_boot (app_callback_t * app_callback_cb)
                } else
                {
                   ESP_LOGI (TAG, "Partition table at %X as expected (%s)", CONFIG_PARTITION_TABLE_OFFSET, table);
-                  //ESP_LOG_BUFFER_HEX_LEVEL(TAG, mem, secsize, ESP_LOG_INFO);
+                  //ESP_LOG_BUFFER_HEX_LEVEL (TAG, part_start, part_end - part_start, ESP_LOG_INFO);
+                  //ESP_LOGI (TAG, "Current partition");
+                  //ESP_LOG_BUFFER_HEX_LEVEL (TAG, mem, secsize, ESP_LOG_INFO);
                }
                freez (mem);
             }
