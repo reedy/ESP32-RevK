@@ -1738,10 +1738,10 @@ revk_boot (app_callback_t * app_callback_cb)
                if (memcmp (mem, part_start, part_end - part_start))
                {                // Different partition table
                   // Only update partition if we are running at an address that is valid in new partition table.
-                  uint8_t *p = part_start;
+                  const uint8_t *p = part_start;
                   while (p < part_end)
                   {
-                     if (p[0] == 0xAA && !strncmp (p + 12, "ota", 3))
+                     if (p[0] == 0xAA && !strncmp ((char*)p + 12, "ota_", 4))
                      {
                         uint32_t a = (p[4] | (p[5] << 8) | (p[6] << 16) | (p[7] << 24));
                         if (a == ota_partition->address)
