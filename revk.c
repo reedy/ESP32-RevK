@@ -1449,11 +1449,11 @@ task (void *pvParameters)
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
-                     gpio_set_level (blink[0] & IO_MASK, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & IO_INV) ? 1 : 0));        // Red LED
-                     gpio_set_level (blink[1] & IO_MASK, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & IO_INV) ? 1 : 0));        // Green LED
-                     gpio_set_level (blink[2] & IO_MASK, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & IO_INV) ? 1 : 0));        // Blue LED
+                     gpio_set_level (blink[0] & IO_MASK, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & IO_INV) ? 1 : 0));       // Red LED
+                     gpio_set_level (blink[1] & IO_MASK, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & IO_INV) ? 1 : 0));       // Green LED
+                     gpio_set_level (blink[2] & IO_MASK, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & IO_INV) ? 1 : 0));       // Blue LED
                   } else
-                     gpio_set_level (blink[0] & IO_MASK, lit ^ ((blink[0] & IO_INV) ? 1 : 0));   // Single LED
+                     gpio_set_level (blink[0] & IO_MASK, lit ^ ((blink[0] & IO_INV) ? 1 : 0));  // Single LED
                }
             }
          }
@@ -1736,8 +1736,20 @@ revk_boot (app_callback_t * app_callback_cb)
             {
                REVK_ERR_CHECK (esp_flash_read (NULL, mem, CONFIG_PARTITION_TABLE_OFFSET, secsize));
                if (memcmp (mem, part_start, part_end - part_start))
-               {
-                  if (strchr (ota_partition->label, '0'))
+               {                // Different partition table
+                  // Only update partition if we are running at an address that is valid in new partition table.
+                  uint8_t *p = part_start;
+                  while (p < part_end)
+                  {
+                     if (p[0] == 0xAA && !strncmp (p + 12, "ota", 3))
+                     {
+                        uint32_t a = (p[4] | (p[5] << 8) | (p[6] << 16) | (p[7] << 24));
+                        if (a == ota_partition->address)
+                           break;
+                     }
+                     p += 32;
+                  }
+                  if (p < part_end)
                   {
 #ifndef CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED
 #error Set CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED to allow CONFIG_REVK_PARTITION_CHECK
@@ -1749,7 +1761,7 @@ revk_boot (app_callback_t * app_callback_cb)
                      REVK_ERR_CHECK (esp_flash_write (NULL, mem, CONFIG_PARTITION_TABLE_OFFSET, secsize));
                      esp_restart ();
                   } else
-                     ESP_LOGE (TAG, "Not updating partition as not on ota 0 (%s)", ota_partition->label);
+                     ESP_LOGE (TAG, "Not updating partition as no ota at %lX", ota_partition->address);
                } else
                {
                   ESP_LOGI (TAG, "Partition table at %X as expected (%s)", CONFIG_PARTITION_TABLE_OFFSET, table);
