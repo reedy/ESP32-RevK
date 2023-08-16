@@ -390,4 +390,10 @@ menu "RevK"
         help
 		Include extra settings in web config (call to revk_web_extra(httpd_req_t*))
 
+	config REVK_MATTER
+	bool "Build in Matter"
+	default n
+        help
+		Build in Matter
+
 endmenu

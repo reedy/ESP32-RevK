@@ -138,6 +138,12 @@ if("$BUILDSUFFIX" =~ *-H2*) then
 
 endif
 
+if("$BUILDSUFFIX" =~ *-MT*) then
+	set add=($add CONFIG_REVK_MATTER)
+else
+	set rem=($rem CONFIG_REVK_MATTER)
+endif
+
 set bs=(`grep _BUILD_SUFFIX_ sdkconfig | sed 's/.*\(CONFIG_[A-Z0-9_]*_BUILD_SUFFIX_[A-Z0-9]*\).*/\1/'`)
 foreach c ($bs)
 	echo -n "$BUILDSUFFIX" | grep -q -- "-"`echo -n "$c" | sed 's/CONFIG_.*_BUILD_SUFFIX_\(.*\)/\1/'`

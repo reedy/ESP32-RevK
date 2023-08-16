@@ -80,6 +80,11 @@ if(! $status) 	then
 	setenv	SUFFIX	"$SUFFIX-H2"
 endif
 
+grep -q CONFIG_REVK_MATTER=y "$SDKCONFIG"
+if(! $status) 	then
+	setenv	SUFFIX	"$SUFFIX-MT"
+endif
+
 set bs=(`grep _BUILD_SUFFIX_ sdkconfig | sed 's/.*\(CONFIG_[A-Z0-9_]*_BUILD_SUFFIX_[A-Z0-9]*\).*/\1/'`)
 foreach c ($bs)
 	grep -q "$c=y" "$SDKCONFIG"
