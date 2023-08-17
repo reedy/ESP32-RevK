@@ -9,12 +9,12 @@ set(RECS nvs_flash app_update esp_http_client esp-tls esp_http_server spi_flash 
 # is quite clear that we should be able to do that, but it does not seem to work.
 
 if(EXISTS $ENV{IDF_PATH}/components/esp8266)
-	set(SOURCES ${SOURCES} "esp8266_compat.c")
+	list(APPEND SOURCES "esp8266_compat.c")
 	set(RECS nvs_flash app_update esp_http_client esp-tls esp_http_server esp8266 spi_flash)
 endif()
 
 if(EXISTS "../managed_components/espressif__mdns")
-	set(RECS ${RECS} mdns)
+	list(APPEND RECS mdns)
 endif()
 
 idf_component_register(
