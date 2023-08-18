@@ -2110,8 +2110,8 @@ revk_mqtt_send_payload_clients (const char *prefix, int retain, const char *suff
 const char *
 revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients)
 {
-   if (!jp)
-      return "No payload JSON";
+   if (!jp || !*jp)
+      return revk_mqtt_send_payload_clients (prefix, retain, suffix, "", clients);
    int pos = 0;
    const char *err = jo_error (*jp, &pos);
    if (err)
