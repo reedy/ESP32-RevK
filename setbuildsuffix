@@ -37,7 +37,7 @@ if("$BUILDSUFFIX" =~ *-S1*) then
 	grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
 	if($status)	idf.py set-target esp32
 
-	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
+	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME)
 
 	# The settings PICO/D4/SOLO impact flash and PSRAM
 
