@@ -12,13 +12,13 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include "revk.h"
 
 #ifdef	CONFIG_ENABLE_WIFI_STATION
-#undef	CONFIG_REVK_APMODE		// Bodge - clashes
+#undef	CONFIG_REVK_APMODE      // Bodge - clashes
 #endif
 #ifndef	CONFIG_REVK_APMODE
-#undef	CONFIG_REVK_APDNS		// Bodge
+#undef	CONFIG_REVK_APDNS       // Bodge
 #endif
 #ifdef	CONFIG_REVK_MATTER
-#undef	CONFIG_MDNS_MAX_INTERFACES	// Bodge - clashes
+#undef	CONFIG_MDNS_MAX_INTERFACES      // Bodge - clashes
 #endif
 
 #ifndef CONFIG_IDF_TARGET_ESP8266
@@ -2452,32 +2452,37 @@ revk_web_settings (httpd_req_t * req)
    if (!shutdown)
    {
       httpd_resp_sendstr_chunk (req, "<table>");
-      httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
-      httpd_resp_sendstr_chunk (req, " autofocus");
-      httpd_resp_sendstr_chunk (req, " value='");
-      if (hostname != revk_id)
-         httpd_resp_sendstr_chunk (req, hostname);
-      httpd_resp_sendstr_chunk (req,
-                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
-      httpd_resp_sendstr_chunk (req, revk_id);
-      httpd_resp_sendstr_chunk (req, "'>");
-#ifdef  CONFIG_MDNS_MAX_INTERFACES
-      httpd_resp_sendstr_chunk (req, ".local");
-#endif
-      httpd_resp_sendstr_chunk (req, "</td></tr><tr><td colspan=2><hr></td></tr>");
-      httpd_resp_sendstr_chunk (req, "<tr><td>SSID</td><td><input name=wifissid");
-      if (*hostname)
+      if (sta_netif)
+      {
+         httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
          httpd_resp_sendstr_chunk (req, " autofocus");
-      httpd_resp_sendstr_chunk (req, " maxlength=32 placeholder='WiFI name' value='");
-      if (*wifissid)
-         httpd_resp_sendstr_chunk (req, wifissid);
-      httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
-      httpd_resp_sendstr_chunk (req,
-                                "<tr><td>Passphrase</td><td><input name=wifipass placeholder='passphrase' maxlength=32 value='");
-      if (*wifipass)
-         httpd_resp_sendstr_chunk (req, wifipass);      // Not a valid password as too short, used to indicate one is set
-      httpd_resp_sendstr_chunk (req,
-                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr><tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
+         httpd_resp_sendstr_chunk (req, " value='");
+         if (hostname != revk_id)
+            httpd_resp_sendstr_chunk (req, hostname);
+         httpd_resp_sendstr_chunk (req,
+                                   "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
+         httpd_resp_sendstr_chunk (req, revk_id);
+         httpd_resp_sendstr_chunk (req, "'>");
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+         httpd_resp_sendstr_chunk (req, ".local");
+#endif
+         httpd_resp_sendstr_chunk (req, "</td></tr><tr><td colspan=2><hr></td></tr>");
+         httpd_resp_sendstr_chunk (req, "<tr><td>SSID</td><td><input name=wifissid");
+         if (*hostname)
+            httpd_resp_sendstr_chunk (req, " autofocus");
+         httpd_resp_sendstr_chunk (req, " maxlength=32 placeholder='WiFI name' value='");
+         if (*wifissid)
+            httpd_resp_sendstr_chunk (req, wifissid);
+         httpd_resp_sendstr_chunk (req,
+                                   "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
+         httpd_resp_sendstr_chunk (req,
+                                   "<tr><td>Passphrase</td><td><input name=wifipass placeholder='passphrase' maxlength=32 value='");
+         if (*wifipass)
+            httpd_resp_sendstr_chunk (req, wifipass);   // Not a valid password as too short, used to indicate one is set
+         httpd_resp_sendstr_chunk (req,
+                                   "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr>");
+      }
+      httpd_resp_sendstr_chunk (req, "<tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
       if (*mqtthost[0])
          httpd_resp_sendstr_chunk (req, mqtthost[0]);
       httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'>");
