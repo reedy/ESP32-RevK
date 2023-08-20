@@ -29,9 +29,7 @@
 #ifdef	CONFIG_REVK_MQTT
 #include "lwmqtt.h"
 #endif
-#ifdef	CONFIG_REVK_APMODE
 #include "esp_http_server.h"
-#endif
 #include "jo.h"
 
 #include "esp8266_httpd_compat.h"
@@ -156,7 +154,6 @@ void revk_mesh_send_json (const mac_t mac, jo_t * jp);
 #endif
 void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink rate and colour sequence for on state (for RGB LED)
 
-#ifdef  CONFIG_REVK_APMODE
 esp_err_t revk_web_settings_add (httpd_handle_t webserver);     // Add URLs
 esp_err_t revk_web_settings_remove (httpd_handle_t webserver);  // Remove URLs
 esp_err_t revk_web_settings (httpd_req_t * req);        // Call for web config for SSID/password/mqtt (GET/POST) - needs 4 URLS
@@ -165,5 +162,4 @@ esp_err_t revk_web_wifilist (httpd_req_t * req);        // WS for list of SSIDs
 void revk_web_head (httpd_req_t * req, const char *title);      // Generic html heading
 esp_err_t revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi);        // Generic html footing and return
 
-#endif
 #endif

@@ -10,6 +10,17 @@ static const char __attribute__((unused)) * TAG = "RevK";
 // Note, low wifi buffers breaks mesh
 
 #include "revk.h"
+
+#ifdef	CONFIG_ENABLE_WIFI_STATION
+#undef	CONFIG_REVK_APMODE		// Bodge - clashes
+#endif
+#ifndef	CONFIG_REVK_APMODE
+#undef	CONFIG_REVK_APDNS		// Bodge
+#endif
+#ifdef	CONFIG_REVK_MATTER
+#undef	CONFIG_MDNS_MAX_INTERFACES	// Bodge - clashes
+#endif
+
 #ifndef CONFIG_IDF_TARGET_ESP8266
 #include "esp_mac.h"
 #include "aes/esp_aes.h"
@@ -293,10 +304,8 @@ static mesh_addr_t mesh_ota_addr = { };
 
 /* Local functions */
 static int revk_upgrade_check (const char *url);
-#ifdef	CONFIG_REVK_APCONFIG
+#ifdef  CONFIG_REVK_APMODE
 static httpd_handle_t webserver = NULL;
-#endif
-#ifdef	CONFIG_REVK_APMODE
 static volatile uint8_t dummy_dns_task_end = 0;
 static uint32_t apstoptime = 0; // When to stop AP mode (uptime)
 static void ap_start (void);    // Start AP mode, allowed if already running
@@ -1974,10 +1983,14 @@ revk_start (void)
    if (sta_netif)
       esp_netif_set_hostname (sta_netif, id);
    freez (id);
+#ifdef  CONFIG_REVK_APMODE
+#ifndef	CONFIG_REVK_MATTER
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
    REVK_ERR_CHECK (mdns_init ());
    mdns_hostname_set (hostname);
    mdns_instance_name_set (appname);
+#endif
+#endif
 #endif
    revk_task (TAG, task, NULL, 3);
 }
@@ -2219,6 +2232,8 @@ revk_restart (const char *reason, int delay)
 #if	CONFIG_HTTPD_MAX_REQ_HDR_LEN < 800
 #warning You may want CONFIG_HTTPD_MAX_REQ_HDR_LEN larger, e.g. 800
 #endif
+#endif
+
 esp_err_t
 revk_web_settings_add (httpd_handle_t webserver)
 {
@@ -2264,9 +2279,7 @@ revk_web_settings_add (httpd_handle_t webserver)
 #endif
    return 0;
 }
-#endif
 
-#ifdef	CONFIG_REVK_APMODE
 esp_err_t
 revk_web_config_remove (httpd_handle_t webserver)
 {
@@ -2280,9 +2293,7 @@ revk_web_config_remove (httpd_handle_t webserver)
    REVK_ERR_CHECK (httpd_unregister_uri_handler (webserver, "/revk-settings", HTTP_POST));
    return 0;
 }
-#endif
 
-#ifdef	CONFIG_REVK_APMODE
 void
 revk_web_head (httpd_req_t * req, const char *title)
 {                               // Generic HTML heading
@@ -2577,9 +2588,7 @@ revk_web_settings (httpd_req_t * req)
 
    return revk_web_foot (req, 1, 0);
 }
-#endif
 
-#ifdef	CONFIG_REVK_APMODE
 #ifdef	CONFIG_HTTPD_WS_SUPPORT
 esp_err_t
 revk_web_status (httpd_req_t * req)
@@ -2699,7 +2708,6 @@ revk_web_status (httpd_req_t * req)
 #warning	You may want CONFIG_HTTPD_WS_SUPPORT
 #endif
 #endif // CONFIG_HTTPD_WS_SUPPORT
-#endif // CONFIG_REVK_APMODE
 
 #ifdef	CONFIG_REVK_APDNS
 static void
