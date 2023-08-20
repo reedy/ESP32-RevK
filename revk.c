@@ -603,7 +603,8 @@ mesh_task (void *pvParameters)
 static void
 dhcpc_stop (void)
 {
-	if(!sta_netif)return;
+   if (!sta_netif)
+      return;
    esp_netif_ip_info_t ip_info;
    if (!esp_netif_get_old_ip_info (sta_netif, &ip_info))
       esp_netif_dhcpc_stop (sta_netif); // Crashes is no old IP, work around
@@ -614,7 +615,8 @@ dhcpc_stop (void)
 static void
 setup_ip (void)
 {                               // Set up DHCPC / fixed IP
-	if(!sta_netif)return;
+   if (!sta_netif)
+      return;
    void dns (const char *ip, esp_netif_dns_type_t type)
    {
       if (!ip || !*ip)
@@ -682,22 +684,22 @@ stop_ip (void)
 static void
 sta_init (void)
 {
-#ifndef CONFIG_ENABLE_WIFI_STATION	// Matter is handling
+#ifndef CONFIG_ENABLE_WIFI_STATION      // Matter is handling
    REVK_ERR_CHECK (esp_event_loop_create_default ());
    sta_netif = esp_netif_create_default_wifi_sta ();
-#ifndef	CONFIG_ENABLE_WIFI_AP	// Matter is handling
+#ifndef	CONFIG_ENABLE_WIFI_AP   // Matter is handling
    ap_netif = esp_netif_create_default_wifi_ap ();
 #endif
 #endif
-   if(sta_netif)
+   if (sta_netif)
    {
-   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
-   REVK_ERR_CHECK (esp_wifi_init (&cfg));
-   REVK_ERR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_FLASH));
+      wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT ();
+      REVK_ERR_CHECK (esp_wifi_init (&cfg));
+      REVK_ERR_CHECK (esp_wifi_set_storage (WIFI_STORAGE_FLASH));
 #ifdef  CONFIG_NIMBLE_ENABLED
-   REVK_ERR_CHECK (esp_wifi_set_ps (wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_MIN_MODEM));
+      REVK_ERR_CHECK (esp_wifi_set_ps (wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_MIN_MODEM));
 #else
-   REVK_ERR_CHECK (esp_wifi_set_ps (wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_NONE));
+      REVK_ERR_CHECK (esp_wifi_set_ps (wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_NONE));
 #endif
    }
    REVK_ERR_CHECK (esp_event_handler_register (IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -737,13 +739,14 @@ wifi_init (void)
       sta_init ();
    else
       REVK_ERR_CHECK (esp_wifi_stop ());
-   if(!sta_netif)return;
+   if (!sta_netif)
+      return;
    // Mode
    esp_wifi_set_mode (*apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA);
    // Client
    wifi_sta_config ();
    // Doing AP mode after STA mode - seems to fail is not
-   if (*apssid&&ap_netif)
+   if (*apssid && ap_netif)
    {                            // AP config
       wifi_config_t cfg = { 0, };
       cfg.ap.channel = wifichan;
@@ -1208,16 +1211,16 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          xEventGroupSetBits (revk_group, GROUP_WIFI);
          xEventGroupClearBits (revk_group, GROUP_OFFLINE);
 #ifdef	CONFIG_LWIP_IPV6
-	 if(sta_netif)
-         esp_netif_create_ip6_linklocal (sta_netif);
+         if (sta_netif)
+            esp_netif_create_ip6_linklocal (sta_netif);
 #endif
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
          ESP_LOGI (TAG, "STA Disconnect");
          xEventGroupClearBits (revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits (revk_group, GROUP_OFFLINE);
-	 if(sta_netif)
-         esp_wifi_connect ();
+         if (sta_netif)
+            esp_wifi_connect ();
          break;
       case WIFI_EVENT_AP_STOP:
          ESP_LOGI (TAG, "AP Stop");
@@ -1269,16 +1272,16 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
             ESP_LOGI (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
             xEventGroupSetBits (revk_group, GROUP_IP);
-if(sta_netif)
-{
+            if (sta_netif)
+            {
 #if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0
-            esp_sntp_stop ();
-            esp_sntp_init ();
+               esp_sntp_stop ();
+               esp_sntp_init ();
 #else
-            sntp_stop ();
-            sntp_init ();
+               sntp_stop ();
+               sntp_init ();
 #endif
-}
+            }
 #ifdef	CONFIG_REVK_MQTT
             revk_mqtt_init ();
 #endif
@@ -1577,21 +1580,21 @@ task (void *pvParameters)
                               (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4], (uint8_t) ap.bssid[5]);
                   jo_int (j, "rssi", ap.rssi);
                   jo_int (j, "chan", ap.primary);
-	 if(sta_netif)
-	 {
+                  if (sta_netif)
                   {
-                     esp_netif_ip_info_t ip;
-                     if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                        jo_stringf (j, "ipv4", IPSTR, IP2STR (&ip.ip));
-                  }
+                     {
+                        esp_netif_ip_info_t ip;
+                        if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+                           jo_stringf (j, "ipv4", IPSTR, IP2STR (&ip.ip));
+                     }
 #ifdef CONFIG_LWIP_IPV6
-                  {
-                     esp_ip6_addr_t ip;
-                     if (!esp_netif_get_ip6_global (sta_netif, &ip))
-                        jo_stringf (j, "ipv6", IPV6STR, IPV62STR (ip));
-                  }
+                     {
+                        esp_ip6_addr_t ip;
+                        if (!esp_netif_get_ip6_global (sta_netif, &ip))
+                           jo_stringf (j, "ipv6", IPV6STR, IPV62STR (ip));
+                     }
 #endif
-	 }
+                  }
                }
                revk_state_clients (NULL, &j, -1);       // up message goes to all servers
                lastheap = heap;
@@ -1666,8 +1669,8 @@ revk_pre_shutdown (void)
    }
    revk_mqtt_close (restart_reason);
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-   if(sta_netif)
-   revk_wifi_close ();
+   if (sta_netif)
+      revk_wifi_close ();
 #endif
    REVK_ERR_CHECK (nvs_commit (nvs));
    restart_time = 0;
@@ -1968,8 +1971,8 @@ revk_start (void)
 #else
    asprintf (&id, "%s", hostname);
 #endif
-   if(sta_netif)
-   esp_netif_set_hostname (sta_netif, id);
+   if (sta_netif)
+      esp_netif_set_hostname (sta_netif, id);
    freez (id);
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
    REVK_ERR_CHECK (mdns_init ());
@@ -2371,7 +2374,7 @@ revk_web_settings (httpd_req_t * req)
                            jo_strncpy (j, pass, sizeof (pass));
                         if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
                            ok = 1;
-                        else if(sta_netif)
+                        else if (sta_netif)
                         {
                            esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_STA : WIFI_MODE_APSTA);
                            wifi_config_t cfg = { 0, };
@@ -2546,27 +2549,27 @@ revk_web_settings (httpd_req_t * req)
             httpd_resp_sendstr_chunk (req, temp);
          }
       }
-      if(sta_netif)
+      if (sta_netif)
       {
-      {
-         esp_netif_ip_info_t ip;
-         if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
          {
-            sprintf (temp, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip));
-            httpd_resp_sendstr_chunk (req, temp);
-            sprintf (temp, "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.gw));
-            httpd_resp_sendstr_chunk (req, temp);
+            esp_netif_ip_info_t ip;
+            if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+            {
+               sprintf (temp, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip));
+               httpd_resp_sendstr_chunk (req, temp);
+               sprintf (temp, "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.gw));
+               httpd_resp_sendstr_chunk (req, temp);
+            }
          }
-      }
 #ifdef CONFIG_LWIP_IPV6
-      {
-         esp_ip6_addr_t ip;
-         if (!esp_netif_get_ip6_global (sta_netif, &ip))
          {
-            sprintf (temp, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
-            httpd_resp_sendstr_chunk (req, temp);
+            esp_ip6_addr_t ip;
+            if (!esp_netif_get_ip6_global (sta_netif, &ip))
+            {
+               sprintf (temp, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
+               httpd_resp_sendstr_chunk (req, temp);
+            }
          }
-      }
 #endif
       }
       httpd_resp_sendstr_chunk (req, "</table>");
@@ -2608,37 +2611,37 @@ revk_web_status (httpd_req_t * req)
    {
       jo_t j = jo_create_alloc ();
       jo_array (j, NULL);
-	   if(sta_netif)
-	   {
-      if (mode == WIFI_MODE_NULL)
-         esp_wifi_set_mode (WIFI_MODE_STA);
-      else if (mode == WIFI_MODE_AP)
-         esp_wifi_set_mode (WIFI_MODE_APSTA);
-      if (esp_wifi_scan_start (NULL, true) == ESP_ERR_WIFI_STATE)
+      if (sta_netif)
       {
-         esp_wifi_disconnect ();
-         esp_wifi_scan_start (NULL, true);
+         if (mode == WIFI_MODE_NULL)
+            esp_wifi_set_mode (WIFI_MODE_STA);
+         else if (mode == WIFI_MODE_AP)
+            esp_wifi_set_mode (WIFI_MODE_APSTA);
+         if (esp_wifi_scan_start (NULL, true) == ESP_ERR_WIFI_STATE)
+         {
+            esp_wifi_disconnect ();
+            esp_wifi_scan_start (NULL, true);
+         }
+         uint16_t ap_count = 0;
+         static wifi_ap_record_t ap_info[32];   // Messy being static - should really have mutex
+         memset (ap_info, 0, sizeof (ap_info));
+         uint16_t number = sizeof (ap_info) / sizeof (*ap_info);
+         REVK_ERR_CHECK (esp_wifi_scan_get_ap_records (&number, ap_info));
+         REVK_ERR_CHECK (esp_wifi_scan_get_ap_num (&ap_count));
+         int found = 0;
+         for (int i = 0; (i < number) && (i < ap_count); i++)
+         {
+            int q;
+            for (q = 0; q < i && strcmp ((char *) ap_info[i].ssid, (char *) ap_info[q].ssid); q++);
+            if (q < i)
+               continue;        // Duplicate
+            jo_string (j, NULL, (char *) ap_info[i].ssid);
+            found++;
+         }
       }
-      uint16_t ap_count = 0;
-      static wifi_ap_record_t ap_info[32];      // Messy being static - should really have mutex
-      memset (ap_info, 0, sizeof (ap_info));
-      uint16_t number = sizeof (ap_info) / sizeof (*ap_info);
-      REVK_ERR_CHECK (esp_wifi_scan_get_ap_records (&number, ap_info));
-      REVK_ERR_CHECK (esp_wifi_scan_get_ap_num (&ap_count));
-      int found = 0;
-      for (int i = 0; (i < number) && (i < ap_count); i++)
-      {
-         int q;
-         for (q = 0; q < i && strcmp ((char *) ap_info[i].ssid, (char *) ap_info[q].ssid); q++);
-         if (q < i)
-            continue;           // Duplicate
-         jo_string (j, NULL, (char *) ap_info[i].ssid);
-         found++;
-      }
-	   }
       wsend (&j);
-      if(sta_netif)
-      esp_wifi_set_mode (mode);
+      if (sta_netif)
+         esp_wifi_set_mode (mode);
       return ESP_OK;
    }
    esp_err_t status (void)
@@ -2787,7 +2790,8 @@ dummy_dns_task (void *pvParameters)
 static void
 ap_start (void)
 {
-	if(!ap_netif)return;
+   if (!ap_netif)
+      return;
    apstoptime = 0;
    if (*apssid)
       return;                   // We are running an AP mode configured, don't do special APMODE
@@ -2852,7 +2856,8 @@ ap_start (void)
 static void
 ap_stop (void)
 {
-	if(!ap_netif)return;
+   if (!ap_netif)
+      return;
    apstoptime = 0;
    if (*apssid)
       return;                   // We are running an AP mode configured, don't do special APMODE
@@ -4463,7 +4468,8 @@ revk_mqtt_close (const char *reason)
 void
 revk_wifi_close (void)
 {
-	if(!sta_netif)return;
+   if (!sta_netif)
+      return;
    wifi_mode_t mode = 0;
    esp_wifi_get_mode (&mode);
    if (mode == WIFI_MODE_NULL)
