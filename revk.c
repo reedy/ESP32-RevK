@@ -1476,9 +1476,9 @@ task (void *pvParameters)
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
-                     gpio_set_level (blink[0] & IO_MASK, (col == 'R' || col == 'Y' || col == 'M' || col == 'W') ^ ((blink[0] & IO_INV) ? 1 : 0));       // Red LED
-                     gpio_set_level (blink[1] & IO_MASK, (col == 'G' || col == 'Y' || col == 'C' || col == 'W') ^ ((blink[1] & IO_INV) ? 1 : 0));       // Green LED
-                     gpio_set_level (blink[2] & IO_MASK, (col == 'B' || col == 'C' || col == 'M' || col == 'W') ^ ((blink[2] & IO_INV) ? 1 : 0));       // Blue LED
+                     gpio_set_level (blink[0] & IO_MASK, ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[0] & IO_INV) ? 1 : 0));     // Red LED
+                     gpio_set_level (blink[1] & IO_MASK, ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 1 : 0) ^ ((blink[1] & IO_INV) ? 1 : 0));     // Green LED
+                     gpio_set_level (blink[2] & IO_MASK, ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[2] & IO_INV) ? 1 : 0));     // Blue LED
                   } else
                      gpio_set_level (blink[0] & IO_MASK, lit ^ ((blink[0] & IO_INV) ? 1 : 0));  // Single LED
                }
