@@ -2487,43 +2487,18 @@ revk_web_settings (httpd_req_t * req)
 			      ".local"
 			      );
 	      hr();
-         httpd_resp_sendstr_chunk (req, "<tr><td>SSID</td><td><input name=wifissid");
-         if (*hostname)
-            httpd_resp_sendstr_chunk (req, " autofocus");
-         httpd_resp_sendstr_chunk (req, " maxlength=32 placeholder='WiFI name' value='");
-         if (*wifissid)
-            httpd_resp_sendstr_chunk (req, wifissid);
-         httpd_resp_sendstr_chunk (req,
-                                   "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
-         httpd_resp_sendstr_chunk (req,
-                                   "<tr><td>Passphrase</td><td><input name=wifipass placeholder='passphrase' maxlength=32 value='");
-         if (*wifipass)
-            httpd_resp_sendstr_chunk (req, wifipass);   // Not a valid password as too short, used to indicate one is set
-         httpd_resp_sendstr_chunk (req,
-                                   "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td colspan=2><hr></td></tr>");
+	      tr("SSID","wifissid",wifissid,"WiFi name",NULL);
+	      tr("Passphrase","wifipass",wifipass,"WiFi pass",NULL);
+	      hr();
       }
-      httpd_resp_sendstr_chunk (req, "<tr><td>MQTT host</td><td><input maxlength=128 placeholder='hostname' name=mqtthost value='");
-      if (*mqtthost[0])
-         httpd_resp_sendstr_chunk (req, mqtthost[0]);
-      httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'>");
-      httpd_resp_sendstr_chunk (req,
-                                "</td></tr><tr><td>MQTT user</td><td><input maxlength=32 placeholder='username' name=mqttuser value='");
-      if (*mqttuser[0])
-         httpd_resp_sendstr_chunk (req, mqttuser[0]);
-      httpd_resp_sendstr_chunk (req,
-                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr><tr><td>MQTT pass</td><td><input maxlength=32 placeholder='password' name=mqttpass value='");
-      if (*mqttpass[0])
-         httpd_resp_sendstr_chunk (req, mqttpass[0]);
-      httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td></tr>");
+      tr("MQTT host","mqtthost",mqtthost,"hostname",NULL);
+      tr("MQTT user","mqttuser",mqttuser,"username",NULL);
+      tr("MQTT pass","mqttpass",mqttpass,"password",NULL);
 #if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
-      httpd_resp_sendstr_chunk (req, "<tr><td colspan=2><hr></td></tr>");
+      hr();
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
-      httpd_resp_sendstr_chunk (req, "<tr><td>Timezone</td><td><input maxlength=128 name=tz value='");
-      if (*tz)
-         httpd_resp_sendstr_chunk (req, tz);
-      httpd_resp_sendstr_chunk (req,
-                                "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a></td></tr>");
+      tr("Timezone","tz",tz,"TZ code","See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
 #endif
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
