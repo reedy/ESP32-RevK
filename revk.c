@@ -2498,7 +2498,7 @@ revk_web_settings (httpd_req_t * req)
       hr ();
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
-      tr ("Timezone", "tz", tz, "TZ code", "See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
+      tr ("Timezone", "tz", tz, "TZ code", " See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
 #endif
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
