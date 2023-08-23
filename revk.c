@@ -2452,21 +2452,41 @@ revk_web_settings (httpd_req_t * req)
    if (!shutdown)
    {
       httpd_resp_sendstr_chunk (req, "<table>");
+      void hr(void)
+      {
+	                 httpd_resp_sendstr_chunk (req, "<tr><td colspan=3><hr></td></tr>");
+      }
+      char af=0;
+      void tr(const char *tag,const char *field,const char *value,const char *place,const char *suffix)
+      {
+	      httpd_resp_sendstr_chunk (req, "<tr><td>");
+	      httpd_resp_sendstr_chunk (req, tag);
+	      httpd_resp_sendstr_chunk (req, "</td><td colspan=2><input name=");
+	      httpd_resp_sendstr_chunk (req, field);
+	      httpd_resp_sendstr_chunk (req, " value='");
+	      if(value&&*value)
+	      httpd_resp_sendstr_chunk (req, value);
+	      httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
+	      httpd_resp_sendstr_chunk (req, place);
+	      httpd_resp_sendstr_chunk (req, "'");
+	      if((!value||!*value)&&!af++)
+	      httpd_resp_sendstr_chunk (req, " autofocus");
+	      httpd_resp_sendstr_chunk (req, ">");
+	      if(suffix&&*suffix)
+	      httpd_resp_sendstr_chunk (req, suffix);
+	      httpd_resp_sendstr_chunk (req, "</td></tr>");
+      }
+
       if (sta_netif)
       {
-         httpd_resp_sendstr_chunk (req, "<tr><td>Hostname</td><td><input name=hostname");
-         httpd_resp_sendstr_chunk (req, " autofocus");
-         httpd_resp_sendstr_chunk (req, " value='");
-         if (hostname != revk_id)
-            httpd_resp_sendstr_chunk (req, hostname);
-         httpd_resp_sendstr_chunk (req,
-                                   "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
-         httpd_resp_sendstr_chunk (req, revk_id);
-         httpd_resp_sendstr_chunk (req, "'>");
+	      tr("Hostname","hostname",hostname,revk_id,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-         httpd_resp_sendstr_chunk (req, ".local");
+#else
+			      NULL
 #endif
-         httpd_resp_sendstr_chunk (req, "</td></tr><tr><td colspan=2><hr></td></tr>");
+			      ".local"
+			      );
+	      hr();
          httpd_resp_sendstr_chunk (req, "<tr><td>SSID</td><td><input name=wifissid");
          if (*hostname)
             httpd_resp_sendstr_chunk (req, " autofocus");
