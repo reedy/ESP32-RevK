@@ -2452,53 +2452,53 @@ revk_web_settings (httpd_req_t * req)
    if (!shutdown)
    {
       httpd_resp_sendstr_chunk (req, "<table>");
-      void hr(void)
+      void hr (void)
       {
-	                 httpd_resp_sendstr_chunk (req, "<tr><td colspan=3><hr></td></tr>");
+         httpd_resp_sendstr_chunk (req, "<tr><td colspan=3><hr></td></tr>");
       }
-      char af=0;
-      void tr(const char *tag,const char *field,const char *value,const char *place,const char *suffix)
+      char af = 0;
+      void tr (const char *tag, const char *field, const char *value, const char *place, const char *suffix)
       {
-	      httpd_resp_sendstr_chunk (req, "<tr><td>");
-	      httpd_resp_sendstr_chunk (req, tag);
-	      httpd_resp_sendstr_chunk (req, "</td><td colspan=2><input name=");
-	      httpd_resp_sendstr_chunk (req, field);
-	      httpd_resp_sendstr_chunk (req, " value='");
-	      if(value&&*value)
-	      httpd_resp_sendstr_chunk (req, value);
-	      httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
-	      httpd_resp_sendstr_chunk (req, place);
-	      httpd_resp_sendstr_chunk (req, "'");
-	      if((!value||!*value)&&!af++)
-	      httpd_resp_sendstr_chunk (req, " autofocus");
-	      httpd_resp_sendstr_chunk (req, ">");
-	      if(suffix&&*suffix)
-	      httpd_resp_sendstr_chunk (req, suffix);
-	      httpd_resp_sendstr_chunk (req, "</td></tr>");
+         httpd_resp_sendstr_chunk (req, "<tr><td>");
+         httpd_resp_sendstr_chunk (req, tag);
+         httpd_resp_sendstr_chunk (req, "</td><td colspan=2><input name=");
+         httpd_resp_sendstr_chunk (req, field);
+         httpd_resp_sendstr_chunk (req, " value='");
+         if (value && *value)
+            httpd_resp_sendstr_chunk (req, value);
+         httpd_resp_sendstr_chunk (req,
+                                   "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
+         httpd_resp_sendstr_chunk (req, place);
+         httpd_resp_sendstr_chunk (req, "'");
+         if ((!value || !*value) && !af++)
+            httpd_resp_sendstr_chunk (req, " autofocus");
+         httpd_resp_sendstr_chunk (req, ">");
+         if (suffix && *suffix)
+            httpd_resp_sendstr_chunk (req, suffix);
+         httpd_resp_sendstr_chunk (req, "</td></tr>");
       }
 
       if (sta_netif)
       {
-	      tr("Hostname","hostname",hostname,revk_id,
+         tr ("Hostname", "hostname", hostname, revk_id,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
 #else
-			      NULL
+             NULL
 #endif
-			      ".local"
-			      );
-	      hr();
-	      tr("SSID","wifissid",wifissid,"WiFi name",NULL);
-	      tr("Passphrase","wifipass",wifipass,"WiFi pass",NULL);
-	      hr();
+             ".local");
+         hr ();
+         tr ("SSID", "wifissid", wifissid, "WiFi name", NULL);
+         tr ("Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
+         hr ();
       }
-      tr("MQTT host","mqtthost",mqtthost,"hostname",NULL);
-      tr("MQTT user","mqttuser",mqttuser,"username",NULL);
-      tr("MQTT pass","mqttpass",mqttpass,"password",NULL);
+      tr ("MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
+      tr ("MQTT user", "mqttuser", mqttuser[0], "username", NULL);
+      tr ("MQTT pass", "mqttpass", mqttpass[0], "password", NULL);
 #if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
-      hr();
+      hr ();
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
-      tr("Timezone","tz",tz,"TZ code","See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
+      tr ("Timezone", "tz", tz, "TZ code", "See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
 #endif
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
