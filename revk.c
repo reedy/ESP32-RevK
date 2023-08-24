@@ -2482,10 +2482,11 @@ revk_web_settings (httpd_req_t * req)
       {
          tr ("Hostname", "hostname", hostname, revk_id,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
+             ".local"
 #else
              NULL
 #endif
-             ".local");
+	     );
          hr ();
          tr ("SSID", "wifissid", wifissid, "WiFi name", NULL);
          tr ("Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
