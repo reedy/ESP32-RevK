@@ -4504,6 +4504,8 @@ int
 revk_wait_wifi (int seconds)
 {
    ESP_LOGD (TAG, "Wait WiFi %d", seconds);
+   if (!*wifissid[0])
+      return -1;
    return xEventGroupWaitBits (revk_group, GROUP_IP, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_IP;
 }
 #endif
@@ -4513,6 +4515,8 @@ int
 revk_wait_mqtt (int seconds)
 {
    ESP_LOGD (TAG, "Wait MQTT %d", seconds);
+   if (!*mqtthost[0])
+      return -1;
    return xEventGroupWaitBits (revk_group, GROUP_MQTT, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_MQTT;
 }
 #endif
