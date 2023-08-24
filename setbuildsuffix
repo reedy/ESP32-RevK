@@ -36,11 +36,14 @@ endif
 
 if("$BUILDSUFFIX" =~ *-S1*) then
 	grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32
+	if($status) then
+		idf.py set-target esp32
+		idf.py reconfigure
+	endif
 
 	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME)
 	set rem=($rem CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME);
-	set sign=secure_boot_signing_key.pem
+	set sign="secure_boot_signing_key.pem"
 
 	# The settings PICO/D4/SOLO impact flash and PSRAM
 
@@ -82,7 +85,10 @@ endif
 
 if("$BUILDSUFFIX" =~ *-S2*) then
 	grep -q CONFIG_IDF_TARGET_ESP32S2=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32s2
+	if($status) then
+		idf.py set-target esp32s2
+		idf.py reconfigure
+	endif
 
 	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
 
@@ -90,10 +96,13 @@ endif
 
 if("$BUILDSUFFIX" =~ *-S3*) then
 	grep -q CONFIG_IDF_TARGET_ESP32S3=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32s3
+	if($status) then
+		idf.py set-target esp32s3
+		idf.py reconfigure
+	endif
 
 	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
-	set sign=secure_boot_signing_key_rsa.pem
+	set sign="secure_boot_signing_key_rsa.pem"
 
 	if("$BUILDSUFFIX" =~ *-V2*) then
 		set add=($add CONFIG_ESP32S3_REV_MIN_2)
@@ -131,13 +140,19 @@ endif
 
 if("$BUILDSUFFIX" =~ *-C3*) then
 	grep -q CONFIG_IDF_TARGET_ESP32C3=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32c3
+	if($status) then
+		idf.py set-target esp32c3
+		idf.py reconfigure
+	endif
 
 endif
 
 if("$BUILDSUFFIX" =~ *-H2*) then
 	grep -q CONFIG_IDF_TARGET_ESP32H2=y "$SDKCONFIG"
-	if($status)	idf.py set-target esp32h2
+	if($status) then
+		idf.py set-target esp32h2
+		idf.py reconfigure
+	endif
 
 endif
 
