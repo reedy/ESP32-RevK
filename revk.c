@@ -2480,13 +2480,13 @@ revk_web_settings (httpd_req_t * req)
 
       if (sta_netif)
       {
-         tr ("Hostname", "hostname", hostname, revk_id,
+         tr ("Hostname", "hostname", hostname == revk_id ? NULL : hostname, revk_id,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
              ".local"
 #else
              NULL
 #endif
-	     );
+            );
          hr ();
          tr ("SSID", "wifissid", wifissid, "WiFi name", NULL);
          tr ("Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
