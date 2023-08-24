@@ -4504,7 +4504,7 @@ int
 revk_wait_wifi (int seconds)
 {
    ESP_LOGD (TAG, "Wait WiFi %d", seconds);
-   if (!*wifissid[0])
+   if (!*wifissid)
       return -1;
    return xEventGroupWaitBits (revk_group, GROUP_IP, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_IP;
 }
