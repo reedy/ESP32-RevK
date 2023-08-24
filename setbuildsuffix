@@ -93,7 +93,7 @@ if("$BUILDSUFFIX" =~ *-S3*) then
 	if($status)	idf.py set-target esp32s3
 
 	# THIS IS TEMPORARY - UNTIL OTA SIGNATURE CHECKING FIXED
-	set rem=($rem CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
+	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
 	set sign=secure_boot_signing_key_rsa.pem
 
 	if("$BUILDSUFFIX" =~ *-V2*) then
