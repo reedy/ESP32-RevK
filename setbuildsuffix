@@ -18,6 +18,7 @@ endif
 set add=()
 set rem=()
 set part=""
+set sign=""
 
 if("$BUILDSUFFIX" =~ *-8622*) then
 	grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
@@ -39,6 +40,7 @@ if("$BUILDSUFFIX" =~ *-S1*) then
 
 	set add=($add CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT CONFIG_SECURE_SIGNED_APPS_ECDSA_SCHEME)
 	set rem=($rem CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME);
+	set sign=secure_boot_signing_key.pem
 
 	# The settings PICO/D4/SOLO impact flash and PSRAM
 
@@ -92,6 +94,7 @@ if("$BUILDSUFFIX" =~ *-S3*) then
 
 	# THIS IS TEMPORARY - UNTIL OTA SIGNATURE CHECKING FIXED
 	set rem=($rem CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT)
+	set sign=secure_boot_signing_key_rsa.pem
 
 	if("$BUILDSUFFIX" =~ *-V2*) then
 		set add=($add CONFIG_ESP32S3_REV_MIN_2)
@@ -180,3 +183,10 @@ if($part != "") then
 	end
 endif
 
+if($sign != "") then
+		grep -q "^CONFIG_SECURE_BOOT_SIGNING_KEY="'"'"$sign"'"' "$SDKCONFIG"
+		if($status) then
+			sed "s:^CONFIG_SECURE_BOOT_SIGNING_KEY.*:CONFIG_SECURE_BOOT_SIGNING_KEY="'"'"$sign"'"'":" "$SDKCONFIG" > "$SDKCONFIG.new"
+                	mv -f "$SDKCONFIG".new "$SDKCONFIG"
+		endif
+endif
