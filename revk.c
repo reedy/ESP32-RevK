@@ -1558,7 +1558,7 @@ task (void *pvParameters)
                      jo_close (j);
 
                   } else
-                     jo_int (j, "mqtt-up", lwmqtt_connected (mqtt_client[i]));  // One client
+                     jo_int (j, "mqtt-up", lwmqtt_connected (mqtt_client[0]));  // One client
                }
                if (restart_time)
                {
