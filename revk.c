@@ -1554,11 +1554,11 @@ task (void *pvParameters)
                   {
                      jo_array (j, "mqtt-up");
                      for (i = 0; i < MQTT_CLIENTS && *mqtthost[i]; i++)
-                        jo_int (j, NULL, mqtt_connected (mqtt_client[i]));
+                        jo_int (j, NULL, lwmqtt_connected (mqtt_client[i]));
                      jo_close (j);
 
                   } else
-                     jo_int (j, "mqtt-up", mqtt_connected (mqtt_client[i]));    // One client
+                     jo_int (j, "mqtt-up", lwmqtt_connected (mqtt_client[i]));    // One client
                }
                if (restart_time)
                {
