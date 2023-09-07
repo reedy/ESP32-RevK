@@ -70,6 +70,7 @@ struct lwmqtt_s
    unsigned short keepalive;
    unsigned short seq;
    uint32_t ka;                 // Keep alive next ping
+   uint32_t connecttime;        // Time of connect
    uint8_t backoff:4;           // Reconnect backoff
    uint8_t running:1;           // Should still run
    uint8_t server:1;            // This is a server
@@ -587,6 +588,7 @@ lwmqtt_loop (lwmqtt_t handle)
             if (handle->callback)
                handle->callback (handle->arg, NULL, strlen (handle->hostname), (void *) handle->hostname);
             handle->connected = 1;
+            handle->connecttime = uptime (0);
          }
          break;
       case 3:                  // pub
@@ -896,10 +898,12 @@ lwmqtt_send_str (lwmqtt_t handle, const char *msg)
    return lwmqtt_send_full (handle, tlen, msg, strlen (p), (void *) p, 0);
 }
 
-int
+uint32_t
 lwmqtt_connected (lwmqtt_t handle)
-{                               // Confirm connected
-   return handle && handle->connected;
+{                               // Confirm connected (and for how long)
+   if (!hanle || !handle->conneced)
+      return 0;
+   return (uptime () - handle->connecttime) ? : 1;
 }
 
 int
