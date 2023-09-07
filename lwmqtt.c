@@ -901,7 +901,7 @@ lwmqtt_send_str (lwmqtt_t handle, const char *msg)
 uint32_t
 lwmqtt_connected (lwmqtt_t handle)
 {                               // Confirm connected (and for how long)
-   if (!handle || !handle->conneced)
+   if (!handle || !handle->connected)
       return 0;
    return (uptime () - handle->connecttime) ? : 1;
 }
