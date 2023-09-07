@@ -588,7 +588,7 @@ lwmqtt_loop (lwmqtt_t handle)
             if (handle->callback)
                handle->callback (handle->arg, NULL, strlen (handle->hostname), (void *) handle->hostname);
             handle->connected = 1;
-            handle->connecttime = uptime (0);
+            handle->connecttime = uptime ();
          }
          break;
       case 3:                  // pub
@@ -901,7 +901,7 @@ lwmqtt_send_str (lwmqtt_t handle, const char *msg)
 uint32_t
 lwmqtt_connected (lwmqtt_t handle)
 {                               // Confirm connected (and for how long)
-   if (!hanle || !handle->conneced)
+   if (!handle || !handle->conneced)
       return 0;
    return (uptime () - handle->connecttime) ? : 1;
 }
