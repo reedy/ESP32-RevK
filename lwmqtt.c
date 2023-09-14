@@ -705,9 +705,9 @@ client_task (void *pvParameters)
       uint16_t port = handle->port;
       {                         // Port suffix
          char *p = hostname + strlen (hostname);
-         while (p > hostname && isdigit (p[-1]))
+         while (p > hostname && p[-1] >= '0' && p[-1] <= '9')
             p--;
-         if (p > hostname && isdigit (*p) && p[-1] == ':')
+         if (p > hostname && *p > '0' && *p <= '9' && p[-1] == ':')
          {
             port = atoi (p);
             *--p = 0;
