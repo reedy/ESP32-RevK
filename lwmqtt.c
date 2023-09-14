@@ -701,8 +701,20 @@ client_task (void *pvParameters)
    while (handle->running)
    {                            // Loop connecting and trying repeatedly
       handle->sock = -1;
+      char *hostname = strdup (handle->hostname);
+      uint16_t port = handle->port;
+      {                         // Port suffix
+         char *p = hostname + strlen (hostname);
+         while (p > hostname && isdigit (p[-1]))
+            p--;
+         if (p > hostname && isdigit (*p) && p[-1] == ':')
+         {
+            port = atoi (p);
+            *--p = 0;
+         }
+      }
       // Connect
-      ESP_LOGD (TAG, "Connecting %s:%d", handle->hostname, handle->port);
+      ESP_LOGD (TAG, "Connecting %s:%d", hostname, port);
       // Can connect using TLS or non TLS with just sock set instead
       if (handle->ca_cert_bytes || handle->crt_bundle_attach)
       {
@@ -718,9 +730,9 @@ client_task (void *pvParameters)
             .crt_bundle_attach = handle->crt_bundle_attach,
          };
          tls = esp_tls_init ();
-         if (esp_tls_conn_new_sync (handle->hostname, strlen (handle->hostname), handle->port, &cfg, tls) != 1)
+         if (esp_tls_conn_new_sync (hostname, strlen (hostname), port, &cfg, tls) != 1)
          {
-            ESP_LOGE (TAG, "Could not TLS connect to %s:%d", handle->hostname, handle->port);
+            ESP_LOGE (TAG, "Could not TLS connect to %s:%d", hostname, port);
             free (tls);
          } else
          {
@@ -739,8 +751,8 @@ client_task (void *pvParameters)
             struct addrinfo *a = 0,
                *p = NULL;
             char sport[6];
-            snprintf (sport, sizeof (sport), "%d", handle->port);
-            if (getaddrinfo (handle->hostname, sport, &base, &a) || !a)
+            snprintf (sport, sizeof (sport), "%d", port);
+            if (getaddrinfo (hostname, sport, &base, &a) || !a)
                return 0;
             for (p = a; p; p = p->ai_next)
             {
@@ -761,8 +773,9 @@ client_task (void *pvParameters)
          if (!tryconnect (AF_INET6) || uptime () > 20)  // Gives IPv6 a chance to actually get started if there is IPv6 DNS for this.
             tryconnect (AF_INET);
          if (handle->sock < 0)
-            ESP_LOGD (TAG, "Could not connect to %s:%d", handle->hostname, handle->port);
+            ESP_LOGD (TAG, "Could not connect to %s:%d", hostname, port);
       }
+      free (hostname);
       if (handle->sock < 0)
       {                         // Failed before we even start
          if (handle->callback)
