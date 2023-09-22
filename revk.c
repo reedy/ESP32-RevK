@@ -1733,6 +1733,10 @@ gpio_ok (uint8_t p)
 #endif
    return 3;                    // All input and output
 #endif
+#ifdef CONFIG_IDF_TARGET_ESP8266
+   // 8266 has GPIOs 0...16, allow any use
+   return (p <= 16) ? 3 : 0;
+#endif
 }
 
 /* External functions */
