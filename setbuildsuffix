@@ -20,7 +20,7 @@ set rem=()
 set part=""
 set sign=""
 
-if("$BUILDSUFFIX" =~ *-8622*) then
+if("$BUILDSUFFIX" =~ *-8266*) then
 	grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
 	if($status) then
 		echo You need to manually set ESP8266 build environment

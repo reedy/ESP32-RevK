@@ -75,8 +75,10 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #endif
 #endif
 
+#ifndef CONFIG_IDF_TARGET_ESP8266
 #ifndef	CONFIG_LWIP_TCPIP_CORE_LOCKING
 #warning	Suggest CONFIG_LWIP_TCPIP_CORE_LOCKING
+#endif
 #endif
 
 #ifdef	CONFIG_MBEDTLS_DYNAMIC_BUFFER
@@ -304,8 +306,10 @@ static mesh_addr_t mesh_ota_addr = { };
 
 /* Local functions */
 static int revk_upgrade_check (const char *url);
-#ifdef  CONFIG_REVK_APMODE
+#ifdef  CONFIG_REVK_APCONFIG
 static httpd_handle_t webserver = NULL;
+#endif
+#ifdef  CONFIG_REVK_APMODE
 static volatile uint8_t dummy_dns_task_end = 0;
 static uint32_t apstoptime = 0; // When to stop AP mode (uptime)
 static void ap_start (void);    // Start AP mode, allowed if already running
@@ -1732,6 +1736,10 @@ gpio_ok (uint8_t p)
       return 0;
 #endif
    return 3;                    // All input and output
+#endif
+#ifdef CONFIG_IDF_TARGET_ESP8266
+   // 8266 has GPIOs 0...16, allow any use
+   return (p <= 16) ? 3 : 0;
 #endif
 }
 
