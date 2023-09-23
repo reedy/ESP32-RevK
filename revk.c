@@ -2353,13 +2353,14 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi)
    return ESP_OK;
 }
 
-static void report_shutdown_reason(httpd_req_t * req, const char * shutdown)
+static void
+report_shutdown_reason (httpd_req_t * req, const char *shutdown)
 {
    httpd_resp_sendstr_chunk (req, shutdown);
    if (ota_percent > 0 && ota_percent <= 100)
    {
       char buf[10];
-      sprintf(buf, " (%d%%)", ota_percent);
+      sprintf (buf, " (%d%%)", ota_percent);
       httpd_resp_sendstr_chunk (req, buf);
    }
 }
@@ -2490,36 +2491,26 @@ revk_web_settings (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
       report_shutdown_reason (req, shutdown);
       httpd_resp_sendstr_chunk (req, "</b></p><script>"
-                             "function g(n){return document.getElementById(n);};"
-                             "function s(n,v){var d=g(n);if(d)d.textContent=v;}"
-                             "function decode(rt)"
-                             "{"
-                                "if (rt == '')"
-                                   // Just reload the page in its initial state
-                                   "window.location.href = '/revk-settings';"
+                                "function g(n){return document.getElementById(n);};"
+                                "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
+                                // Just reload the page in its initial state
+                                "window.location.href = '/revk-settings';"
                                 "else "
-                                   "s('msg',rt);"
-                             "}"
-                             "function c()"
-                             "{"
-                                "xhttp = new XMLHttpRequest();"
-	                             "xhttp.onreadystatechange = function()"
+                                "s('msg',rt);"
+                                "}"
+                                "function c()"
                                 "{"
-                                   "if (this.readyState == 4) {"
-                                      "if (this.status == 200)"
-                                         "decode(this.responseText);"
-                                   "}"
+                                "xhttp = new XMLHttpRequest();"
+                                "xhttp.onreadystatechange = function()"
+                                "{"
+                                "if (this.readyState == 4) {"
+                                "if (this.status == 200)"
+                                "decode(this.responseText);"
+                                "}"
                                 "};"
                                 "xhttp.open('GET', '/revk-status', true);"
-                                "xhttp.send();"
-                             "}"
-                             "function handleLoad()"
-                             "{"
-                                "window.setInterval(c, 1000);"
-                             "}"
-                             "</script>");
-   }
-   else
+                                "xhttp.send();" "}" "function handleLoad()" "{" "window.setInterval(c, 1000);" "}" "</script>");
+   } else
    {
       // revk_web_head() always adds onLoad='handleLoad()'; this is the cheap way
       // to avoid adding more conditionals. Just emit a no-op.
@@ -2551,6 +2542,8 @@ revk_web_settings (httpd_req_t * req)
          httpd_resp_sendstr_chunk (req, "'");
          if ((!value || !*value) && !af++)
             httpd_resp_sendstr_chunk (req, " autofocus");
+         if (strstr (field, "pass"))
+            httpd_resp_sendstr_chunk (req, " type=hidden");
          httpd_resp_sendstr_chunk (req, ">");
          if (suffix && *suffix)
             httpd_resp_sendstr_chunk (req, suffix);
