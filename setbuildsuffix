@@ -34,6 +34,18 @@ else
 	endif
 endif
 
+if("$BUILDSUFFIX" =~ *-8266*) then
+    if("$BUILDSUFFIX" =~ *-4M*) then
+		set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_4MB CONFIG_PARTITION_TABLE_CUSTOM)
+		set rem=($rem CONFIG_ESPTOOLPY_FLASHSIZE_8MB)
+		set part="components/ESP32-RevK/partitions_4m-8266.csv"
+	else
+		set add=($add CONFIG_ESPTOOLPY_FLASHSIZE_8MB CONFIG_PARTITION_TABLE_CUSTOM)
+		set rem=($rem CONFIG_ESPTOOLPY_FLASHSIZE_4MB)
+		set part="components/ESP32-RevK/partitions_8m-8266.csv"
+	endif
+endif
+
 if("$BUILDSUFFIX" =~ *-S1*) then
 	grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
 	if($status) then
