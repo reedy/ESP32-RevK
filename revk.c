@@ -2543,7 +2543,7 @@ revk_web_settings (httpd_req_t * req)
          if ((!value || !*value) && !af++)
             httpd_resp_sendstr_chunk (req, " autofocus");
          if (strstr (field, "pass"))
-            httpd_resp_sendstr_chunk (req, " type='password'");
+            httpd_resp_sendstr_chunk (req, " style='-webkit-text-security: circle'");
          httpd_resp_sendstr_chunk (req, ">");
          if (suffix && *suffix)
             httpd_resp_sendstr_chunk (req, suffix);
