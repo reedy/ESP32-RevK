@@ -2255,6 +2255,15 @@ revk_restart (const char *reason, int delay)
 #endif
 #endif
 
+// This function returns numbers of handlers, used by revk_web_settings_add() below
+// Provides a convenient way for the app to configure max_uri_handlers
+// !!! Update when adding/removing handlers below !!!
+uint16_t
+revk_num_web_handlers (void)
+{
+   return 4;
+}
+
 esp_err_t
 revk_web_settings_add (httpd_handle_t webserver)
 {
