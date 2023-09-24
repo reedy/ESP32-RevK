@@ -2365,6 +2365,28 @@ report_shutdown_reason (httpd_req_t * req, const char *shutdown)
    }
 }
 
+static const char *
+get_status_text(void)
+{
+   if (revk_link_down ())
+      return *wifissid ? "WiFi not connected" : "WiFi not configured";
+#ifdef  CONFIG_REVK_MQTT
+   else if (!revk_mqtt (0))
+      return "WiFi connected, no MQTT";
+   else if (lwmqtt_failed (revk_mqtt (0)) < 0)
+      return "MQTT failed";
+   else if (lwmqtt_failed (revk_mqtt (0)) > 5)
+      return "MQTT not connecting";
+   else if (!lwmqtt_connected (revk_mqtt (0)))
+      return "MQTT connecting";
+   else
+      return "MQTT connected";
+#else
+   else
+      return "WiFI online";
+#endif
+}
+
 esp_err_t
 revk_web_settings (httpd_req_t * req)
 {
@@ -2478,47 +2500,16 @@ revk_web_settings (httpd_req_t * req)
    }
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-#ifdef CONFIG_HTTPD_WS_SUPPORT
    httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
    if (shutdown && *shutdown)
       report_shutdown_reason (req, shutdown);
+#ifndef CONFIG_HTTPD_WS_SUPPORT
+   else
+      httpd_resp_sendstr_chunk (req, get_status_text());
+#endif
    httpd_resp_sendstr_chunk (req, "</b></p>");
    httpd_resp_sendstr_chunk (req,
                              "<form action=/revk-settings name=WIFI method=post onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
-#else
-   if (shutdown && *shutdown)
-   {
-      httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
-      report_shutdown_reason (req, shutdown);
-      httpd_resp_sendstr_chunk (req, "</b></p><script>"
-                                "function g(n){return document.getElementById(n);};"
-                                "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
-                                // Just reload the page in its initial state
-                                "window.location.href = '/revk-settings';"
-                                "else "
-                                "s('msg',rt);"
-                                "}"
-                                "function c()"
-                                "{"
-                                "xhttp = new XMLHttpRequest();"
-                                "xhttp.onreadystatechange = function()"
-                                "{"
-                                "if (this.readyState == 4) {"
-                                "if (this.status == 200)"
-                                "decode(this.responseText);"
-                                "}"
-                                "};"
-                                "xhttp.open('GET', '/revk-status', true);"
-                                "xhttp.send();" "}" "function handleLoad()" "{" "window.setInterval(c, 1000);" "}" "</script>");
-   } else
-   {
-      // revk_web_head() always adds onLoad='handleLoad()'; this is the cheap way
-      // to avoid adding more conditionals. Just emit a no-op.
-      httpd_resp_sendstr_chunk (req, "<script>function handleLoad(){}</script>");
-   }
-   httpd_resp_sendstr_chunk (req,
-                             "<form action=/revk-settings name=WIFI method=post onsubmit=\"document.getElementById('set').style.visibility='hidden';return true;\">");
-#endif
    if (!shutdown)
    {
       httpd_resp_sendstr_chunk (req, "<table>");
@@ -2613,6 +2604,42 @@ revk_web_settings (httpd_req_t * req)
                              "});"      //
                              "};"       //
                              "</script>");
+#else
+   httpd_resp_sendstr_chunk (req, "<script>");
+   if (shutdown && *shutdown)
+   {
+      httpd_resp_sendstr_chunk (req, "function g(n){return document.getElementById(n);};"
+                                     "function s(n,v){var d=g(n);if(d)d.textContent=v;}"
+                                     "function decode(rt)"
+                                     "{"
+                                        "if (rt == '')"
+                                           // Just reload the page in its initial state
+                                           "window.location.href = '/revk-settings';"
+                                        "else "
+                                           "s('msg',rt);"
+                                     "}"
+                                     "function c()"
+                                     "{"
+                                        "xhttp = new XMLHttpRequest();"
+                                        "xhttp.onreadystatechange = function()"
+                                        "{"
+                                           "if (this.readyState == 4) {"
+                                              "if (this.status == 200)"
+                                                 "decode(this.responseText);"
+                                           "}"
+                                        "};"
+                                        "xhttp.open('GET', '/revk-status', true);"
+                                        "xhttp.send();"
+                                     "}"
+                                     "function handleLoad(){window.setInterval(c, 1000);}");
+   }
+   else
+   {
+      // revk_web_head() always adds onLoad='handleLoad()'; this is the cheap way
+      // to avoid adding more conditionals. Just emit a no-op.
+      httpd_resp_sendstr_chunk (req, "function handleLoad(){}");
+   }
+   httpd_resp_sendstr_chunk (req, "</script>");
 #endif
    if (otaauto && *otahost)
    {
@@ -2736,23 +2763,8 @@ revk_web_status (httpd_req_t * req)
          jo_int (j, NULL, n);
          wsend (&j);
          msg (r);
-      } else if (revk_link_down ())
-         msg (*wifissid ? "WiFi not connected" : "WiFi not configured");
-#ifdef  CONFIG_REVK_MQTT
-      else if (!revk_mqtt (0))
-         msg ("WiFi connected, no MQTT");
-      else if (lwmqtt_failed (revk_mqtt (0)) < 0)
-         msg ("MQTT failed");
-      else if (lwmqtt_failed (revk_mqtt (0)) > 5)
-         msg ("MQTT not connecting");
-      else if (!lwmqtt_connected (revk_mqtt (0)))
-         msg ("MQTT connecting");
-      else
-         msg ("MQTT connected");
-#else
-      else
-         msg ("WiFI online");
-#endif
+      } else
+         msg (get_status_text());
       return ESP_OK;
    }
    if (req->method == HTTP_GET)
