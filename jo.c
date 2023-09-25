@@ -438,7 +438,6 @@ jo_len (jo_t j)
 static void
 jo_write_char (jo_t j, uint32_t c)
 {
-
 #define esc(a,b) if(c==b){jo_write(j,'\\');jo_write(j,a);return;}
    escapes
 #undef esc
@@ -455,6 +454,29 @@ jo_write_char (jo_t j, uint32_t c)
    jo_write (j, c);
 }
 
+static int
+isutf8 (const char *s, int n)
+{                               // If valid UTF8 returns number of characters, 0 for bad, 1 for ASCII - note this does not allow F8 and beyond. Note this does not check for minimal coding (e.g. C0 00 is invalid but allowed)
+   if (n < 1)
+      return 0;
+   if (*s < 0x80)
+      return 1;                 // ASCII
+   if (*s < 0xC0)
+      return 0;                 // follow on byte
+   if (n < 2 || s[1] < 0x80 || s[1] >= 0xC0)
+      return 0;
+   if (*s < 0xE0)
+      return 2;
+   if (n < 3 || s[2] < 0x80 || s[2] >= 0xC0)
+      return 0;
+   if (*s < 0xF0)
+      return 3;
+   if (n < 4 || s[3] < 0x80 || s[3] >= 0xC0)
+      return 0;
+   if (*s < 0xF8)
+      return 4;
+   return 0;
+}
 
 static void
 jo_write_str (jo_t j, const char *s, ssize_t len)
@@ -462,8 +484,25 @@ jo_write_str (jo_t j, const char *s, ssize_t len)
    jo_write (j, '"');
    if (len < 0)
       len = strlen (s);
-   while (len--)
-      jo_write_char (j, *s++);
+   while (len)
+   {
+      int l = isutf8 (s, len);
+      if (!l)
+      {                         // Not valid UTF8, write as escaped so obvious, but if you read this back it escapes to unicode, which is technically iffy, but better than just an error
+         jo_write (j, '\\');
+         jo_write (j, 'u');
+         jo_write (j, '0');
+         jo_write (j, '0');
+         jo_write (j, JO_BASE16[(*s >> 4) & 0xF]);
+         jo_write (j, JO_BASE16[*s & 0xF]);
+         s++;
+         len--;
+         continue;
+      }
+      len -= l;
+      while (l--)
+         jo_write_char (j, *s++);
+   }
    jo_write (j, '"');
 }
 
