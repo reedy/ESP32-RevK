@@ -11,7 +11,6 @@ if(! -e "$SDKCONFIG") then
 endif
 
 # ensure date/time set
-touch "${IDF_PATH}/components/app_update/esp_app_desc.c"
 
 grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
 if (! $status) then
@@ -19,6 +18,9 @@ if (! $status) then
 	setenv  SUFFIX  "$SUFFIX-8266"
 	grep -q partitions_4m "$SDKCONFIG"
 	if(! $status) 	setenv	SUFFIX	"$SUFFIX-4M"
+	touch "${IDF_PATH}/components/app_update/esp_app_desc.c"
+else
+	touch "${IDF_PATH}/components/esp_app_format/esp_app_desc.c"
 endif
 
 grep -q CONFIG_IDF_TARGET_ESP32=y "$SDKCONFIG"
