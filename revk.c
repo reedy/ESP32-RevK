@@ -2352,6 +2352,8 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi)
    if (wifi)
       httpd_resp_sendstr_chunk (req, "<a href=/revk-settings>Settings</a> ");
    httpd_resp_sendstr_chunk (req, appname);
+   if (*revk_build_suffix)
+      httpd_resp_sendstr_chunk (req, revk_build_suffix);
    httpd_resp_sendstr_chunk (req, ": ");
    httpd_resp_sendstr_chunk (req, revk_version);
    httpd_resp_sendstr_chunk (req, " ");
@@ -2375,7 +2377,7 @@ report_shutdown_reason (httpd_req_t * req, const char *shutdown)
 }
 
 static const char *
-get_status_text(void)
+get_status_text (void)
 {
    if (revk_link_down ())
       return *wifissid ? "WiFi not connected" : "WiFi not configured";
@@ -2514,7 +2516,7 @@ revk_web_settings (httpd_req_t * req)
       report_shutdown_reason (req, shutdown);
 #ifndef CONFIG_HTTPD_WS_SUPPORT
    else
-      httpd_resp_sendstr_chunk (req, get_status_text());
+      httpd_resp_sendstr_chunk (req, get_status_text ());
 #endif
    httpd_resp_sendstr_chunk (req, "</b></p>");
    httpd_resp_sendstr_chunk (req,
@@ -2618,31 +2620,25 @@ revk_web_settings (httpd_req_t * req)
    if (shutdown && *shutdown)
    {
       httpd_resp_sendstr_chunk (req, "function g(n){return document.getElementById(n);};"
-                                     "function s(n,v){var d=g(n);if(d)d.textContent=v;}"
-                                     "function decode(rt)"
-                                     "{"
-                                        "if (rt == '')"
-                                           // Just reload the page in its initial state
-                                           "window.location.href = '/revk-settings';"
-                                        "else "
-                                           "s('msg',rt);"
-                                     "}"
-                                     "function c()"
-                                     "{"
-                                        "xhttp = new XMLHttpRequest();"
-                                        "xhttp.onreadystatechange = function()"
-                                        "{"
-                                           "if (this.readyState == 4) {"
-                                              "if (this.status == 200)"
-                                                 "decode(this.responseText);"
-                                           "}"
-                                        "};"
-                                        "xhttp.open('GET', '/revk-status', true);"
-                                        "xhttp.send();"
-                                     "}"
-                                     "function handleLoad(){window.setInterval(c, 1000);}");
-   }
-   else
+                                "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
+                                // Just reload the page in its initial state
+                                "window.location.href = '/revk-settings';"
+                                "else "
+                                "s('msg',rt);"
+                                "}"
+                                "function c()"
+                                "{"
+                                "xhttp = new XMLHttpRequest();"
+                                "xhttp.onreadystatechange = function()"
+                                "{"
+                                "if (this.readyState == 4) {"
+                                "if (this.status == 200)"
+                                "decode(this.responseText);"
+                                "}"
+                                "};"
+                                "xhttp.open('GET', '/revk-status', true);"
+                                "xhttp.send();" "}" "function handleLoad(){window.setInterval(c, 1000);}");
+   } else
    {
       // revk_web_head() always adds onLoad='handleLoad()'; this is the cheap way
       // to avoid adding more conditionals. Just emit a no-op.
@@ -2773,7 +2769,7 @@ revk_web_status (httpd_req_t * req)
          wsend (&j);
          msg (r);
       } else
-         msg (get_status_text());
+         msg (get_status_text ());
       return ESP_OK;
    }
    if (req->method == HTTP_GET)
