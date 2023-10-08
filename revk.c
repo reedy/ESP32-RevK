@@ -2353,7 +2353,11 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi)
       httpd_resp_sendstr_chunk (req, "<a href=/revk-settings>Settings</a> ");
    httpd_resp_sendstr_chunk (req, appname);
    if (*revk_build_suffix)
+   {
+      httpd_resp_sendstr_chunk (req, "<i>");
       httpd_resp_sendstr_chunk (req, revk_build_suffix);
+      httpd_resp_sendstr_chunk (req, "</i>");
+   }
    httpd_resp_sendstr_chunk (req, ": ");
    httpd_resp_sendstr_chunk (req, revk_version);
    httpd_resp_sendstr_chunk (req, " ");
