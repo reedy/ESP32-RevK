@@ -20,6 +20,12 @@ set rem=()
 set part=""
 set sign=""
 
+if(-e managed_components/espressif__led_strip) then
+	set add=($add CONFIG_REBK_LED_STRIP);
+else
+	set rem=($rem CONFIG_REBK_LED_STRIP);
+endif
+
 if("$BUILDSUFFIX" =~ *-8266*) then
 	grep -q CONFIG_IDF_TARGET_ESP8266=y "$SDKCONFIG"
 	if($status) then

@@ -396,4 +396,10 @@ menu "RevK"
         help
 		Build in Matter
 
+	config REVK_LED_STRIP
+	bool "Support LED strip for status LED"
+	default n
+        help
+		Support LED strip for status LED
+
 endmenu

@@ -17,6 +17,10 @@ if(EXISTS "../managed_components/espressif__mdns")
 	list(APPEND RECS mdns)
 endif()
 
+if(EXISTS "../managed_components/espressif__led_strip")
+	list(APPEND RECS led_strip)
+endif()
+
 idf_component_register(
 			SRCS ${SOURCES}
 			INCLUDE_DIRS "include"
