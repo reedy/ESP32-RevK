@@ -1502,17 +1502,23 @@ task (void *pvParameters)
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
-                     uint8_t r = ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[0] & IO_INV) ? 255 : 0);
-                     uint8_t g = ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 1 : 0) ^ ((blink[1] & IO_INV) ? 255 : 0);
-                     uint8_t b = ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[2] & IO_INV) ? 255 : 0);
 #ifdef	CONFIG_REVK_LED_STRIP
                      if (strip)
                      {
+                        uint8_t r = ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 255 : 0);
+                        uint8_t g = ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 255 : 0);
+                        uint8_t b = ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 255 : 0);
                         led_strip_set_pixel (strip, 0, r, g, b);        // Might be nice to fade up/down?
                         led_strip_refresh (strip);
                      } else
 #endif
                      {
+                        uint8_t r =
+                           ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[0] & IO_INV) ? 1 : 0);
+                        uint8_t g =
+                           ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 1 : 0) ^ ((blink[1] & IO_INV) ? 1 : 0);
+                        uint8_t b =
+                           ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[2] & IO_INV) ? 1 : 0);
                         gpio_set_level (blink[0] & IO_MASK, r);
                         gpio_set_level (blink[1] & IO_MASK, g);
                         gpio_set_level (blink[2] & IO_MASK, b);
