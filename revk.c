@@ -53,6 +53,9 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include "esp8266_flash_compat.h"
 #include "esp8266_gpio_compat.h"
 #include "esp8266_wdt_compat.h"
+#ifdef	CONFIG_REVK_LED_STRIP
+#include "led_strip.h"
+#endif
 
 const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
@@ -1433,6 +1436,25 @@ task (void *pvParameters)
    uint32_t ota_check = 0;
    if (otaauto)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
+#ifdef	CONFIG_REVK_LED_STRIP
+   led_strip_handle_t strip = NULL;
+   if (blink[0] && blink[0] == blink[1])
+   {
+      led_strip_config_t strip_config = {
+         .strip_gpio_num = (blink[0] & IO_MASK),
+         .max_leds = 1,         // The number of LEDs in the strip,
+         .led_pixel_format = LED_PIXEL_FORMAT_GRB,      // Pixel format of your LED strip
+         .led_model = LED_MODEL_WS2812, // LED strip model
+         .flags.invert_out = ((blink[0] & IO_INV) ? 1 : 0),     // whether to invert the output signal (useful when your hardware has a level inverter)
+      };
+      led_strip_rmt_config_t rmt_config = {
+         .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
+         .resolution_hz = 10 * 1000 * 1000,     // 10MHz
+         // One LED so no need for DMA
+      };
+      REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &strip));
+   }
+#endif
    while (1)
    {                            /* Idle */
       if (!wdt_test && watchdogtime)
@@ -1480,9 +1502,21 @@ task (void *pvParameters)
                      char col = 0;
                      if (lit)
                         col = *c++;     // Sequences the colours set for the on state
-                     gpio_set_level (blink[0] & IO_MASK, ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[0] & IO_INV) ? 1 : 0));     // Red LED
-                     gpio_set_level (blink[1] & IO_MASK, ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 1 : 0) ^ ((blink[1] & IO_INV) ? 1 : 0));     // Green LED
-                     gpio_set_level (blink[2] & IO_MASK, ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[2] & IO_INV) ? 1 : 0));     // Blue LED
+                     uint8_t r = ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[0] & IO_INV) ? 255 : 0);
+                     uint8_t g = ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 1 : 0) ^ ((blink[1] & IO_INV) ? 255 : 0);
+                     uint8_t b = ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[2] & IO_INV) ? 255 : 0);
+#ifdef	CONFIG_REVK_LED_STRIP
+                     if (strip)
+                     {
+                        led_strip_set_pixel (strip, 0, r, g, b);        // Might be nice to fade up/down?
+                        led_strip_refresh (strip);
+                     } else
+#endif
+                     {
+                        gpio_set_level (blink[0] & IO_MASK, r);
+                        gpio_set_level (blink[1] & IO_MASK, g);
+                        gpio_set_level (blink[2] & IO_MASK, b);
+                     }
                   } else
                      gpio_set_level (blink[0] & IO_MASK, lit ^ ((blink[0] & IO_INV) ? 1 : 0));  // Single LED
                }
@@ -1959,22 +1993,23 @@ revk_boot (app_callback_t * app_callback_cb)
 void
 revk_start (void)
 {                               // Start stuff, init all done
-   for (int b = 0; b < sizeof (blink) / sizeof (*blink); b++)
-   {
-      if (blink[b])
+   if (blink[0] && blink[0] != blink[1])        // Normal LED (not WS2812B)
+      for (int b = 0; b < sizeof (blink) / sizeof (*blink); b++)
       {
-         uint8_t p = blink[b] & IO_MASK;
-         if (!(gpio_ok (p) & 1))
+         if (blink[b])
          {
-            ESP_LOGE (TAG, "Not using GPIO %d", p);
-            blink[b] = 0;
-            continue;
+            uint8_t p = blink[b] & IO_MASK;
+            if (!(gpio_ok (p) & 1))
+            {
+               ESP_LOGE (TAG, "Not using GPIO %d", p);
+               blink[b] = 0;
+               continue;
+            }
+            gpio_reset_pin (p);
+            gpio_set_level (p, (blink[b] & IO_INV) ? 0 : 1);    /* on */
+            gpio_set_direction (p, GPIO_MODE_OUTPUT);   /* Blinking LED */
          }
-         gpio_reset_pin (p);
-         gpio_set_level (p, (blink[b] & IO_INV) ? 0 : 1);       /* on */
-         gpio_set_direction (p, GPIO_MODE_OUTPUT);      /* Blinking LED */
       }
-   }
 #ifndef CONFIG_ENABLE_WIFI_STATION
    esp_netif_init ();
 #endif
