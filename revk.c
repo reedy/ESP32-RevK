@@ -1469,63 +1469,78 @@ task (void *pvParameters)
          tick += 100000ULL;     /* 10th second */
          if (blink[0])
          {                      // LED blinking
-            static uint8_t lit = 0,
-               count = 0;
-            if (count)
-               count--;
-            else
-            {
-               uint8_t on = blink_on,
-                  off = blink_off;
+            static uint8_t rgb = 0;     // Current colour (2 bits per)
+            static uint8_t tick = 0;    // Blink counter
+            uint8_t on = blink_on,
+               off = blink_off;
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-               if (!on && !off)
-                  on = off = (revk_link_down ()? 3 : 6);
+            if (!on && !off)
+               on = off = (revk_link_down ()? 3 : 6);
 #endif
-               lit = 1 - lit;
-               count = (lit ? on : off);
-               if (!count)
-               {                // Only once, allows for on or off to be 0, if both 0 we do nothing!
-                  lit = 1 - lit;
-                  count = (lit ? on : off);
+            if (!off)
+               off = 1;
+            if (++tick >= on + off)
+            {                   // Work out next colour
+               tick = 0;
+               if (blink[1])
+               {                // Coloured LED
+                  static const char *c = "",
+                     *last = NULL;
+                  const char *base = blink_default (blink_colours);     // Always has one colour, even if black
+                  if (base != last)
+                     c = last = base;   // Restart sequence if changed
+                  if (!*c)
+                     c = base;  // End of sequence to loop
+                  char col = *c++;      // Next colour
+                  rgb = ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 0x03 : 0) +   //
+                     ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 0x0C : 0) +      //
+                     ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 0x30 : 0);
                }
-               if (count)
-               {
-                  if (blink[1])
-                  {             // Coloured LED
-                     static const char *c = "",
-                        *last = NULL;
-                     const char *base = blink_default (blink_colours);
-                     if (base != last)
-                        c = last = base;        // Restart sequence if changed
-                     if (!*c)
-                        c = base;
-                     char col = 0;
-                     if (lit)
-                        col = *c++;     // Sequences the colours set for the on state
-#ifdef	CONFIG_REVK_LED_STRIP
-                     if (strip)
-                     {
-                        uint8_t r = ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 255 : 0);
-                        uint8_t g = ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 255 : 0);
-                        uint8_t b = ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 255 : 0);
-                        led_strip_set_pixel (strip, 0, r, g, b);        // Might be nice to fade up/down?
-                        led_strip_refresh (strip);
-                     } else
-#endif
-                     {
-                        uint8_t r =
-                           ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[0] & IO_INV) ? 1 : 0);
-                        uint8_t g =
-                           ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 1 : 0) ^ ((blink[1] & IO_INV) ? 1 : 0);
-                        uint8_t b =
-                           ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 1 : 0) ^ ((blink[2] & IO_INV) ? 1 : 0);
-                        gpio_set_level (blink[0] & IO_MASK, r);
-                        gpio_set_level (blink[1] & IO_MASK, g);
-                        gpio_set_level (blink[2] & IO_MASK, b);
-                     }
+            }
+            // Updated LED
+            if (tick < on)
+            {                   // On
+               if (blink[1])
+               {                // Colour
+#ifdef  CONFIG_REVK_LED_STRIP
+                  if (strip)
+                  {             // WS2812B fading on
+                     led_strip_set_pixel (strip, 0,     //
+                                          tick * ((rgb & 3) * 0x55) / (on - 1), //
+                                          tick * (((rgb >> 2) & 3) * 0x55) / (on - 1),  //
+                                          tick * (((rgb >> 4) & 3) * 0x55) / (on - 1));
+                     led_strip_refresh (strip);
                   } else
-                     gpio_set_level (blink[0] & IO_MASK, lit ^ ((blink[0] & IO_INV) ? 1 : 0));  // Single LED
-               }
+#endif
+                  {             // Separate RGB on
+                     gpio_set_level (blink[0] & IO_MASK, ((rgb >> 1) ^ ((blink[0] & IO_INV) ? 1 : 0)) & 1);
+                     gpio_set_level (blink[1] & IO_MASK, ((rgb >> 3) ^ ((blink[1] & IO_INV) ? 1 : 0)) & 1);
+                     gpio_set_level (blink[2] & IO_MASK, ((rgb >> 5) ^ ((blink[2] & IO_INV) ? 1 : 0)) & 1);
+                  }
+               } else
+                  gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 0 : 1));   // Single LED on
+            } else
+            {                   // Off
+               if (blink[1])
+               {                // Colour
+#ifdef  CONFIG_REVK_LED_STRIP
+                  if (strip)
+                  {             // WS2812B fading off
+                     led_strip_set_pixel (strip, 0,     //
+                                          (on + off - tick - 1) * ((rgb & 3) * 0x55) / off,     //
+                                          (on + off - tick - 1) * (((rgb >> 2) & 3) * 0x55) / off,      //
+                                          (on + off - tick - 1) * (((rgb >> 4) & 3) * 0x55) / off);     //
+                     led_strip_refresh (strip);
+
+                  } else
+#endif
+                  {             // Separate RGB off
+                     gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 1 : 0));
+                     gpio_set_level (blink[1] & IO_MASK, ((blink[1] & IO_INV) ? 1 : 0));
+                     gpio_set_level (blink[2] & IO_MASK, ((blink[2] & IO_INV) ? 1 : 0));
+                  }
+               } else
+                  gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 1 : 0));   // Single LED
             }
          }
          if (setting_dump_requested)
