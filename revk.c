@@ -2014,7 +2014,16 @@ revk_boot (app_callback_t * app_callback_cb)
 void
 revk_start (void)
 {                               // Start stuff, init all done
-   if (blink[0] && blink[0] != blink[1])        // Normal LED (not WS2812B)
+#ifdef  CONFIG_REVK_LED_STRIP
+   if (blink[0] && blink[0] == blink[1])
+   {
+      if (!(gpio_ok (blink[0] & IO_MASK) & 1))
+      {
+         ESP_LOGE (TAG, "Not using LED GPIO %d", blink[0] & IO_MASK);
+         blink[0] = 0;
+      }
+   } else
+#endif
       for (int b = 0; b < sizeof (blink) / sizeof (*blink); b++)
       {
          if (blink[b])
@@ -2022,7 +2031,7 @@ revk_start (void)
             uint8_t p = blink[b] & IO_MASK;
             if (!(gpio_ok (p) & 1))
             {
-               ESP_LOGE (TAG, "Not using GPIO %d", p);
+               ESP_LOGE (TAG, "Not using LED GPIO %d", p);
                blink[b] = 0;
                continue;
             }
