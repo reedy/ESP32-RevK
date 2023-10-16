@@ -34,6 +34,9 @@
 
 #include "esp8266_httpd_compat.h"
 #include "esp8266_netif_compat.h"
+#ifdef  CONFIG_REVK_LED_STRIP
+#include "led_strip.h"
+#endif
 
 // Types
 

@@ -53,9 +53,6 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include "esp8266_flash_compat.h"
 #include "esp8266_gpio_compat.h"
 #include "esp8266_wdt_compat.h"
-#ifdef	CONFIG_REVK_LED_STRIP
-#include "led_strip.h"
-#endif
 
 const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
