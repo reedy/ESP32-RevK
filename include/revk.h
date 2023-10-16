@@ -62,6 +62,9 @@ extern char *hostname;
 extern char *nodename;          // Node name
 extern esp_netif_t *sta_netif;
 extern esp_netif_t *ap_netif;
+#ifdef  CONFIG_REVK_LED_STRIP
+led_strip_handle_t revk_strip = NULL;
+#endif
 
 jo_t jo_make (const char *nodename);    // Start object with node name
 
@@ -74,7 +77,7 @@ typedef struct
 #define freez(x) do{if(x){free((void*)x);x=NULL;}}while(0)      // Just useful - yes free(x) is valid when x is NULL, but this sets x NULL as a result as well
 
 // Calls
-int gpio_ok(uint8_t gpio); // non 0 if OK to use in current platform (bit 0 for out, bit 1 for in, bit 2 for special use - e.g. USB)
+int gpio_ok (uint8_t gpio);     // non 0 if OK to use in current platform (bit 0 for out, bit 1 for in, bit 2 for special use - e.g. USB)
 void revk_boot (app_callback_t * app_callback);
 void revk_start (void);
 void revk_pre_shutdown (void);

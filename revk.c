@@ -264,6 +264,9 @@ char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
 static int8_t ota_percent = -1;
+#ifdef	CONFIG_REVK_LED_STRIP
+led_strip_handle_t revk_strip = NULL;
+#endif
 
 /* Local */
 static uint32_t up_next;        // next up report (uptime)
@@ -1437,9 +1440,8 @@ task (void *pvParameters)
    if (otaauto)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
 #ifdef	CONFIG_REVK_LED_STRIP
-   led_strip_handle_t strip = NULL;
-   if (blink[0] && blink[0] == blink[1])
-   {
+   if (blink[0] && blink[0] == blink[1] && !revk_strip)
+   {                            // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
       led_strip_config_t strip_config = {
          .strip_gpio_num = (blink[0] & IO_MASK),
          .max_leds = 1,         // The number of LEDs in the strip,
@@ -1452,7 +1454,7 @@ task (void *pvParameters)
          .resolution_hz = 10 * 1000 * 1000,     // 10MHz
          // One LED so no need for DMA
       };
-      REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &strip));
+      REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &revk_strip));
    }
 #endif
    while (1)
@@ -1467,11 +1469,11 @@ task (void *pvParameters)
             now = tick;
          }
          tick += 100000ULL;     /* 10th second */
-         if (blink[0])
-         {                      // LED blinking
+         if (blink[0] || revk_strip)
+         {                      // LED blinking controls
             static uint8_t rgb = 0;     // Current colour (2 bits per)
-            static uint8_t tick = 0;    // Blink counter
-            uint8_t on = blink_on,
+            static uint8_t tick = 255;  // Blink cycle counter
+            uint8_t on = blink_on,      // Current on/off times
                off = blink_off;
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
             if (!on && !off)
@@ -1480,10 +1482,10 @@ task (void *pvParameters)
             if (!off)
                off = 1;
             if (++tick >= on + off)
-            {                   // Work out next colour
+            {                   // End of cycle, work out next colour
                tick = 0;
-               if (blink[1])
-               {                // Coloured LED
+               if (blink[1] || revk_strip)
+               {                // Coloured LED used, so work out next colour
                   static const char *c = "",
                      *last = NULL;
                   const char *base = blink_default (blink_colours);     // Always has one colour, even if black
@@ -1497,50 +1499,47 @@ task (void *pvParameters)
                      ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 0x30 : 0);
                }
             }
-            // Updated LED
+            // Updated LED every 10th second
             if (tick < on)
-            {                   // On
-               if (blink[1])
-               {                // Colour
+            {                   // On period in cycle
 #ifdef  CONFIG_REVK_LED_STRIP
-                  if (strip)
-                  {             // WS2812B fading on
-                     led_strip_set_pixel (strip, 0,     //
-                                          tick * ((rgb & 3) * 0x55) / (on - 1), //
-                                          tick * (((rgb >> 2) & 3) * 0x55) / (on - 1),  //
-                                          tick * (((rgb >> 4) & 3) * 0x55) / (on - 1));
-                     led_strip_refresh (strip);
-                  } else
+               if (revk_strip)
+               {                // WS2812B fading on (this can be independent of direct LED control, and could be part of a pre-set longer strip)
+                  led_strip_set_pixel (revk_strip, 0,   //
+                                       tick * ((rgb & 3) * 0x55) / (on - 1),    //
+                                       tick * (((rgb >> 2) & 3) * 0x55) / (on - 1),     //
+                                       tick * (((rgb >> 4) & 3) * 0x55) / (on - 1));
+                  led_strip_refresh (revk_strip);
+               }
 #endif
-                  {             // Separate RGB on
-                     gpio_set_level (blink[0] & IO_MASK, ((rgb >> 1) ^ ((blink[0] & IO_INV) ? 1 : 0)) & 1);
-                     gpio_set_level (blink[1] & IO_MASK, ((rgb >> 3) ^ ((blink[1] & IO_INV) ? 1 : 0)) & 1);
-                     gpio_set_level (blink[2] & IO_MASK, ((rgb >> 5) ^ ((blink[2] & IO_INV) ? 1 : 0)) & 1);
-                  }
-               } else
+               if (!blink[1])
                   gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 0 : 1));   // Single LED on
+               else if (blink[0] != blink[1])
+               {                // Separate RGB on
+                  gpio_set_level (blink[0] & IO_MASK, ((rgb >> 1) ^ ((blink[0] & IO_INV) ? 1 : 0)) & 1);
+                  gpio_set_level (blink[1] & IO_MASK, ((rgb >> 3) ^ ((blink[1] & IO_INV) ? 1 : 0)) & 1);
+                  gpio_set_level (blink[2] & IO_MASK, ((rgb >> 5) ^ ((blink[2] & IO_INV) ? 1 : 0)) & 1);
+               }
             } else
-            {                   // Off
-               if (blink[1])
-               {                // Colour
+            {                   // Off part of cycle
 #ifdef  CONFIG_REVK_LED_STRIP
-                  if (strip)
-                  {             // WS2812B fading off
-                     led_strip_set_pixel (strip, 0,     //
-                                          (on + off - tick - 1) * ((rgb & 3) * 0x55) / off,     //
-                                          (on + off - tick - 1) * (((rgb >> 2) & 3) * 0x55) / off,      //
-                                          (on + off - tick - 1) * (((rgb >> 4) & 3) * 0x55) / off);     //
-                     led_strip_refresh (strip);
-
-                  } else
+               if (revk_strip)
+               {                // WS2812B fading off (this can be independent of direct LED control, and could be part of a pre-set longer strip)
+                  led_strip_set_pixel (revk_strip, 0,   //
+                                       (on + off - tick - 1) * ((rgb & 3) * 0x55) / off,        //
+                                       (on + off - tick - 1) * (((rgb >> 2) & 3) * 0x55) / off, //
+                                       (on + off - tick - 1) * (((rgb >> 4) & 3) * 0x55) / off);        //
+                  led_strip_refresh (revk_strip);
+               }
 #endif
-                  {             // Separate RGB off
-                     gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 1 : 0));
-                     gpio_set_level (blink[1] & IO_MASK, ((blink[1] & IO_INV) ? 1 : 0));
-                     gpio_set_level (blink[2] & IO_MASK, ((blink[2] & IO_INV) ? 1 : 0));
-                  }
-               } else
+               if (!blink[1])
                   gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 1 : 0));   // Single LED
+               else if (blink[0] != blink[1])
+               {                // Separate RGB off
+                  gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 1 : 0));
+                  gpio_set_level (blink[1] & IO_MASK, ((blink[1] & IO_INV) ? 1 : 0));
+                  gpio_set_level (blink[2] & IO_MASK, ((blink[2] & IO_INV) ? 1 : 0));
+               }
             }
          }
          if (setting_dump_requested)

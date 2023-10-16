@@ -120,7 +120,7 @@ All settings have a simple name, but some settings can also be accessed in a nes
 |`wifigw`|Static IPv4 gateway for WiFi|
 |`wifidns`|Static IPv4 DNS server for WiFi|
 |`wifimqtt`|This is a special case, an SSID to use if possible (falls back to normal `wifissid`), and connect via MQTT to the router IP address received.|
-|`blink`|Either one GPIO number or an array of GPIO numbers for *R*, *G*, *B* LEDs, prefix each with `-` for active low LED.|
+|`blink`|Status LED control (see below).|
 |`apport`|The TCP port for access point web page (normally 80)|
 |`apwait`|The time in seconds before entering AP mode when no WiFi|
 |`aptime`|The time to stay in AP mode|
@@ -137,3 +137,13 @@ All settings have a simple name, but some settings can also be accessed in a nes
 |`prefixevent`|The prefix for `event`|
 |`prefixinfo`|The prefix for `info`|
 |`prefixerror`|The prefix for `error`|
+
+#### Status LED
+
+The status LED is defined by `blink`, which is an array of GPIO. It can be
+
+- Single GPIO (first in array only) for direct blink LED on/off
+- Array of three different GPIO for Red, Green, Blue LEDs
+- First and second entry being the *same* GPIO meaning use LED STRIP (if included in managed components).
+
+There are some defaults, but the flash speed and sequence of colours can be defined by the application.
