@@ -12,18 +12,24 @@ menu "RevK"
         help
 		The MQTT strings have prefix (e.g. command) then appname then the hostname. The appname can be turned off
 
-	config REVK_BLINK_DEFAULT
+	config REVK_BLINK_LIB
 	bool "Blink LED GPIO(s) defined in library"
 	default y
         help
-		If blink LED GPIO(s) defined in library or in app. If in app then uint8_t blink[3] is needed.
+		If blink LED GPIO(s) defined in library or in app. If in app then uint8_t blink[3] is needed, and revk_blinker() needs calling every 0.1s
 
 	config REVK_BLINK
         string "Blink GPIOs"
         default ""
-	depends on REVK_BLINK_DEFAULT
+	depends on REVK_BLINK_LIB
         help
 		One or more (space separated) LED GPIOs
+
+	config REVK_LED_STRIP
+	bool "Support LED strip for status LED"
+	default n
+        help
+		Support LED strip for status LED
 
 	config REVK_WATCHDOG
 	int "Watchdog time"
@@ -395,11 +401,5 @@ menu "RevK"
 	default n
         help
 		Build in Matter
-
-	config REVK_LED_STRIP
-	bool "Support LED strip for status LED"
-	default n
-        help
-		Support LED strip for status LED
 
 endmenu
