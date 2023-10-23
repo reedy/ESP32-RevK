@@ -1551,7 +1551,7 @@ task (void *pvParameters)
             now = tick;
          }
          tick += 100000ULL;     /* 10th second */
-#ifdef CONFIG_REVK_BLINK
+#ifdef CONFIG_REVK_BLINK_LIB
          if (blink[0]
 #ifdef  CONFIG_REVK_LED_STRIP
              || revk_strip

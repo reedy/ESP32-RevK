@@ -16,12 +16,18 @@ menu "RevK"
 	bool "Blink LED GPIO(s) defined in library"
 	default y
         help
-		If blink LED GPIO(s) defined in library or in app. If in app then uint8_t blink[3] is needed, and revk_blinker() needs calling every 0.1s
+		If blinking done in library, else call revk_blinker() every 0.1s to blink LEDs
+
+	config REVK_BLINK_DEFINE
+	bool "Blink LED GPIO(s) defined in library"
+	default y
+        help
+		If blink LED GPIO(s) defined in library or in app. If in app then uint8_t blink[3] is needed.
 
 	config REVK_BLINK
         string "Blink GPIOs"
         default ""
-	depends on REVK_BLINK_LIB
+	depends on REVK_BLINK_DEFINE
         help
 		One or more (space separated) LED GPIOs
 
