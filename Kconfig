@@ -29,7 +29,7 @@ menu "RevK"
 	bool "Support LED strip for status LED"
 	default n
         help
-		Support LED strip for status LED
+		Support LED strip for status LED - set by build system if led_strip managed_component is present
 
 	config REVK_WATCHDOG
 	int "Watchdog time"
