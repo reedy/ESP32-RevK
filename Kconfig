@@ -13,7 +13,7 @@ menu "RevK"
 		The MQTT strings have prefix (e.g. command) then appname then the hostname. The appname can be turned off
 
 	config REVK_BLINK_LIB
-	bool "Blink LED GPIO(s) defined in library"
+	bool "Blink LED update done in library"
 	default y
         help
 		If blinking done in library, else call revk_blinker() every 0.1s to blink LEDs
