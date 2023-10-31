@@ -5,7 +5,6 @@
 // Automatic reconnect
 static const char __attribute__((unused)) * TAG = "LWMQTT";
 
-#include "config.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
