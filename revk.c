@@ -106,7 +106,7 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #define	MQTT_CLIENTS	2       // Smaller that 8 as top bit used for retain
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
-		u8(otaauto,CONFIG_REVK_OTAAUTO);	\
+		s8(otaauto,CONFIG_REVK_OTAAUTO);	\
 		bd(otacert,CONFIG_REVK_OTACERT);	\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
@@ -1519,8 +1519,10 @@ task (void *pvParameters)
    /* Log if unexpected restart */
    int64_t tick = 0;
    uint32_t ota_check = 0;
-   if (otaauto)
+   if (otaauto > 0)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
+   else if (otaauto < 0)
+      ota_check = 86400 * (-otaauto) + (esp_random () % 3600);  // Min periodic check
 #ifdef	CONFIG_REVK_LED_STRIP
    if (blink[0] && blink[0] == blink[1] && !revk_strip)
    {                            // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
@@ -1580,10 +1582,15 @@ task (void *pvParameters)
             struct tm tm = { 0 };
             localtime_r (&t, &tm);
             if (now > 7200 && tm.tm_hour >= 6)
-               ota_check = now + (esp_random () % 21600);       // A periodic check should be in the middle of the night, so wait a bit more (<7200 is startup check)
+               ota_check = now + (esp_random () % 21600);       // A periodic check should be in the middle of the night, so wait a bit more (<7200 is a startup check)
             else
             {                   // Do a check
-               ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);     // Next check approx otaauto days later
+               if (otaauto > 0)
+                  ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);  // Next check approx otaauto days later
+               else if (otaauto < 0)
+                  ota_check = 86400 * (-otaauto) + (esp_random () % 3600);      // Min periodic check
+               else
+                  ota_check = 0;
 #ifdef CONFIG_REVK_MESH
                if (esp_mesh_is_root ())
 #endif
@@ -3236,6 +3243,12 @@ ota_task (void *pvParameters)
             {
                revk_restart ("OTA Download fail", 3);
                ota_percent = -4;
+               if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && (otaauto > 0 || otaauto > -30))
+               {                // Force long recheck delay
+                  jo_t j = jo_make (NULL);
+                  jo_int (j, "otaauto", -30);
+                  revk_setting (&j);
+               }
             }
          }
 #endif
