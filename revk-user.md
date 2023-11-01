@@ -30,9 +30,7 @@ It is usually a good idea to ensure software is up to date. The system has a set
 
 You can do an upgrade from the web control pages for most apps with a link from the WiFi settings page. You can also do an `upgrade` command from MQTT (which allows the full URL and file to be specified, if needed).
 
-However, for most apps (based on the `otaauto` settings) upgrades will be checked every few days, and done if needed. This is normally within one to two hours of start up (to allow you time to make any changes if needed, including turning off auto update), or the middle of the night (to minimise disruption). The server is checked and the update and restart is only done if there is a new version.
-
-
+However, for most apps (based on the `otaauto` settings) upgrades will be checked every few days, and done if needed. If not set negative, then a check is also done around an hour after startup, otherwise done in middle of the night. The server is checked and the update and restart is only done if there is a new version. If the update fails validation then `otaauto` is set to `-30` to avoid more frequent checks, as a failed update also causes a reboot.
 
 ## MQTT 
 
@@ -96,7 +94,7 @@ All settings have a simple name, but some settings can also be accessed in a nes
 |`appname`|The name of the application. You do not normally want to override this.|
 |`hostname`|The name to use for this device in topic, and DHCP and so on. This defaults the hex MAC address if not set or set to an empty string.|
 |`otahost`|Hostname for *over the air* updates|
-|`otaauto`|If not `0` then check for updates periodically (this many days, approx), and do upgrade if needed.|
+|`otaauto`|If not `0` then check for updates periodically (this many days, approx), and do upgrade if needed. Negative is allowed, also means a number of days but no startup check.|
 |`wifissid`|WiFi SSID to use|
 |`wifipass`|WiFi passphrase to use|
 |`mqtthost`|MQTT hostname|
