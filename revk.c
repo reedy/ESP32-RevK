@@ -3247,7 +3247,8 @@ ota_task (void *pvParameters)
                {                // Force long recheck delay
                   jo_t j = jo_make (NULL);
                   jo_int (j, "otaauto", -30);
-                  revk_setting (&j);
+                  revk_setting (j);
+                  jo_free (&j);
                }
             }
          }
