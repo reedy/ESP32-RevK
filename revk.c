@@ -1076,7 +1076,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          if (e2 && (*e2 || !err))
             err = e2;           /* Overwrite error if we did not have one */
       }
-      if (!err && !target && (!suffix || strcmp (suffix, "upgrade")))
+      if (!err && !target)
          err = "Unknown";
       if (err && *err)
       {
