@@ -1447,24 +1447,17 @@ revk_blinker (
    if (++tick >= on + off)
    {                            // End of cycle, work out next colour
       tick = 0;
-      if (blink[1]
-#ifdef  CONFIG_REVK_LED_STRIP
-          || strip
-#endif
-         )
-      {                         // Coloured LED used, so work out next colour
-         static const char *c = "",
-            *last = NULL;
-         const char *base = blink_default (blink_colours);      // Always has one colour, even if black
-         if (base != last)
-            c = last = base;    // Restart sequence if changed
-         if (!*c)
-            c = base;           // End of sequence to loop
-         char col = *c++;       // Next colour
-         rgb = ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 0x03 : 0) +    //
-            ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 0x0C : 0) +       //
-            ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 0x30 : 0);
-      }
+      static const char *c = "",
+         *last = NULL;
+      const char *base = blink_default (blink_colours); // Always has one colour, even if black
+      if (base != last)
+         c = last = base;       // Restart sequence if changed
+      if (!*c)
+         c = base;              // End of sequence to loop
+      char col = *c++;          // Next colour
+      rgb = ((col == 'R' || col == 'Y' || col == 'M' || col == 'W') ? 0x03 : 0) +       //
+         ((col == 'G' || col == 'Y' || col == 'C' || col == 'W') ? 0x0C : 0) +  //
+         ((col == 'B' || col == 'C' || col == 'M' || col == 'W') ? 0x30 : 0);
    }
    // Updated LED every 10th second
    if (tick < on)
