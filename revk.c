@@ -1473,7 +1473,7 @@ revk_blinker (
       }
 #endif
       if (!blink[1])
-         gpio_set_level (blink[0] & IO_MASK, (rgb ? 1 : 0) ^ ((blink[0] & IO_INV) ? 0 : 1));    // Single LED on
+         gpio_set_level (blink[0] & IO_MASK, (rgb ? 1 : 0) ^ ((blink[0] & IO_INV) ? 1 : 0));    // Single LED on
       else if (blink[0] != blink[1])
       {                         // Separate RGB on
          gpio_set_level (blink[0] & IO_MASK, ((rgb >> 1) ^ ((blink[0] & IO_INV) ? 1 : 0)) & 1);
