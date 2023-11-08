@@ -3753,7 +3753,7 @@ revk_setting_dump (void)
    const char *err = NULL;
    jo_t j = NULL;
    void send (void)
-   {
+   { // Sends the settings - this deliberately uses the revk_id not the hostname as it is "seen" by any device listening
       if (!j)
          return;
       const char *an = appname,
