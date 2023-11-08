@@ -3756,7 +3756,14 @@ revk_setting_dump (void)
    {
       if (!j)
          return;
-      revk_mqtt_send (prefixsetting, 0, NULL, &j);
+      const char *an = appname,
+         *sl = "/";
+      if (!prefixapp)
+         an = sl = "";
+      char *topic = NULL;
+      asprintf (&topic, "%s%s%s/%s", prefixsetting, sl, an, revk_id);
+      revk_mqtt_send (NULL, 0, topic, &j);
+      free (topic);
    }
    int maxpacket = MQTT_MAX;
    maxpacket -= 50;             // for headers
@@ -4024,7 +4031,7 @@ revk_setting_dump (void)
                   {
                      jo_t j = jo_make (NULL);
                      jo_string (j, "description", "Setting did not fit");
-                     jo_string (j, "setting", tag);
+                     jo_string (j, prefixsetting, tag);
                      if (err)
                         jo_string (j, "reason", err);
                      revk_error (TAG, &j);
@@ -4044,7 +4051,7 @@ revk_setting_dump (void)
          {
             jo_t j = jo_make (NULL);
             jo_string (j, "description", "Setting did not fit");
-            jo_string (j, "setting", s->name);
+            jo_string (j, prefixsetting, s->name);
             if (err)
                jo_string (j, "reason", err);
             revk_error (TAG, &j);
