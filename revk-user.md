@@ -136,6 +136,8 @@ All settings have a simple name, but some settings can also be accessed in a nes
 |`prefixinfo`|The prefix for `info`|
 |`prefixerror`|The prefix for `error`|
 
+Note that the `prefix` settings have to be one word, i.e. no `/` included in them.
+
 #### Status LED
 
 The status LED is defined by `blink`, which is an array of GPIO. It can be
