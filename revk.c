@@ -3022,6 +3022,7 @@ ap_start (void)
 #ifdef	CONFIG_REVK_APCONFIG
    // Web server
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   config.stack_size = 6 * 1024;        // Larger than default, just in case
    if (apport)
       config.server_port = apport;
    /* Empty handle to esp_http_server */
@@ -3753,7 +3754,7 @@ revk_setting_dump (void)
    const char *err = NULL;
    jo_t j = NULL;
    void send (void)
-   { // Sends the settings - this deliberately uses the revk_id not the hostname as it is "seen" by any device listening
+   {                            // Sends the settings - this deliberately uses the revk_id not the hostname as it is "seen" by any device listening
       if (!j)
          return;
       const char *an = appname,
