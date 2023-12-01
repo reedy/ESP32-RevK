@@ -2446,10 +2446,13 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
    httpd_resp_sendstr_chunk (req, ": ");
    httpd_resp_sendstr_chunk (req, revk_version);
    httpd_resp_sendstr_chunk (req, " ");
-   if (extra && *extra)
-      httpd_resp_sendstr_chunk (req, extra);
    char temp[20];
    httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
+   if (extra && *extra)
+   {
+      httpd_resp_sendstr_chunk (req, " ");
+      httpd_resp_sendstr_chunk (req, extra);
+   }
    httpd_resp_sendstr_chunk (req, "</address></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
    return ESP_OK;
@@ -2782,7 +2785,7 @@ revk_web_settings (httpd_req_t * req)
       httpd_resp_sendstr_chunk (req, "</table>");
    }
 
-   return revk_web_foot (req, 1, 0);
+   return revk_web_foot (req, 1, 0, NULL);
 }
 
 #ifdef	CONFIG_HTTPD_WS_SUPPORT
