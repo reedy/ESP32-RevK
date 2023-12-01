@@ -167,16 +167,16 @@ esp_err_t revk_web_settings (httpd_req_t * req);        // Call for web config f
 esp_err_t revk_web_status (httpd_req_t * req);  // Call for web config for SSID/password/mqtt (WS)
 esp_err_t revk_web_wifilist (httpd_req_t * req);        // WS for list of SSIDs
 void revk_web_head (httpd_req_t * req, const char *title);      // Generic html heading
-esp_err_t revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi);        // Generic html footing and return
+esp_err_t revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra);     // Generic html footing and return
 
 #ifndef	CONFIG_LED_BLINK
-void revk_blinker( // Call every 0.1s if app controls blinking - strip means set first LED in strip
+void revk_blinker (             // Call every 0.1s if app controls blinking - strip means set first LED in strip
 #ifdef  CONFIG_REVK_LED_STRIP
-                           led_strip_handle_t strip
+                     led_strip_handle_t strip
 #else
-                         void
+                     void
 #endif
-                         );
+   );
 #endif
 
 #endif

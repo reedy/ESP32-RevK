@@ -2429,7 +2429,7 @@ revk_web_head (httpd_req_t * req, const char *title)
 }
 
 esp_err_t
-revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi)
+revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
 {                               // Generic html footing and return
    httpd_resp_sendstr_chunk (req, "<hr><address>");
    if (home)
@@ -2446,6 +2446,8 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi)
    httpd_resp_sendstr_chunk (req, ": ");
    httpd_resp_sendstr_chunk (req, revk_version);
    httpd_resp_sendstr_chunk (req, " ");
+   if (extra && *extra)
+      httpd_resp_sendstr_chunk (req, extra);
    char temp[20];
    httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
    httpd_resp_sendstr_chunk (req, "</address></body></html>");
