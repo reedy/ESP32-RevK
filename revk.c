@@ -261,8 +261,10 @@ char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
 static int8_t ota_percent = -1;
+#ifdef CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
 led_strip_handle_t revk_strip = NULL;
+#endif
 #endif
 
 /* Local */
@@ -1516,6 +1518,7 @@ task (void *pvParameters)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
    else if (otaauto < 0)
       ota_check = 86400 * (-otaauto) + (esp_random () % 3600);  // Min periodic check
+#ifdef CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
    if (blink[0] && blink[0] == blink[1] && !revk_strip)
    {                            // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
@@ -1533,6 +1536,7 @@ task (void *pvParameters)
       };
       REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &revk_strip));
    }
+#endif
 #endif
    while (1)
    {                            /* Idle */
