@@ -1780,10 +1780,7 @@ revk_pre_shutdown (void)
 int
 gpio_ok (uint8_t p)
 {                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK. bit 2 for special use (e.g. USB)
-#ifdef CONFIG_IDF_TARGET_ESP8266
-   // 8266 has GPIOs 0...16, allow any use
-   return (p <= 16) ? 3 : 0;
-#endif
+   	// ESP32
 #ifdef	CONFIG_IDF_TARGET_ESP32
    if (p > 39)
       return 0;
@@ -1803,6 +1800,8 @@ gpio_ok (uint8_t p)
       return 2;                 // Input only
    return 3;                    // Input and output
 #endif
+
+   // ESP32-S3
 #ifdef	CONFIG_IDF_TARGET_ESP32S3
    if (p > 48)
       return 0;
@@ -1815,6 +1814,12 @@ gpio_ok (uint8_t p)
       return 0;
 #endif
    return 3;                    // All input and output
+#endif
+
+	// ESP8266
+#ifdef CONFIG_IDF_TARGET_ESP8266
+   // 8266 has GPIOs 0...16, allow any use
+   return (p <= 16) ? 3 : 0;
 #endif
 }
 
