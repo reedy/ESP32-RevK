@@ -2456,8 +2456,9 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
    httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
    if (extra && *extra)
    {
-      httpd_resp_sendstr_chunk (req, " ");
+      httpd_resp_sendstr_chunk (req, " <b>");
       httpd_resp_sendstr_chunk (req, extra);
+      httpd_resp_sendstr_chunk (req, "</b>");
    }
    httpd_resp_sendstr_chunk (req, "</address></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
