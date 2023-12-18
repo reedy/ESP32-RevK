@@ -3033,7 +3033,6 @@ ap_start (void)
 #ifdef	CONFIG_REVK_APCONFIG
    // Web server
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
-   config.stack_size = 6 * 1024;        // Larger than default, just in case
    if (apport)
       config.server_port = apport;
    /* Empty handle to esp_http_server */
