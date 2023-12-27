@@ -1467,7 +1467,7 @@ revk_blinker (
          c = base;              // End of sequence to loop
       char col = *c++;          // Next colour
       rgb = (col == 'R' ? 0x03 : col == 'Y' ? 0x02 : col == 'M' ? 0x02 : col == 'W' ? 0x01 : 0) +       //
-         ((col == 'G' ? 0x03 : col == 'Y' ? 0x02 : col == 'C' ? 0x02 : col == 'W' ? 0x01 : 0) << 2) + /
+         ((col == 'G' ? 0x03 : col == 'Y' ? 0x02 : col == 'C' ? 0x02 : col == 'W' ? 0x01 : 0) << 2) + //
          ((col == 'B' ? 0x03 : col == 'C' ? 0x02 : col == 'M' ? 0x02 : col == 'W' ? 0x01 : 0) << 4);
    }
    // Updated LED every 10th second
