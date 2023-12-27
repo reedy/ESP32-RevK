@@ -1321,11 +1321,11 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          }
          break;
       case IP_EVENT_GOT_IP6:
-         ip_event_got_ip6_t * event = (ip_event_got_ip6_t *) event_data;
          ESP_LOGI (TAG, "Got IPv6");
 #ifdef  CONFIG_REVK_WIFI
          if (app_callback)
          {
+            ip_event_got_ip6_t *event = (ip_event_got_ip6_t *) event_data;
             jo_t j = jo_object_alloc ();
             jo_stringf (j, "ipv6", IPV6STR, IPV62STR (event->ip6_info.ip));
             app_callback (0, prefixcommand, NULL, "ipv6", j);
@@ -1527,6 +1527,7 @@ task (void *pvParameters)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
    else if (otaauto < 0)
       ota_check = 86400 * (-otaauto) + (esp_random () % 3600);  // Min periodic check
+#ifdef CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
    if (blink[0] && blink[0] == blink[1] && !revk_strip)
    {                            // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
@@ -1544,6 +1545,7 @@ task (void *pvParameters)
       };
       REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &revk_strip));
    }
+#endif
 #endif
    while (1)
    {                            /* Idle */
@@ -1833,6 +1835,28 @@ gpio_ok (uint8_t p)
 void
 revk_boot (app_callback_t * app_callback_cb)
 {                               /* Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID */
+   {                            // Safe GPIO
+      gpio_config_t i = {.mode = GPIO_MODE_INPUT };
+      for (uint8_t p = 0; p <= 48; p++)
+         if (gpio_ok (p) & 2)
+            i.pin_bit_mask |= (1LL << p);
+      gpio_config (&i);
+      gpio_config_t d = {.pull_down_en = 1,.mode = GPIO_MODE_DISABLE };
+      gpio_config_t u = {.pull_down_en = 1,.mode = GPIO_MODE_DISABLE };
+      for (uint8_t p = 0; p <= 48; p++)
+         if (gpio_ok (p) & 2)
+         {
+            if (gpio_get_level (p))
+               u.pin_bit_mask |= (1LL << p);
+            else
+               d.pin_bit_mask |= (1LL << p);
+         }
+      if (u.pin_bit_mask)
+         gpio_config (&u);
+      if (d.pin_bit_mask)
+         gpio_config (&d);
+   }
+
 #ifdef	CONFIG_REVK_MESH
    esp_wifi_disconnect ();      // Just in case
    mesh_mutex = xSemaphoreCreateBinary ();
