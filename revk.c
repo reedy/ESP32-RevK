@@ -261,8 +261,10 @@ char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
 static int8_t ota_percent = -1;
+#ifdef	CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
 led_strip_handle_t revk_strip = NULL;
+#endif
 #endif
 
 /* Local */
@@ -1477,9 +1479,9 @@ revk_blinker (
       if (strip)
       {                         // WS2812B fading on (this can be independent of direct LED control, and could be part of a pre-set longer strip)
          led_strip_set_pixel (strip, 0, //
-                              tick * ((rgb & 3) * 0x55) / (on - 1),     //
-                              tick * (((rgb >> 2) & 3) * 0x55) / (on - 1),      //
-                              tick * (((rgb >> 4) & 3) * 0x55) / (on - 1));
+                              (tick + 1) * ((rgb & 3) * 0x55) / on,     //
+                              (tick + 1) * (((rgb >> 2) & 3) * 0x55) / on,      //
+                              (tick + 1) * (((rgb >> 4) & 3) * 0x55) / on);
          led_strip_refresh (strip);
       }
 #endif
@@ -1527,7 +1529,7 @@ task (void *pvParameters)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
    else if (otaauto < 0)
       ota_check = 86400 * (-otaauto) + (esp_random () % 3600);  // Min periodic check
-#ifdef CONFIG_REVK_BLINK_LIB
+#ifdef	CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
    if (blink[0] && blink[0] == blink[1] && !revk_strip)
    {                            // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
@@ -1604,8 +1606,8 @@ task (void *pvParameters)
             }
          }
 #ifdef CONFIG_REVK_MESH
-         ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long) now, revk_link_down (), esp_mesh_get_total_node_num (),
-                   esp_mesh_is_root ()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
+         ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long) now, revk_link_down (),
+                   esp_mesh_get_total_node_num (), esp_mesh_is_root ()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
          ESP_LOGI (TAG, "Up %ld, Link down %ld", (long) now, (long) revk_link_down ());
@@ -1793,6 +1795,7 @@ revk_pre_shutdown (void)
 int
 gpio_ok (uint8_t p)
 {                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK. bit 2 USB (not marked in/out), bit 3 for Serial (are marked in/out as well)
+   // ESP32 (S1)
 #ifdef	CONFIG_IDF_TARGET_ESP32
    if (p > 39)
       return 0;
@@ -1814,7 +1817,7 @@ gpio_ok (uint8_t p)
       return 3 + 8;             // Serial       
    return 3;                    // Input and output
 #endif
-
+   // ESP32 (S3)
 #ifdef	CONFIG_IDF_TARGET_ESP32S3
    if (p > 48)
       return 0;
@@ -1830,7 +1833,7 @@ gpio_ok (uint8_t p)
       return 3 + 8;             // Serial
    return 3;                    // All input and output
 #endif
-
+   // ESP8266
 #ifdef CONFIG_IDF_TARGET_ESP8266
    // 8266 has GPIOs 0...16, allow any use
    return (p <= 16) ? 3 : 0;
@@ -1876,7 +1879,6 @@ revk_boot (app_callback_t * app_callback_cb)
    xSemaphoreGive (mesh_mutex);
    mesh_ota_sem = xSemaphoreCreateBinary ();    // Leave in taken, only given on ack received
 #endif
-
 #ifdef	CONFIG_REVK_PARTITION_CHECK
    {                            // Only if we are in the first OTA partition, else changes could be problematic
       const esp_partition_t *ota_partition = esp_ota_get_running_partition ();
@@ -2498,8 +2500,9 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
    httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
    if (extra && *extra)
    {
-      httpd_resp_sendstr_chunk (req, " ");
+      httpd_resp_sendstr_chunk (req, " <b>");
       httpd_resp_sendstr_chunk (req, extra);
+      httpd_resp_sendstr_chunk (req, "</b>");
    }
    httpd_resp_sendstr_chunk (req, "</address></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
@@ -2554,7 +2557,6 @@ revk_web_settings (httpd_req_t * req)
    }
 
    head ();
-
    if (req->method == HTTP_POST)
    {
       if (req->content_len <= 0)
@@ -2961,7 +2963,8 @@ dummy_dns_task (void *pvParameters)
       int res = 1;
       setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &res, sizeof (res));
       {                         // Bind
-         struct sockaddr_in dest_addr_ip4 = {.sin_addr.s_addr = htonl (INADDR_ANY),.sin_family = AF_INET,.sin_port = htons (53) };
+         struct sockaddr_in dest_addr_ip4 = {.sin_addr.s_addr = htonl (INADDR_ANY),.sin_family = AF_INET,.sin_port = htons (53)
+         };
          res = bind (sock, (struct sockaddr *) &dest_addr_ip4, sizeof (dest_addr_ip4));
       }
       if (!res)
@@ -3055,8 +3058,8 @@ ap_start (void)
    cfg.ap.ssid_len = snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-%012llX", appname, revk_binid);
 #else
    cfg.ap.ssid_len =
-      snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-10.%d.%d.1", appname, (uint8_t) (revk_binid >> 8),
-                (uint8_t) (revk_binid & 255));
+      snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-10.%d.%d.1", appname,
+                (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
 #endif
    if (cfg.ap.ssid_len > sizeof (cfg.ap.ssid))
       cfg.ap.ssid_len = sizeof (cfg.ap.ssid);
@@ -3732,8 +3735,8 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
          if (memcmp (n, d, o))
          {
 #if defined(SETTING_DEBUG) || defined(SETTING_CHANGED)
-            ESP_LOGI (TAG, "Setting %s different content %d (%02X%02X%02X%02X/%02X%02X%02X%02X)", tag, o, d[0], d[1], d[2], d[3],
-                      n[0], n[1], n[2], n[3]);
+            ESP_LOGI (TAG, "Setting %s different content %d (%02X%02X%02X%02X/%02X%02X%02X%02X)", tag, o, d[0],
+                      d[1], d[2], d[3], n[0], n[1], n[2], n[3]);
 #endif
             o = -1;             /* Different content */
          }
@@ -4515,21 +4518,16 @@ revk_command (const char *tag, jo_t j)
       volatile UBaseType_t uxArraySize,
         x;
       uint32_t ulTotalRunTime;
-
       // Take a snapshot of the number of tasks in case it changes while this
       // function is executing.
       uxArraySize = uxTaskGetNumberOfTasks ();
-
       // Allocate a TaskStatus_t structure for each task.  An array could be
       // allocated statically at compile time.
       pxTaskStatusArray = pvPortMalloc (uxArraySize * sizeof (TaskStatus_t));
-
       if (!pxTaskStatusArray)
          return "alloc fail";
-
       // Generate raw status information about each task.
       uxArraySize = uxTaskGetSystemState (pxTaskStatusArray, uxArraySize, &ulTotalRunTime);
-
       // For each populated position in the pxTaskStatusArray array,
       // format the raw data as human readable ASCII data
       for (x = 0; x < uxArraySize; x++)
@@ -4589,8 +4587,8 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
    {                            // Check if sub setting - parent must be set first, and be secret and same array size
       setting_t *q;
       for (q = setting;
-           q && (q->namelen >= s->namelen || strncmp (q->name, name, q->namelen) || !(q->flags & SETTING_SECRET)
-                 || q->array != array); q = q->next);
+           q && (q->namelen >= s->namelen || strncmp (q->name, name, q->namelen)
+                 || !(q->flags & SETTING_SECRET) || q->array != array); q = q->next);
       if (q)
       {
          s->child = 1;
