@@ -1467,7 +1467,7 @@ revk_blinker (
          c = base;              // End of sequence to loop
       char col = *c++;          // Next colour
       rgb = (col == 'R' ? 0x03 : col == 'Y' ? 0x02 : col == 'M' ? 0x02 : col == 'W' ? 0x01 : 0) +       //
-         ((col == 'G' ? 0x03 : col == 'Y' ? 0x02 : col == 'C' ? 0x02 : col == 'W' ? 0x01 : 0) << 2) + //
+         ((col == 'G' ? 0x03 : col == 'Y' ? 0x02 : col == 'C' ? 0x02 : col == 'W' ? 0x01 : 0) << 2) +   //
          ((col == 'B' ? 0x03 : col == 'C' ? 0x02 : col == 'M' ? 0x02 : col == 'W' ? 0x01 : 0) << 4);
    }
    // Updated LED every 10th second
@@ -1792,39 +1792,45 @@ revk_pre_shutdown (void)
 
 int
 gpio_ok (uint8_t p)
-{                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK. bit 2 for special use (e.g. USB)
+{                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK. bit 2 USB (not marked in/out), bit 3 for Serial (are marked in/out as well)
 #ifdef	CONFIG_IDF_TARGET_ESP32
    if (p > 39)
       return 0;
 #ifdef	CONFIG_REVK_D4
-   if ((p >= 6 && p <= 8) || p == 11 || p == 20)
+   if (p == 6 || (p >= 9 && p <= 11) || (p >= 16 && p <= 18) || p == 20 || (p >= 23 && p <= 24) || (p >= 28 && p <= 31))
       return 0;
 #else
 #ifdef	CONFIG_REVK_PICO
-   if (p == 6 || (p >= 9 && p <= 11))
+   if (p == 6 || (p >= 9 && p <= 11) || (p >= 16 && p <= 18) || (p >= 23 && p <= 24) || (p >= 28 && p <= 31))
       return 0;
 #else
-   if ((p >= 6 && p <= 11) || p == 20)
+   if ((p >= 6 && p <= 11) || p == 20 || (p >= 28 && p <= 31) || (p >= 37 && p <= 38))
       return 0;
 #endif
 #endif
    if (p >= 34)
       return 2;                 // Input only
+   if (p == 1 || p == 3)
+      return 3 + 8;             // Serial       
    return 3;                    // Input and output
 #endif
+
 #ifdef	CONFIG_IDF_TARGET_ESP32S3
    if (p > 48)
       return 0;
    if (p == 19 || p == 20)
       return 4;                 // special use (USB)
-   if ((p > 21 && p < 26) || (p > 26 && p < 33))
+   if ((p >= 22 && p <= 25) || (p >= 27 && p <= 32))
       return 0;
 #ifdef	CONFIG_SPIRAM
    if (p == 26)
       return 0;
 #endif
+   if (p == 43 || p == 44)
+      return 3 + 8;             // Serial
    return 3;                    // All input and output
 #endif
+
 #ifdef CONFIG_IDF_TARGET_ESP8266
    // 8266 has GPIOs 0...16, allow any use
    return (p <= 16) ? 3 : 0;
@@ -1838,13 +1844,14 @@ revk_boot (app_callback_t * app_callback_cb)
    {                            // Safe GPIO
       gpio_config_t i = {.mode = GPIO_MODE_INPUT };
       for (uint8_t p = 0; p <= 48; p++)
-         if (gpio_ok (p) & 2)
+         if (gpio_ok (p) == 3)  // Input and output, not serial
             i.pin_bit_mask |= (1LL << p);
+      //ESP_LOGE (TAG, "Disable %016llX", i.pin_bit_mask);
       gpio_config (&i);
+      gpio_config_t u = {.pull_up_en = 1,.mode = GPIO_MODE_DISABLE };
       gpio_config_t d = {.pull_down_en = 1,.mode = GPIO_MODE_DISABLE };
-      gpio_config_t u = {.pull_down_en = 1,.mode = GPIO_MODE_DISABLE };
       for (uint8_t p = 0; p <= 48; p++)
-         if (gpio_ok (p) & 2)
+         if (gpio_ok (p) == 3)  // Input and output, not serial
          {
             if (gpio_get_level (p))
                u.pin_bit_mask |= (1LL << p);
@@ -1852,9 +1859,15 @@ revk_boot (app_callback_t * app_callback_cb)
                d.pin_bit_mask |= (1LL << p);
          }
       if (u.pin_bit_mask)
+      {
+         //ESP_LOGE (TAG, "Pull up %016llX", u.pin_bit_mask);
          gpio_config (&u);
+      }
       if (d.pin_bit_mask)
+      {
+         //ESP_LOGE (TAG, "Pull down %016llX", d.pin_bit_mask);
          gpio_config (&d);
+      }
    }
 
 #ifdef	CONFIG_REVK_MESH
