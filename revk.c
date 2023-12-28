@@ -2339,7 +2339,7 @@ revk_event_clients (const char *suffix, jo_t * jp, uint8_t clients)
 const char *
 revk_error_clients (const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Error message, waits a while for connection if possible before sending
-   if (*mqtthost)
+   if (*mqtthost[0])
       xEventGroupWaitBits (revk_group,
 #ifdef	CONFIG_REVK_WIFI
                            GROUP_WIFI |
