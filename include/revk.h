@@ -180,7 +180,7 @@ void revk_blinker (             // Call every 0.1s if app controls blinking - st
 #endif
 
 #ifdef  CONFIG_REVK_LED_STRIP   
-uint32_t revk_rgb(char c)
+uint32_t revk_rgb(char c);
 #endif
 
 #endif
