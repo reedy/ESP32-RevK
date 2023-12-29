@@ -1443,9 +1443,15 @@ uint32_t
 revk_rgb (char c)
 {                               // Map colour character to RGB - maybe expand to handle more colours later.
    char u = toupper (c);
-   uint8_t r = (u == 'R' ? 0xFF : u == 'Y' || u == 'M' ? 0x7F : u == 'W' ? 0x55 : 0);
-   uint8_t g = (u == 'G' ? 0xFF : u == 'Y' || u == 'C' ? 0x7F : u == 'W' ? 0x55 : 0);
-   uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0x7F : u == 'W' ? 0x55 : 0);
+#define	MAXR	0x7F
+#define	MAXG	0x7F
+#define	MAXB	0x7F
+   uint8_t r = (u == 'R' ? MAXR : u == 'Y' || u == 'M' ? MAXR / 2 : u == 'W' ? MAXR / 3 : 0);
+   uint8_t g = (u == 'G' ? MAXG : u == 'Y' || u == 'C' ? MAXG / 2 : u == 'W' ? MAXG / 3 : 0);
+   uint8_t b = (u == 'B' ? MAXB : u == 'M' || u == 'C' ? MAXB / 2 : u == 'W' ? MAXB / 3 : 0);
+#undef MAXR
+#undef MAXG
+#undef MAXB
    if (islower (c))
    {
       r /= 2;
