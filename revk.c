@@ -1273,6 +1273,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       }
    }
+   static uint8_t gotipv6 = 0;
    if (event_base == IP_EVENT)
    {
       switch (event_id)
@@ -1280,10 +1281,12 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
       case IP_EVENT_STA_LOST_IP:
          if (!link_down)
             link_down = uptime ();      // Applies for non mesh, and mesh
+         gotip6 = 0;
          ESP_LOGI (TAG, "Lost IP");
          break;
       case IP_EVENT_STA_GOT_IP:
          {
+            uint32_t wasdown = link_down;
             link_down = 0;      // Applies for non mesh, and mesh
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
             wifi_ap_record_t ap = { };
@@ -1305,7 +1308,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #endif
 #ifdef  CONFIG_REVK_WIFI
             xEventGroupSetBits (revk_group, GROUP_WIFI);
-            if (app_callback)
+            if (app_callback && (event->ip_changed || wasdown))
             {
                jo_t j = jo_object_alloc ();
                jo_string (j, "ssid", (char *) ap.ssid);
@@ -1325,7 +1328,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
       case IP_EVENT_GOT_IP6:
          ESP_LOGI (TAG, "Got IPv6");
 #ifdef  CONFIG_REVK_WIFI
-         if (app_callback)
+         if (app_callback && !gotip6)
          {
             ip_event_got_ip6_t *event = (ip_event_got_ip6_t *) event_data;
             jo_t j = jo_object_alloc ();
@@ -1334,7 +1337,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             jo_free (&j);
          }
 #endif
-
+         gotip6 = 1;
          break;
       default:
          ESP_LOGI (TAG, "IP event %ld", (long) event_id);
