@@ -1442,9 +1442,9 @@ blink_default (const char *user)
 uint32_t
 revk_rgb (char c)
 {                               // Map colour character to RGB - maybe expand to handle more colours later.
- uint8_t r = (c == 'R' ? 0xFF : c == 'Y' || c == 'M' ? 0x7F : c == 'W': 0x55:0);
- uint8_t g = (c == 'G' ? 0xFF : c == 'Y' || c == 'C' ? 0x7F : c == 'W': 0x55:0);
- uint8_t b = (c == 'B' ? 0xFF : c == 'M' || c == 'C' ? 0x7F : c == 'W': 0x55:0);
+   uint8_t r = (c == 'R' ? 0xFF : c == 'Y' || c == 'M' ? 0x7F : c == 'W' ? 0x55 : 0);
+   uint8_t g = (c == 'G' ? 0xFF : c == 'Y' || c == 'C' ? 0x7F : c == 'W' ? 0x55 : 0);
+   uint8_t b = (c == 'B' ? 0xFF : c == 'M' || c == 'C' ? 0x7F : c == 'W' ? 0x55 : 0);
    return (r << 16) + (g << 8) + b;
 }
 #endif
