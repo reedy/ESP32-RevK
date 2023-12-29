@@ -180,7 +180,9 @@ void revk_blinker (             // Call every 0.1s if app controls blinking - st
 #endif
 
 #ifdef  CONFIG_REVK_LED_STRIP   
-uint32_t revk_rgb(char c);
+extern const uint8_t gamma8[256];
+uint32_t revk_rgb(char c);	// Provide RGB colour for character
+void revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb); // Set LED from RGB with scale and apply gamma
 #endif
 
 #endif
