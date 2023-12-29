@@ -1438,6 +1438,17 @@ blink_default (const char *user)
    return "RYGCBM";             // Idle
 }
 
+#ifdef	CONFIG_REVK_LED_STRIP
+uint32_t
+revk_rgb (char c)
+{                               // Map colour character to RGB - maybe expand to handle more colours later.
+ uint8_t r = (c == 'R' ? 0xFF : c == 'Y' || c == 'M' ? 0x7F : c == 'W': 0x55:0);
+ uint8_t g = (c == 'G' ? 0xFF : c == 'Y' || c == 'C' ? 0x7F : c == 'W': 0x55:0);
+ uint8_t b = (c == 'B' ? 0xFF : c == 'M' || c == 'C' ? 0x7F : c == 'W': 0x55:0);
+   return (r << 16) + (g << 8) + b;
+}
+#endif
+
 void
 revk_blinker (
 #ifdef	CONFIG_REVK_LED_STRIP
@@ -1447,7 +1458,7 @@ revk_blinker (
 #endif
    )
 {                               // LED blinking controls
-   static uint8_t rgb = 0;      // Current colour (2 bits per)
+   static uint32_t rgb = 0;     // Current colour (2 bits per)
    static uint8_t tick = 255;   // Blink cycle counter
    uint8_t on = blink_on,       // Current on/off times
       off = blink_off;
@@ -1468,9 +1479,7 @@ revk_blinker (
       if (!*c)
          c = base;              // End of sequence to loop
       char col = *c++;          // Next colour
-      rgb = (col == 'R' ? 0x03 : col == 'Y' ? 0x02 : col == 'M' ? 0x02 : col == 'W' ? 0x01 : 0) +       //
-         ((col == 'G' ? 0x03 : col == 'Y' ? 0x02 : col == 'C' ? 0x02 : col == 'W' ? 0x01 : 0) << 2) +   //
-         ((col == 'B' ? 0x03 : col == 'C' ? 0x02 : col == 'M' ? 0x02 : col == 'W' ? 0x01 : 0) << 4);
+      rgb = revk_rgb (col);
    }
    // Updated LED every 10th second
    if (tick < on)
@@ -1479,9 +1488,9 @@ revk_blinker (
       if (strip)
       {                         // WS2812B fading on (this can be independent of direct LED control, and could be part of a pre-set longer strip)
          led_strip_set_pixel (strip, 0, //
-                              (tick + 1) * ((rgb & 3) * 0x55) / on,     //
-                              (tick + 1) * (((rgb >> 2) & 3) * 0x55) / on,      //
-                              (tick + 1) * (((rgb >> 4) & 3) * 0x55) / on);
+                              (tick + 1) * ((rgb >> 16) & 255) / on,    //
+                              (tick + 1) * ((rgb >> 8) & 255) / on,     //
+                              (tick + 1) * ((rgb >> 0) & 255) / on);
          led_strip_refresh (strip);
       }
 #endif
@@ -1489,9 +1498,9 @@ revk_blinker (
          gpio_set_level (blink[0] & IO_MASK, (rgb ? 1 : 0) ^ ((blink[0] & IO_INV) ? 1 : 0));    // Single LED on
       else if (blink[0] != blink[1])
       {                         // Separate RGB on
-         gpio_set_level (blink[0] & IO_MASK, ((rgb >> 1) ^ ((blink[0] & IO_INV) ? 1 : 0)) & 1);
-         gpio_set_level (blink[1] & IO_MASK, ((rgb >> 3) ^ ((blink[1] & IO_INV) ? 1 : 0)) & 1);
-         gpio_set_level (blink[2] & IO_MASK, ((rgb >> 5) ^ ((blink[2] & IO_INV) ? 1 : 0)) & 1);
+         gpio_set_level (blink[0] & IO_MASK, ((rgb >> 31) ^ ((blink[0] & IO_INV) ? 1 : 0)) & 1);
+         gpio_set_level (blink[1] & IO_MASK, ((rgb >> 15) ^ ((blink[1] & IO_INV) ? 1 : 0)) & 1);
+         gpio_set_level (blink[2] & IO_MASK, ((rgb >> 7) ^ ((blink[2] & IO_INV) ? 1 : 0)) & 1);
       }
    } else
    {                            // Off part of cycle
@@ -1499,9 +1508,9 @@ revk_blinker (
       if (strip)
       {                         // WS2812B fading off (this can be independent of direct LED control, and could be part of a pre-set longer strip)
          led_strip_set_pixel (strip, 0, //
-                              (on + off - tick - 1) * ((rgb & 3) * 0x55) / off, //
-                              (on + off - tick - 1) * (((rgb >> 2) & 3) * 0x55) / off,  //
-                              (on + off - tick - 1) * (((rgb >> 4) & 3) * 0x55) / off); //
+                              (on + off - tick - 1) * ((rgb >> 16) & 255) / off,        //
+                              (on + off - tick - 1) * ((rgb >> 8) & 255) / off, //
+                              (on + off - tick - 1) * ((rgb >> 0) & 255) / off);        //
          led_strip_refresh (strip);
       }
 #endif
