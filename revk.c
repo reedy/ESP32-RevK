@@ -1454,9 +1454,9 @@ revk_rgb (char c)
 #undef MAXB
    if (islower (c))
    {
-      r /= 2;
-      g /= 2;
-      b /= 2;
+      r /= 4;
+      g /= 4;
+      b /= 4;
    }
    return (r << 16) + (g << 8) + b;
 }
