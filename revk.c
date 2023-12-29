@@ -1467,9 +1467,9 @@ revk_rgb (char c)
    uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
    if (islower (c))
    {
-      r /= 4;
-      g /= 4;
-      b /= 4;
+      r /= 2;
+      g /= 2;
+      b /= 2;
    }
    return (r << 16) + (g << 8) + b;
 }
