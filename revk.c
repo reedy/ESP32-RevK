@@ -1323,7 +1323,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #ifdef	CONFIG_REVK_APMODE
             apstoptime = uptime () + 60;        // Stop ap mode soon
 #endif
-          gotip |= (1 << 4):
+          gotip |= (1 << 4);
          }
          break;
       case IP_EVENT_GOT_IP6:
@@ -1338,7 +1338,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             jo_free (&j);
          }
 #endif
-       gotip |= (1 << 6):
+       gotip |= (1 << 6);
          break;
       default:
          ESP_LOGI (TAG, "IP event %ld", (long) event_id);
