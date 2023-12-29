@@ -1286,59 +1286,66 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       case IP_EVENT_STA_GOT_IP:
          {
-            uint32_t wasdown = link_down;
             link_down = 0;      // Applies for non mesh, and mesh
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
-            wifi_ap_record_t ap = { };
-            REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
-            ESP_LOGI (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
-            xEventGroupSetBits (revk_group, GROUP_IP);
-            if (sta_netif)
+            if (event->ip_changed)
+               gotip &= ~(1 << 4);      // IPv4 was changed
+            if (!(gotip & (1 << 4)))
             {
+               wifi_ap_record_t ap = { };
+               REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
+               ESP_LOGI (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
+               xEventGroupSetBits (revk_group, GROUP_IP);
+               if (sta_netif)
+               {
 #if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0
-               esp_sntp_stop ();
-               esp_sntp_init ();
+                  esp_sntp_stop ();
+                  esp_sntp_init ();
 #else
-               sntp_stop ();
-               sntp_init ();
+                  sntp_stop ();
+                  sntp_init ();
 #endif
-            }
+               }
 #ifdef	CONFIG_REVK_MQTT
-            revk_mqtt_init ();
+               revk_mqtt_init ();
 #endif
 #ifdef  CONFIG_REVK_WIFI
-            xEventGroupSetBits (revk_group, GROUP_WIFI);
-            if (app_callback && (event->ip_changed || !(gotip & (1 << 4))))
-            {
-               jo_t j = jo_object_alloc ();
-               jo_string (j, "ssid", (char *) ap.ssid);
-               //if (ap.phy_lr) jo_bool (j, "lr", 1); // This just says it can do LR, not that we are using LR
-               jo_stringf (j, "ip", IPSTR, IP2STR (&event->ip_info.ip));
-               jo_stringf (j, "gw", IPSTR, IP2STR (&event->ip_info.gw));
-               jo_rewind (j);
-               app_callback (0, prefixcommand, NULL, "wifi", j);
-               jo_free (&j);
-            }
+               xEventGroupSetBits (revk_group, GROUP_WIFI);
+               if (app_callback && !(gotip & (1 << 4)))
+               {
+                  jo_t j = jo_object_alloc ();
+                  jo_string (j, "ssid", (char *) ap.ssid);
+                  //if (ap.phy_lr) jo_bool (j, "lr", 1); // This just says it can do LR, not that we are using LR
+                  jo_stringf (j, "ip", IPSTR, IP2STR (&event->ip_info.ip));
+                  jo_stringf (j, "gw", IPSTR, IP2STR (&event->ip_info.gw));
+                  jo_rewind (j);
+                  app_callback (0, prefixcommand, NULL, "wifi", j);
+                  jo_free (&j);
+               }
 #endif
 #ifdef	CONFIG_REVK_APMODE
-            apstoptime = uptime () + 60;        // Stop ap mode soon
+               apstoptime = uptime () + 60;     // Stop ap mode soon
 #endif
-          gotip |= (1 << 4);
+               gotip |= (1 << 4);
+            }
          }
          break;
       case IP_EVENT_GOT_IP6:
-         ESP_LOGI (TAG, "Got IPv6");
-#ifdef  CONFIG_REVK_WIFI
-         if (app_callback && !(gotip & (1 << 6)))
+         if (!(gotip & (1 << 6)))
          {
-            ip_event_got_ip6_t *event = (ip_event_got_ip6_t *) event_data;
-            jo_t j = jo_object_alloc ();
-            jo_stringf (j, "ipv6", IPV6STR, IPV62STR (event->ip6_info.ip));
-            app_callback (0, prefixcommand, NULL, "ipv6", j);
-            jo_free (&j);
-         }
+            ESP_LOGI (TAG, "Got IPv6");
+#ifdef  CONFIG_REVK_WIFI
+            if (app_callback && !(gotip & (1 << 6)))
+            {
+               ip_event_got_ip6_t *event = (ip_event_got_ip6_t *) event_data;
+               jo_t j = jo_object_alloc ();
+               jo_stringf (j, "ipv6", IPV6STR, IPV62STR (event->ip6_info.ip));
+               app_callback (0, prefixcommand, NULL, "ipv6", j);
+               jo_free (&j);
+            }
 #endif
-       gotip |= (1 << 6);
+            gotip |= (1 << 6);
+         }
          break;
       default:
          ESP_LOGI (TAG, "IP event %ld", (long) event_id);
