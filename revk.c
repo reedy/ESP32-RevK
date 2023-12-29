@@ -1273,7 +1273,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       }
    }
-   static uint8_t gotip = 0;    // Avoid double reporting
+   static uint8_t gotip = 0;    // Avoid double reporting - bit 7 is IPv4, bits 0-6 are ipv6 index
    if (event_base == IP_EVENT)
    {
       switch (event_id)
@@ -1289,8 +1289,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             link_down = 0;      // Applies for non mesh, and mesh
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
             if (event->ip_changed)
-               gotip &= ~(1 << 4);      // IPv4 was changed
-            if (!(gotip & (1 << 4)))
+               gotip &= ~0x80;  // IPv4 changed
+            if (!(gotip & 0x80))
             {                   // New IPv4
                wifi_ap_record_t ap = { };
                REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
@@ -1326,25 +1326,27 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #ifdef	CONFIG_REVK_APMODE
                apstoptime = uptime () + 60;     // Stop ap mode soon
 #endif
-               gotip |= (1 << 4);
+               gotip |= 0x80;   // Got the IPv4
             }
          }
          break;
       case IP_EVENT_GOT_IP6:
-         if (!(gotip & (1 << 6)))
+         ip_event_got_ip6_t * event = (ip_event_got_ip6_t *) event_data;
+         if (event->ip_index < 7 && !(gotip & (1 << event->ip_index)))
          {                      // New IPv6
-            ESP_LOGI (TAG, "Got IPv6 " IPV6STR, IPV62STR (event->ip6_info.ip));
+            ESP_LOGI (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", event->ip_index, IPV62STR (event->ip6_info.ip),
+                      event->ip6_info.ip.zone);
 #ifdef  CONFIG_REVK_WIFI
             if (app_callback)
             {
-               ip_event_got_ip6_t *event = (ip_event_got_ip6_t *) event_data;
                jo_t j = jo_object_alloc ();
                jo_stringf (j, "ipv6", IPV6STR, IPV62STR (event->ip6_info.ip));
+               jo_int (j, "zone", event->ip6_info.ip.zone);
                app_callback (0, prefixcommand, NULL, "ipv6", j);
                jo_free (&j);
             }
 #endif
-            gotip |= (1 << 6);
+            gotip |= (1 << event->ip_index);
          }
          break;
       default:
