@@ -1291,7 +1291,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             if (event->ip_changed)
                gotip &= ~(1 << 4);      // IPv4 was changed
             if (!(gotip & (1 << 4)))
-            {
+            {                   // New IPv4
                wifi_ap_record_t ap = { };
                REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
                ESP_LOGI (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
@@ -1311,7 +1311,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #endif
 #ifdef  CONFIG_REVK_WIFI
                xEventGroupSetBits (revk_group, GROUP_WIFI);
-               if (app_callback && !(gotip & (1 << 4)))
+               if (app_callback)
                {
                   jo_t j = jo_object_alloc ();
                   jo_string (j, "ssid", (char *) ap.ssid);
@@ -1332,10 +1332,10 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       case IP_EVENT_GOT_IP6:
          if (!(gotip & (1 << 6)))
-         {
-            ESP_LOGI (TAG, "Got IPv6");
+         {                      // New IPv6
+            ESP_LOGI (TAG, "Got IPv6 " IPV6STR, IPV62STR (event->ip6_info.ip));
 #ifdef  CONFIG_REVK_WIFI
-            if (app_callback && !(gotip & (1 << 6)))
+            if (app_callback)
             {
                ip_event_got_ip6_t *event = (ip_event_got_ip6_t *) event_data;
                jo_t j = jo_object_alloc ();
