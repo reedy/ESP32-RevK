@@ -1451,6 +1451,22 @@ blink_default (const char *user)
    return "RYGCBM";             // Idle
 }
 
+uint32_t
+revk_rgb (char c)
+{                               // Map colour character to RGB - maybe expand to handle more colours later.
+   char u = toupper (c);
+   uint8_t r = (u == 'R' ? 0xFF : u == 'Y' || u == 'M' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+   uint8_t g = (u == 'G' ? 0xFF : u == 'Y' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+   uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+   if (islower (c))
+   {
+      r /= 2;
+      g /= 2;
+      b /= 2;
+   }
+   return (r << 16) + (g << 8) + b;
+}
+
 #ifdef	CONFIG_REVK_LED_STRIP
 const uint8_t gamma8[256] = {
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1470,22 +1486,6 @@ const uint8_t gamma8[256] = {
    177, 180, 182, 184, 186, 189, 191, 193, 196, 198, 200, 203, 205, 208, 210, 213,
    215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255
 };
-
-uint32_t
-revk_rgb (char c)
-{                               // Map colour character to RGB - maybe expand to handle more colours later.
-   char u = toupper (c);
-   uint8_t r = (u == 'R' ? 0xFF : u == 'Y' || u == 'M' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
-   uint8_t g = (u == 'G' ? 0xFF : u == 'Y' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
-   uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
-   if (islower (c))
-   {
-      r /= 2;
-      g /= 2;
-      b /= 2;
-   }
-   return (r << 16) + (g << 8) + b;
-}
 
 void
 revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb)
