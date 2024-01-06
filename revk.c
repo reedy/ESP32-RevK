@@ -2826,15 +2826,15 @@ revk_web_settings (httpd_req_t * req)
       revk_web_send (req, "<p>Note, automatic upgrade from <i>%s</i> is enabled. See instructions to make changes.</p>", otahost);
    {                            // IP info
       revk_web_send (req, "<table>");
-      char temp[100];
       {
          time_t now = time (0);
          if (now > 1000000000)
          {
             struct tm t;
             localtime_r (&now, &t);
-            strftime (temp, sizeof (temp), "<tr><td>Time</td><td>%F %T %Z</td></tr>", &t);
-            revk_web_send (req, temp);
+            char temp[50];
+            strftime (temp, sizeof (temp), "%F %T %Z", &t);
+            revk_web_send (req, "<tr><td>Time</td><td>%s (up %ld)</td></tr>", temp, uptime ());
          }
       }
       if (sta_netif)
