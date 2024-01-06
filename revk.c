@@ -268,7 +268,7 @@ led_strip_handle_t revk_strip = NULL;
 #endif
 
 /* Local */
-static struct
+static struct volatile
 {                               // Flags
    uint8_t setting_changed:1;
    uint8_t setting_dump_requested:1;
