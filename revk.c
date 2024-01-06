@@ -4934,7 +4934,7 @@ fullmoon (int cycle)
 static time_t lastmoon = 0,
    nextmoon = 0;
 
-static
+static void
 getmoons (time_t t)
 {
    if (t >= lastmoon && t < nextmoon)
