@@ -2518,7 +2518,7 @@ revk_web_send (httpd_req_t * req, const char *format, ...)
    va_start (ap, format);
    ssize_t len = vasprintf (&v, format, ap);
    va_end (ap);
-   if (v && *v)
+   if (v && *v && len > 0)
       httpd_resp_sendstr_chunk (req, v);
    free (v);
 }
