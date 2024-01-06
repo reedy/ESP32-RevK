@@ -2842,9 +2842,8 @@ revk_web_settings (httpd_req_t * req)
          {
             esp_netif_ip_info_t ip;
             if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-               revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>"//
-			       "<tr><td>Gateway</td><td>" IPSTR "</td></tr>",
-                              IP2STR (&ip.ip), IP2STR (&ip.gw));
+               revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>"   //
+                              "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip), IP2STR (&ip.gw));
          }
 #ifdef CONFIG_LWIP_IPV6
          {
@@ -4862,4 +4861,33 @@ revk_build_date (char d[20])
    if (d[8] == ' ')
       d[8] = '0';
    return d;
+}
+
+char
+revk_season (time_t now)
+{                               // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
+   struct tm t;
+   localtime_r (&now, &t);
+   if (t.tm_mon == 11 && t.tm_mday <= 25)
+      return 'X';               // Xmas for 1st to 25th Dec
+   if (t.tm_mon == 0 && t.tm_mday <= 7)
+      return 'Y';               // New Year for 1st to 7th Jan
+   if (t.tm_mon == 9 && t.tm_mday == 31 && t.tm_hour >= 16)
+      return 'H';               // Halloween from 4pm on 31st Oct
+   const uint8_t ed[] = { 114, 103, 23, 111, 31, 118, 108, 28, 116, 105, 25, 113, 102, 22, 110, 30,
+      117, 107, 27
+   };
+   {
+      struct tm e;
+      int m = ed[(t.tm_year + 1900) % 19];
+      e.tm_year = t.tm_year;
+      e.tm_mon = 2 + m / 100;
+      e.tm_mday = m % 100;
+      mktime (&e);
+      e.tm_mday += (7 - e.tm_wday) - 2; // good Friday
+      mktime (&e);
+      if (t.tm_yday >= e.tm_yday && t.tm_yday <= e.tm_yday + 2)
+         return 'E';            // Good Friday to Easter Sunday
+   }
+   return 0;
 }

@@ -186,4 +186,6 @@ uint32_t revk_rgb(char c);	// Provide RGB colour for character
 void revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb); // Set LED from RGB with scale and apply gamma
 #endif
 
++ char revk_season(time_t now); // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
+
 #endif
