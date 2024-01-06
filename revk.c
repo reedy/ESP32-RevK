@@ -268,7 +268,7 @@ led_strip_handle_t revk_strip = NULL;
 #endif
 
 /* Local */
-static struct 
+static struct
 {                               // Flags
    uint8_t setting_changed:1;
    uint8_t setting_dump_requested:1;
@@ -276,7 +276,7 @@ static struct
 #ifdef	CONFIG_REVK_MESH
    uint8_t mesh_root_known:1;
 #endif
-} volatile b;
+} volatile b = { 0 };
 
 static uint32_t up_next;        // next up report (uptime)
 static EventGroupHandle_t revk_group;
