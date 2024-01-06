@@ -2831,6 +2831,14 @@ revk_web_settings (httpd_req_t * req)
       revk_web_send (req, "<table>");
       revk_web_send (req, "<tr><td>Uptime</td><td>%ld seconds</td></tr>", uptime ());
       {
+         uint32_t heapspi = heap_caps_get_free_size (MALLOC_CAP_SPIRAM);
+         uint32_t heap = esp_get_free_heap_size () - heapspi;
+         if (heapspi)
+            revk_web_send (req, "<tr><td>Free mem</td><td>%ld+%ld</td></tr>", heap, heapspi);
+         else
+            revk_web_send (req, "<tr><td>Free mem</td><td>%ld</td></tr>", heap);
+      }
+      {
          time_t now = time (0);
          if (now > 1000000000)
          {
@@ -4968,7 +4976,7 @@ time_t
 revk_next_moon (time_t t)
 {
    getmoons (t);
-   retrun nextmoon;
+   return nextmoon;
 }
 
 static int
