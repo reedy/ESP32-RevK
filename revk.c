@@ -2510,6 +2510,20 @@ revk_web_settings_add (httpd_handle_t webserver)
    return 0;
 }
 
+void
+revk_web_send (httpd_req_t * req, const char *format, ...)
+{
+   char *v = NULL;
+   va_list ap;
+   va_start (ap, format);
+   ssize_t len = vasprintf (&v, format, ap);
+   va_end (ap);
+   if (v ** &v)
+      httpd_resp_sendstr_chunk (req, v);
+   jo_write_str (j, v, len);
+   free (v);
+}
+
 esp_err_t
 revk_web_config_remove (httpd_handle_t webserver)
 {
@@ -2528,48 +2542,33 @@ void
 revk_web_head (httpd_req_t * req, const char *title)
 {                               // Generic HTML heading
    httpd_resp_set_type (req, "text/html;charset=utf-8");
-   httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
+   revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    if (title && *title)
-   {
-      httpd_resp_sendstr_chunk (req, "<title>");
-      httpd_resp_sendstr_chunk (req, title);
-      httpd_resp_sendstr_chunk (req, "</title>");
-   }
-   httpd_resp_sendstr_chunk (req,
-                             "<html><body style='font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);'"
+      revk_web_send (req, "<title>%s</title>", title);
+   revk_web_send (req,
+                  "<html><body style='font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);'"
 #ifndef CONFIG_HTTPD_WS_SUPPORT
-                             " onLoad='handleLoad()'"
+                  " onLoad='handleLoad()'"
 #endif
-                             ">");
+                  ">");
 }
 
 esp_err_t
 revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
 {                               // Generic html footing and return
-   httpd_resp_sendstr_chunk (req, "<hr><address>");
+   revk_web_send (req, "<hr><address>");
    if (home)
-      httpd_resp_sendstr_chunk (req, "<a href=/>Home</a> ");
+      revk_web_send (req, "<a href=/>Home</a> ");
    if (wifi)
-      httpd_resp_sendstr_chunk (req, "<a href=/revk-settings>Settings</a> ");
-   httpd_resp_sendstr_chunk (req, appname);
+      revk_web_send (req, "<a href=/revk-settings>Settings</a> ");
+   revk_web_send (req, appname);
    if (*revk_build_suffix)
-   {
-      httpd_resp_sendstr_chunk (req, "<small>");
-      httpd_resp_sendstr_chunk (req, revk_build_suffix);
-      httpd_resp_sendstr_chunk (req, "</small>");
-   }
-   httpd_resp_sendstr_chunk (req, ": ");
-   httpd_resp_sendstr_chunk (req, revk_version);
-   httpd_resp_sendstr_chunk (req, " ");
+      revk_web_send (req, "<small>%s</small>", revk_build_suffix);
    char temp[20];
-   httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
+   revk_web_send (req, ": %s %s", revk_version, revk_build_date (temp) ? : "?");
    if (extra && *extra)
-   {
-      httpd_resp_sendstr_chunk (req, " <b>");
-      httpd_resp_sendstr_chunk (req, extra);
-      httpd_resp_sendstr_chunk (req, "</b>");
-   }
-   httpd_resp_sendstr_chunk (req, "</address></body></html>");
+      revk_web_send (req, " <b>%s</b>", extra);
+   revk_web_send (req, "</address></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
    return ESP_OK;
 }
@@ -2577,12 +2576,12 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
 static void
 report_shutdown_reason (httpd_req_t * req, const char *shutdown)
 {
-   httpd_resp_sendstr_chunk (req, shutdown);
+   revk_web_send (req, shutdown);
    if (ota_percent > 0 && ota_percent <= 100)
    {
       char buf[10];
       sprintf (buf, " (%d%%)", ota_percent);
-      httpd_resp_sendstr_chunk (req, buf);
+      revk_web_send (req, buf);
    }
 }
 
@@ -2614,20 +2613,18 @@ revk_web_settings (httpd_req_t * req)
    void head (void)
    {
       revk_web_head (req, "WiFi Setup");
-      httpd_resp_sendstr_chunk (req, "<h1>");
-      if (*hostname)
-         httpd_resp_sendstr_chunk (req, hostname);
-      httpd_resp_sendstr_chunk (req,
-                                "</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%;}</style>");
+      revk_web_send (req,
+                     "<h1>%s</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%;}</style>",
+                     hostname);
    }
 
    head ();
    if (req->method == HTTP_POST)
    {
       if (req->content_len <= 0)
-         httpd_resp_sendstr_chunk (req, "Bad post");
+         revk_web_send (req, "Bad post");
       else if (req->content_len > 1000)
-         httpd_resp_sendstr_chunk (req, "Post too long");
+         revk_web_send (req, "Post too long");
       else
       {
          char *query = malloc (req->content_len + 1);
@@ -2637,13 +2634,13 @@ revk_web_settings (httpd_req_t * req)
             if (len > 0)
             {
                query[len] = 0;
-               httpd_resp_sendstr_chunk (req, "<p>");
+               revk_web_send (req, "<p>");
                jo_t j = jo_parse_query (query);
                if (jo_find (j, "upgrade"))
                {
                   const char *e = revk_command ("upgrade", NULL);
                   if (e && *e)
-                     httpd_resp_sendstr_chunk (req, e);
+                     revk_web_send (req, e);
                } else
                {
                   wifi_mode_t mode = 0;
@@ -2657,7 +2654,7 @@ revk_web_settings (httpd_req_t * req)
                      char pass[33] = "";
                      jo_strncpy (j, ssid, sizeof (ssid));
                      if (!*ssid)
-                        httpd_resp_sendstr_chunk (req, "No WiFi SSID. ");
+                        revk_web_send (req, "No WiFi SSID. ");
                      else
                      {
                         if (jo_find (j, "wifipass") == JO_STRING)
@@ -2681,16 +2678,14 @@ revk_web_settings (httpd_req_t * req)
                               sleep (1);
                               esp_netif_ip_info_t ip;
                               if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                              { // Got IP (TODO IPv6)
-                                 char temp[50];
-                                 snprintf (temp, sizeof (temp), "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
-                                 httpd_resp_sendstr_chunk (req, temp);
+                              {
+                                 revk_web_send (req, "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
                                  ok = 1;
                                  break;
                               }
                            }
                            if (!ok)
-                              httpd_resp_sendstr_chunk (req, "WiFi did not connect, try again.");
+                              revk_web_send (req, "WiFi did not connect, try again.");
                         }
                      }
                   } else
@@ -2700,19 +2695,16 @@ revk_web_settings (httpd_req_t * req)
                      const char *e = revk_setting (j);
                      if (e && *e)
                      {
-                        httpd_resp_sendstr_chunk (req, e);
+                        revk_web_send (req, "%s", e);
                         e = jo_debug (j);
                         if (e && *e)
-                        {
-                           httpd_resp_sendstr_chunk (req, " @ ");
-                           httpd_resp_sendstr_chunk (req, e);
-                        }
+                           revk_web_send (req, " @ %s", e);
                      } else
-                        httpd_resp_sendstr_chunk (req, revk_shutting_down (NULL) ? "Settings stored." : "No changes.");
+                        revk_web_send (req, revk_shutting_down (NULL) ? "Settings stored." : "No changes.");
                   }
                }
                jo_free (&j);
-               httpd_resp_sendstr_chunk (req, "</p>");
+               revk_web_send (req, "</p>");
             }
             free (query);
          }
@@ -2720,47 +2712,32 @@ revk_web_settings (httpd_req_t * req)
    }
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
+   revk_web_send (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
    if (shutdown && *shutdown)
-      report_shutdown_reason (req, shutdown);
+      report_shutdown_reason (req, "%s", shutdown);
 #ifndef CONFIG_HTTPD_WS_SUPPORT
    else
-      httpd_resp_sendstr_chunk (req, get_status_text ());
+      revk_web_send (req, "%s", get_status_text ());
 #endif
-   httpd_resp_sendstr_chunk (req, "</b></p>");
-   httpd_resp_sendstr_chunk (req,
-                             "<form action=/revk-settings name=WIFI method=post onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
+   revk_web_send (req, "</b></p>" < form action = /revk - settings name = WIFI method = post onsubmit =
+                  \"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
    if (!shutdown)
    {
-      httpd_resp_sendstr_chunk (req, "<table>");
+      revk_web_send (req, "<table>");
       void hr (void)
       {
-         httpd_resp_sendstr_chunk (req, "<tr><td colspan=3><hr></td></tr>");
+         revk_web_send (req, "<tr><td colspan=3><hr></td></tr>");
       }
       char af = 0;
       void tr (const char *tag, const char *field, const char *value, const char *place, const char *suffix)
       {
-         httpd_resp_sendstr_chunk (req, "<tr><td>");
-         httpd_resp_sendstr_chunk (req, tag);
-         httpd_resp_sendstr_chunk (req, "</td><td colspan=2><input name=");
-         httpd_resp_sendstr_chunk (req, field);
-         httpd_resp_sendstr_chunk (req, " value='");
-         if (value && *value)
-            httpd_resp_sendstr_chunk (req, value);
-         httpd_resp_sendstr_chunk (req,
-                                   "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
-         httpd_resp_sendstr_chunk (req, place);
-         httpd_resp_sendstr_chunk (req, "'");
-         if ((!value || !*value) && !af++)
-            httpd_resp_sendstr_chunk (req, " autofocus");
-         if (strstr (field, "pass"))
-            httpd_resp_sendstr_chunk (req, " type='password'");
-         httpd_resp_sendstr_chunk (req, ">");
-         if (suffix && *suffix)
-            httpd_resp_sendstr_chunk (req, suffix);
-         httpd_resp_sendstr_chunk (req, "</td></tr>");
+         revk_web_send (req,
+                        "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",
+                        tag, field, value ? : "", place, ((!value || !*value)
+                                                          && !af++) ? " autofocus" : "", strstr (field,
+                                                                                                 "pass") ? " type='password'" : "",
+                        suffix ? : "");
       }
-
       if (sta_netif)
       {
          tr ("Hostname", "hostname", hostname == revk_id ? NULL : hostname, revk_id,
@@ -2788,81 +2765,73 @@ revk_web_settings (httpd_req_t * req)
       extern void revk_web_extra (httpd_req_t *);
       revk_web_extra (req);
 #endif
-      httpd_resp_sendstr_chunk (req, "</table><p id=set><input type=submit value='Change settings'>");
+      revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
-      {
-         httpd_resp_sendstr_chunk (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from ");
-         httpd_resp_sendstr_chunk (req, otahost);
-         httpd_resp_sendstr_chunk (req, "'>");
-      }
-      httpd_resp_sendstr_chunk (req, "</p></form>");
+         revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s'>", otahost);
+      revk_web_send (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
    if (!shutdown)
-      httpd_resp_sendstr_chunk (req, "<div id=list>WiFi:</div>");
-   httpd_resp_sendstr_chunk (req, "<script>"    //
-                             "var f=document.WIFI;"     //
-                             "var reboot=0;"    //
-                             "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"     //
-                             "ws.onopen=function(v){ws.send('scan');};" //
-                             "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"   //
-                             "ws.onerror=function(v){ws.close();};"     //
-                             "ws.onmessage=function(e){"        //
-                             "o=JSON.parse(e.data);"    //
-                             "if(typeof o === 'number')reboot=1;"       //
-                             "else if(typeof o === 'string'){document.getElementById('msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"  //
-                             "else if(typeof o === 'object')o.forEach(function(s){"     //
-                             "b=document.createElement('button');"      //
-                             "b.onclick=function(e){"   //
-                             "f.wifissid.value=s;"      //
-                             "f.wifipass.value='';"     //
-                             "f.wifipass.focus();"      //
-                             "return false;"    //
-                             "};"       //
-                             "b.textContent=s;" //
-                             "document.getElementById('list').appendChild(b);"  //
-                             "});"      //
-                             "};"       //
-                             "</script>");
+      revk_web_send (req, "<div id=list>WiFi:</div>");
+   revk_web_send (req, "<script>"       //
+                  "var f=document.WIFI;"        //
+                  "var reboot=0;"       //
+                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"        //
+                  "ws.onopen=function(v){ws.send('scan');};"    //
+                  "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"      //
+                  "ws.onerror=function(v){ws.close();};"        //
+                  "ws.onmessage=function(e){"   //
+                  "o=JSON.parse(e.data);"       //
+                  "if(typeof o === 'number')reboot=1;"  //
+                  "else if(typeof o === 'string'){document.getElementById('msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"     //
+                  "else if(typeof o === 'object')o.forEach(function(s){"        //
+                  "b=document.createElement('button');" //
+                  "b.onclick=function(e){"      //
+                  "f.wifissid.value=s;" //
+                  "f.wifipass.value='';"        //
+                  "f.wifipass.focus();" //
+                  "return false;"       //
+                  "};"          //
+                  "b.textContent=s;"    //
+                  "document.getElementById('list').appendChild(b);"     //
+                  "});"         //
+                  "};"          //
+                  "</script>");
 #else
-   httpd_resp_sendstr_chunk (req, "<script>");
+   revk_web_send (req, "<script>");
    if (shutdown && *shutdown)
    {
-      httpd_resp_sendstr_chunk (req, "function g(n){return document.getElementById(n);};"
-                                "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
-                                // Just reload the page in its initial state
-                                "window.location.href = '/revk-settings';"
-                                "else "
-                                "s('msg',rt);"
-                                "}"
-                                "function c()"
-                                "{"
-                                "xhttp = new XMLHttpRequest();"
-                                "xhttp.onreadystatechange = function()"
-                                "{"
-                                "if (this.readyState == 4) {"
-                                "if (this.status == 200)"
-                                "decode(this.responseText);"
-                                "}"
-                                "};"
-                                "xhttp.open('GET', '/revk-status', true);"
-                                "xhttp.send();" "}" "function handleLoad(){window.setInterval(c, 1000);}");
+      revk_web_send (req, "function g(n){return document.getElementById(n);};"
+                     "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
+                     // Just reload the page in its initial state
+                     "window.location.href = '/revk-settings';"
+                     "else "
+                     "s('msg',rt);"
+                     "}"
+                     "function c()"
+                     "{"
+                     "xhttp = new XMLHttpRequest();"
+                     "xhttp.onreadystatechange = function()"
+                     "{"
+                     "if (this.readyState == 4) {"
+                     "if (this.status == 200)"
+                     "decode(this.responseText);"
+                     "}"
+                     "};"
+                     "xhttp.open('GET', '/revk-status', true);"
+                     "xhttp.send();" "}" "function handleLoad(){window.setInterval(c, 1000);}");
    } else
    {
       // revk_web_head() always adds onLoad='handleLoad()'; this is the cheap way
       // to avoid adding more conditionals. Just emit a no-op.
-      httpd_resp_sendstr_chunk (req, "function handleLoad(){}");
+      revk_web_send (req, "function handleLoad(){}");
    }
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
    if (otaauto && *otahost)
-   {
-      httpd_resp_sendstr_chunk (req, "<p>Note, automatic upgrade from <i>");
-      httpd_resp_sendstr_chunk (req, otahost);
-      httpd_resp_sendstr_chunk (req, "</i> is enabled. See instructions to make changes.</p>");
-   }
+      revk_web_send (req, "<p>Note, automatic upgrade from <i>%s</i> is enabled. See instructions to make changes.</p>", otahost);
    {                            // IP info
-      httpd_resp_sendstr_chunk (req, "<table>");
+      revk_web_send (req, "<table>");
       char temp[100];
       {
          time_t now = time (0);
@@ -2871,7 +2840,7 @@ revk_web_settings (httpd_req_t * req)
             struct tm t;
             localtime_r (&now, &t);
             strftime (temp, sizeof (temp), "<tr><td>Time</td><td>%F %T %Z</td></tr>", &t);
-            httpd_resp_sendstr_chunk (req, temp);
+            revk_web_send (req, temp);
          }
       }
       if (sta_netif)
@@ -2879,25 +2848,20 @@ revk_web_settings (httpd_req_t * req)
          {
             esp_netif_ip_info_t ip;
             if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-            {
-               sprintf (temp, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip));
-               httpd_resp_sendstr_chunk (req, temp);
-               sprintf (temp, "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.gw));
-               httpd_resp_sendstr_chunk (req, temp);
-            }
+               revk_web_send (req,
+                              "<tr><td>IPv4</td><td>" IPSTR "</td></tr>,<tr><td>Gateway</td><td>" IPSTR "</td></tr>" IP2STR (&ip.
+                                                                                                                             ip),
+                              IP2STR (&ip.gw));
          }
 #ifdef CONFIG_LWIP_IPV6
          {
             esp_ip6_addr_t ip;
             if (!esp_netif_get_ip6_global (sta_netif, &ip))
-            {
-               sprintf (temp, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
-               httpd_resp_sendstr_chunk (req, temp);
-            }
+               revk_web_send (req, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
          }
 #endif
       }
-      httpd_resp_sendstr_chunk (req, "</table>");
+      revk_web_send (req, "</table>");
    }
 
    return revk_web_foot (req, 1, 0, NULL);
