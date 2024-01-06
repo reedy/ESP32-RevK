@@ -2842,7 +2842,8 @@ revk_web_settings (httpd_req_t * req)
          {
             esp_netif_ip_info_t ip;
             if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-               revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>,<tr><td>Gateway</td><td>" IPSTR "</td></tr>",
+               revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>"//
+			       "<tr><td>Gateway</td><td>" IPSTR "</td></tr>",
                               IP2STR (&ip.ip), IP2STR (&ip.gw));
          }
 #ifdef CONFIG_LWIP_IPV6
