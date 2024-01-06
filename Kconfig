@@ -408,4 +408,15 @@ menu "RevK"
         help
 		Build in Matter
 
+	config REVK_SEASON
+	bool "Include seasonal tools"
+	default n
+        help
+		Include seasonal tools
+
+	config REVK_LUNAR
+	bool "Include lunar tools"
+	default n
+        help
+		Include lunar tools
 endmenu

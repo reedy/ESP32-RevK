@@ -161,7 +161,7 @@ void revk_mesh_send_json (const mac_t mac, jo_t * jp);
 void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink rate and colour sequence for on state (for RGB LED)
 
 uint16_t revk_num_web_handlers (void);  // Number of handlers used by revk_web_settings_add()
-void revk_web_send(httpd_req_t * req,const char *format,...);
+void revk_web_send (httpd_req_t * req, const char *format, ...);
 esp_err_t revk_web_settings_add (httpd_handle_t webserver);     // Add URLs
 esp_err_t revk_web_settings_remove (httpd_handle_t webserver);  // Remove URLs
 esp_err_t revk_web_settings (httpd_req_t * req);        // Call for web config for SSID/password/mqtt (GET/POST) - needs 4 URLS
@@ -180,12 +180,19 @@ void revk_blinker (             // Call every 0.1s if app controls blinking - st
    );
 #endif
 
-#ifdef  CONFIG_REVK_LED_STRIP   
+#ifdef  CONFIG_REVK_LED_STRIP
 extern const uint8_t gamma8[256];
-uint32_t revk_rgb(char c);	// Provide RGB colour for character
+uint32_t revk_rgb (char c);     // Provide RGB colour for character
 void revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb); // Set LED from RGB with scale and apply gamma
 #endif
 
-char revk_season(time_t now); // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
+#ifdef	CONFIG_REVK_SEASON
+char revk_season (time_t now);  // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
+#endif
+
+#ifdef	CONFIG_REVK_LUNAR
+time_t revk_last_moon (time_t t);
+time_t revk_next_moon (time_t t);
+#endif
 
 #endif
