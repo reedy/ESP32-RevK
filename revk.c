@@ -4895,7 +4895,7 @@ revk_season (time_t now)
 }
 #endif
 
-#ifdef	CONFIG_REVK_LUMAR
+#ifdef	CONFIG_REVK_LUNAR
 
 #define PI      3.1415926535897932384626433832795029L
 #define sinld(a)        sinl(PI*(a)/180.0L)
