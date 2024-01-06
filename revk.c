@@ -48,6 +48,9 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #ifdef  CONFIG_NIMBLE_ENABLED
 #include "esp_bt.h"
 #endif
+#ifdef	CONFIG_REVK_LUNAR
+#include <math.h>
+#endif
 
 #include "esp8266_ota_compat.h"
 #include "esp8266_flash_compat.h"
