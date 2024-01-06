@@ -4979,16 +4979,4 @@ revk_next_moon (time_t t)
    return nextmoon;
 }
 
-static int
-lunarcycle (time_t t)
-{                               // report cycle for previous full moon
-   int cycle = ((long double) t + 2207726238UL) / 2551442.86195200L;    // Guess
-   time_t f = fullmoon (cycle);
-   if (t < f)
-      return cycle - 1;
-   f = fullmoon (cycle + 1);
-   if (t >= f)
-      return cycle + 1;
-   return cycle;
-}
 #endif
