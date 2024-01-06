@@ -2518,9 +2518,8 @@ revk_web_send (httpd_req_t * req, const char *format, ...)
    va_start (ap, format);
    ssize_t len = vasprintf (&v, format, ap);
    va_end (ap);
-   if (v ** &v)
+   if (v && *v)
       httpd_resp_sendstr_chunk (req, v);
-   jo_write_str (j, v, len);
    free (v);
 }
 
@@ -2714,13 +2713,13 @@ revk_web_settings (httpd_req_t * req)
    revk_shutting_down (&shutdown);
    revk_web_send (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
    if (shutdown && *shutdown)
-      report_shutdown_reason (req, "%s", shutdown);
+      report_shutdown_reason (req, shutdown);
 #ifndef CONFIG_HTTPD_WS_SUPPORT
    else
       revk_web_send (req, "%s", get_status_text ());
 #endif
-   revk_web_send (req, "</b></p>" < form action = /revk - settings name = WIFI method = post onsubmit =
-                  \"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
+   revk_web_send (req,
+                  "</b></p><form action='/revk-settings' name='WIFI' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
    if (!shutdown)
    {
       revk_web_send (req, "<table>");
@@ -2848,10 +2847,8 @@ revk_web_settings (httpd_req_t * req)
          {
             esp_netif_ip_info_t ip;
             if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-               revk_web_send (req,
-                              "<tr><td>IPv4</td><td>" IPSTR "</td></tr>,<tr><td>Gateway</td><td>" IPSTR "</td></tr>" IP2STR (&ip.
-                                                                                                                             ip),
-                              IP2STR (&ip.gw));
+               revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>,<tr><td>Gateway</td><td>" IPSTR "</td></tr>",
+                              IP2STR (&ip.ip), IP2STR (&ip.gw));
          }
 #ifdef CONFIG_LWIP_IPV6
          {
