@@ -2835,7 +2835,8 @@ revk_web_settings (httpd_req_t * req)
             char temp[50];
             strftime (temp, sizeof (temp), "%F %T %Z", &t);
             revk_web_send (req, "<tr><td>Time</td><td>%s (up %ld)</td></tr>", temp, uptime ());
-         }
+         } else
+            revk_web_send (req, "<tr><td>Uptime</td><td>%ld (clock not set)</td></tr>", temp, uptime ());
       }
       if (sta_netif)
       {
