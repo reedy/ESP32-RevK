@@ -2609,15 +2609,10 @@ get_status_text (void)
 esp_err_t
 revk_web_settings (httpd_req_t * req)
 {
-   void head (void)
-   {
-      revk_web_head (req, "WiFi Setup");
-      revk_web_send (req,
-                     "<h1>%s</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%;}</style>",
-                     hostname);
-   }
-
-   head ();
+   revk_web_head (req, "WiFi Setup");
+   revk_web_send (req,
+                  "<h1>%s</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
+                  hostname);
    if (req->method == HTTP_POST)
    {
       if (req->content_len <= 0)
