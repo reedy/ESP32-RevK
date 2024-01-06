@@ -2826,6 +2826,7 @@ revk_web_settings (httpd_req_t * req)
       revk_web_send (req, "<p>Note, automatic upgrade from <i>%s</i> is enabled. See instructions to make changes.</p>", otahost);
    {                            // IP info
       revk_web_send (req, "<table>");
+      revk_web_send (req, "<tr><td>Uptime</td><td>%ld (clock not set)</td></tr>", temp, uptime ());
       {
          time_t now = time (0);
          if (now > 1000000000)
@@ -2834,9 +2835,8 @@ revk_web_settings (httpd_req_t * req)
             localtime_r (&now, &t);
             char temp[50];
             strftime (temp, sizeof (temp), "%F %T %Z", &t);
-            revk_web_send (req, "<tr><td>Time</td><td>%s (up %ld)</td></tr>", temp, uptime ());
-         } else
-            revk_web_send (req, "<tr><td>Uptime</td><td>%ld (clock not set)</td></tr>", temp, uptime ());
+            revk_web_send (req, "<tr><td>Time</td><td>%s</td></tr>", temp);
+         }
       }
       if (sta_netif)
       {
