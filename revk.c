@@ -268,6 +268,16 @@ led_strip_handle_t revk_strip = NULL;
 #endif
 
 /* Local */
+static struct
+{                               // Flags
+   uint8_t setting_changed:1;
+   uint8_t setting_dump_requested:1;
+   uint8_t wdt_test:1;
+#ifdef	CONFIG_REVK_MESH
+   uint8_t mesh_root_known:1;
+#endif
+} b;
+
 static uint32_t up_next;        // next up report (uptime)
 static EventGroupHandle_t revk_group;
 const static int GROUP_OFFLINE = BIT0;  // We are off line (IP not set)
@@ -285,7 +295,6 @@ lwmqtt_t mqtt_client[MQTT_CLIENTS] = { };
 
 static uint32_t restart_time = 0;
 static uint32_t nvs_time = 0;
-static uint8_t setting_dump_requested = 0;
 static const char *restart_reason = NULL;
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
@@ -294,7 +303,6 @@ static uint32_t link_down = 1;  // When link last down
 esp_netif_t *sta_netif = NULL;
 esp_netif_t *ap_netif = NULL;
 #endif
-static char wdt_test = 0;
 static uint8_t blink_on = 0,
    blink_off = 0;
 static const char *blink_colours = NULL;
@@ -302,7 +310,6 @@ static const char *revk_setting_dump (void);
 
 #ifdef	CONFIG_REVK_MESH
 // OTA to mesh devices
-static uint8_t mesh_root_known = 0;
 static volatile uint8_t mesh_ota_ack = 0;
 static SemaphoreHandle_t mesh_ota_sem = NULL;
 static mesh_addr_t mesh_ota_addr = { };
@@ -360,7 +367,7 @@ mesh_safe_send (const mesh_addr_t * to, const mesh_data_t * data, int flag, cons
 {                               // Mutex to protect non-re-entrant call
    if (!esp_mesh_is_device_active ())
       return ESP_ERR_MESH_DISCONNECTED;
-   if (!to && !esp_mesh_is_root () && !mesh_root_known)
+   if (!to && !esp_mesh_is_root () && !b.mesh_root_known)
       return ESP_ERR_MESH_DISCONNECTED; // We are not root and root address not known
    xSemaphoreTake (mesh_mutex, portMAX_DELAY);
    esp_err_t e = esp_mesh_send (to, data, flag, opt, opt_count);
@@ -471,7 +478,7 @@ mesh_task (void *pvParameters)
          }
          continue;
       }
-      mesh_root_known = 1;      // We are root or we got from root, so let's mark known
+      b.mesh_root_known = 1;    // We are root or we got from root, so let's mark known
       data.data[data.size] = 0; // Add a null so we can parse JSON with NULL and log and so on
       char mac[13];
       sprintf (mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
@@ -1062,7 +1069,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          {
             if (!suffix && !plen)
             {
-               setting_dump_requested = 1;
+               b.setting_dump_requested = 1;
                err = "";
             } else if (suffix)
                err = "";        // Not sensible, we have been addressed (suffix is used as JSON if present with no JSON), clash prefixapp and not
@@ -1394,19 +1401,19 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             link_down = uptime ();
             ESP_LOGD (TAG, "Link down");
          }
-         if (mesh_root_known)
+         if (b.mesh_root_known)
          {
             ESP_LOGI (TAG, "Mesh root lost");
-            mesh_root_known = 0;
+            b.mesh_root_known = 0;
          }
          stop_ip ();
          revk_mqtt_close ("Mesh gone");
          break;
       case MESH_EVENT_ROOT_ADDRESS:    // We know the root
-         if (!mesh_root_known)
+         if (!b.mesh_root_known)
          {
             ESP_LOGI (TAG, "Mesh root known");
-            mesh_root_known = 1;
+            b.mesh_root_known = 1;
          }
          break;
 #if 0
@@ -1414,7 +1421,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          {
             mesh_event_toDS_state_t *toDs_state = (mesh_event_toDS_state_t *) event_data;
             ESP_LOGI (TAG, "TODS %d", *toDs_state);
-            mesh_root_known = 1;
+            b.mesh_root_known = 1;
          }
          break;
 #endif
@@ -1603,7 +1610,7 @@ task (void *pvParameters)
 #endif
    while (1)
    {                            /* Idle */
-      if (!wdt_test && watchdogtime)
+      if (!b.wdt_test && watchdogtime)
          esp_task_wdt_reset ();
       {                         // Fast (once per 100ms)
          int64_t now = esp_timer_get_time ();
@@ -1625,10 +1632,16 @@ task (void *pvParameters)
 #endif
                );
 #endif
-         if (setting_dump_requested)
+         if (b.setting_dump_requested)
          {                      // Done here so not reporting from MQTT
-            setting_dump_requested = 0;
+            b.setting_dump_requested = 0;
             revk_setting_dump ();
+         }
+         if (b.setting_changed)
+         {
+            b.setting_changed = 0;
+            if (app_callback)
+               app_callback (0, prefixcommand, NULL, "setting", NULL);
          }
       }
       static uint32_t last = 0;
@@ -1659,7 +1672,7 @@ task (void *pvParameters)
          }
 #ifdef CONFIG_REVK_MESH
          ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long) now, revk_link_down (),
-                   esp_mesh_get_total_node_num (), esp_mesh_is_root ()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
+                   esp_mesh_get_total_node_num (), esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
          ESP_LOGI (TAG, "Up %ld, Link down %ld", (long) now, (long) revk_link_down ());
@@ -3820,6 +3833,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
 #endif
          }
          nvs_time = uptime () + 60;
+         b.setting_changed = 1;
       }
       if (flags & SETTING_LIVE)
       {                         /* Store changed value in memory live */
@@ -4524,7 +4538,7 @@ revk_command (const char *tag, jo_t j)
    }
    if (!e && watchdogtime && !strcmp (tag, "watchdog"))
    {                            /* Test watchdog */
-      wdt_test = 1;
+      b.wdt_test = 1;
       return "";
    }
    if (!e && !strcmp (tag, "restart"))
