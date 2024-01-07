@@ -2732,7 +2732,7 @@ revk_web_settings (httpd_req_t * req)
                         "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",
                         tag, field, value ? : "", place, ((!value || !*value)
                                                           && !af++) ? " autofocus" : "", strstr (field,
-                                                                                                 "pass") ? " type='password'" : "",
+                                                                                                 "pass") ? " type='password' readonly onfocus='this.removeAttribute('readonly');'" : "",
                         suffix ? : "");
       }
       if (sta_netif)
