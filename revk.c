@@ -2729,10 +2729,10 @@ revk_web_settings (httpd_req_t * req)
       void tr (const char *tag, const char *field, const char *value, const char *place, const char *suffix)
       {
          revk_web_send (req,
-                        "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' type='text' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",
+                        "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",
                         tag, field, value ? : "", place, ((!value || !*value)
                                                           && !af++) ? " autofocus" : "", strstr (field,
-                                                                                                 "pass") ? " style='text-security:disc;-webkit-text-security:disc;'" : "",
+                                                                                                 "pass") ? " type='password'" : "",
                         suffix ? : "");
       }
       if (sta_netif)
