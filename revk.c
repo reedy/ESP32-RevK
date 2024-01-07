@@ -4916,12 +4916,14 @@ fullmoon (int cycle)
 {                               // report full moon for specific lunar cycle
    long double k = cycle + 0.5;
    long double T = k / 1236.85L;
+   long double T2 = T * T;
+   long double T3 = T2 * T;
    long double JD =
-      2415020.75933L + 29.53058868L * k + 0.0001178L * T * T - 0.000000155L * T * T * T +
-      0.00033L * sinld (166.56L + 132.87L * T - 0.009173L * T * T);
-   long double M = 359.2242L + 29.10535608L * k - 0.0000333L * T * T - 0.00000347L * T * T * T;
-   long double M1 = 306.0253L + 385.81691806L * k + 0.0107306L * T * T + 0.00001236L * T * T * T;
-   long double F = 21.2964L + 390.67050646L * k - 0.0016528L * T * T - 0.00000239L * T * T * T;
+      2415020.75933L + 29.53058868L * k + 0.0001178L * T2 - 0.000000155L * T3 +
+      0.00033L * sinld (166.56L + 132.87L * T - 0.009173L * T2);
+   long double M = 359.2242L + 29.10535608L * k - 0.0000333L * T2 - 0.00000347L * T3;
+   long double M1 = 306.0253L + 385.81691806L * k + 0.0107306L * T2 + 0.00001236L * T3;
+   long double F = 21.2964L + 390.67050646L * k - 0.0016528L * T2 - 0.00000239L * T3;
    long double A = (0.1734 - 0.000393 * T) * sinld (M)  //
       + 0.0021 * sinld (2 * M)  //
       - 0.4068 * sinld (M1)     //
