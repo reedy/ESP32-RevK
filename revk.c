@@ -4899,9 +4899,8 @@ revk_season (time_t now)
       e.tm_mon = 2 + m / 100;
       e.tm_mday = m % 100;
       mktime (&e);
-      e.tm_mday += (7 - e.tm_wday) - 2; // good Friday
-      mktime (&e);
-      if (t.tm_yday >= e.tm_yday && t.tm_yday <= e.tm_yday + 3)
+      int gf = t.tm_yday + (7 - e.tm_wday) - 2; // good Friday;
+      if (t.tm_yday >= gf && t.tm_yday <= gf + 3)
          return 'E';            // Good Friday to Easter Monday
    }
    return 0;
