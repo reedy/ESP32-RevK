@@ -4914,9 +4914,10 @@ revk_season (time_t now)
 #define sinld(a)        sinl(PI*(a)/180.0L)
 
 static time_t
-fullmoon (int cycle)
-{                               // report full moon for specific lunar cycle
-   long double k = cycle + 0.5;
+moontime (int cycle, float phase)
+{                               // report moon time for specific lunar cycle and phase
+   long double k = phase,
+      cycle;
    long double T = k / 1236.85L;
    long double T2 = T * T;
    long double T3 = T2 * T;
@@ -4943,44 +4944,55 @@ fullmoon (int cycle)
    return (JD - 2440587.5L) * 86400LL;
 }
 
-static time_t lastmoon = 0,
-   nextmoon = 0;
+static time_t moonlast = 0,
+   moonnew = 0,
+   moonnext = 0;
 
 static void
 getmoons (time_t t)
 {
-   if (t >= lastmoon && t < nextmoon)
+   if (t >= moonlast && t < moonnext)
       return;
    int cycle = ((long double) t + 2207726238UL) / 2551442.86195200L;    // Guess
-   time_t f1 = fullmoon (cycle);
+   time_t f1 = moontime (cycle, 0.5);
    if (t < f1)
    {
-      lastmoon = fullmoon (cycle - 1);
-      nextmoon = f1;
+      moonlast = moontime (cycle - 1, 0.5);
+      moonnew = moontime (cycle, 0);
+      moonnext = f1;
       return;
    }
-   time_t f2 = fullmoon (cycle + 1);
+   time_t f2 = moontime (cycle + 1, 0.5);
    if (t >= f2)
    {
-      lastmoon = f2;
-      nextmoon = fullmoon (cycle + 2);
+      moonlast = f2;
+      moonnew = moontime (cycle + 2, 0);
+      moonnext = moontime (cycle + 2, 0.5);
    }
-   lastmoon = f1;
-   nextmoon = f2;
+   moonlast = f1;
+   moonnew = moontime (cycle + 1, 0);
+   moonnext = f2;
 }
 
 time_t
-revk_last_moon (time_t t)
-{
+revk_moon_full_last (time_t t)
+{                               // Last full moon (<=t)
    getmoons (t);
-   return lastmoon;
+   return moonlast;
 }
 
 time_t
-revk_next_moon (time_t t)
-{
+revk_moon_new (time_t t)
+{                               // Current new moon (may be >t or <=t)
    getmoons (t);
-   return nextmoon;
+   return moonnext;
+}
+
+time_t
+revk_moon_full_next (time_t t)
+{                               // Next full moon (<t)
+   getmoons (t);
+   return moonnext;
 }
 
 #endif

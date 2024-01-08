@@ -191,8 +191,9 @@ char revk_season (time_t now);  // Return a character for seasonal variation, E=
 #endif
 
 #ifdef	CONFIG_REVK_LUNAR
-time_t revk_last_moon (time_t t);
-time_t revk_next_moon (time_t t);
+time_t revk_moon_full_last (time_t t); // last full moon (so <=t)
+time_t revk_moon_new (time_t t);	// Current new moon - may be >t or <=t
+time_t revk_moon_full_next (time_t t);	// next full moon (so >t)
 #endif
 
 #endif
