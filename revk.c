@@ -4916,8 +4916,7 @@ revk_season (time_t now)
 static time_t
 moontime (int cycle, float phase)
 {                               // report moon time for specific lunar cycle and phase
-   long double k = phase,
-      cycle;
+   long double k = phase + cycle;
    long double T = k / 1236.85L;
    long double T2 = T * T;
    long double T3 = T2 * T;
