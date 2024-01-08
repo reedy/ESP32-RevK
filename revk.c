@@ -4881,6 +4881,8 @@ revk_season (time_t now)
 {                               // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
    struct tm t;
    localtime_r (&now, &t);
+   if (t.tm_year < 100)
+      return 0;                 // Assume not set
    if (t.tm_mon == 11 && t.tm_mday <= 25)
       return 'X';               // Xmas for 1st to 25th Dec
    if (t.tm_mon == 0 && t.tm_mday <= 7)
