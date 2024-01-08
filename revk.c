@@ -4894,7 +4894,7 @@ revk_season (time_t now)
    };
    {
       struct tm e;
-      int m = ed[(t.tm_year + 1900) % 19];
+      int m = ed[t.tm_year % 19];
       e.tm_year = t.tm_year;
       e.tm_mon = 2 + m / 100;
       e.tm_mday = m % 100;
