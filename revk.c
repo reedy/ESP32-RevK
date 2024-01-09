@@ -4895,6 +4895,7 @@ revk_season (time_t now)
    {
       struct tm e;
       int m = ed[(t.tm_year + 1900) % 19];
+      e.tm_hour = 12;           // Avoid dst issues
       e.tm_year = t.tm_year;
       e.tm_mon = 2 + m / 100;
       e.tm_mday = m % 100;
