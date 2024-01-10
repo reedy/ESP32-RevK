@@ -2319,6 +2319,8 @@ revk_mqtt_out (uint8_t clients, int tlen, const char *topic, int plen, const uns
 const char *
 revk_mqtt_send_raw (const char *topic, int retain, const char *payload, uint8_t clients)
 {
+   if (!payload)
+      payload = "";
 #ifdef	CONFIG_REVK_MQTT
    ESP_LOGD (TAG, "MQTT%02X publish %s (%s)", clients, topic ? : "-", payload);
    return revk_mqtt_out (clients, -1, topic, -1, (void *) payload, retain);
@@ -2375,10 +2377,23 @@ revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t
       return "No payload JSON";
    int pos = 0;
    const char *err = jo_error (*jp, &pos);
+   jo_rewind (*jp);
    if (err)
    {
       jo_free (jp);
       ESP_LOGE (TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
+   } else if (jo_here (*jp) == JO_STRING)
+   {
+      char *payload = NULL;
+      int len = jo_strlen (*jp);
+      if (len > 0)
+      {
+         payload = mallocspi (len + 1);
+         jo_strncpy (*jp, payload, len + 1);
+         err = revk_mqtt_send_payload_clients (prefix, retain, suffix, payload, clients);
+      }
+      jo_free (jp);
+      free (payload);
    } else if (jo_isalloc (*jp))
    {
       char *payload = jo_finisha (jp);
@@ -4895,7 +4910,6 @@ revk_season (time_t now)
    {
       struct tm e;
       int m = ed[(t.tm_year + 1900) % 19];
-      e.tm_hour = 12;           // Avoid dst issues
       e.tm_year = t.tm_year;
       e.tm_mon = 2 + m / 100;
       e.tm_mday = m % 100;
