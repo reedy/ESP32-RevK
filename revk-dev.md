@@ -42,6 +42,20 @@ revk_start();
 
 The `app_callback` is `const char *app_callback(int client, const char *prefix, const char *target, const char *suffix, jo_t j)` which is called for any received MQTT messages. The return value is an empty string for all OK, or an error message. NULL means not handled and not an error (which usually means an error as unknown command).
 
+The `app_callback` is also called for a number of internal functions.
+
+|suffix|Meaning|
+|------|-------|
+|`connect`|MQTT connected|
+|`disconnect`|MQTT disconnected|
+|`ap`|AP mode start|
+|`wifi`|WiFi client connected|
+|`ipv6`|IPv6 assigned|
+|`settings`|Settings changed|
+|`restart`|Restart requested (usually several seconds before shutting down)|
+|`shutdown`|Just before shutting down|
+|`mesh`|Mesh message received|
+
 ### Settings
 
 Between `revk_boot` and `revk_start` you should add necessary calls to `revk_register(...)` to add any settings you need.

@@ -48,6 +48,9 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #ifdef  CONFIG_NIMBLE_ENABLED
 #include "esp_bt.h"
 #endif
+#ifdef	CONFIG_REVK_LUNAR
+#include <math.h>
+#endif
 
 #include "esp8266_ota_compat.h"
 #include "esp8266_flash_compat.h"
@@ -268,6 +271,16 @@ led_strip_handle_t revk_strip = NULL;
 #endif
 
 /* Local */
+static struct
+{                               // Flags
+   uint8_t setting_changed:1;
+   uint8_t setting_dump_requested:1;
+   uint8_t wdt_test:1;
+#ifdef	CONFIG_REVK_MESH
+   uint8_t mesh_root_known:1;
+#endif
+} volatile b = { 0 };
+
 static uint32_t up_next;        // next up report (uptime)
 static EventGroupHandle_t revk_group;
 const static int GROUP_OFFLINE = BIT0;  // We are off line (IP not set)
@@ -285,7 +298,6 @@ lwmqtt_t mqtt_client[MQTT_CLIENTS] = { };
 
 static uint32_t restart_time = 0;
 static uint32_t nvs_time = 0;
-static uint8_t setting_dump_requested = 0;
 static const char *restart_reason = NULL;
 static nvs_handle nvs = -1;
 static setting_t *setting = NULL;
@@ -294,7 +306,6 @@ static uint32_t link_down = 1;  // When link last down
 esp_netif_t *sta_netif = NULL;
 esp_netif_t *ap_netif = NULL;
 #endif
-static char wdt_test = 0;
 static uint8_t blink_on = 0,
    blink_off = 0;
 static const char *blink_colours = NULL;
@@ -302,7 +313,6 @@ static const char *revk_setting_dump (void);
 
 #ifdef	CONFIG_REVK_MESH
 // OTA to mesh devices
-static uint8_t mesh_root_known = 0;
 static volatile uint8_t mesh_ota_ack = 0;
 static SemaphoreHandle_t mesh_ota_sem = NULL;
 static mesh_addr_t mesh_ota_addr = { };
@@ -360,7 +370,7 @@ mesh_safe_send (const mesh_addr_t * to, const mesh_data_t * data, int flag, cons
 {                               // Mutex to protect non-re-entrant call
    if (!esp_mesh_is_device_active ())
       return ESP_ERR_MESH_DISCONNECTED;
-   if (!to && !esp_mesh_is_root () && !mesh_root_known)
+   if (!to && !esp_mesh_is_root () && !b.mesh_root_known)
       return ESP_ERR_MESH_DISCONNECTED; // We are not root and root address not known
    xSemaphoreTake (mesh_mutex, portMAX_DELAY);
    esp_err_t e = esp_mesh_send (to, data, flag, opt, opt_count);
@@ -471,7 +481,7 @@ mesh_task (void *pvParameters)
          }
          continue;
       }
-      mesh_root_known = 1;      // We are root or we got from root, so let's mark known
+      b.mesh_root_known = 1;    // We are root or we got from root, so let's mark known
       data.data[data.size] = 0; // Add a null so we can parse JSON with NULL and log and so on
       char mac[13];
       sprintf (mac, "%02X%02X%02X%02X%02X%02X", from.addr[0], from.addr[1], from.addr[2], from.addr[3], from.addr[4], from.addr[5]);
@@ -1062,7 +1072,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          {
             if (!suffix && !plen)
             {
-               setting_dump_requested = 1;
+               b.setting_dump_requested = 1;
                err = "";
             } else if (suffix)
                err = "";        // Not sensible, we have been addressed (suffix is used as JSON if present with no JSON), clash prefixapp and not
@@ -1394,19 +1404,19 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             link_down = uptime ();
             ESP_LOGD (TAG, "Link down");
          }
-         if (mesh_root_known)
+         if (b.mesh_root_known)
          {
             ESP_LOGI (TAG, "Mesh root lost");
-            mesh_root_known = 0;
+            b.mesh_root_known = 0;
          }
          stop_ip ();
          revk_mqtt_close ("Mesh gone");
          break;
       case MESH_EVENT_ROOT_ADDRESS:    // We know the root
-         if (!mesh_root_known)
+         if (!b.mesh_root_known)
          {
             ESP_LOGI (TAG, "Mesh root known");
-            mesh_root_known = 1;
+            b.mesh_root_known = 1;
          }
          break;
 #if 0
@@ -1414,7 +1424,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          {
             mesh_event_toDS_state_t *toDs_state = (mesh_event_toDS_state_t *) event_data;
             ESP_LOGI (TAG, "TODS %d", *toDs_state);
-            mesh_root_known = 1;
+            b.mesh_root_known = 1;
          }
          break;
 #endif
@@ -1451,6 +1461,22 @@ blink_default (const char *user)
    return "RYGCBM";             // Idle
 }
 
+uint32_t
+revk_rgb (char c)
+{                               // Map colour character to RGB - maybe expand to handle more colours later.
+   char u = toupper (c);
+   uint8_t r = (u == 'R' ? 0xFF : u == 'Y' || u == 'M' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+   uint8_t g = (u == 'G' ? 0xFF : u == 'Y' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+   uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+   if (islower (c))
+   {
+      r /= 2;
+      g /= 2;
+      b /= 2;
+   }
+   return (r << 16) + (g << 8) + b;
+}
+
 #ifdef	CONFIG_REVK_LED_STRIP
 const uint8_t gamma8[256] = {
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1470,22 +1496,6 @@ const uint8_t gamma8[256] = {
    177, 180, 182, 184, 186, 189, 191, 193, 196, 198, 200, 203, 205, 208, 210, 213,
    215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255
 };
-
-uint32_t
-revk_rgb (char c)
-{                               // Map colour character to RGB - maybe expand to handle more colours later.
-   char u = toupper (c);
-   uint8_t r = (u == 'R' ? 0xFF : u == 'Y' || u == 'M' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
-   uint8_t g = (u == 'G' ? 0xFF : u == 'Y' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
-   uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
-   if (islower (c))
-   {
-      r /= 2;
-      g /= 2;
-      b /= 2;
-   }
-   return (r << 16) + (g << 8) + b;
-}
 
 void
 revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb)
@@ -1603,7 +1613,7 @@ task (void *pvParameters)
 #endif
    while (1)
    {                            /* Idle */
-      if (!wdt_test && watchdogtime)
+      if (!b.wdt_test && watchdogtime)
          esp_task_wdt_reset ();
       {                         // Fast (once per 100ms)
          int64_t now = esp_timer_get_time ();
@@ -1625,10 +1635,16 @@ task (void *pvParameters)
 #endif
                );
 #endif
-         if (setting_dump_requested)
+         if (b.setting_dump_requested)
          {                      // Done here so not reporting from MQTT
-            setting_dump_requested = 0;
+            b.setting_dump_requested = 0;
             revk_setting_dump ();
+         }
+         if (b.setting_changed)
+         {
+            b.setting_changed = 0;
+            if (app_callback)
+               app_callback (0, prefixcommand, NULL, "setting", NULL);
          }
       }
       static uint32_t last = 0;
@@ -1659,7 +1675,7 @@ task (void *pvParameters)
          }
 #ifdef CONFIG_REVK_MESH
          ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long) now, revk_link_down (),
-                   esp_mesh_get_total_node_num (), esp_mesh_is_root ()? " (root)" : mesh_root_known ? " (leaf)" : " (no-root)");
+                   esp_mesh_get_total_node_num (), esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
          ESP_LOGI (TAG, "Up %ld, Link down %ld", (long) now, (long) revk_link_down ());
@@ -1859,7 +1875,7 @@ gpio_ok (uint8_t p)
    if (p == 6 || (p >= 9 && p <= 11) || (p >= 16 && p <= 18) || (p >= 23 && p <= 24) || (p >= 28 && p <= 31))
       return 0;
 #else
-   if ((p >= 6 && p <= 11) || p == 20 || (p >= 28 && p <= 31) || (p >= 37 && p <= 38))
+   if ((p >= 6 && p <= 11) || (p >= 16 && p <= 17) || p == 20 || p == 24 || (p >= 28 && p <= 31) || (p >= 37 && p <= 38))
       return 0;
 #endif
 #endif
@@ -2303,6 +2319,8 @@ revk_mqtt_out (uint8_t clients, int tlen, const char *topic, int plen, const uns
 const char *
 revk_mqtt_send_raw (const char *topic, int retain, const char *payload, uint8_t clients)
 {
+   if (!payload)
+      payload = "";
 #ifdef	CONFIG_REVK_MQTT
    ESP_LOGD (TAG, "MQTT%02X publish %s (%s)", clients, topic ? : "-", payload);
    return revk_mqtt_out (clients, -1, topic, -1, (void *) payload, retain);
@@ -2359,10 +2377,23 @@ revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t
       return "No payload JSON";
    int pos = 0;
    const char *err = jo_error (*jp, &pos);
+   jo_rewind (*jp);
    if (err)
    {
       jo_free (jp);
       ESP_LOGE (TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
+   } else if (jo_here (*jp) == JO_STRING)
+   {
+      char *payload = NULL;
+      int len = jo_strlen (*jp);
+      if (len > 0)
+      {
+         payload = mallocspi (len + 1);
+         jo_strncpy (*jp, payload, len + 1);
+         err = revk_mqtt_send_payload_clients (prefix, retain, suffix, payload, clients);
+      }
+      jo_free (jp);
+      free (payload);
    } else if (jo_isalloc (*jp))
    {
       char *payload = jo_finisha (jp);
@@ -2497,6 +2528,19 @@ revk_web_settings_add (httpd_handle_t webserver)
    return 0;
 }
 
+void
+revk_web_send (httpd_req_t * req, const char *format, ...)
+{
+   char *v = NULL;
+   va_list ap;
+   va_start (ap, format);
+   ssize_t len = vasprintf (&v, format, ap);
+   va_end (ap);
+   if (v && *v && len > 0)
+      httpd_resp_sendstr_chunk (req, v);
+   free (v);
+}
+
 esp_err_t
 revk_web_config_remove (httpd_handle_t webserver)
 {
@@ -2515,48 +2559,33 @@ void
 revk_web_head (httpd_req_t * req, const char *title)
 {                               // Generic HTML heading
    httpd_resp_set_type (req, "text/html;charset=utf-8");
-   httpd_resp_sendstr_chunk (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
+   revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    if (title && *title)
-   {
-      httpd_resp_sendstr_chunk (req, "<title>");
-      httpd_resp_sendstr_chunk (req, title);
-      httpd_resp_sendstr_chunk (req, "</title>");
-   }
-   httpd_resp_sendstr_chunk (req,
-                             "<html><body style='font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);'"
+      revk_web_send (req, "<title>%s</title>", title);
+   revk_web_send (req,
+                  "<html><body style='font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);'"
 #ifndef CONFIG_HTTPD_WS_SUPPORT
-                             " onLoad='handleLoad()'"
+                  " onLoad='handleLoad()'"
 #endif
-                             ">");
+                  ">");
 }
 
 esp_err_t
 revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
 {                               // Generic html footing and return
-   httpd_resp_sendstr_chunk (req, "<hr><address>");
+   revk_web_send (req, "<hr><address>");
    if (home)
-      httpd_resp_sendstr_chunk (req, "<a href=/>Home</a> ");
+      revk_web_send (req, "<a href=/>Home</a> ");
    if (wifi)
-      httpd_resp_sendstr_chunk (req, "<a href=/revk-settings>Settings</a> ");
-   httpd_resp_sendstr_chunk (req, appname);
+      revk_web_send (req, "<a href=/revk-settings>Settings</a> ");
+   revk_web_send (req, appname);
    if (*revk_build_suffix)
-   {
-      httpd_resp_sendstr_chunk (req, "<small>");
-      httpd_resp_sendstr_chunk (req, revk_build_suffix);
-      httpd_resp_sendstr_chunk (req, "</small>");
-   }
-   httpd_resp_sendstr_chunk (req, ": ");
-   httpd_resp_sendstr_chunk (req, revk_version);
-   httpd_resp_sendstr_chunk (req, " ");
+      revk_web_send (req, "<small>%s</small>", revk_build_suffix);
    char temp[20];
-   httpd_resp_sendstr_chunk (req, revk_build_date (temp) ? : "?");
+   revk_web_send (req, ": %s %s", revk_version, revk_build_date (temp) ? : "?");
    if (extra && *extra)
-   {
-      httpd_resp_sendstr_chunk (req, " <b>");
-      httpd_resp_sendstr_chunk (req, extra);
-      httpd_resp_sendstr_chunk (req, "</b>");
-   }
-   httpd_resp_sendstr_chunk (req, "</address></body></html>");
+      revk_web_send (req, " <b>%s</b>", extra);
+   revk_web_send (req, "</address></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
    return ESP_OK;
 }
@@ -2564,12 +2593,12 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
 static void
 report_shutdown_reason (httpd_req_t * req, const char *shutdown)
 {
-   httpd_resp_sendstr_chunk (req, shutdown);
+   revk_web_send (req, shutdown);
    if (ota_percent > 0 && ota_percent <= 100)
    {
       char buf[10];
       sprintf (buf, " (%d%%)", ota_percent);
-      httpd_resp_sendstr_chunk (req, buf);
+      revk_web_send (req, buf);
    }
 }
 
@@ -2621,23 +2650,16 @@ void revk_web_setting_s (const char *tag, const char *field, const char *value, 
 esp_err_t
 revk_web_settings (httpd_req_t * req)
 {
-   void head (void)
-   {
-      revk_web_head (req, "WiFi Setup");
-      httpd_resp_sendstr_chunk (req, "<h1>");
-      if (*hostname)
-         httpd_resp_sendstr_chunk (req, hostname);
-      httpd_resp_sendstr_chunk (req,
-                                "</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%;}</style>");
-   }
-
-   head ();
+   revk_web_head (req, "WiFi Setup");
+   revk_web_send (req,
+                  "<h1>%s</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
+                  hostname);
    if (req->method == HTTP_POST)
    {
       if (req->content_len <= 0)
-         httpd_resp_sendstr_chunk (req, "Bad post");
+         revk_web_send (req, "Bad post");
       else if (req->content_len > 1000)
-         httpd_resp_sendstr_chunk (req, "Post too long");
+         revk_web_send (req, "Post too long");
       else
       {
          char *query = malloc (req->content_len + 1);
@@ -2647,13 +2669,13 @@ revk_web_settings (httpd_req_t * req)
             if (len > 0)
             {
                query[len] = 0;
-               httpd_resp_sendstr_chunk (req, "<p>");
+               revk_web_send (req, "<p>");
                jo_t j = jo_parse_query (query);
                if (jo_find (j, "upgrade"))
                {
                   const char *e = revk_command ("upgrade", NULL);
                   if (e && *e)
-                     httpd_resp_sendstr_chunk (req, e);
+                     revk_web_send (req, e);
                } else
                {
                   wifi_mode_t mode = 0;
@@ -2667,7 +2689,7 @@ revk_web_settings (httpd_req_t * req)
                      char pass[33] = "";
                      jo_strncpy (j, ssid, sizeof (ssid));
                      if (!*ssid)
-                        httpd_resp_sendstr_chunk (req, "No WiFi SSID. ");
+                        revk_web_send (req, "No WiFi SSID. ");
                      else
                      {
                         if (jo_find (j, "wifipass") == JO_STRING)
@@ -2691,16 +2713,14 @@ revk_web_settings (httpd_req_t * req)
                               sleep (1);
                               esp_netif_ip_info_t ip;
                               if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                              { // Got IP (TODO IPv6)
-                                 char temp[50];
-                                 snprintf (temp, sizeof (temp), "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
-                                 httpd_resp_sendstr_chunk (req, temp);
+                              {
+                                 revk_web_send (req, "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
                                  ok = 1;
                                  break;
                               }
                            }
                            if (!ok)
-                              httpd_resp_sendstr_chunk (req, "WiFi did not connect, try again.");
+                              revk_web_send (req, "WiFi did not connect, try again.");
                         }
                      }
                   } else
@@ -2710,19 +2730,16 @@ revk_web_settings (httpd_req_t * req)
                      const char *e = revk_setting (j);
                      if (e && *e)
                      {
-                        httpd_resp_sendstr_chunk (req, e);
+                        revk_web_send (req, "%s", e);
                         e = jo_debug (j);
                         if (e && *e)
-                        {
-                           httpd_resp_sendstr_chunk (req, " @ ");
-                           httpd_resp_sendstr_chunk (req, e);
-                        }
+                           revk_web_send (req, " @ %s", e);
                      } else
-                        httpd_resp_sendstr_chunk (req, revk_shutting_down (NULL) ? "Settings stored." : "No changes.");
+                        revk_web_send (req, revk_shutting_down (NULL) ? "Settings stored." : "No changes.");
                   }
                }
                jo_free (&j);
-               httpd_resp_sendstr_chunk (req, "</p>");
+               revk_web_send (req, "</p>");
             }
             free (query);
          }
@@ -2730,22 +2747,21 @@ revk_web_settings (httpd_req_t * req)
    }
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   httpd_resp_sendstr_chunk (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
+   revk_web_send (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
    if (shutdown && *shutdown)
       report_shutdown_reason (req, shutdown);
 #ifndef CONFIG_HTTPD_WS_SUPPORT
    else
-      httpd_resp_sendstr_chunk (req, get_status_text ());
+      revk_web_send (req, "%s", get_status_text ());
 #endif
-   httpd_resp_sendstr_chunk (req, "</b></p>");
-   httpd_resp_sendstr_chunk (req,
-                             "<form action=/revk-settings name=WIFI method=post onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
+   revk_web_send (req,
+                  "</b></p><form action='/revk-settings' name='WIFI' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
    if (!shutdown)
    {
-      httpd_resp_sendstr_chunk (req, "<table>");
+      revk_web_send (req, "<table>");
       void hr (void)
       {
-         httpd_resp_sendstr_chunk (req, "<tr><td colspan=3><hr></td></tr>");
+         revk_web_send (req, "<tr><td colspan=3><hr></td></tr>");
       }
       char af = 0;
       if (sta_netif)
@@ -2775,90 +2791,91 @@ revk_web_settings (httpd_req_t * req)
       extern void revk_web_extra (httpd_req_t *);
       revk_web_extra (req);
 #endif
-      httpd_resp_sendstr_chunk (req, "</table><p id=set><input type=submit value='Change settings'>");
+      revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
-      {
-         httpd_resp_sendstr_chunk (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from ");
-         httpd_resp_sendstr_chunk (req, otahost);
-         httpd_resp_sendstr_chunk (req, "'>");
-      }
-      httpd_resp_sendstr_chunk (req, "</p></form>");
+         revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s'>", otahost);
+      revk_web_send (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
    if (!shutdown)
-      httpd_resp_sendstr_chunk (req, "<div id=list>WiFi:</div>");
-   httpd_resp_sendstr_chunk (req, "<script>"    //
-                             "var f=document.WIFI;"     //
-                             "var reboot=0;"    //
-                             "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"     //
-                             "ws.onopen=function(v){ws.send('scan');};" //
-                             "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"   //
-                             "ws.onerror=function(v){ws.close();};"     //
-                             "ws.onmessage=function(e){"        //
-                             "o=JSON.parse(e.data);"    //
-                             "if(typeof o === 'number')reboot=1;"       //
-                             "else if(typeof o === 'string'){document.getElementById('msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"  //
-                             "else if(typeof o === 'object')o.forEach(function(s){"     //
-                             "b=document.createElement('button');"      //
-                             "b.onclick=function(e){"   //
-                             "f.wifissid.value=s;"      //
-                             "f.wifipass.value='';"     //
-                             "f.wifipass.focus();"      //
-                             "return false;"    //
-                             "};"       //
-                             "b.textContent=s;" //
-                             "document.getElementById('list').appendChild(b);"  //
-                             "});"      //
-                             "};"       //
-                             "</script>");
+      revk_web_send (req, "<div id=list>WiFi:</div>");
+   revk_web_send (req, "<script>"       //
+                  "var f=document.WIFI;"        //
+                  "var reboot=0;"       //
+                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"        //
+                  "ws.onopen=function(v){ws.send('scan');};"    //
+                  "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"      //
+                  "ws.onerror=function(v){ws.close();};"        //
+                  "ws.onmessage=function(e){"   //
+                  "o=JSON.parse(e.data);"       //
+                  "if(typeof o === 'number')reboot=1;"  //
+                  "else if(typeof o === 'string'){document.getElementById('msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"     //
+                  "else if(typeof o === 'object')o.forEach(function(s){"        //
+                  "b=document.createElement('button');" //
+                  "b.onclick=function(e){"      //
+                  "f.wifissid.value=s;" //
+                  "f.wifipass.value='';"        //
+                  "f.wifipass.focus();" //
+                  "return false;"       //
+                  "};"          //
+                  "b.textContent=s;"    //
+                  "document.getElementById('list').appendChild(b);"     //
+                  "});"         //
+                  "};"          //
+                  "</script>");
 #else
-   httpd_resp_sendstr_chunk (req, "<script>");
+   revk_web_send (req, "<script>");
    if (shutdown && *shutdown)
    {
-      httpd_resp_sendstr_chunk (req, "function g(n){return document.getElementById(n);};"
-                                "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
-                                // Just reload the page in its initial state
-                                "window.location.href = '/revk-settings';"
-                                "else "
-                                "s('msg',rt);"
-                                "}"
-                                "function c()"
-                                "{"
-                                "xhttp = new XMLHttpRequest();"
-                                "xhttp.onreadystatechange = function()"
-                                "{"
-                                "if (this.readyState == 4) {"
-                                "if (this.status == 200)"
-                                "decode(this.responseText);"
-                                "}"
-                                "};"
-                                "xhttp.open('GET', '/revk-status', true);"
-                                "xhttp.send();" "}" "function handleLoad(){window.setInterval(c, 1000);}");
+      revk_web_send (req, "function g(n){return document.getElementById(n);};"
+                     "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
+                     // Just reload the page in its initial state
+                     "window.location.href = '/revk-settings';"
+                     "else "
+                     "s('msg',rt);"
+                     "}"
+                     "function c()"
+                     "{"
+                     "xhttp = new XMLHttpRequest();"
+                     "xhttp.onreadystatechange = function()"
+                     "{"
+                     "if (this.readyState == 4) {"
+                     "if (this.status == 200)"
+                     "decode(this.responseText);"
+                     "}"
+                     "};"
+                     "xhttp.open('GET', '/revk-status', true);"
+                     "xhttp.send();" "}" "function handleLoad(){window.setInterval(c, 1000);}");
    } else
    {
       // revk_web_head() always adds onLoad='handleLoad()'; this is the cheap way
       // to avoid adding more conditionals. Just emit a no-op.
-      httpd_resp_sendstr_chunk (req, "function handleLoad(){}");
+      revk_web_send (req, "function handleLoad(){}");
    }
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
    if (otaauto && *otahost)
-   {
-      httpd_resp_sendstr_chunk (req, "<p>Note, automatic upgrade from <i>");
-      httpd_resp_sendstr_chunk (req, otahost);
-      httpd_resp_sendstr_chunk (req, "</i> is enabled. See instructions to make changes.</p>");
-   }
+      revk_web_send (req, "<p>Note, automatic upgrade from <i>%s</i> is enabled. See instructions to make changes.</p>", otahost);
    {                            // IP info
-      httpd_resp_sendstr_chunk (req, "<table>");
-      char temp[100];
+      revk_web_send (req, "<table>");
+      revk_web_send (req, "<tr><td>Uptime</td><td>%ld seconds</td></tr>", uptime ());
+      {
+         uint32_t heapspi = heap_caps_get_free_size (MALLOC_CAP_SPIRAM);
+         uint32_t heap = esp_get_free_heap_size () - heapspi;
+         if (heapspi)
+            revk_web_send (req, "<tr><td>Free mem</td><td>%ld+%ld</td></tr>", heap, heapspi);
+         else
+            revk_web_send (req, "<tr><td>Free mem</td><td>%ld</td></tr>", heap);
+      }
       {
          time_t now = time (0);
          if (now > 1000000000)
          {
             struct tm t;
             localtime_r (&now, &t);
-            strftime (temp, sizeof (temp), "<tr><td>Time</td><td>%F %T %Z</td></tr>", &t);
-            httpd_resp_sendstr_chunk (req, temp);
+            char temp[50];
+            strftime (temp, sizeof (temp), "%F %T %Z", &t);
+            revk_web_send (req, "<tr><td>Time</td><td>%s</td></tr>", temp);
          }
       }
       if (sta_netif)
@@ -2866,25 +2883,18 @@ revk_web_settings (httpd_req_t * req)
          {
             esp_netif_ip_info_t ip;
             if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-            {
-               sprintf (temp, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip));
-               httpd_resp_sendstr_chunk (req, temp);
-               sprintf (temp, "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.gw));
-               httpd_resp_sendstr_chunk (req, temp);
-            }
+               revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>"   //
+                              "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip), IP2STR (&ip.gw));
          }
 #ifdef CONFIG_LWIP_IPV6
          {
             esp_ip6_addr_t ip;
             if (!esp_netif_get_ip6_global (sta_netif, &ip))
-            {
-               sprintf (temp, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
-               httpd_resp_sendstr_chunk (req, temp);
-            }
+               revk_web_send (req, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
          }
 #endif
       }
-      httpd_resp_sendstr_chunk (req, "</table>");
+      revk_web_send (req, "</table>");
    }
 
    return revk_web_foot (req, 1, 0, NULL);
@@ -3820,6 +3830,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
 #endif
          }
          nvs_time = uptime () + 60;
+         b.setting_changed = 1;
       }
       if (flags & SETTING_LIVE)
       {                         /* Store changed value in memory live */
@@ -4524,7 +4535,7 @@ revk_command (const char *tag, jo_t j)
    }
    if (!e && watchdogtime && !strcmp (tag, "watchdog"))
    {                            /* Test watchdog */
-      wdt_test = 1;
+      b.wdt_test = 1;
       return "";
    }
    if (!e && !strcmp (tag, "restart"))
@@ -4892,3 +4903,123 @@ revk_build_date (char d[20])
       d[8] = '0';
    return d;
 }
+
+#ifdef	CONFIG_REVK_SEASON
+char
+revk_season (time_t now)
+{                               // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
+   struct tm t;
+   localtime_r (&now, &t);
+   if (t.tm_year < 100)
+      return 0;                 // Assume not set
+   if (t.tm_mon == 11 && t.tm_mday <= 25)
+      return 'X';               // Xmas for 1st to 25th Dec
+   if (t.tm_mon == 0 && t.tm_mday <= 7)
+      return 'Y';               // New Year for 1st to 7th Jan
+   if (t.tm_mon == 9 && t.tm_mday == 31 && t.tm_hour >= 16)
+      return 'H';               // Halloween from 4pm on 31st Oct
+   const uint8_t ed[] = { 114, 103, 23, 111, 31, 118, 108, 28, 116, 105, 25, 113, 102, 22, 110, 30,
+      117, 107, 27
+   };
+   {
+      struct tm e;
+      int m = ed[(t.tm_year + 1900) % 19];
+      e.tm_year = t.tm_year;
+      e.tm_mon = 2 + m / 100;
+      e.tm_mday = m % 100;
+      mktime (&e);
+      int gf = e.tm_yday + (7 - e.tm_wday) - 2; // good Friday;
+      if (t.tm_yday >= gf && t.tm_yday <= gf + 3)
+         return 'E';            // Good Friday to Easter Monday
+   }
+   return 0;
+}
+#endif
+
+#ifdef	CONFIG_REVK_LUNAR
+
+#define PI      3.1415926535897932384626433832795029L
+#define sinld(a)        sinl(PI*(a)/180.0L)
+
+static time_t
+moontime (int cycle, float phase)
+{                               // report moon time for specific lunar cycle and phase
+   long double k = phase + cycle;
+   long double T = k / 1236.85L;
+   long double T2 = T * T;
+   long double T3 = T2 * T;
+   long double JD =
+      2415020.75933L + 29.53058868L * k + 0.0001178L * T2 - 0.000000155L * T3 +
+      0.00033L * sinld (166.56L + 132.87L * T - 0.009173L * T2);
+   long double M = 359.2242L + 29.10535608L * k - 0.0000333L * T2 - 0.00000347L * T3;
+   long double M1 = 306.0253L + 385.81691806L * k + 0.0107306L * T2 + 0.00001236L * T3;
+   long double F = 21.2964L + 390.67050646L * k - 0.0016528L * T2 - 0.00000239L * T3;
+   long double A = (0.1734 - 0.000393 * T) * sinld (M)  //
+      + 0.0021 * sinld (2 * M)  //
+      - 0.4068 * sinld (M1)     //
+      + 0.0161 * sinld (2 * M1) //
+      - 0.0004 * sinld (3 * M1) //
+      + 0.0104 * sinld (2 * F)  //
+      - 0.0051 * sinld (M + M1) //
+      - 0.0074 * sinld (M - M1) //
+      + 0.0004 * sinld (2 * F + M)      //
+      - 0.0004 * sinld (2 * F - M)      //
+      - 0.0006 * sinld (2 * F + M1)     //
+      + 0.0010 * sinld (2 * F - M1)     //
+      + 0.0005 * sinld (M + 2 * M1);    //
+   JD += A;
+   return (JD - 2440587.5L) * 86400LL;
+}
+
+static time_t moonlast = 0,
+   moonnew = 0,
+   moonnext = 0;
+
+static void
+getmoons (time_t t)
+{
+   if (t >= moonlast && t < moonnext)
+      return;
+   int cycle = ((long double) t + 2207726238UL) / 2551442.86195200L;    // Guess
+   time_t f1 = moontime (cycle, 0.5);
+   if (t < f1)
+   {
+      moonlast = moontime (cycle - 1, 0.5);
+      moonnew = moontime (cycle, 0);
+      moonnext = f1;
+      return;
+   }
+   time_t f2 = moontime (cycle + 1, 0.5);
+   if (t >= f2)
+   {
+      moonlast = f2;
+      moonnew = moontime (cycle + 2, 0);
+      moonnext = moontime (cycle + 2, 0.5);
+   }
+   moonlast = f1;
+   moonnew = moontime (cycle + 1, 0);
+   moonnext = f2;
+}
+
+time_t
+revk_moon_full_last (time_t t)
+{                               // Last full moon (<=t)
+   getmoons (t);
+   return moonlast;
+}
+
+time_t
+revk_moon_new (time_t t)
+{                               // Current new moon (may be >t or <=t)
+   getmoons (t);
+   return moonnext;
+}
+
+time_t
+revk_moon_full_next (time_t t)
+{                               // Next full moon (<t)
+   getmoons (t);
+   return moonnext;
+}
+
+#endif
