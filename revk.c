@@ -2625,7 +2625,8 @@ get_status_text (void)
 }
 
 void
-revk_web_setting_s (const char *tag, const char *field, const char *value, const char *place, const char *suffix, char af)
+revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const char *value, const char *place, const char *suffix,
+                    char af)
 {
    httpd_resp_sendstr_chunk (req, "<tr><td>");
    httpd_resp_sendstr_chunk (req, tag);
@@ -2766,7 +2767,7 @@ revk_web_settings (httpd_req_t * req)
       char af = 0;
       if (sta_netif)
       {
-         revk_web_setting_s ("Hostname", "hostname", hostname == revk_id ? NULL : hostname, revk_id,
+         revk_web_setting_s (req, "Hostname", "hostname", hostname == revk_id ? NULL : hostname, revk_id,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
                              ".local"
 #else
@@ -2774,18 +2775,18 @@ revk_web_settings (httpd_req_t * req)
 #endif
                              , !af++);
          hr ();
-         revk_web_setting_s ("SSID", "wifissid", wifissid, "WiFi name", NULL, !af++);
-         revk_web_setting_s ("Passphrase", "wifipass", wifipass, "WiFi pass", NULL, !af++);
+         revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL, !af++);
+         revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL, !af++);
          hr ();
       }
-      revk_web_setting_s ("MQTT host", "mqtthost", mqtthost[0], "hostname", NULL, !af++);
-      revk_web_setting_s ("MQTT user", "mqttuser", mqttuser[0], "username", NULL, !af++);
-      revk_web_setting_s ("MQTT pass", "mqttpass", mqttpass[0], "password", NULL, !af++);
+      revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL, !af++);
+      revk_web_setting_s (req, "MQTT user", "mqttuser", mqttuser[0], "username", NULL, !af++);
+      revk_web_setting_s (req, "MQTT pass", "mqttpass", mqttpass[0], "password", NULL, !af++);
 #if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
       hr ();
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
-      revk_web_setting_s ("Timezone", "tz", tz, "TZ code",
+      revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
                           " See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>", !af++);
 #endif
 #ifdef	CONFIG_REVK_WEB_EXTRA
