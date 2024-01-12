@@ -165,7 +165,7 @@ void revk_web_send (httpd_req_t * req, const char *format, ...);
 esp_err_t revk_web_settings_add (httpd_handle_t webserver);     // Add URLs
 esp_err_t revk_web_settings_remove (httpd_handle_t webserver);  // Remove URLs
 esp_err_t revk_web_settings (httpd_req_t * req);        // Call for web config for SSID/password/mqtt (GET/POST) - needs 4 URLS
-							void revk_web_setting_s (const char *tag, const char *field, const char *value, const char *place, const char *suffix,char af);
+void revk_web_setting_s (const char *tag, const char *field, const char *value, const char *place, const char *suffix, char af);
 esp_err_t revk_web_status (httpd_req_t * req);  // Call for web config for SSID/password/mqtt (WS)
 esp_err_t revk_web_wifilist (httpd_req_t * req);        // WS for list of SSIDs
 void revk_web_head (httpd_req_t * req, const char *title);      // Generic html heading
@@ -192,9 +192,9 @@ char revk_season (time_t now);  // Return a character for seasonal variation, E=
 #endif
 
 #ifdef	CONFIG_REVK_LUNAR
-time_t revk_moon_full_last (time_t t); // last full moon (so <=t)
-time_t revk_moon_new (time_t t);	// Current new moon - may be >t or <=t
-time_t revk_moon_full_next (time_t t);	// next full moon (so >t)
+time_t revk_moon_full_last (time_t t);  // last full moon (so <=t)
+time_t revk_moon_new (time_t t);        // Current new moon - may be >t or <=t
+time_t revk_moon_full_next (time_t t);  // next full moon (so >t)
 #endif
 
 #endif
