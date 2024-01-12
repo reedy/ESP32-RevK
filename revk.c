@@ -2628,24 +2628,19 @@ void
 revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const char *value, const char *place, const char *suffix,
                     char af)
 {
-   httpd_resp_sendstr_chunk (req, "<tr><td>");
-   httpd_resp_sendstr_chunk (req, tag);
-   httpd_resp_sendstr_chunk (req, "</td><td colspan=2><input name=");
-   httpd_resp_sendstr_chunk (req, field);
-   httpd_resp_sendstr_chunk (req, " value='");
-   if (value && *value)
-      httpd_resp_sendstr_chunk (req, value);
-   httpd_resp_sendstr_chunk (req, "' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='");
-   httpd_resp_sendstr_chunk (req, place);
-   httpd_resp_sendstr_chunk (req, "'");
-   if ((!value || !*value) && af)
-      httpd_resp_sendstr_chunk (req, " autofocus");
-   if (strstr (field, "pass"))
-      httpd_resp_sendstr_chunk (req, " type='password'");
-   httpd_resp_sendstr_chunk (req, ">");
-   if (suffix && *suffix)
-      httpd_resp_sendstr_chunk (req, suffix);
-   httpd_resp_sendstr_chunk (req, "</td></tr>");
+   revk_web_send (req, "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",tag,field,value?:"",place?:"",(!value||!*value)&&af?" autofocus":"",strstr(field,"pass")?" type='password'":"",suffix?:"");
+}
+
+void
+revk_web_setting_i (httpd_req_t * req, const char *tag, const char *field, int64_t value, const char *suffix)
+{
+   revk_web_send (req, "<tr><td>%s</td><td colspan=2><input name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",tag,field,value,suffix?:"");
+}
+
+void
+revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8_t value, const char *suffix)
+{
+   revk_web_send (req, "<tr><td>%s</td><td colspan=2><input type='radio' name='%s' value='0'%s>On <input type='radio' name='%s' value='1'%s>%s</td></tr>",tag,field,!value?" selected":"",field,value?" selected":"",suffix);
 }
 
 esp_err_t
