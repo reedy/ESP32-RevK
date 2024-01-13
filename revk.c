@@ -2628,19 +2628,26 @@ void
 revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const char *value, const char *place, const char *suffix,
                     char af)
 {
-   revk_web_send (req, "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",tag,field,value?:"",place?:"",(!value||!*value)&&af?" autofocus":"",strstr(field,"pass")?" type='password'":"",suffix?:"");
+   revk_web_send (req,
+                  "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",
+                  tag, field, value ? : "", place ? : "", (!value || !*value)
+                  && af ? " autofocus" : "", strstr (field, "pass") ? " type='password'" : "", suffix ? : "");
 }
 
 void
 revk_web_setting_i (httpd_req_t * req, const char *tag, const char *field, int64_t value, const char *suffix)
 {
-   revk_web_send (req, "<tr><td>%s</td><td colspan=2><input name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",tag,field,value,suffix?:"");
+   revk_web_send (req,
+                  "<tr><td>%s</td><td colspan=2><input name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",
+                  tag, field, value, suffix ? : "");
 }
 
 void
 revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8_t value, const char *suffix)
 {
-   revk_web_send (req, "<tr><td>%s</td><td colspan=2><input type='radio' name='%s' value='0'%s>On <input type='radio' name='%s' value='1'%s>%s</td></tr>",tag,field,!value?" selected":"",field,value?" selected":"",suffix);
+   revk_web_send (req,
+                  "<tr><td>%s</td><td colspan=2><input type='radio' name='%s' value='0'%s>On <input type='radio' name='%s' value='1'%s>%s</td></tr>",
+                  tag, field, !value ? " selected" : "", field, value ? " selected" : "", suffix);
 }
 
 esp_err_t
@@ -2855,7 +2862,9 @@ revk_web_settings (httpd_req_t * req)
       revk_web_send (req, "<p>Note, automatic upgrade from <i>%s</i> is enabled. See instructions to make changes.</p>", otahost);
    {                            // IP info
       revk_web_send (req, "<table>");
-      revk_web_send (req, "<tr><td>Uptime</td><td>%ld seconds</td></tr>", uptime ());
+      int32_t up = uptime ();
+      revk_web_send (req, "<tr><td>Uptime</td><td>%ld day%s %02ld:%02ld:%02ld</td></tr>", up / 86400, up / 86400 == 1 ? "" : "s",
+                     up / 3600 % 24, up / 60 % 60, up % 60);
       {
          uint32_t heapspi = heap_caps_get_free_size (MALLOC_CAP_SPIRAM);
          uint32_t heap = esp_get_free_heap_size () - heapspi;
