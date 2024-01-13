@@ -5018,7 +5018,7 @@ time_t
 revk_moon_new (time_t t)
 {                               // Current new moon (may be >t or <=t)
    getmoons (t);
-   return moonnext;
+   return moonnew;
 }
 
 time_t
