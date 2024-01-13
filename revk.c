@@ -2629,7 +2629,7 @@ revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const
                     char af)
 {
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",
+                  "<tr><td>%s</td><td colspan=2><input name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'%s%s> %s</td></tr>",
                   tag, field, value ? : "", place ? : "", (!value || !*value)
                   && af ? " autofocus" : "", strstr (field, "pass") ? " type='password'" : "", suffix ? : "");
 }
@@ -2638,7 +2638,7 @@ void
 revk_web_setting_i (httpd_req_t * req, const char *tag, const char *field, int64_t value, const char *suffix)
 {
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><input name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s>%s</td></tr>",
+                  "<tr><td>%s</td><td colspan=2><input name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s> %s</td></tr>",
                   tag, field, value, suffix ? : "");
 }
 
@@ -2646,7 +2646,7 @@ void
 revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8_t value, const char *suffix)
 {
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><input type='radio' name='%s' value='0'%s>On <input type='radio' name='%s' value='1'%s>%s</td></tr>",
+                  "<tr><td>%s</td><td colspan=2><input type='radio' name='%s' value='0'%s>On <input type='radio' name='%s' value='1'%s> %s</td></tr>",
                   tag, field, !value ? " selected" : "", field, value ? " selected" : "", suffix);
 }
 
@@ -2789,7 +2789,7 @@ revk_web_settings (httpd_req_t * req)
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
       revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
-                          " See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>", !af++);
+                          "See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>", !af++);
 #endif
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
