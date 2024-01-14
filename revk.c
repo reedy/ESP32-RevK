@@ -1466,7 +1466,7 @@ revk_rgb (char c)
 {                               // Map colour character to RGB - maybe expand to handle more colours later.
    char u = toupper (c);
    uint8_t r = (u == 'R' ? 0xFF : u == 'Y' || u == 'M' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
-   uint8_t g = (u == 'G' ? 0xFF : u == 'Y' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+   uint8_t g = (u == 'G' ? 0xBF : u == 'Y' || u == 'C' ? 0xBF / 2 : u == 'W' ? 0xBF / 3 : 0);
    uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
    if (islower (c))
    {
