@@ -37,6 +37,27 @@ menu "RevK"
         help
 		Support LED strip for status LED - set by build system if led_strip managed_component is present
 
+	config REVK_RGB_MAX_R
+	int "Max red"
+	default 240
+	depends on REVK_LED_STRIP
+	help
+		Max level for RED LED in RGB strip
+
+	config REVK_RGB_MAX_G
+	int "Max green"
+	default 180
+	depends on REVK_LED_STRIP
+	help
+		Max level for GREEN LED in RGB strip
+
+	config REVK_RGB_MAX_B
+	int "Max blue"
+	default 255
+	depends on REVK_LED_STRIP
+	help
+		Max level for BLUE LED in RGB strip
+
 	config REVK_WATCHDOG
 	int "Watchdog time"
 	default 60

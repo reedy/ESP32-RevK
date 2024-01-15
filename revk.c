@@ -1465,9 +1465,18 @@ uint32_t
 revk_rgb (char c)
 {                               // Map colour character to RGB - maybe expand to handle more colours later.
    char u = toupper (c);
+#ifdef	CONFIG_REVK_RGB_MAX_R
+   uint8_t r = (u == 'R' ? CONFIG_REVK_RGB_MAX_R : u == 'Y'
+                || u == 'M' ? CONFIG_REVK_RGB_MAX_R / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_R / 3 : 0);
+   uint8_t g = (u == 'G' ? CONFIG_REVK_RGB_MAX_G : u == 'Y'
+                || u == 'C' ? CONFIG_REVK_RGB_MAX_G / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_G / 3 : 0);
+   uint8_t b = (u == 'B' ? CONFIG_REVK_RGB_MAX_B : u == 'M'
+                || u == 'C' ? CONFIG_REVK_RGB_MAX_B / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_B / 3 : 0);
+#else
    uint8_t r = (u == 'R' ? 0xFF : u == 'Y' || u == 'M' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
-   uint8_t g = (u == 'G' ? 0xBF : u == 'Y' || u == 'C' ? 0xBF / 2 : u == 'W' ? 0xBF / 3 : 0);
+   uint8_t g = (u == 'G' ? 0xFF : u == 'Y' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
    uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+#endif
    if (islower (c))
    {
       r /= 2;
