@@ -200,4 +200,11 @@ time_t revk_moon_new (time_t t);        // Current new moon - may be >t or <=t
 time_t revk_moon_full_next (time_t t);  // next full moon (so >t)
 #endif
 
++ void revk_enable_wifi(void);
++ void revk_disable_wifi(void);
++ void revk_enable_ap(void);
++ void revk_disable_ap(void);
++ void revk_enable_settings(void);
++ void revk_disable_settings(void);
+
 #endif

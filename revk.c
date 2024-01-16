@@ -276,6 +276,9 @@ static struct
    uint8_t setting_changed:1;
    uint8_t setting_dump_requested:1;
    uint8_t wdt_test:1;
+   uint8_t disablewifi:1;
+   uint8_t disableap:1;
+   uint8_t disablesettings:1;
 #ifdef	CONFIG_REVK_MESH
    uint8_t mesh_root_known:1;
 #endif
@@ -1815,18 +1818,18 @@ task (void *pvParameters)
             revk_restart ("Offline too long", 0);
 #endif
 #ifdef	CONFIG_REVK_APMODE
-         if (apgpio && (gpio_get_level (apgpio & IO_MASK) ^ (apgpio & IO_INV ? 1 : 0)))
+         if (!b.disableap && apgpio && (gpio_get_level (apgpio & IO_MASK) ^ (apgpio & IO_INV ? 1 : 0)))
          {
             ap_start ();
             if (aptime)
                apstoptime = now + aptime;
          }
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MQTT)
-         if (apwait && revk_link_down () > apwait)
+         if (!b.disableap && apwait && revk_link_down () > apwait)
             ap_start ();
 #endif
 #ifdef	CONFIG_REVK_WIFI
-         if (!*wifissid)
+         if (!b.disableap && !*wifissid)
             ap_start ();
 #endif
          if (apstoptime && apstoptime < now)
@@ -2662,6 +2665,8 @@ revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8
 esp_err_t
 revk_web_settings (httpd_req_t * req)
 {
+   if (b.disablesettings)
+      return ESP_OK;
    revk_web_head (req, "WiFi Setup");
    revk_web_send (req,
                   "<h1>%s</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
@@ -5035,6 +5040,50 @@ revk_moon_full_next (time_t t)
 {                               // Next full moon (<t)
    getmoons (t);
    return moonnext;
+}
+
+void
+revk_enable_wifi (void)
+{
+   if (b.disablewifi)
+   {
+      REVK_ERR_CHECK (esp_wifi_stop ());
+      b.disablewifi = 0;
+   }
+}
+
+void
+revk_disable_wifi (void)
+{
+   if (!b.disablewifi)
+   {
+      esp_wifi_set_mode (WIFI_MODE_APSTA);
+      b.disablewifi = 1;
+   }
+}
+
+void
+revk_enable_ap (void)
+{
+   b.disableap = 0;
+}
+
+void
+revk_disable_ap (void)
+{
+   b.disableap = 1;
+}
+
+void
+revk_enable_settings (void)
+{
+   b.disablesettings = 0;
+}
+
+void
+revk_disable_settings (void)
+{
+   b.disablesettings = 1;
 }
 
 #endif
