@@ -5049,8 +5049,13 @@ revk_enable_wifi (void)
 {
    if (b.disablewifi)
    {
-      REVK_ERR_CHECK (esp_wifi_stop ());
-      b.disablewifi = 0;
+#ifdef	CONFIG_REVK_MQTT
+      revk_mqtt_close (void)
+#endif
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+        revk_wifi_close (void)
+#endif
+        b.disablewifi = 0;
    }
 }
 
@@ -5059,8 +5064,13 @@ revk_disable_wifi (void)
 {
    if (!b.disablewifi)
    {
-      esp_wifi_set_mode (WIFI_MODE_APSTA);
-      b.disablewifi = 1;
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+      wifi_init ();
+#endif
+#ifdef	CONFIG_REVK_MQTT
+      revk_mqtt_init (void)
+#endif
+        b.disablewifi = 1;
    }
 }
 
@@ -5087,4 +5097,3 @@ revk_disable_settings (void)
 {
    b.disablesettings = 1;
 }
-
