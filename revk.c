@@ -1466,10 +1466,10 @@ revk_rgb (char c)
 {                               // Map colour character to RGB - maybe expand to handle more colours later.
    char u = toupper (c);
 #ifdef	CONFIG_REVK_RGB_MAX_R
-   uint8_t r = (u == 'R' ? CONFIG_REVK_RGB_MAX_R : u == 'Y'
+   uint8_t r = (u == 'R' || u == 'O' ? CONFIG_REVK_RGB_MAX_R : u == 'Y'
                 || u == 'M' ? CONFIG_REVK_RGB_MAX_R / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_R / 3 : 0);
    uint8_t g = (u == 'G' ? CONFIG_REVK_RGB_MAX_G : u == 'Y'
-                || u == 'C' ? CONFIG_REVK_RGB_MAX_G / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_G / 3 : 0);
+                || u == 'C' || u == 'O' ? CONFIG_REVK_RGB_MAX_G / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_G / 3 : 0);
    uint8_t b = (u == 'B' ? CONFIG_REVK_RGB_MAX_B : u == 'M'
                 || u == 'C' ? CONFIG_REVK_RGB_MAX_B / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_B / 3 : 0);
 #else
