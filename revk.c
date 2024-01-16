@@ -1467,11 +1467,11 @@ revk_rgb (char c)
    char u = toupper (c);
 #ifdef	CONFIG_REVK_RGB_MAX_R
    uint8_t r = (u == 'R' || u == 'O' ? CONFIG_REVK_RGB_MAX_R : u == 'Y'
-                || u == 'M' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+                || u == 'M' ? CONFIG_REVK_RGB_MAX_R / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_R / 3 : 0);
    uint8_t g = (u == 'G' ? CONFIG_REVK_RGB_MAX_G : u == 'Y'
-                || u == 'C' || u == 'O' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+                || u == 'C' || u == 'O' ? CONFIG_REVK_RGB_MAX_G / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_G / 3 : 0);
    uint8_t b = (u == 'B' ? CONFIG_REVK_RGB_MAX_B : u == 'M'
-                || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
+                || u == 'C' ? CONFIG_REVK_RGB_MAX_B / 2 : u == 'W' ? CONFIG_REVK_RGB_MAX_B / 3 : 0);
 #else
    uint8_t r = (u == 'R' ? 0xFF : u == 'Y' || u == 'M' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
    uint8_t g = (u == 'G' ? 0xFF : u == 'Y' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
