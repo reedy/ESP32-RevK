@@ -46,7 +46,7 @@ menu "RevK"
 
 	config REVK_RGB_MAX_G
 	int "Max green"
-	default 180
+	default 150
 	depends on REVK_LED_STRIP
 	help
 		Max level for GREEN LED in RGB strip
