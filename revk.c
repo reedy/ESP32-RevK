@@ -5042,6 +5042,8 @@ revk_moon_full_next (time_t t)
    return moonnext;
 }
 
+#endif
+
 void
 revk_enable_wifi (void)
 {
@@ -5086,4 +5088,3 @@ revk_disable_settings (void)
    b.disablesettings = 1;
 }
 
-#endif
