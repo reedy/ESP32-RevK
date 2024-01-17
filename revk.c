@@ -2646,7 +2646,7 @@ revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const
 {
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'%s%s> %s</td></tr>",
-                  tag, tag, field, value ? : "", place ? : "", (!value || !*value)
+                  tag, field, field, value ? : "", place ? : "", (!value || !*value)
                   && af ? " autofocus" : "", strstr (field, "pass") ? " type='password'" : "", suffix ? : "");
 }
 
@@ -2655,7 +2655,7 @@ revk_web_setting_i (httpd_req_t * req, const char *tag, const char *field, int64
 {
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s> %s</td></tr>",
-                  tag, tag, field, value, suffix ? : "");
+                  tag, field, field, value, suffix ? : "");
 }
 
 void
@@ -2663,7 +2663,7 @@ revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8
 {
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=2><input type='radio' id='%s' name='%s' value='0'%s>On <input type='radio' name='%s' value='1'%s> %s</td></tr>",
-                  tag, tag, field, !value ? " selected" : "", field, value ? " selected" : "", suffix);
+                  tag, field, field, !value ? " selected" : "", field, value ? " selected" : "", suffix);
 }
 
 esp_err_t
