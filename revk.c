@@ -2645,7 +2645,7 @@ revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const
                     char af)
 {
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'%s%s> %s</td></tr>",
+                  "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'%s%s> <i>%s</i></td></tr>",
                   tag, field, field, value ? : "", place ? : "", (!value || !*value)
                   && af ? " autofocus" : "", strstr (field, "pass") ? " type='password'" : "", suffix ? : "");
 }
@@ -2654,7 +2654,7 @@ void
 revk_web_setting_i (httpd_req_t * req, const char *tag, const char *field, int64_t value, const char *suffix)
 {
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> %s</td></tr>",
+                  "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> <i>%s</i></td></tr>",
                   tag, field, field, value, suffix ? : "");
 }
 
@@ -2662,8 +2662,8 @@ void
 revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8_t value, const char *suffix)
 {
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><input type='radio' id='%s' name='%s' value='0'%s>On <input type='radio' name='%s' value='1'%s> %s</td></tr>",
-                  tag, field, field, !value ? " selected" : "", field, value ? " selected" : "", suffix);
+                  "<tr><td>%s</td><td colspan=2><input type='radio' id='1%s' name='%s' value='0'%s><label for='1%s'>On</label> <input type='radio' id='0%s' name='%s' value='1'%s><label for='0%s'>Off</label> <i>%s</i></td></tr>",
+                  tag, field, field, !value ? " checked" : "", field, field, field, value ? " checked" : "", field, suffix);
 }
 
 esp_err_t
