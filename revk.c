@@ -1792,6 +1792,9 @@ task (void *pvParameters)
 #endif
                   }
                }
+#ifdef	REVK_STATE_EXTRA
+	       revk_state_extra(j);
+#endif
                revk_state_clients (NULL, &j, -1);       // up message goes to all servers
                lastheap = heap;
                lastheapspi = heapspi;

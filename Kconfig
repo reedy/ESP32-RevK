@@ -423,6 +423,12 @@ menu "RevK"
         help
 		Include extra settings in web config (call to revk_web_extra(httpd_req_t*))
 
+	config REVK_STATE_EXTRA
+	bool "Include extra data in state message"
+	default n
+        help
+		Include call to revk_state_extra(jo_t) to add extra state data
+
 	config REVK_MATTER
 	bool "Build in Matter"
 	default n
