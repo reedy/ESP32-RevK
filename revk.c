@@ -5053,11 +5053,11 @@ revk_enable_wifi (void)
 {
    if (b.disablewifi)
    {
-#ifdef	CONFIG_REVK_MQTT
-      revk_mqtt_close ("disabled");
-#endif
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-      revk_wifi_close ();
+      wifi_init ();
+#endif
+#ifdef	CONFIG_REVK_MQTT
+      revk_mqtt_init ();
 #endif
       b.disablewifi = 0;
    }
@@ -5068,11 +5068,11 @@ revk_disable_wifi (void)
 {
    if (!b.disablewifi)
    {
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-      wifi_init ();
-#endif
 #ifdef	CONFIG_REVK_MQTT
-      revk_mqtt_init ();
+      revk_mqtt_close ("disabled");
+#endif
+#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+      revk_wifi_close ();
 #endif
       b.disablewifi = 1;
    }
