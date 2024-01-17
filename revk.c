@@ -2663,7 +2663,7 @@ revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8
 {
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=2><input type='radio' id='1%s' name='%s' value='0'%s><label for='1%s'>On</label> <input type='radio' id='0%s' name='%s' value='1'%s><label for='0%s'>Off</label> <i>%s</i></td></tr>",
-                  tag, field, field, !value ? " checked" : "", field, field, field, value ? " checked" : "", field, suffix);
+                  tag, field, field, value ? " checked" : "", field, field, field, !value ? " checked" : "", field, suffix);
 }
 
 esp_err_t
