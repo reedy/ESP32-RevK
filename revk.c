@@ -2654,7 +2654,7 @@ void
 revk_web_setting_i (httpd_req_t * req, const char *tag, const char *field, int64_t value, const char *suffix)
 {
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder='%s'%s%s> %s</td></tr>",
+                  "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'> %s</td></tr>",
                   tag, field, field, value, suffix ? : "");
 }
 
