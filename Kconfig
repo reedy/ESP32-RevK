@@ -39,7 +39,7 @@ menu "RevK"
 
 	config REVK_RGB_MAX_R
 	int "Max red"
-	default 170
+	default 160
 	depends on REVK_LED_STRIP
 	help
 		Max level for RED LED in RGB strip
