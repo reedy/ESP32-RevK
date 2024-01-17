@@ -2756,7 +2756,7 @@ revk_web_settings (httpd_req_t * req)
                         if (e && *e)
                            revk_web_send (req, " @ %s", e);
                      } else
-                        revk_web_send (req, revk_shutting_down (NULL) ? "Settings stored." : "No changes.");
+                        revk_web_send (req, "Settings stored.");
                   }
                }
                jo_free (&j);
