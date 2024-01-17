@@ -773,11 +773,11 @@ wifi_init (void)
    if (!sta_netif)
       return;
    // Mode
-   esp_wifi_set_mode (*apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA);
+   esp_wifi_set_mode (!b.disableap && *apssid ? WIFI_MODE_APSTA : WIFI_MODE_STA);
    // Client
    wifi_sta_config ();
    // Doing AP mode after STA mode - seems to fail is not
-   if (*apssid && ap_netif)
+   if (!b.disableap && *apssid && ap_netif)
    {                            // AP config
       wifi_config_t cfg = { 0, };
       cfg.ap.channel = wifichan;
