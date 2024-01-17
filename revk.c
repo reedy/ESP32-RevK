@@ -1792,8 +1792,9 @@ task (void *pvParameters)
 #endif
                   }
                }
-#ifdef	REVK_STATE_EXTRA
-	       revk_state_extra(j);
+#ifdef	CONFIG_REVK_STATE_EXTRA
+               extern void revk_state_extra (jo_t);
+               revk_state_extra (j);
 #endif
                revk_state_clients (NULL, &j, -1);       // up message goes to all servers
                lastheap = heap;
@@ -5056,9 +5057,9 @@ revk_enable_wifi (void)
       revk_mqtt_close ("disabled");
 #endif
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-        revk_wifi_close ();
+      revk_wifi_close ();
 #endif
-        b.disablewifi = 0;
+      b.disablewifi = 0;
    }
 }
 
@@ -5073,7 +5074,7 @@ revk_disable_wifi (void)
 #ifdef	CONFIG_REVK_MQTT
       revk_mqtt_init ();
 #endif
-        b.disablewifi = 1;
+      b.disablewifi = 1;
    }
 }
 
