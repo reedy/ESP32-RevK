@@ -2776,7 +2776,7 @@ revk_web_settings (httpd_req_t * req)
       revk_web_send (req, "%s", get_status_text ());
 #endif
    revk_web_send (req,
-                  "</b></p><form action='/revk-settings' name='WIFI' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
+                  "</b></p><form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
    if (!shutdown)
    {
       revk_web_send (req, "<table>");
@@ -2822,7 +2822,7 @@ revk_web_settings (httpd_req_t * req)
    if (!shutdown)
       revk_web_send (req, "<div id=list>WiFi:</div>");
    revk_web_send (req, "<script>"       //
-                  "var f=document.WIFI;"        //
+                  "var f=document.settings;"        //
                   "var reboot=0;"       //
                   "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"        //
                   "ws.onopen=function(v){ws.send('scan');};"    //
