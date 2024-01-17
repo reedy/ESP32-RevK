@@ -2662,7 +2662,7 @@ void
 revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8_t value, const char *suffix)
 {
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><label for='0%s'><input type='radio' name='%s' value='0'%s>Off</label></td><td><label for='1%s'><input type='radio' id='1%s' name='%s' value='1'%s>Off</label></td><td>%s></td></tr>",
+                  "<tr><td>%s</td><td><label for='0%s'><input type='radio' name='%s' value='0'%s>Off</label></td><td><label for='1%s'><input type='radio' id='1%s' name='%s' value='1'%s>Off</label></td><td>%s</td></tr>",
                   tag, field, field, !value ? " checked" : "", field, field, field, value ? " checked" : "", field, suffix);
 }
 
