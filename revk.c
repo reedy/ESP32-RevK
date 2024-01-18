@@ -1861,6 +1861,7 @@ revk_pre_shutdown (void)
    ESP_LOGI (TAG, "Restart %s", restart_reason);
    if (app_callback)
    {
+      REVK_ERR_CHECK (nvs_commit (nvs));        // In case app does shit like deep sleep, etc
       jo_t j = jo_create_alloc ();
       jo_string (j, NULL, restart_reason);
       jo_rewind (j);
