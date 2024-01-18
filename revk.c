@@ -5054,7 +5054,7 @@ revk_enable_wifi (void)
 {
    if (b.disablewifi)
    {
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+#ifdef	CONFIG_REVK_WIFI
       wifi_init ();
 #endif
 #ifdef	CONFIG_REVK_MQTT
@@ -5072,7 +5072,7 @@ revk_disable_wifi (void)
 #ifdef	CONFIG_REVK_MQTT
       revk_mqtt_close ("disabled");
 #endif
-#if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+#ifdef	CONFIG_REVK_WIFI
       revk_wifi_close ();
 #endif
       b.disablewifi = 1;
