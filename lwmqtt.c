@@ -224,9 +224,11 @@ lwmqtt_client (lwmqtt_client_config_t * config)
    if (config->topic)
       mlen += 2 + strlen (config->topic) + 2 + config->plen;
    if (config->username)
+   {
       mlen += 2 + strlen (config->username);
-   if (config->password)
-      mlen += 2 + strlen (config->password);
+      if (config->password)
+         mlen += 2 + strlen (config->password);
+   }
    if (handle_certs
        (handle, config->ca_cert_ref, config->ca_cert_bytes, config->ca_cert_buf, config->client_cert_ref, config->client_cert_bytes,
         config->client_cert_buf, config->client_key_ref, config->client_key_bytes, config->client_key_buf))
