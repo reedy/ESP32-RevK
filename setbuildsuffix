@@ -20,7 +20,7 @@ set rem=()
 set part=""
 set sign=""
 
-if(-e managed_components/espressif__led_strip && !("$BUILDSUFFIX" =~ *-S1*)) then
+if(-e managed_components/espressif__led_strip) then
 	set add=($add CONFIG_REVK_LED_STRIP);
 else
 	set rem=($rem CONFIG_REVK_LED_STRIP);
