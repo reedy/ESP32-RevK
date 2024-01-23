@@ -1892,8 +1892,12 @@ gpio_ok (uint8_t p)
    if (p == 6 || (p >= 9 && p <= 11) || (p >= 16 && p <= 18) || (p >= 23 && p <= 24) || (p >= 28 && p <= 31))
       return 0;
 #else
-   if ((p >= 6 && p <= 11) || (p >= 16 && p <= 17) || p == 20 || p == 24 || (p >= 28 && p <= 31) || (p >= 37 && p <= 38))
+   if ((p >= 6 && p <= 11) || p == 20 || p == 24 || (p >= 28 && p <= 31) || (p >= 37 && p <= 38))
       return 0;
+#ifdef CONFIG_ESP32_SPIRAM_SUPPORT
+   if (p >= 16 && p <= 17)
+      return 0;
+#endif
 #endif
 #endif
    if (p >= 34)
