@@ -2237,7 +2237,7 @@ revk_start (void)
 #endif
 #endif
 #endif
-   revk_task (TAG, task, NULL, 3);
+   revk_task (TAG, task, NULL, 4);
 }
 
 TaskHandle_t
