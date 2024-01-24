@@ -664,6 +664,7 @@ jo_litf (jo_t j, const char *tag, const char *format, ...)
    va_start (ap, format);
    vsnprintf (temp, sizeof (temp), format, ap);
    va_end (ap);
+   if(!strcmp(temp,"nan"))strcpy(temp,"null");
    jo_lit (j, tag, temp);
 }
 
