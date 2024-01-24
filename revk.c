@@ -2553,13 +2553,14 @@ jo_t
 revk_web_query (httpd_req_t * req)
 {                               // get POST/GET form data as JSON
    jo_t j = NULL;
+   char *query=NULL;
    if (req->method == HTTP_POST)
    {
       if (req->content_len <= 0)
          return NULL;
       if (req->content_len > 2000)
          return NULL;
-      char *query = mallocspi (req->content_len + 1);
+      query = mallocspi (req->content_len + 1);
       if (!query)
          return NULL;
       int len = httpd_req_recv (req, query, req->content_len);
