@@ -2577,7 +2577,7 @@ revk_web_query (httpd_req_t * req)
       query = mallocspi (len + 1);
       if (!query)
          return NULL;
-      if (!httpd_req_get_url_query_str (req, buf, len + 1))
+      if (!httpd_req_get_url_query_str (req, query, len + 1))
       {
          query[len] = 0;
          j = jo_parse_query (query);
