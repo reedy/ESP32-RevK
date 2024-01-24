@@ -2549,6 +2549,43 @@ revk_web_settings_add (httpd_handle_t webserver)
    return 0;
 }
 
+jo_t
+revk_web_query (httpd_req_t * req)
+{                               // get POST/GET form data as JSON
+   jo_t j = NULL;
+   if (req->method == HTTP_POST)
+   {
+      if (req->content_len <= 0)
+         return NULL;
+      if (req->content_len > 2000)
+         return NULL;
+      char *query = mallocspi (req->content_len + 1);
+      if (!query)
+         return NULL;
+      int len = httpd_req_recv (req, query, req->content_len);
+      if (len > 0)
+      {
+         query[len] = 0;
+         j = jo_parse_query (query);
+      }
+   } else if (req->method == HTTP_GET)
+   {
+      int len = httpd_req_get_url_query_len (req);
+      if (len <= 0)
+         return NULL;
+      query = mallocspi (len + 1);
+      if (!query)
+         return NULL;
+      if (!httpd_req_get_url_query_str (req, buf, len + 1))
+      {
+         query[len] = 0;
+         j = jo_parse_query (query);
+      }
+   }
+   free (query);
+   return j;
+}
+
 void
 revk_web_send (httpd_req_t * req, const char *format, ...)
 {
@@ -2680,253 +2717,239 @@ revk_web_settings (httpd_req_t * req)
    revk_web_send (req,
                   "<h1>%s</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
                   hostname);
-   if (req->method == HTTP_POST)
+   if (jo_find (j, "upgrade"))
    {
-      if (req->content_len <= 0)
-         revk_web_send (req, "Bad post");
-      else if (req->content_len > 1000)
-         revk_web_send (req, "Post too long");
-      else
-      {
-         char *query = malloc (req->content_len + 1);
-         if (query)
-         {
-            int len = httpd_req_recv (req, query, req->content_len);
-            if (len > 0)
-            {
-               query[len] = 0;
-               revk_web_send (req, "<p>");
-               jo_t j = jo_parse_query (query);
-               if (jo_find (j, "upgrade"))
-               {
-                  const char *e = revk_command ("upgrade", NULL);
-                  if (e && *e)
-                     revk_web_send (req, e);
-               } else
-               {
-                  wifi_mode_t mode = 0;
-                  esp_wifi_get_mode (&mode);
-                  char ok = 0;
-                  if (mode == WIFI_MODE_STA)
-                     ok = 1;    // We don't test wifi if in STA mode as it kills the page load, D'Oh
-                  else if (jo_find (j, "wifissid"))
-                  {             // Test WiFi
-                     char ssid[33] = "";
-                     char pass[33] = "";
-                     jo_strncpy (j, ssid, sizeof (ssid));
-                     if (!*ssid)
-                        revk_web_send (req, "No WiFi SSID. ");
-                     else
-                     {
-                        if (jo_find (j, "wifipass") == JO_STRING)
-                           jo_strncpy (j, pass, sizeof (pass));
-                        if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
-                           ok = 1;
-                        else if (sta_netif)
-                        {
-                           esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_STA : WIFI_MODE_APSTA);
-                           wifi_config_t cfg = { 0, };
-                           cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-                           strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
-                           strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
-                           esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
-                           esp_wifi_connect ();
-                           esp_netif_dhcpc_stop (sta_netif);
-                           esp_netif_dhcpc_start (sta_netif);
-                           int waiting = 10;
-                           while (waiting--)
-                           {
-                              sleep (1);
-                              esp_netif_ip_info_t ip;
-                              if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                              {
-                                 revk_web_send (req, "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
-                                 ok = 1;
-                                 break;
-                              }
-                           }
-                           if (!ok)
-                              revk_web_send (req, "WiFi did not connect, try again.");
-                        }
-                     }
-                  } else
-                     ok = 1;
-                  if (ok)
-                  {
-                     const char *e = revk_setting (j);
-                     if (e && *e)
-                     {
-                        revk_web_send (req, "%s", e);
-                        e = jo_debug (j);
-                        if (e && *e)
-                           revk_web_send (req, " @ %s", e);
-                     } else
-                        revk_web_send (req, "Settings stored.");
-                  }
-               }
-               jo_free (&j);
-               revk_web_send (req, "</p>");
-            }
-            free (query);
-         }
-      }
-   }
-   const char *shutdown = NULL;
-   revk_shutting_down (&shutdown);
-   revk_web_send (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
-   if (shutdown && *shutdown)
-      report_shutdown_reason (req, shutdown);
-#ifndef CONFIG_HTTPD_WS_SUPPORT
-   else
-      revk_web_send (req, "%s", get_status_text ());
-#endif
-   revk_web_send (req,
-                  "</b></p><form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
-   if (!shutdown)
-   {
-      revk_web_send (req, "<table>");
-      void hr (void)
-      {
-         revk_web_send (req, "<tr><td colspan=4><hr></td></tr>");
-      }
-      char af = 0;
-      if (sta_netif)
-      {
-         revk_web_setting_s (req, "Hostname", "hostname", hostname == revk_id ? NULL : hostname, revk_id,
-#ifdef  CONFIG_MDNS_MAX_INTERFACES
-                             ".local"
-#else
-                             NULL
-#endif
-                             , !af++);
-         hr ();
-         revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL, !af++);
-         revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL, !af++);
-         hr ();
-      }
-      revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL, !af++);
-      revk_web_setting_s (req, "MQTT user", "mqttuser", mqttuser[0], "username", NULL, !af++);
-      revk_web_setting_s (req, "MQTT pass", "mqttpass", mqttpass[0], "password", NULL, !af++);
-#if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
-      hr ();
-#endif
-#ifdef	CONFIG_REVK_WEB_TZ
-      revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
-                          "See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>", !af++);
-#endif
-#ifdef	CONFIG_REVK_WEB_EXTRA
-      extern void revk_web_extra (httpd_req_t *);
-      revk_web_extra (req);
-#endif
-      revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
-      if (!revk_link_down () && *otahost)
-         revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s'>", otahost);
-      revk_web_send (req, "</p></form>");
-   }
-#ifdef CONFIG_HTTPD_WS_SUPPORT
-   if (!shutdown)
-      revk_web_send (req, "<div id=list>WiFi:</div>");
-   revk_web_send (req, "<script>"       //
-                  "var f=document.settings;"    //
-                  "var reboot=0;"       //
-                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"        //
-                  "ws.onopen=function(v){ws.send('scan');};"    //
-                  "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"      //
-                  "ws.onerror=function(v){ws.close();};"        //
-                  "ws.onmessage=function(e){"   //
-                  "o=JSON.parse(e.data);"       //
-                  "if(typeof o === 'number')reboot=1;"  //
-                  "else if(typeof o === 'string'){document.getElementById('msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"     //
-                  "else if(typeof o === 'object')o.forEach(function(s){"        //
-                  "b=document.createElement('button');" //
-                  "b.onclick=function(e){"      //
-                  "f.wifissid.value=s;" //
-                  "f.wifipass.value='';"        //
-                  "f.wifipass.focus();" //
-                  "return false;"       //
-                  "};"          //
-                  "b.textContent=s;"    //
-                  "document.getElementById('list').appendChild(b);"     //
-                  "});"         //
-                  "};"          //
-                  "</script>");
-#else
-   revk_web_send (req, "<script>");
-   if (shutdown && *shutdown)
-   {
-      revk_web_send (req, "function g(n){return document.getElementById(n);};"
-                     "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
-                     // Just reload the page in its initial state
-                     "window.location.href = '/revk-settings';"
-                     "else "
-                     "s('msg',rt);"
-                     "}"
-                     "function c()"
-                     "{"
-                     "xhttp = new XMLHttpRequest();"
-                     "xhttp.onreadystatechange = function()"
-                     "{"
-                     "if (this.readyState == 4) {"
-                     "if (this.status == 200)"
-                     "decode(this.responseText);"
-                     "}"
-                     "};"
-                     "xhttp.open('GET', '/revk-status', true);"
-                     "xhttp.send();" "}" "function handleLoad(){window.setInterval(c, 1000);}");
+      const char *e = revk_command ("upgrade", NULL);
+      if (e && *e)
+         revk_web_send (req, e);
    } else
    {
-      // revk_web_head() always adds onLoad='handleLoad()'; this is the cheap way
-      // to avoid adding more conditionals. Just emit a no-op.
-      revk_web_send (req, "function handleLoad(){}");
-   }
-   httpd_resp_sendstr_chunk (req, "</script>");
-#endif
-   if (otaauto && *otahost)
-      revk_web_send (req, "<p>Note, automatic upgrade from <i>%s</i> is enabled. See instructions to make changes.</p>", otahost);
-   {                            // IP info
-      revk_web_send (req, "<table>");
-      int32_t up = uptime ();
-      revk_web_send (req, "<tr><td>Uptime</td><td>%ld day%s %02ld:%02ld:%02ld</td></tr>", up / 86400, up / 86400 == 1 ? "" : "s",
-                     up / 3600 % 24, up / 60 % 60, up % 60);
-      {
-         uint32_t heapspi = heap_caps_get_free_size (MALLOC_CAP_SPIRAM);
-         uint32_t heap = esp_get_free_heap_size () - heapspi;
-         if (heapspi)
-            revk_web_send (req, "<tr><td>Free mem</td><td>%ld+%ld</td></tr>", heap, heapspi);
+      wifi_mode_t mode = 0;
+      esp_wifi_get_mode (&mode);
+      char ok = 0;
+      if (mode == WIFI_MODE_STA)
+         ok = 1;                // We don't test wifi if in STA mode as it kills the page load, D'Oh
+      else if (jo_find (j, "wifissid"))
+      {                         // Test WiFi
+         char ssid[33] = "";
+         char pass[33] = "";
+         jo_strncpy (j, ssid, sizeof (ssid));
+         if (!*ssid)
+            revk_web_send (req, "No WiFi SSID. ");
          else
-            revk_web_send (req, "<tr><td>Free mem</td><td>%ld</td></tr>", heap);
-      }
+         {
+            if (jo_find (j, "wifipass") == JO_STRING)
+               jo_strncpy (j, pass, sizeof (pass));
+            if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
+               ok = 1;
+            else if (sta_netif)
+            {
+               esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_STA : WIFI_MODE_APSTA);
+               wifi_config_t cfg = { 0, };
+               cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+               strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
+               strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
+               esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
+               esp_wifi_connect ();
+               esp_netif_dhcpc_stop (sta_netif);
+               esp_netif_dhcpc_start (sta_netif);
+               int waiting = 10;
+               while (waiting--)
+               {
+                  sleep (1);
+                  esp_netif_ip_info_t ip;
+                  if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+                  {
+                     revk_web_send (req, "WiFi connected " IPSTR ". ", IP2STR (&ip.ip));
+                     ok = 1;
+                     break;
+                  }
+               }
+               if (!ok)
+                  revk_web_send (req, "WiFi did not connect, try again.");
+            }
+         }
+      } else
+         ok = 1;
+      if (ok)
       {
-         time_t now = time (0);
-         if (now > 1000000000)
+         const char *e = revk_setting (j);
+         if (e && *e)
          {
-            struct tm t;
-            localtime_r (&now, &t);
-            char temp[50];
-            strftime (temp, sizeof (temp), "%F %T %Z", &t);
-            revk_web_send (req, "<tr><td>Time</td><td>%s</td></tr>", temp);
-         }
+            revk_web_send (req, "%s", e);
+            e = jo_debug (j);
+            if (e && *e)
+               revk_web_send (req, " @ %s", e);
+         } else
+            revk_web_send (req, "Settings stored.");
       }
-      if (sta_netif)
-      {
-         {
-            esp_netif_ip_info_t ip;
-            if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-               revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>"   //
-                              "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip), IP2STR (&ip.gw));
-         }
-#ifdef CONFIG_LWIP_IPV6
-         {
-            esp_ip6_addr_t ip;
-            if (!esp_netif_get_ip6_global (sta_netif, &ip))
-               revk_web_send (req, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
-         }
-#endif
-      }
-      revk_web_send (req, "</table>");
    }
+   jo_free (&j);
+   revk_web_send (req, "</p>");
+}
 
-   return revk_web_foot (req, 1, 0, NULL);
+free (query);
+}
+}
+}
+
+const char *shutdown = NULL;
+revk_shutting_down (&shutdown);
+revk_web_send (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
+if (shutdown && *shutdown)
+   report_shutdown_reason (req, shutdown);
+#ifndef CONFIG_HTTPD_WS_SUPPORT
+else
+   revk_web_send (req, "%s", get_status_text ());
+#endif
+revk_web_send (req,
+               "</b></p><form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
+if (!shutdown)
+{
+   revk_web_send (req, "<table>");
+   void hr (void)
+   {
+      revk_web_send (req, "<tr><td colspan=4><hr></td></tr>");
+   }
+   char af = 0;
+   if (sta_netif)
+   {
+      revk_web_setting_s (req, "Hostname", "hostname", hostname == revk_id ? NULL : hostname, revk_id,
+#ifdef  CONFIG_MDNS_MAX_INTERFACES
+                          ".local"
+#else
+                          NULL
+#endif
+                          , !af++);
+      hr ();
+      revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL, !af++);
+      revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL, !af++);
+      hr ();
+   }
+   revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL, !af++);
+   revk_web_setting_s (req, "MQTT user", "mqttuser", mqttuser[0], "username", NULL, !af++);
+   revk_web_setting_s (req, "MQTT pass", "mqttpass", mqttpass[0], "password", NULL, !af++);
+#if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
+   hr ();
+#endif
+#ifdef	CONFIG_REVK_WEB_TZ
+   revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
+                       "See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>", !af++);
+#endif
+#ifdef	CONFIG_REVK_WEB_EXTRA
+   extern void revk_web_extra (httpd_req_t *);
+   revk_web_extra (req);
+#endif
+   revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
+   if (!revk_link_down () && *otahost)
+      revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s'>", otahost);
+   revk_web_send (req, "</p></form>");
+}
+#ifdef CONFIG_HTTPD_WS_SUPPORT
+if (!shutdown)
+   revk_web_send (req, "<div id=list>WiFi:</div>");
+revk_web_send (req, "<script>"  //
+               "var f=document.settings;"       //
+               "var reboot=0;"  //
+               "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"   //
+               "ws.onopen=function(v){ws.send('scan');};"       //
+               "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};" //
+               "ws.onerror=function(v){ws.close();};"   //
+               "ws.onmessage=function(e){"      //
+               "o=JSON.parse(e.data);"  //
+               "if(typeof o === 'number')reboot=1;"     //
+               "else if(typeof o === 'string'){document.getElementById('msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"        //
+               "else if(typeof o === 'object')o.forEach(function(s){"   //
+               "b=document.createElement('button');"    //
+               "b.onclick=function(e){" //
+               "f.wifissid.value=s;"    //
+               "f.wifipass.value='';"   //
+               "f.wifipass.focus();"    //
+               "return false;"  //
+               "};"             //
+               "b.textContent=s;"       //
+               "document.getElementById('list').appendChild(b);"        //
+               "});"            //
+               "};"             //
+               "</script>");
+#else
+revk_web_send (req, "<script>");
+if (shutdown && *shutdown)
+{
+   revk_web_send (req, "function g(n){return document.getElementById(n);};"
+                  "function s(n,v){var d=g(n);if(d)d.textContent=v;}" "function decode(rt)" "{" "if (rt == '')"
+                  // Just reload the page in its initial state
+                  "window.location.href = '/revk-settings';"
+                  "else "
+                  "s('msg',rt);"
+                  "}"
+                  "function c()"
+                  "{"
+                  "xhttp = new XMLHttpRequest();"
+                  "xhttp.onreadystatechange = function()"
+                  "{"
+                  "if (this.readyState == 4) {"
+                  "if (this.status == 200)"
+                  "decode(this.responseText);"
+                  "}"
+                  "};"
+                  "xhttp.open('GET', '/revk-status', true);"
+                  "xhttp.send();" "}" "function handleLoad(){window.setInterval(c, 1000);}");
+} else
+{
+   // revk_web_head() always adds onLoad='handleLoad()'; this is the cheap way
+   // to avoid adding more conditionals. Just emit a no-op.
+   revk_web_send (req, "function handleLoad(){}");
+}
+
+httpd_resp_sendstr_chunk (req, "</script>");
+#endif
+if (otaauto && *otahost)
+   revk_web_send (req, "<p>Note, automatic upgrade from <i>%s</i> is enabled. See instructions to make changes.</p>", otahost);
+{                               // IP info
+   revk_web_send (req, "<table>");
+   int32_t up = uptime ();
+   revk_web_send (req, "<tr><td>Uptime</td><td>%ld day%s %02ld:%02ld:%02ld</td></tr>", up / 86400, up / 86400 == 1 ? "" : "s",
+                  up / 3600 % 24, up / 60 % 60, up % 60);
+   {
+      uint32_t heapspi = heap_caps_get_free_size (MALLOC_CAP_SPIRAM);
+      uint32_t heap = esp_get_free_heap_size () - heapspi;
+      if (heapspi)
+         revk_web_send (req, "<tr><td>Free mem</td><td>%ld+%ld</td></tr>", heap, heapspi);
+      else
+         revk_web_send (req, "<tr><td>Free mem</td><td>%ld</td></tr>", heap);
+   }
+   {
+      time_t now = time (0);
+      if (now > 1000000000)
+      {
+         struct tm t;
+         localtime_r (&now, &t);
+         char temp[50];
+         strftime (temp, sizeof (temp), "%F %T %Z", &t);
+         revk_web_send (req, "<tr><td>Time</td><td>%s</td></tr>", temp);
+      }
+   }
+   if (sta_netif)
+   {
+      {
+         esp_netif_ip_info_t ip;
+         if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+            revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>"      //
+                           "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip), IP2STR (&ip.gw));
+      }
+#ifdef CONFIG_LWIP_IPV6
+      {
+         esp_ip6_addr_t ip;
+         if (!esp_netif_get_ip6_global (sta_netif, &ip))
+            revk_web_send (req, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
+      }
+#endif
+   }
+   revk_web_send (req, "</table>");
+}
+
+return revk_web_foot (req, 1, 0, NULL);
 }
 
 #ifdef	CONFIG_HTTPD_WS_SUPPORT

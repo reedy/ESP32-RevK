@@ -162,6 +162,7 @@ void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink
 
 uint16_t revk_num_web_handlers (void);  // Number of handlers used by revk_web_settings_add()
 void revk_web_send (httpd_req_t * req, const char *format, ...);
+jo_t revk_web_query (httpd_req_t * req); // Get post/get form in JSON form
 esp_err_t revk_web_settings_add (httpd_handle_t webserver);     // Add URLs
 esp_err_t revk_web_settings_remove (httpd_handle_t webserver);  // Remove URLs
 esp_err_t revk_web_settings (httpd_req_t * req);        // Call for web config for SSID/password/mqtt (GET/POST) - needs 4 URLS
