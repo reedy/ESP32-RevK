@@ -2553,7 +2553,7 @@ jo_t
 revk_web_query (httpd_req_t * req)
 {                               // get POST/GET form data as JSON
    jo_t j = NULL;
-   char *query=NULL;
+   char *query = NULL;
    if (req->method == HTTP_POST)
    {
       if (req->content_len <= 0)
@@ -2718,6 +2718,7 @@ revk_web_settings (httpd_req_t * req)
    revk_web_send (req,
                   "<h1>%s</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
                   hostname);
+   jo_t j = revk_web_query (req);
    if (jo_find (j, "upgrade"))
    {
       const char *e = revk_command ("upgrade", NULL);
@@ -2787,11 +2788,6 @@ revk_web_settings (httpd_req_t * req)
    }
    jo_free (&j);
    revk_web_send (req, "</p>");
-}
-
-free (query);
-}
-}
 }
 
 const char *shutdown = NULL;
