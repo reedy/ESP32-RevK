@@ -49,7 +49,7 @@ const char JO_BASE16[] = "0123456789ABCDEF";
 static jo_t
 jo_new (void)
 {                               // Create a jo_t
-   jo_t j = malloc (sizeof (*j));
+   jo_t j = mallocspi (sizeof (*j));
    if (!j)
       return j;                 // Malloc fail
    memset (j, 0, sizeof (*j));
