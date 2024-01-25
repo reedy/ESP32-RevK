@@ -33,7 +33,7 @@ jo_t jo_parse_str (const char *buf);
 // Start parsing a null terminated JSON object string
 
 jo_t jo_parse_query (const char *buf);
-// Parse a query string format into a JSON object string (allocated)
+// Parse a query string format into a JSON object string (allocated) - all fields treated as strings
 
 jo_t jo_parse_mem (const void *buf, size_t len);
 // Start parsing a JSON string in memory - does not need a null
