@@ -2,7 +2,6 @@
 // This toolkit works solely at a syntax level, and does not all management of whole JSON object hierarchy
 
 #include "revk.h"
-#include "jo.h"
 #include <string.h>
 #include <malloc.h>
 #include <stdarg.h>

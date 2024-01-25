@@ -33,7 +33,6 @@ static const char __attribute__((unused)) * TAG = "LWMQTT";
 #include "esp_crt_bundle.h"
 #endif
 
-#include "lwmqtt.h"
 #include "esp8266_tls_compat.h"
 
 #ifdef	CONFIG_REVK_MQTT_SERVER
