@@ -91,7 +91,6 @@ hwrite (lwmqtt_t handle, uint8_t * buf, int len)
    return pos;
 }
 
-#define freez(x) do{if(x){free(x);x=NULL;}}while(0)
 static void *
 handle_free (lwmqtt_t handle)
 {

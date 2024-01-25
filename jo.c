@@ -49,7 +49,7 @@ const char JO_BASE16[] = "0123456789ABCDEF";
 static jo_t
 jo_new (void)
 {                               // Create a jo_t
-   jo_t j = malloc (sizeof (*j));
+   jo_t j = mallocspi (sizeof (*j));
    if (!j)
       return j;                 // Malloc fail
    memset (j, 0, sizeof (*j));
@@ -289,7 +289,7 @@ jo_copy (jo_t j)
    if (j->alloc && j->buf)
    {
       j->null = 0;
-      n->buf = malloc (j->parse ? j->len + 1 : j->len ? : 1);
+      n->buf = mallocspi (j->parse ? j->len + 1 : j->len ? : 1);
       if (!n->buf)
       {
          jo_free (&n);
@@ -766,7 +766,7 @@ jo_strdup (jo_t j)
    ssize_t len = jo_strlen (j);
    if (len < 0)
       return NULL;
-   char *str = malloc (len + 1);
+   char *str = mallocspi (len + 1);
    jo_strncpy (j, str, len + 1);
    return str;
 }
