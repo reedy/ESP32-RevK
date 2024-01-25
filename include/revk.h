@@ -79,6 +79,9 @@ typedef struct
 
 #define freez(x) do{if(x){free((void*)x);x=NULL;}}while(0)      // Just useful - yes free(x) is valid when x is NULL, but this sets x NULL as a result as well
 
+void *mallocspi(size_t);        // Malloc from SPI preferred
+uint32_t uptime (void);         // Seconds uptime
+
 // Calls
 int gpio_ok (uint8_t gpio);     // non 0 if OK to use in current platform (bit 0 for out, bit 1 for in, bit 2 for special use - e.g. USB)
 void revk_boot (app_callback_t * app_callback);

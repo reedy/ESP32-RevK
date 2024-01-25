@@ -81,9 +81,6 @@ struct lwmqtt_server_config_s
 // Handle for connection
 typedef struct lwmqtt_s *lwmqtt_t;
 
-void *mallocspi(size_t);	// Malloc from SPI preferred
-uint32_t uptime (void);         // Seconds uptime
-
 uint32_t lwmqtt_connected (lwmqtt_t);        // If connected
 int lwmqtt_failed (lwmqtt_t);   // If failed connect
 

@@ -344,6 +344,21 @@ void mesh_make_mqtt (mesh_data_t * data, uint8_t tag, int tlen, const char *topi
 static SemaphoreHandle_t mesh_mutex = NULL;
 #endif
 
+  void *
+  mallocspi (size_t size)
+  {
+     void *mem = heap_caps_malloc (size, MALLOC_CAP_SPIRAM);
+     if (!mem)
+        mem = malloc (size);
+     return mem;
+  }
+
+  uint32_t
+  uptime (void)
+  {
+     return esp_timer_get_time () / 1000000LL ? : 1;
+}
+
 #if defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static void
 makeip (esp_netif_ip_info_t * info, const char *ip, const char *gw)

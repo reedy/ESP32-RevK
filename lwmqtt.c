@@ -5,6 +5,7 @@
 // Automatic reconnect
 static const char __attribute__((unused)) * TAG = "LWMQTT";
 
+#include "revk.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -38,21 +39,6 @@ static const char __attribute__((unused)) * TAG = "LWMQTT";
 #ifdef	CONFIG_REVK_MQTT_SERVER
 #warning MQTT server code is not complete
 #endif
-
-void *
-mallocspi (size_t size)
-{
-   void *mem = heap_caps_malloc (size, MALLOC_CAP_SPIRAM);
-   if (!mem)
-      mem = malloc (size);
-   return mem;
-}
-
-uint32_t
-uptime (void)
-{
-   return esp_timer_get_time () / 1000000LL ? : 1;
-}
 
 struct lwmqtt_s
 {                               // mallocd copies

@@ -1,6 +1,7 @@
 // Lightweight JSON syntax management tool kit
 // This toolkit works solely at a syntax level, and does not all management of whole JSON object hierarchy
 
+#include "revk.h"
 #include "jo.h"
 #include <string.h>
 #include <malloc.h>
@@ -49,7 +50,7 @@ const char JO_BASE16[] = "0123456789ABCDEF";
 static jo_t
 jo_new (void)
 {                               // Create a jo_t
-   jo_t j = mallocspi (sizeof (*j));
+   jo_t j = malloc (sizeof (*j));
    if (!j)
       return j;                 // Malloc fail
    memset (j, 0, sizeof (*j));
