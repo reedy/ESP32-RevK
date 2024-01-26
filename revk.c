@@ -1183,7 +1183,7 @@ revk_mqtt_init (void)
             an = sl = "";
          if (asprintf ((void *) &config.topic, "%s%s%s/%s", prefixstate, sl, an, hostname) < 0)
             return;
-         if (asprintf ((void *) &config.client, "%s-%s", appname, hostname) < 0)
+         if (asprintf ((void *) &config.client, "%s:%s", appname, hostname) < 0)
          {
             freez (config.topic);
             return;
