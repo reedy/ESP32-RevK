@@ -58,6 +58,7 @@ Note the basic syntax of the definition files are checked, but not whether they 
 |`s64`|`int64_t`|
 |`f`|`float`|
 |`d`|`double`|
+|`l`|`long double`|
 
 ### GPIO
 

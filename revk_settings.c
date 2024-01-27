@@ -41,6 +41,8 @@ typename (FILE * O, const char *type)
       fprintf (O, "float");
    else if (!strcmp (type, "d"))
       fprintf (O, "double");
+   else if (!strcmp (type, "l"))
+      fprintf (O, "long double");
    else if (*type == 'u')
       fprintf (O, "uint%s_t", type + 1);
    else if (*type == 's')
@@ -236,9 +238,14 @@ main (int argc, const char *argv[])
       if (!H)
          err (1, "Cannot open %s", hfile);
 
+      def_t *d;
+
       fprintf (H, "// Settings\n");
       fprintf (H, "#include <stdint.h>\n");
       fprintf (H, "#include \"esp_system.h\"\n");
+      for (d = defs; d && (!d->type || (strcmp (d->type, "f")&&strcmp(d->type,"d")&&strcmp(d->type,"l"))); d = d->next);
+      if (d)
+	      fprintf(H,"#include <math.h>\n");
       fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
                "struct revk_settings_s {\n"     //
                " void *ptr;\n"  //
@@ -259,7 +266,6 @@ main (int argc, const char *argv[])
                " uint8_t pass:1;\n"     //
                "};\n");
 
-      def_t *d;
       for (d = defs; d && (!d->type || strcmp (d->type, "binary")); d = d->next);
       if (d)
          fprintf (H, "typedef struct revk_settings_binary_s revk_settings_binary_t;\n"  //
