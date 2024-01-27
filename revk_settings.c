@@ -27,12 +27,12 @@ def_t *defs = NULL,
    *deflast = NULL;
 
 int
-typename (FILE * O, const char *type, const char *array)
+typename (FILE * O, const char *type)
 {
    if (!strcmp (type, "gpio"))
       fprintf (O, "revk_settings_gpio_t");
    else if (!strcmp (type, "binary"))
-      fprintf (O, array ? "uint8_t" : "revk_settings_binary_t");
+      fprintf (O, "revk_settings_binary_t");
    else if (!strcmp (type, "s"))
       fprintf (O, "char*");
    else if (!strcmp (type, "c"))
@@ -303,7 +303,7 @@ main (int argc, const char *argv[])
             else if (d->type)
             {
                fprintf (H, "extern ");
-               if (typename (H, d->type, d->array))
+               if (typename (H, d->type))
                   errx (1, "Unknown type %s in %s", d->type, d->fn);
                fprintf (H, " %s%s", d->name1 ? : "", d->name2 ? : "");
                if (d->array)
@@ -334,7 +334,7 @@ main (int argc, const char *argv[])
             {
                fprintf (C, ",.ptr=&%s%s", d->name1 ? : "", d->name2 ? : "");
                fprintf (C, ",.size=sizeof(");
-               typename (C, d->type, d->array);
+               typename (C, d->type);
                fprintf (C, ")");
             }
             if (!strcmp (d->type, "gpio"))

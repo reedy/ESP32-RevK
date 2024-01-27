@@ -75,7 +75,9 @@ In many cases, in JSON, the GPIO is just a number, but if it would not be valid 
 
 ### Binary
 
-The `binary` format is either a fixed `uint8_t` if `.array` is set (and expected to be exactly that many bytes), or a structure with `.len` and `.data` if `.array` is not set.
+The `binary` format is a structure with `.len` and `.data` if `.array` is not set.
+
+Note that `u8` with `.array` and `.hex` or `base64` is also assumed to be a simple JSON string, rather than an array of values.
 
 ## Attributes
 
@@ -88,7 +90,6 @@ Additional attributes relate to each setting as follows:-
 |`.fix`|The setting is to be fixed, i.e. the default value is only used if not defined in NVS, and the value, even if default, is stored to NVS. This assumed for `gpio` type.|
 |`.set`|The top bit of the value is set if the value is defined.|
 |`.bitfield`|This is a string that are characters which can be prefixed on the value and set in the top bits of the value (see below).|
-|`.binary`|Encode as a binary structure|
 |`.hex`|The value should be hex encoded in JSON. Typically used with `c` and `.array` set|
 |`.base64`|The value should be base64 encoded in JSON. Typically used with `c` and `.array` set|
 |`.decimal`|Used with integer types this scales by specified number of digits. E.g. `.decimal=2` will show `123` as `1.23` in JSON. For `f`/`d` this defines how many places to which to output the value.|
