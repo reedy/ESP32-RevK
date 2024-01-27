@@ -3589,7 +3589,7 @@ nvs_set (setting_t * s, const char *tag, void *data)
    ESP_LOGE (TAG, "Not saved setting %s", tag);
    return -1;
 }
-#endiuf
+#endif
 
 static const char *
 revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *value, unsigned char index, int flags)
