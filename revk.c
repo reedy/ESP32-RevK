@@ -1958,19 +1958,33 @@ gpio_ok (uint8_t p)
 static void
 nvs_scan (void)
 {                               // Scan NVS to load values to settings
+   // Default strings
+   for (revk_settings_t * r = &revk_settings; r->len1; r++)
+   {
+      if (r->ptr && !r->size)
+      {                         // String
+         if (r->array)
+            for (int a = 0; a < r->array; a++)
+               ((char **) r->ptr)[a] = "";
+         else
+            *((char **) r->ptr) = "";
+      }
+   }
+   // Scan
    nvs_iterator_t i = NULL;
    if (!nvs_entry_find (TAG, NULL, NVS_TYPE_ANY, &i))
    {
       do
       {
-         nvs_entry_info_t info={0};
+         nvs_entry_info_t info = { 0 };
          if (!nvs_entry_info (i, &info))
-	 {
+         {
             ESP_LOGE (TAG, "Found %s %s type %d", info.namespace_name, info.key, info.type);
-	 }
+            // TODO
+         }
       }
       while (!nvs_entry_next (&i));
-      ESP_LOGE(TAG,"End");
+      ESP_LOGE (TAG, "End");
    }
    nvs_release_iterator (i);
 }

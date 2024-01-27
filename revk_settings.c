@@ -51,11 +51,9 @@ void
 typeinit (FILE * O, const char *type)
 {
    fprintf (O, "=");
-   if (!strcmp (type, "s"))
-      fprintf (O, "\"\"");
-   else if (!strcmp (type, "gpio"))
+   if (!strcmp (type, "gpio"))
       fprintf (O, "{0}");
-   else if (!strcmp (type, "binary"))
+   else if (!strcmp (type, "binary")||!strcmp (type, "s"))
       fprintf (O, "NULL");
    else
       fprintf (O, "0");
