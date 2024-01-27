@@ -19,7 +19,9 @@ binary	client.cert				.revk=1	.base64=1
 
 
 #ifdef  CONFIG_REVK_APMODE
+#ifdef	CONFIG_REVK_APCONFIG
 u16	ap.port		CONFIG_REVK_APPORT	.revk=1
+#endif
 u32	ap.time		CONFIG_REVK_APTIME	.revk=1
 u32	ap.wait		CONFIG_REVK_APWAIT	.revk=1
 gpio	ap.gpio		CONFIG_REVK_APGPIO	.revk=1

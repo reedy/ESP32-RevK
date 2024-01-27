@@ -22,6 +22,7 @@ struct def_s
    char *def;
    char *attributes;
    char *array;
+   char config:1;
 };
 def_t *defs = NULL,
    *deflast = NULL;
@@ -37,19 +38,25 @@ typename (FILE * O, const char *type)
       fprintf (O, "char*");
    else if (!strcmp (type, "c"))
       fprintf (O, "char");
-   else if (!strcmp (type, "f"))
-      fprintf (O, "float");
-   else if (!strcmp (type, "d"))
-      fprintf (O, "double");
-   else if (!strcmp (type, "l"))
-      fprintf (O, "long double");
-   else if (*type == 'u')
+   else if (*type == 'u' && isdigit ((int) type[1]))
       fprintf (O, "uint%s_t", type + 1);
-   else if (*type == 's')
+   else if (*type == 's' && isdigit ((int) type[1]))
       fprintf (O, "int%s_t", type + 1);
    else
       return 1;
    return 0;
+}
+
+void
+typeinit (FILE * O, const char *type)
+{
+   fprintf (O, "=");
+   if (!strcmp (type, "gpio"))
+      fprintf (O, "{0}");
+   else if (!strcmp (type, "binary") || !strcmp (type, "s"))
+      fprintf (O, "NULL");
+   else
+      fprintf (O, "0");
 }
 
 int
@@ -59,6 +66,7 @@ main (int argc, const char *argv[])
    const char *cfile = "settings.c";
    const char *hfile = "settings.h";
    const char *extension = "def";
+   int maxname = 15;
    poptContext optCon;          // context for parsing command-line options
    {                            // POPT
       const struct poptOption optionsTable[] = {
@@ -66,6 +74,7 @@ main (int argc, const char *argv[])
          {"h-file", 'h', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &hfile, 0, "H-file", "filename"},
          {"extension", 'e', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &extension, 0, "Only handle files ending with this",
           "extension"},
+         {"max-name", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &maxname, 0, "Max name len", "N"},
          {"debug", 'v', POPT_ARG_NONE, &debug, 0, "Debug"},
          POPT_AUTOHELP {}
       };
@@ -149,6 +158,8 @@ main (int argc, const char *argv[])
                      d->def = p;
                      while (*p && !isspace (*p))
                         p++;
+                     if (!strncmp (d->def, "CONFIG_", 7))
+                        d->config = 1;
                   }
                }
                while (*p && isspace (*p))
@@ -222,6 +233,8 @@ main (int argc, const char *argv[])
             }
             if (d->type && !d->name1)
                errx (1, "Missing name for %s in %s", d->type, fn);
+            if (strlen (d->name1 ? : "") + strlen (d->name2 ? : "") + (d->array ? 1 : 0) > maxname)
+               errx (1, "name too long for %s%s in %s", d->name1 ? : "", d->name2 ? : "", fn);
             if (defs)
                deflast->next = d;
             else
@@ -240,20 +253,23 @@ main (int argc, const char *argv[])
 
       def_t *d;
 
+      fprintf (C, "// Settings\n");
+      fprintf (C, "#include <stdint.h>\n");
+      fprintf (C, "#include \"sdkconfig.h\"\n");
+      fprintf (C, "#include \"settings.h\"\n");
+
       fprintf (H, "// Settings\n");
       fprintf (H, "#include <stdint.h>\n");
       fprintf (H, "#include \"esp_system.h\"\n");
-      for (d = defs; d && (!d->type || (strcmp (d->type, "f") && strcmp (d->type, "d") && strcmp (d->type, "l"))); d = d->next);
-      if (d)
-         fprintf (H, "#include <math.h>\n");
       fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
                "struct revk_settings_s {\n"     //
                " void *ptr;\n"  //
-               " const char *name1;\n"  //
-               " const char *name2;\n"  //
+               " const char name[%d];\n"        //
                " const char *def;\n"    //
                " const char *bitfield;\n"       //
                " uint16_t size;\n"      //
+               " uint8_t len1:4;\n"     //
+               " uint8_t len2:4;\n"     //
                " uint8_t binary:1;\n"   //
                " uint8_t bit;\n"        //
                " uint8_t array;\n"      //
@@ -265,7 +281,7 @@ main (int argc, const char *argv[])
                " uint8_t hex:1;\n"      //
                " uint8_t base64:1;\n"   //
                " uint8_t pass:1;\n"     //
-               "};\n");
+               "};\n", maxname + 1);
 
       for (d = defs; d && (!d->type || strcmp (d->type, "binary")); d = d->next);
       if (d)
@@ -292,49 +308,57 @@ main (int argc, const char *argv[])
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, " REVK_SETTINGS_BITFIELD_%s%s,\n", d->name1 ? : "", d->name2 ? : "");
+               fprintf (H, " REVK_SETTINGS_BITFIELD_%s%s,\n", d->name1, d->name2 ? : "");
          fprintf (H, "};\n");
-         fprintf (H, "struct {\n");
+         fprintf (H, "typedef struct revk_settings_bitfield_s revk_settings_bitfield_t;\n");
+         fprintf (H, "struct revk_settings_bitfield_s {\n");
+         fprintf (C, "revk_settings_bitfield_t revk_settings_bitfield={0};\n");
          for (d = defs; d; d = d->next)
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, " uint8_t %s%s:1;\n", d->name1 ? : "", d->name2 ? : "");
-         fprintf (H, "} revk_settings_bitfield;\n");
+               fprintf (H, " uint8_t %s%s:1;\n", d->name1, d->name2 ? : "");
+         fprintf (H, "};\n");
          for (d = defs; d; d = d->next)
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, "#define	%s%s	revk_settings_bitfield.%s%s\n", d->name1 ? : "", d->name2 ? : "", d->name1 ? : "",
+               fprintf (H, "#define	%s%s	revk_settings_bitfield.%s%s\n", d->name1, d->name2 ? : "", d->name1,
                         d->name2 ? : "");
             else if (d->type)
             {
                fprintf (H, "extern ");
                if (typename (H, d->type))
                   errx (1, "Unknown type %s in %s", d->type, d->fn);
-               fprintf (H, " %s%s", d->name1 ? : "", d->name2 ? : "");
+               fprintf (H, " %s%s", d->name1, d->name2 ? : "");
                if (d->array)
                   fprintf (H, "[%s]", d->array);
                fprintf (H, ";\n");
             }
+         fprintf (H, "extern revk_settings_bitfield_t revk_settings_bitfield;\n");
       }
 
-      fprintf (C, "// Settings\n");
-      fprintf (C, "#include <stdint.h>\n");
-      fprintf (C, "#include \"esp_system.h\"\n");
-      fprintf (C, "#include \"settings.h\"\n");
-      fprintf (C, "revk_settings_t const revk_settings={\n");
+      fprintf (C, "#define	str(s)	#s\n");
+      fprintf (C, "revk_settings_t const revk_settings[]={\n");
+      int count = 0;
       for (d = defs; d; d = d->next)
          if (d->define)
             fprintf (C, "%s\n", d->define);
          else if (d->name1)
          {
+            count++;
             fprintf (C, " {");
-            fprintf (C, ".name1=\"%s\"", d->name1);
+            fprintf (C, ".name=\"%s%s\"", d->name1, d->name2 ? : "");
+            fprintf (C, ",.len1=%d", (int) strlen (d->name1));
             if (d->name2)
-               fprintf (C, ",.name2=\"%s\"", d->name2);
+               fprintf (C, ",.len2=%d", (int) strlen (d->name2));
             if (d->def)
-               fprintf (C, ",.def=\"%s\"", d->def);
+            {
+               if (!d->config)
+                  fprintf (C, ",.def=\"%s\"", d->def);
+	       else
+                  fprintf (C, ",.def=str(%s)", d->def);
+            }
             if (!strcmp (d->type, "bit"))
                fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s%s", d->name1 ? : "", d->name2 ? : "");
             else
@@ -355,8 +379,23 @@ main (int argc, const char *argv[])
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
          }
+      fprintf (C, "#undef str\n");
       fprintf (C, "};\n");
+      for (d = defs; d; d = d->next)
+         if (d->define)
+            fprintf (C, "%s\n", d->define);
+         else if (d->type && strcmp (d->type, "bit"))
+         {
+            typename (C, d->type);
+            fprintf (C, " %s%s", d->name1 ? : "", d->name2 ? : "");
+            if (d->array)
+               fprintf (C, "[%s]={0}", d->array);
+            else
+               typeinit (C, d->type);
+            fprintf (C, ";\n");
+         }
 
+      fprintf (H, "typedef uint8_t revk_setting_bits_t[%d];\n", (count + 7) / 8);       // Yes, H
       fclose (H);
       fclose (C);
    }

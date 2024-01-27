@@ -3,6 +3,7 @@
 #ifndef	REVK_H
 #define	REVK_H
 
+#include "sdkconfig.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
