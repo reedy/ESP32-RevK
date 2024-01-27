@@ -54,11 +54,14 @@ main (int argc, const char *argv[])
    int debug = 0;
    const char *cfile = "settings.c";
    const char *hfile = "settings.h";
+   const char *extension = ".ext";
    poptContext optCon;          // context for parsing command-line options
    {                            // POPT
       const struct poptOption optionsTable[] = {
          {"c-file", 'c', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &cfile, 0, "C-file", "filename"},
          {"h-file", 'h', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &hfile, 0, "H-file", "filename"},
+         {"extension", 'e', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &extension, 0, "Only handle files ending with this",
+          "extension"},
          {"debug", 'v', POPT_ARG_NONE, &debug, 0, "Debug"},
          POPT_AUTOHELP {}
       };
@@ -81,6 +84,9 @@ main (int argc, const char *argv[])
       const char *fn;
       while ((fn = poptGetArg (optCon)))
       {
+         char *ext = strrchr (fn, '.');
+         if (!ext || strcmp (ext, extension))
+            continue;
          FILE *I = fopen (fn, "r");
          if (!I)
             err (1, "Cannot open %s", fn);
