@@ -21,7 +21,7 @@ set part=""
 set sign=""
 
 if(-e settings.def) then
-	set rem=($rem REVK_OLD_SETTINGS);
+	set rem=($rem CONFIG_REVK_OLD_SETTINGS);
 endif
 
 if(-e managed_components/espressif__led_strip) then
