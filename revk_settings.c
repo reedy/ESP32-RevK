@@ -232,8 +232,8 @@ main (int argc, const char *argv[])
                " const char *name2;\n"  //
                " const char *def;\n"    //
                " const char *bitfield;\n"       //
-	       " uint8_t size;\n"	//
-	       " uint8_t bit;\n"	//
+               " uint8_t size;\n"       //
+               " uint8_t bit;\n"        //
                " uint8_t array;\n"      //
                " uint8_t decimal;\n"    //
                " uint8_t revk:1;\n"     //
@@ -250,11 +250,11 @@ main (int argc, const char *argv[])
       if (d)
          fprintf (H, "typedef struct revk_gpio_s revk_gpio_t;\n"        //
                   "struct revk_gpio_s {\n"      //
-                  " uint8_t num:12;\n"  //
-                  " uint8_t inv:1\n"    //
-                  " uint8_t pulldown:1\n"       //
-                  " uint8_t pullup:1\n" //
-                  " uint8_t set:1\n"    //
+                  " uint16_t num:12;\n" //
+                  " uint16_t inv:1\n"   //
+                  " uint16_t pulldown:1\n"      //
+                  " uint16_t pullup:1\n"        //
+                  " uint16_t set:1\n"   //
                   "};\n");
       for (d = defs; d && (!d->type || strcmp (d->type, "bit")); d = d->next);
       if (d)
@@ -308,13 +308,15 @@ main (int argc, const char *argv[])
             if (d->def)
                fprintf (C, ",.def=\"%s\"", d->def);
             if (!strcmp (d->type, "bit"))
-               fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s%s",d->name1 ? : "", d->name2 ? : "");
+               fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s%s", d->name1 ? : "", d->name2 ? : "");
             else
             {
                fprintf (C, ",.size=sizeof(");
                typename (C, d->type);
                fprintf (C, ")");
             }
+            if (!strcmp (d->type, "gpio"))
+               fprintf (C, ",.fix=1,.set=1,.bitfield=\"↑↓-\"");
             if (d->attributes)
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
