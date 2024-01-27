@@ -54,7 +54,7 @@ main (int argc, const char *argv[])
    int debug = 0;
    const char *cfile = "settings.c";
    const char *hfile = "settings.h";
-   const char *extension = ".ext";
+   const char *extension = "def";
    poptContext optCon;          // context for parsing command-line options
    {                            // POPT
       const struct poptOption optionsTable[] = {
@@ -85,7 +85,7 @@ main (int argc, const char *argv[])
       while ((fn = poptGetArg (optCon)))
       {
          char *ext = strrchr (fn, '.');
-         if (!ext || strcmp (ext, extension))
+         if (!ext || strcmp (ext + 1, extension))
             continue;
          FILE *I = fopen (fn, "r");
          if (!I)
