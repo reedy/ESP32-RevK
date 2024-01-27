@@ -3591,6 +3591,7 @@ nvs_set (setting_t * s, const char *tag, void *data)
 static const char *
 revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *value, unsigned char index, int flags)
 {                               // Value is expected to already be binary if using binary
+#ifdef  CONFIG_REVK_OLD_SETTINGS
    flags |= s->flags;
    {                            // Overlap check
       setting_t *q;
@@ -3939,11 +3940,16 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
    const char *fail = parse ();
    freez (temp);
    return fail;                 /* OK */
+#else	// New settings
+   // TODO
+   return NULL;
+#endif
 }
 
 static const char *
 revk_setting_dump (void)
 {                               // Dump settings (in JSON)
+#ifdef  CONFIG_REVK_OLD_SETTINGS
    const char *err = NULL;
    jo_t j = NULL;
    void send (void)
@@ -4254,6 +4260,9 @@ revk_setting_dump (void)
    }
    send ();
    free (buf);
+#else	// New settings
+   // TODO
+#endif
    return NULL;
 }
 
