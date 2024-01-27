@@ -87,6 +87,8 @@ int gpio_ok (uint8_t gpio);     // non 0 if OK to use in current platform (bit 0
 void revk_boot (app_callback_t * app_callback);
 void revk_start (void);
 void revk_pre_shutdown (void);
+
+#ifdef	CONFIG_REVK_OLD_SETTINGS
 // Register a setting, call from init (i.e. this is not expecting to be thread safe) - sets the value when called and on revk_setting/MQTT changes
 // Note, a setting that is SECRET that is a root name followed by sub names creates parent/child. Only shown if parent has value or default value (usually overlap a key child)
 void revk_register (const char *name,   // Setting name (note max 15 characters inc any number suffix)
@@ -104,6 +106,7 @@ void revk_register (const char *name,   // Setting name (note max 15 characters 
 #define	SETTING_SET		64      // Set top bit of numeric if a value is present at all
 #define	SETTING_SECRET		128     // Don't dump setting
 #define	SETTING_FIX		256     // Store in flash regardless, so default only used on initial s/w run
+#endif
 
 #if CONFIG_LOG_DEFAULT_LEVEL > 2
 esp_err_t revk_err_check (esp_err_t, const char *file, int line, const char *func, const char *cmd);    // Log if error

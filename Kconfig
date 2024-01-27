@@ -446,4 +446,10 @@ menu "RevK"
 	default n
         help
 		Include lunar tools
+
+	config REVK_OLD_SETTINGS
+	bool "Use old settings library"
+	default y
+        help
+		Use old settings librarey
 endmenu

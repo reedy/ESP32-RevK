@@ -4681,6 +4681,7 @@ revk_command (const char *tag, jo_t j)
    return e;
 }
 
+#ifdef  CONFIG_REVK_OLD_SETTINGS
 void
 revk_register (const char *name, uint8_t array, uint16_t size, void *data, const char *defval, int flags)
 {                               /* Register setting (not expected to be thread safe, should be called from init) */
@@ -4777,6 +4778,7 @@ revk_register (const char *name, uint8_t array, uint16_t size, void *data, const
          ESP_LOGD (TAG, "Setting %s created", s->name);
    }
 }
+#endif
 
 #if CONFIG_LOG_DEFAULT_LEVEL > 2
 esp_err_t
