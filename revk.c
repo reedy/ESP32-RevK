@@ -4275,6 +4275,8 @@ revk_setting (jo_t j)
    jo_rewind (j);
    if (jo_here (j) != JO_OBJECT)
       return "Not an object";
+   const char *er = NULL;
+#ifdef  CONFIG_REVK_OLD_SETTINGS
    int index = 0;
    int match (setting_t * s, const char *tag)
    {
@@ -4304,7 +4306,6 @@ revk_setting (jo_t j)
       index = v - 1;
       return 0;                 /* Match, index */
    }
-   const char *er = NULL;
    jo_type_t t = jo_next (j);   // Start object
    while (t == JO_TAG)
    {
@@ -4462,6 +4463,7 @@ revk_setting (jo_t j)
          freez (tag);
       }
    }
+#endif
    return er ? : "";
 }
 
