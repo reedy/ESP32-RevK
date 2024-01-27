@@ -10,6 +10,9 @@ static const char __attribute__((unused)) * TAG = "RevK";
 // Note, low wifi buffers breaks mesh
 
 #include "revk.h"
+#ifndef  CONFIG_REVK_OLD_SETTINGS
+extern revk_settings_t revk_settings[];
+#endif
 
 #ifdef	CONFIG_ENABLE_WIFI_STATION
 #undef	CONFIG_REVK_APMODE      // Bodge - clashes
@@ -174,9 +177,9 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
 struct gpio_s
 {
-	uint16_t num:14;
-	uint16_t inv:1;
-	uint16_t set:1;
+   uint16_t num:14;
+   uint16_t inv:1;
+   uint16_t set:1;
 };
 #define s(n,d)		char *n;
 #define sp(n,d)		char *n;
@@ -241,7 +244,6 @@ settings
 #undef bd
 #undef bad
 #undef bdp
-
 /* Local types */
 typedef struct setting_s setting_t;
 struct setting_s
@@ -300,7 +302,7 @@ const static int GROUP_IP = BIT2;       // We have IP address
 #endif
 #ifdef	CONFIG_REVK_MQTT
 const static int GROUP_MQTT = BIT6 /*7... */ ;  // We are MQTT connected - and MORE BITS (CONFIG_REVK_MQTT_CLIENTS)
-const static int GROUP_MQTT_DOWN = (GROUP_MQTT << CONFIG_REVK_MQTT_CLIENTS);        /*... */
+const static int GROUP_MQTT_DOWN = (GROUP_MQTT << CONFIG_REVK_MQTT_CLIENTS);    /*... */
 #endif
 static TaskHandle_t ota_task_id = NULL;
 static app_callback_t *app_callback = NULL;
@@ -1586,7 +1588,7 @@ revk_blinker (
       }
 #endif
       if (!blink[1].set)
-         gpio_set_level (blink[0].num,(rgb ? 1 : 0) ^ ((blink[0].inv) ? 1 : 0));    // Single LED on
+         gpio_set_level (blink[0].num, (rgb ? 1 : 0) ^ ((blink[0].inv) ? 1 : 0));       // Single LED on
       else if (blink[0].num != blink[1].num)
       {                         // Separate RGB on
          gpio_set_level (blink[0].num, ((rgb >> 31) ^ ((blink[0].inv) ? 1 : 0)) & 1);
@@ -1603,7 +1605,7 @@ revk_blinker (
       }
 #endif
       if (!blink[1].set)
-         gpio_set_level (blink[0].num, ((blink[0].inv) ? 1 : 0));    // Single LED off
+         gpio_set_level (blink[0].num, ((blink[0].inv) ? 1 : 0));       // Single LED off
       else if (blink[0].num != blink[1].num)
       {                         // Separate RGB off
          gpio_set_level (blink[0].num, ((blink[0].inv) ? 1 : 0));
@@ -1635,7 +1637,7 @@ task (void *pvParameters)
          .max_leds = 1,         // The number of LEDs in the strip,
          .led_pixel_format = LED_PIXEL_FORMAT_GRB,      // Pixel format of your LED strip
          .led_model = LED_MODEL_WS2812, // LED strip model
-         .flags.invert_out = ((blink[0].inv) ? 1 : 0),     // whether to invert the output signal (useful when your hardware has a level inverter)
+         .flags.invert_out = ((blink[0].inv) ? 1 : 0),  // whether to invert the output signal (useful when your hardware has a level inverter)
       };
       led_strip_rmt_config_t rmt_config = {
          .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
@@ -1952,6 +1954,29 @@ gpio_ok (uint8_t p)
 #endif
 }
 
+#ifndef	CONFIG_REVK_OLD_SETTINGS
+static void
+nvs_scan (void)
+{                               // Scan NVS to load values to settings
+   nvs_iterator_t i = NULL;
+   if (!nvs_entry_find (TAG, NULL, NVS_TYPE_ANY, &i))
+   {
+      do
+      {
+         nvs_entry_info_t info={0};
+         if (!nvs_entry_info (i, &info))
+	 {
+            ESP_LOGE (TAG, "Found %s %s type %d", info.namespace_name, info.key, info.type);
+	 }
+      }
+      while (!nvs_entry_next (&i));
+      ESP_LOGE(TAG,"End");
+   }
+   nvs_release_iterator (i);
+}
+#endif
+
+
 /* External functions */
 void
 revk_boot (app_callback_t * app_callback_cb)
@@ -2072,6 +2097,9 @@ revk_boot (app_callback_t * app_callback_cb)
    const esp_app_desc_t *app = esp_app_get_description ();
    if (nvs_open_from_partition (TAG, TAG, NVS_READWRITE, &nvs))
       REVK_ERR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs));
+#ifndef	CONFIG_REVK_OLD_SETTINGS
+   nvs_scan ();
+#endif
 #ifdef  CONFIG_REVK_OLD_SETTINGS
    revk_register ("client", 0, 0, &clientkey, NULL, SETTING_SECRET);    // Parent
    revk_register ("prefix", 0, 0, &prefixcommand, "command", SETTING_SECRET);   // Parent
@@ -2118,7 +2146,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
-   revk_register ("mqtt", CONFIG_REVK_MQTT_CLIENTS, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);    // Parent
+   revk_register ("mqtt", CONFIG_REVK_MQTT_CLIENTS, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);        // Parent
    mqttsettings;
 #endif
 #ifdef	CONFIG_REVK_APMODE
@@ -2144,11 +2172,11 @@ revk_boot (app_callback_t * app_callback_cb)
 #undef bad
 #undef bdp
 #endif
+   REVK_ERR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs));
    if (watchdogtime)
    {                            /* Watchdog */
       compat_task_wdt_reconfigure (true, watchdogtime * 1000, true);
    }
-   REVK_ERR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs));
    /* Application specific settings */
    if (!*appname)
       appname = strdup (app->project_name);
@@ -2220,7 +2248,7 @@ revk_start (void)
                continue;
             }
             gpio_reset_pin (p);
-            gpio_set_level (p, (blink[b].inv) ? 0 : 1);    /* on */
+            gpio_set_level (p, (blink[b].inv) ? 0 : 1); /* on */
             gpio_set_direction (p, GPIO_MODE_OUTPUT);   /* Blinking LED */
          }
       }
@@ -4263,7 +4291,7 @@ revk_setting_dump (void)
    }
    send ();
    free (buf);
-#else	// New settings
+#else // New settings
    // TODO
 #endif
    return NULL;

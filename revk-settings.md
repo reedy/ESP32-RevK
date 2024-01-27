@@ -14,7 +14,7 @@ The application build needs to include `settings.c` which defines the actual var
 
 The C code using settings need to `#include 'settings.h'` to have the `extern` references to the settings.
 
-The settings are loaded in to the C variables when `revk_start()` is called.
+The settings are loaded in to the C variables when `revk_boot()` is called.
 
 ## Settings definitions
 

@@ -379,8 +379,8 @@ main (int argc, const char *argv[])
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
          }
+      fprintf (C, "{0}};\n");
       fprintf (C, "#undef str\n");
-      fprintf (C, "};\n");
       for (d = defs; d; d = d->next)
          if (d->define)
             fprintf (C, "%s\n", d->define);
