@@ -21,18 +21,18 @@ struct def_s
    char *name2;
    char *def;
    char *attributes;
-   int array;
+   char *array;
 };
 def_t *defs = NULL,
    *deflast = NULL;
 
 int
-typename (FILE * O, const char *type,int array)
+typename (FILE * O, const char *type, const char *array)
 {
    if (!strcmp (type, "gpio"))
       fprintf (O, "revk_settings_gpio_t");
    else if (!strcmp (type, "binary"))
-      fprintf (O, array?"uint8_t":"revk_settings_binary_t");
+      fprintf (O, array ? "uint8_t" : "revk_settings_binary_t");
    else if (!strcmp (type, "s"))
       fprintf (O, "char*");
    else if (!strcmp (type, "c"))
@@ -211,7 +211,12 @@ main (int argc, const char *argv[])
                d->attributes = strdup (d->attributes);
                for (i = d->attributes; *i; i++)
                   if (!strncmp (i, ".array=", 7))
-                     d->array = atoi (i + 7);
+                  {
+                     i += 7;
+                     for (o = i; *o && *o != ','; o++);
+                     d->array = strndup (i, (int) (o - i));
+                     break;
+                  }
             }
             if (d->type && !d->name1)
                errx (1, "Missing name for %s in %s", d->type, fn);
@@ -236,7 +241,7 @@ main (int argc, const char *argv[])
       fprintf (H, "#include \"esp_system.h\"\n");
       fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
                "struct revk_settings_s {\n"     //
-	       " void *ptr;\n"	//
+               " void *ptr;\n"  //
                " const char *name1;\n"  //
                " const char *name2;\n"  //
                " const char *def;\n"    //
@@ -257,20 +262,20 @@ main (int argc, const char *argv[])
       def_t *d;
       for (d = defs; d && (!d->type || strcmp (d->type, "binary")); d = d->next);
       if (d)
-	      fprintf(H,"typedef struct revk_settings_binary_s revk_settings_binary_t;\n" //
-			      "struct revk_settings_binary_s {\n" //
-			      " uint16_t len;\n"//
-			      " uint8_t *data;\n"//
-			      "};\n");
+         fprintf (H, "typedef struct revk_settings_binary_s revk_settings_binary_t;\n"  //
+                  "struct revk_settings_binary_s {\n"   //
+                  " uint16_t len;\n"    //
+                  " uint8_t *data;\n"   //
+                  "};\n");
       for (d = defs; d && (!d->type || strcmp (d->type, "gpio")); d = d->next);
       if (d)
-         fprintf (H, "typedef struct revk_settings_gpio_s revk_settings_gpio_t;\n"        //
-                  "struct revk_settings_gpio_s {\n"      //
+         fprintf (H, "typedef struct revk_settings_gpio_s revk_settings_gpio_t;\n"      //
+                  "struct revk_settings_gpio_s {\n"     //
                   " uint16_t num:12;\n" //
-                  " uint16_t inv:1;\n"   //
-                  " uint16_t pulldown:1;\n"      //
-                  " uint16_t pullup:1;\n"        //
-                  " uint16_t set:1;\n"   //
+                  " uint16_t inv:1;\n"  //
+                  " uint16_t pulldown:1;\n"     //
+                  " uint16_t pullup:1;\n"       //
+                  " uint16_t set:1;\n"  //
                   "};\n");
       for (d = defs; d && (!d->type || strcmp (d->type, "bit")); d = d->next);
       if (d)
@@ -298,11 +303,11 @@ main (int argc, const char *argv[])
             else if (d->type)
             {
                fprintf (H, "extern ");
-               if (typename (H, d->type,d->array))
+               if (typename (H, d->type, d->array))
                   errx (1, "Unknown type %s in %s", d->type, d->fn);
                fprintf (H, " %s%s", d->name1 ? : "", d->name2 ? : "");
                if (d->array)
-                  fprintf (H, "[%d]", d->array);
+                  fprintf (H, "[%s]", d->array);
                fprintf (H, ";\n");
             }
       }
@@ -327,9 +332,9 @@ main (int argc, const char *argv[])
                fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s%s", d->name1 ? : "", d->name2 ? : "");
             else
             {
-               fprintf (C, ",.ptr=&%s%s",d->name1 ? : "", d->name2 ? : "");
+               fprintf (C, ",.ptr=&%s%s", d->name1 ? : "", d->name2 ? : "");
                fprintf (C, ",.size=sizeof(");
-               typename (C, d->type,d->array);
+               typename (C, d->type, d->array);
                fprintf (C, ")");
             }
             if (!strcmp (d->type, "gpio"))
