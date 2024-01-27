@@ -51,9 +51,11 @@ void
 typeinit (FILE * O, const char *type)
 {
    fprintf (O, "=");
-   if (!strcmp (type, "gpio"))
+   if (!strcmp (type, "s"))
+      fprintf (O, "\"\"");
+   else if (!strcmp (type, "gpio"))
       fprintf (O, "{0}");
-   else if (!strcmp (type, "binary") || !strcmp (type, "s"))
+   else if (!strcmp (type, "binary"))
       fprintf (O, "NULL");
    else
       fprintf (O, "0");
@@ -356,7 +358,7 @@ main (int argc, const char *argv[])
             {
                if (!d->config)
                   fprintf (C, ",.def=\"%s\"", d->def);
-	       else
+               else
                   fprintf (C, ",.def=str(%s)", d->def);
             }
             if (!strcmp (d->type, "bit"))
