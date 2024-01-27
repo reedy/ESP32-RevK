@@ -192,11 +192,11 @@ struct gpio_s
 #define	b(n,d)		uint8_t n;
 #define	s8(n,d)		int8_t n;
 #define	io(n,d)		struct gpio_s n;
-#define	ioa(n,a,d)	uint8_t n[a];
+#define	ioa(n,a,d)	struct gpio_s n[a];
 #ifndef	CONFIG_REVK_BLINK
-#define	led(n,a,d)	extern uint8_t n[a];
+#define	led(n,a,d)	extern struct gpio_s n[a];
 #else
-#define	led(n,a,d)	uint8_t n[a];
+#define	led(n,a,d)	struct gpio_s n[a];
 #endif
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
@@ -1585,13 +1585,13 @@ revk_blinker (
          led_strip_refresh (strip);
       }
 #endif
-      if (!blink[1])
-         gpio_set_level (blink[0] & IO_MASK, (rgb ? 1 : 0) ^ ((blink[0] & IO_INV) ? 1 : 0));    // Single LED on
-      else if (blink[0] != blink[1])
+      if (!blink[1].set)
+         gpio_set_level (blink[0].num,(rgb ? 1 : 0) ^ ((blink[0].inv) ? 1 : 0));    // Single LED on
+      else if (blink[0].num != blink[1].num)
       {                         // Separate RGB on
-         gpio_set_level (blink[0] & IO_MASK, ((rgb >> 31) ^ ((blink[0] & IO_INV) ? 1 : 0)) & 1);
-         gpio_set_level (blink[1] & IO_MASK, ((rgb >> 15) ^ ((blink[1] & IO_INV) ? 1 : 0)) & 1);
-         gpio_set_level (blink[2] & IO_MASK, ((rgb >> 7) ^ ((blink[2] & IO_INV) ? 1 : 0)) & 1);
+         gpio_set_level (blink[0].num, ((rgb >> 31) ^ ((blink[0].inv) ? 1 : 0)) & 1);
+         gpio_set_level (blink[1].num, ((rgb >> 15) ^ ((blink[1].inv) ? 1 : 0)) & 1);
+         gpio_set_level (blink[2].num, ((rgb >> 7) ^ ((blink[2].inv) ? 1 : 0)) & 1);
       }
    } else
    {                            // Off part of cycle
@@ -1602,13 +1602,13 @@ revk_blinker (
          led_strip_refresh (strip);
       }
 #endif
-      if (!blink[1])
-         gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 1 : 0));    // Single LED off
-      else if (blink[0] != blink[1])
+      if (!blink[1].set)
+         gpio_set_level (blink[0].num, ((blink[0].inv) ? 1 : 0));    // Single LED off
+      else if (blink[0].num != blink[1].num)
       {                         // Separate RGB off
-         gpio_set_level (blink[0] & IO_MASK, ((blink[0] & IO_INV) ? 1 : 0));
-         gpio_set_level (blink[1] & IO_MASK, ((blink[1] & IO_INV) ? 1 : 0));
-         gpio_set_level (blink[2] & IO_MASK, ((blink[2] & IO_INV) ? 1 : 0));
+         gpio_set_level (blink[0].num, ((blink[0].inv) ? 1 : 0));
+         gpio_set_level (blink[1].num, ((blink[1].inv) ? 1 : 0));
+         gpio_set_level (blink[2].num, ((blink[2].inv) ? 1 : 0));
       }
    }
 }
@@ -1628,14 +1628,14 @@ task (void *pvParameters)
       ota_check = 86400 * (-otaauto) + (esp_random () % 3600);  // Min periodic check
 #ifdef	CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
-   if (blink[0] && blink[0] == blink[1] && !revk_strip)
+   if (blink[0].set && blink[0].num == blink[1].num && !revk_strip)
    {                            // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
       led_strip_config_t strip_config = {
-         .strip_gpio_num = (blink[0] & IO_MASK),
+         .strip_gpio_num = (blink[0].num),
          .max_leds = 1,         // The number of LEDs in the strip,
          .led_pixel_format = LED_PIXEL_FORMAT_GRB,      // Pixel format of your LED strip
          .led_model = LED_MODEL_WS2812, // LED strip model
-         .flags.invert_out = ((blink[0] & IO_INV) ? 1 : 0),     // whether to invert the output signal (useful when your hardware has a level inverter)
+         .flags.invert_out = ((blink[0].inv) ? 1 : 0),     // whether to invert the output signal (useful when your hardware has a level inverter)
       };
       led_strip_rmt_config_t rmt_config = {
          .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
@@ -1659,7 +1659,7 @@ task (void *pvParameters)
          }
          tick += 100000ULL;     /* 10th second */
 #ifdef CONFIG_REVK_BLINK_LIB
-         if (blink[0]
+         if (blink[0].set
 #ifdef  CONFIG_REVK_LED_STRIP
              || revk_strip
 #endif
@@ -1845,7 +1845,7 @@ task (void *pvParameters)
             revk_restart ("Offline too long", 0);
 #endif
 #ifdef	CONFIG_REVK_APMODE
-         if (!b.disableap && apgpio && (gpio_get_level (apgpio & IO_MASK) ^ (apgpio & IO_INV ? 1 : 0)))
+         if (!b.disableap && apgpio.set && (gpio_get_level (apgpio.num) ^ (apgpio.inv ? 1 : 0)))
          {
             ap_start ();
             if (aptime)
@@ -2153,15 +2153,15 @@ revk_boot (app_callback_t * app_callback_cb)
    if (!*appname)
       appname = strdup (app->project_name);
 #ifdef	CONFIG_REVK_APMODE
-   if (apgpio)
+   if (apgpio.set)
    {
-      uint8_t p = apgpio & IO_MASK;
+      uint8_t p = apgpio.num;
       if (!(gpio_ok (p) & 2))
       {
          ESP_LOGE (TAG, "Not using GPIO %d", p);
-         apgpio = 0;
+         apgpio.set = 0;
       }
-      if (apgpio)
+      if (apgpio.set)
       {
          gpio_reset_pin (p);
          gpio_set_direction (p, GPIO_MODE_INPUT);       /* AP mode button */
@@ -2199,28 +2199,28 @@ void
 revk_start (void)
 {                               // Start stuff, init all done
 #ifdef  CONFIG_REVK_LED_STRIP
-   if (blink[0] && blink[0] == blink[1])
+   if (blink[0].set && blink[0].num == blink[1].num)
    {
-      if (!(gpio_ok (blink[0] & IO_MASK) & 1))
+      if (!(gpio_ok (blink[0].num) & 1))
       {
-         ESP_LOGE (TAG, "Not using LED GPIO %d", blink[0] & IO_MASK);
-         blink[0] = 0;
+         ESP_LOGE (TAG, "Not using LED GPIO %d", blink[0].num);
+         blink[0].set = 0;
       }
    } else
 #endif
       for (int b = 0; b < sizeof (blink) / sizeof (*blink); b++)
       {
-         if (blink[b])
+         if (blink[b].set)
          {
-            uint8_t p = blink[b] & IO_MASK;
+            uint8_t p = blink[b].num;
             if (!(gpio_ok (p) & 1))
             {
                ESP_LOGE (TAG, "Not using LED GPIO %d", p);
-               blink[b] = 0;
+               blink[b].set = 0;
                continue;
             }
             gpio_reset_pin (p);
-            gpio_set_level (p, (blink[b] & IO_INV) ? 0 : 1);    /* on */
+            gpio_set_level (p, (blink[b].inv) ? 0 : 1);    /* on */
             gpio_set_direction (p, GPIO_MODE_OUTPUT);   /* Blinking LED */
          }
       }
