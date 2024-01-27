@@ -106,7 +106,7 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #define	MQTT_MAX CONFIG_MQTT_BUFFER_SIZE
 #endif
 
-#define	MQTT_CLIENTS	2       // Smaller that 8 as top bit used for retain
+#ifdef  CONFIG_REVK_OLD_SETTINGS
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		s8(otaauto,CONFIG_REVK_OTAAUTO);	\
@@ -135,11 +135,11 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 		io(apgpio,CONFIG_REVK_APGPIO);		\
 
 #define	mqttsettings	\
-		sa(mqtthost,MQTT_CLIENTS,CONFIG_REVK_MQTTHOST);	\
-		sa(mqttuser,MQTT_CLIENTS,CONFIG_REVK_MQTTUSER);	\
-		sap(mqttpass,MQTT_CLIENTS,CONFIG_REVK_MQTTPASS);	\
-		u16a(mqttport,MQTT_CLIENTS,CONFIG_REVK_MQTTPORT);	\
-		bad(mqttcert,MQTT_CLIENTS,CONFIG_REVK_MQTTCERT);	\
+		sa(mqtthost,CONFIG_REVK_MQTT_CLIENTS,CONFIG_REVK_MQTTHOST);	\
+		sa(mqttuser,CONFIG_REVK_MQTT_CLIENTS,CONFIG_REVK_MQTTUSER);	\
+		sap(mqttpass,CONFIG_REVK_MQTT_CLIENTS,CONFIG_REVK_MQTTPASS);	\
+		u16a(mqttport,CONFIG_REVK_MQTT_CLIENTS,CONFIG_REVK_MQTTPORT);	\
+		bad(mqttcert,CONFIG_REVK_MQTT_CLIENTS,CONFIG_REVK_MQTTCERT);	\
 
 #define	wifisettings	\
 		u16(wifireset,CONFIG_REVK_WIFIRESET);	\
@@ -238,6 +238,7 @@ settings
 #undef bd
 #undef bad
 #undef bdp
+
 /* Local types */
 typedef struct setting_s setting_t;
 struct setting_s
@@ -257,6 +258,9 @@ struct setting_s
    uint16_t dup:1;              // Set in parent if it is a duplicate of a child
    uint16_t used:1;             // Used in settings as temp
 };
+#endif
+
+
 /* Public */
 const char *revk_version = "";  /* Git version */
 const char *revk_app = "";      /* App name */
@@ -292,12 +296,12 @@ const static int GROUP_WIFI = BIT1;     // We are WiFi connected
 const static int GROUP_IP = BIT2;       // We have IP address
 #endif
 #ifdef	CONFIG_REVK_MQTT
-const static int GROUP_MQTT = BIT6 /*7... */ ;  // We are MQTT connected - and MORE BITS (MQTT_CLIENTS)
-const static int GROUP_MQTT_DOWN = (GROUP_MQTT << MQTT_CLIENTS);        /*... */
+const static int GROUP_MQTT = BIT6 /*7... */ ;  // We are MQTT connected - and MORE BITS (CONFIG_REVK_MQTT_CLIENTS)
+const static int GROUP_MQTT_DOWN = (GROUP_MQTT << CONFIG_REVK_MQTT_CLIENTS);        /*... */
 #endif
 static TaskHandle_t ota_task_id = NULL;
 static app_callback_t *app_callback = NULL;
-lwmqtt_t mqtt_client[MQTT_CLIENTS] = { };
+lwmqtt_t mqtt_client[CONFIG_REVK_MQTT_CLIENTS] = { };
 
 static uint32_t restart_time = 0;
 static uint32_t nvs_time = 0;
@@ -621,7 +625,7 @@ mesh_task (void *pvParameters)
          {                      // To root: tag is client bit map of which external MQTT server to send to
             if (memcmp (from.addr, revk_mac, 6))
             {                   // From us is exception, we would have sent direct
-               for (int client = 0; client < MQTT_CLIENTS; client++)
+               for (int client = 0; client < CONFIG_REVK_MQTT_CLIENTS; client++)
                   if (tag & (1 << client))
                      lwmqtt_send_full (mqtt_client[client], -1, topic, e - payload, (void *) payload, tag >> 7);        // Out
             }
@@ -899,7 +903,7 @@ mesh_init (void)
 void
 revk_send_unsub (int client, const mac_t mac)
 {
-   if (client >= MQTT_CLIENTS || !mqtt_client[client])
+   if (client >= CONFIG_REVK_MQTT_CLIENTS || !mqtt_client[client])
       return;
    char id[13];
    sprintf (id, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -937,7 +941,7 @@ revk_send_unsub (int client, const mac_t mac)
 void
 revk_send_sub (int client, const mac_t mac)
 {
-   if (client >= MQTT_CLIENTS || !mqtt_client[client])
+   if (client >= CONFIG_REVK_MQTT_CLIENTS || !mqtt_client[client])
       return;
    char id[13];
    sprintf (id, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -976,7 +980,7 @@ static void
 mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
 {                               // Expects to be able to write over topic
    int client = (int) arg;
-   if (client < 0 || client >= MQTT_CLIENTS)
+   if (client < 0 || client >= CONFIG_REVK_MQTT_CLIENTS)
       return;
    if (topic)
    {
@@ -1164,7 +1168,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
 void
 revk_mqtt_init (void)
 {
-   for (int client = 0; client < MQTT_CLIENTS; client++)
+   for (int client = 0; client < CONFIG_REVK_MQTT_CLIENTS; client++)
       if (*mqtthost[client] && !mqtt_client[client])
       {
          xEventGroupSetBits (revk_group, (GROUP_MQTT_DOWN << client));
@@ -1740,13 +1744,13 @@ task (void *pvParameters)
                   jo_bool (j, "up", 0);
                {                // MQTT up
                   int i = 0;
-                  for (i = 0; i < MQTT_CLIENTS && *mqtthost[i]; i++);
+                  for (i = 0; i < CONFIG_REVK_MQTT_CLIENTS && *mqtthost[i]; i++);
                   if (i == 1)
                      jo_int (j, "mqtt-up", lwmqtt_connected (mqtt_client[0]));  // One client
                   else
                   {
                      jo_array (j, "mqtt-up");
-                     for (i = 0; i < MQTT_CLIENTS && *mqtthost[i]; i++)
+                     for (i = 0; i < CONFIG_REVK_MQTT_CLIENTS && *mqtthost[i]; i++)
                         jo_int (j, NULL, lwmqtt_connected (mqtt_client[i]));
                      jo_close (j);
                   }
@@ -2066,6 +2070,7 @@ revk_boot (app_callback_t * app_callback_cb)
    const esp_app_desc_t *app = esp_app_get_description ();
    if (nvs_open_from_partition (TAG, TAG, NVS_READWRITE, &nvs))
       REVK_ERR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs));
+#ifdef  CONFIG_REVK_OLD_SETTINGS
    revk_register ("client", 0, 0, &clientkey, NULL, SETTING_SECRET);    // Parent
    revk_register ("prefix", 0, 0, &prefixcommand, "command", SETTING_SECRET);   // Parent
    /* Fallback if no dedicated partition */
@@ -2111,7 +2116,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #endif
 #endif
 #ifdef	CONFIG_REVK_MQTT
-   revk_register ("mqtt", MQTT_CLIENTS, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);    // Parent
+   revk_register ("mqtt", CONFIG_REVK_MQTT_CLIENTS, 0, &mqtthost, CONFIG_REVK_MQTTHOST, SETTING_SECRET);    // Parent
    mqttsettings;
 #endif
 #ifdef	CONFIG_REVK_APMODE
@@ -2136,6 +2141,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #undef bd
 #undef bad
 #undef bdp
+#endif
    if (watchdogtime)
    {                            /* Watchdog */
       compat_task_wdt_reconfigure (true, watchdogtime * 1000, true);
@@ -2347,7 +2353,7 @@ revk_mqtt_out (uint8_t clients, int tlen, const char *topic, int plen, const uns
    }
 #endif
    const char *er = NULL;
-   for (int client = 0; client < MQTT_CLIENTS && !er; client++)
+   for (int client = 0; client < CONFIG_REVK_MQTT_CLIENTS && !er; client++)
       if (clients & (1 << client))
          er = lwmqtt_send_full (mqtt_client[client], tlen, topic, plen, payload, retain);
    return er;
@@ -4823,7 +4829,7 @@ revk_err_check (esp_err_t e)
 lwmqtt_t
 revk_mqtt (int client)
 {
-   if (client >= MQTT_CLIENTS)
+   if (client >= CONFIG_REVK_MQTT_CLIENTS)
       return NULL;
    return mqtt_client[client];
 }
@@ -4849,7 +4855,7 @@ revk_blink (uint8_t on, uint8_t off, const char *colours)
 void
 revk_mqtt_close (const char *reason)
 {
-   for (int client = 0; client < MQTT_CLIENTS; client++)
+   for (int client = 0; client < CONFIG_REVK_MQTT_CLIENTS; client++)
       if (mqtt_client[client])
       {
          lwmqtt_end (&mqtt_client[client]);

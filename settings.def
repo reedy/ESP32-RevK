@@ -27,10 +27,10 @@ gpio	ap.gpio		CONFIG_REVK_APGPIO	.revk=1
 
 
 #ifdef  CONFIG_REVK_MQTT
-s	mqtt.host	CONFIG_REVK_MQTTHOST	.revk=1	.array=MQTT_CLIENTS
-s	mqtt.user	CONFIG_REVK_MQTTUSER	.revk=1 .array=MQTT_CLIENTS
-s	mqtt.pass	CONFIG_REVK_MQTTPASS	.revk=1	.array=MQTT_CLIENTS	.pass=1
-s	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=MQTT_CLIENTS	.base64=1
+s	mqtt.host	CONFIG_REVK_MQTTHOST	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS
+s	mqtt.user	CONFIG_REVK_MQTTUSER	.revk=1 .array=CONFIG_REVK_MQTT_CLIENTS
+s	mqtt.pass	CONFIG_REVK_MQTTPASS	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.pass=1
+s	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.base64=1
 #endif  
 
 

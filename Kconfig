@@ -251,6 +251,12 @@ menu "RevK"
         help
 		Manage client MQTT
 
+	config REVK_MQTT_CLIENTS
+	int "Number of MQTT clients"
+	default 2
+        help
+		Number of MQTT clients
+
 	config REVK_MQTTHOST
 	string "Default MQTT host"
 	default "mqtt.iot"

@@ -4,3 +4,6 @@
 .DS_Store
 *.dSYM
 revk_settings
+settings.c
+settings.h
+

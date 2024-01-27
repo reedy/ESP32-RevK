@@ -38,6 +38,10 @@
 #include "led_strip.h"
 #endif
 
+#ifndef  CONFIG_REVK_OLD_SETTINGS
+#include "../../settings.h"
+#endif
+
 // Types
 
         // MQTT rx callback: Do not consume jo_t! Return error or NULL. Returning "" means handled the command with no error.
@@ -54,6 +58,8 @@ extern const char revk_build_suffix[];  // App build suffix
 extern char revk_id[13];        // Chip ID hex (from MAC)
 extern mac_t revk_mac;          // Our mac
 extern uint64_t revk_binid;     // Chip ID binary
+
+#ifdef  CONFIG_REVK_OLD_SETTINGS
 extern char *prefixcommand;
 extern char *prefixsetting;
 extern char *prefixstate;
@@ -63,6 +69,8 @@ extern char *prefixerror;
 extern char *appname;
 extern char *hostname;
 extern char *nodename;          // Node name
+#endif
+
 extern esp_netif_t *sta_netif;
 extern esp_netif_t *ap_netif;
 #ifdef  CONFIG_REVK_LED_STRIP
