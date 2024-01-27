@@ -1,0 +1,72 @@
+s	ota.host	CONFIG_REVK_OTAHOST	.revk=1
+s8	ota.auto	CONFIG_REVK_OTAAUTO	.revk=1
+s	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1
+s	ntphost		CONFIG_REVK_NTPHOST	.revk=1
+s	tz		CONFIG_REVK_TZ		.revk=1
+u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1
+s	appname		CONFIG_REVK_APPNAME	.revk=1
+s	hostname				.revk=1
+s	prefix.command	command			.revk=1
+s	prefix.setting	setting			.revk=1
+s	prefix.state	state			.revk=1
+s	prefix.event	event			.revk=1
+s	prefix.info	info			.revk=1
+s	prefix.error	error			.revk=1
+bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1
+gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=1
+s	client.key				.revk=1	.base64=1
+s	client.cert				.revk=1	.base64=1
+
+
+#ifdef  CONFIG_REVK_APMODE
+u16	ap.port		CONFIG_REVK_APPORT	.revk=1
+u32	ap.time		CONFIG_REVK_APTIME	.revk=1
+u32	ap.wait		CONFIG_REVK_APWAIT	.revk=1
+gpio	ap.gpio		CONFIG_REVK_APGPIO	.revk=1
+#endif
+
+
+#ifdef  CONFIG_REVK_MQTT
+s	mqtt.host	CONFIG_REVK_MQTTHOST	.revk=1	.array=MQTT_CLIENTS
+s	mqtt.user	CONFIG_REVK_MQTTUSER	.revk=1 .array=MQTT_CLIENTS
+s	mqtt.pass	CONFIG_REVK_MQTTPASS	.revk=1	.array=MQTT_CLIENTS	.pass=1
+s	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=MQTT_CLIENTS	.base64=1
+#endif  
+
+
+#if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+u16	wifi.reser	CONFIG_REVK_WIFIRESET	.revk=1
+s	wifi.ssid	CONFIG_REVK_WIFISSID	.revk=1
+s	wifi.ip		CONFIG_REVK_WIFIIP	.revk=1
+s	wifi.gw		CONFIG_REVK_WIFIGW	.revk=1
+s	wifi.dns	CONFIG_REVK_WIFIDNS	.revk=1	.array=3
+c	wifi.bssid	CONFIG_REVK_WIFIBSSID	.revk=1	.array=6	.hex=1
+u8	wifi.chan	CONFIG_REVK_WIFICHAN	.revk=1
+s	wifi.pass	CONFIG_REVK_WIFIPASS	.revk=1	.pass=1
+bit	wifi.ps		CONFIG_REVK_WIFIPS	.revk=1
+bit	wifi.maxps	CONFIG_REVK_WIFIMAXPS	.revk=1
+#endif
+
+
+#ifndef	CONFIG_REVK_MESH
+s	ap.ssid		CONFIG_REVK_APSSID	.revk=1
+s	ap.pass		CONFIG_REVK_APPASS	.revk=1	.pass=1
+u8	ap.max		CONFIG_REVK_APMAX	.revk=1
+s	ap.ip		CONFIG_REVK_APIP	.revk=1
+bit	ap.lr		CONFIG_REVK_APLR	.revk=1
+bit	ap.hide		CONFIG_REVK_APHIDE	.revk=1
+#endif
+
+
+#ifdef	CONFIG_REVK_MESH
+s	nodename				.revk=1
+u16	mesh.reset	CONFIG_REVK_MESHRESET	.revk=1
+c	mesh.id		CONFIG_REVK_MESHID	.revk=1	.array=6	.hex=1
+c	mesh.key				.revk=1	.array=16	.pass=1	.hex=1
+u16	mesh.width	CONFIG_REVK_MESHWIDTH	.revk=1
+u16	mesh.depth	CONFIG_REVK_MESHDEPTH	.revk=1
+u16	mesh.max	CONFIG_REVK_MESHMAX	.revk=1
+s	mesh.pass	CONFIG_REVK_MESHPASS	.revk=1	.pass=1
+bit	mesh.lr		CONFIG_REVK_MESHLR	.revk=1
+bit	mesh.root				.revk=1
+#endif

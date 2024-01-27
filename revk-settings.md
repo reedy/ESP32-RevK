@@ -87,5 +87,6 @@ Additional attribuites relate to each setting as follows:-
 |`.hex`|The value should be hex encoded in JSON. Typically used with `c` and `.array` set|
 |`.base64`|The value should be base64 encoded in JSON. Typically used with `c` and `.array` set|
 |`.decimal`|Used with integer types this scales by specified number of digits. E.g. `.decimal=2` will show `123` as `1.23` in JSON. For `f`/`d` this defines how many places to which to output the value.|
+|`.pass`|Set if this is a password|
 
 The `.set` and `.bitfield` attributes cause to bits in the integer value to be set. `.set` is always the top bit if present, so if you have a `u16` with `.set=1` and a value of `123` is set, it will be `32891`. The `.bitfield` defines a string of one or more utf-8 characters that represent bits starting from the top bit (or next bit if `.set` is used as well).

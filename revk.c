@@ -4942,10 +4942,12 @@ jo_make (const char *node)
    time_t now = time (0);
    if (now > 1000000000)
       jo_datetime (j, "ts", now);
+#ifdef	CONFIG_REVK_MESH
    if (node && *node)
       jo_string (j, "node", node);
    else if (!node && *nodename)
       jo_string (j, "node", nodename);
+#endif
    return j;
 }
 
