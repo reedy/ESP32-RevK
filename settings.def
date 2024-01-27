@@ -36,7 +36,7 @@ binary	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.b
 
 
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-u16	wifi.reser	CONFIG_REVK_WIFIRESET	.revk=1
+u16	wifi.reset	CONFIG_REVK_WIFIRESET	.revk=1
 s	wifi.ssid	CONFIG_REVK_WIFISSID	.revk=1
 s	wifi.ip		CONFIG_REVK_WIFIIP	.revk=1
 s	wifi.gw		CONFIG_REVK_WIFIGW	.revk=1

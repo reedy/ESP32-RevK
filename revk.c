@@ -3463,6 +3463,7 @@ ota_task (void *pvParameters)
    vTaskDelete (NULL);
 }
 
+#ifdef	CONFIG_REVK_OLD_SETTINGS
 static int
 nvs_get (setting_t * s, const char *tag, void *data, size_t len)
 {                               /* Low level get logic, returns < 0 if error.Calls the right nvs get function for type of setting */
@@ -3548,7 +3549,9 @@ nvs_get (setting_t * s, const char *tag, void *data, size_t len)
    }
    return -999;
 }
+#endif
 
+#ifdef	CONFIG_REVK_OLD_SETTINGS
 static esp_err_t
 nvs_set (setting_t * s, const char *tag, void *data)
 {                               /* Low level set logic, returns < 0 if error. Calls the right nvs set function for type of setting */
@@ -3586,6 +3589,7 @@ nvs_set (setting_t * s, const char *tag, void *data)
    ESP_LOGE (TAG, "Not saved setting %s", tag);
    return -1;
 }
+#endiuf
 
 static const char *
 revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *value, unsigned char index, int flags)
