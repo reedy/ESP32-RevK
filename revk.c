@@ -1956,37 +1956,42 @@ gpio_ok (uint8_t p)
 
 #ifndef	CONFIG_REVK_OLD_SETTINGS
 static void
-nvs_scan (void)
+nvs_scan (const char *appname)
 {                               // Scan NVS to load values to settings
-   // Default strings
-   for (revk_settings_t * r = &revk_settings; r->len1; r++)
+   // Default strings bodge - TODO
+   for (revk_settings_t * r = revk_settings; r->len1; r++)
    {
       if (r->ptr && !r->size)
-      {                         // String
-         if (r->array)
-            for (int a = 0; a < r->array; a++)
-               ((char **) r->ptr)[a] = "";
-         else
-            *((char **) r->ptr) = "";
+      {                         // String - set some defaults
+         int a = r->array;
+         char **p = (char **) r->ptr;
+         *p++ = (char *) (r->def ? : "");
+         if (a)
+            while (--a)
+               *p++ = "";
       }
    }
    // Scan
-   nvs_iterator_t i = NULL;
-   if (!nvs_entry_find (TAG, NULL, NVS_TYPE_ANY, &i))
+   for (int revk = 0; revk < 2; revk++)
    {
-      do
+	   // TODO Make list of deletions...
+	   // TODO loading values
+      nvs_iterator_t i = NULL;
+      if (!nvs_entry_find (revk ? TAG : "nvs", revk?TAG:appname, NVS_TYPE_ANY, &i))
       {
-         nvs_entry_info_t info = { 0 };
-         if (!nvs_entry_info (i, &info))
+         do
          {
-            ESP_LOGE (TAG, "Found %s %s type %d", info.namespace_name, info.key, info.type);
-            // TODO
+            nvs_entry_info_t info = { 0 };
+            if (!nvs_entry_info (i, &info))
+            {
+               ESP_LOGE (TAG, "Found %s %s type %d", info.namespace_name, info.key, info.type);
+               // TODO
+            }
          }
+         while (!nvs_entry_next (&i));
       }
-      while (!nvs_entry_next (&i));
-      ESP_LOGE (TAG, "End");
+      nvs_release_iterator (i);
    }
-   nvs_release_iterator (i);
 }
 #endif
 
@@ -2109,10 +2114,14 @@ revk_boot (app_callback_t * app_callback_cb)
    nvs_flash_init_partition (TAG);
    ESP_LOGI (TAG, "nvs_open_from_partition");
    const esp_app_desc_t *app = esp_app_get_description ();
-   if (nvs_open_from_partition (TAG, TAG, NVS_READWRITE, &nvs))
-      REVK_ERR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs));
 #ifndef	CONFIG_REVK_OLD_SETTINGS
-   nvs_scan ();
+   nvs_scan (app->project_name);
+#else
+   if (nvs_open_from_partition (TAG, TAG, NVS_READWRITE, &nvs))
+   {
+      ESP_LOGE (TAG, "No %s nvs partition", TAG);
+      REVK_ERR_CHECK (nvs_open (TAG, NVS_READWRITE, &nvs));
+   }
 #endif
 #ifdef  CONFIG_REVK_OLD_SETTINGS
    revk_register ("client", 0, 0, &clientkey, NULL, SETTING_SECRET);    // Parent
@@ -2186,7 +2195,9 @@ revk_boot (app_callback_t * app_callback_cb)
 #undef bad
 #undef bdp
 #endif
+#ifdef	CONFIG_REVK_OLD_SETTINGS
    REVK_ERR_CHECK (nvs_open (app->project_name, NVS_READWRITE, &nvs));
+#endif
    if (watchdogtime)
    {                            /* Watchdog */
       compat_task_wdt_reconfigure (true, watchdogtime * 1000, true);
