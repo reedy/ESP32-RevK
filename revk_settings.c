@@ -32,7 +32,7 @@ typename (FILE * O, const char *type)
    if (!strcmp (type, "gpio"))
       fprintf (O, "revk_settings_gpio_t");
    else if (!strcmp (type, "binary"))
-      fprintf (O, "revk_settings_binary_t");
+      fprintf (O, "revk_settings_binary_t*");
    else if (!strcmp (type, "s"))
       fprintf (O, "char*");
    else if (!strcmp (type, "c"))
@@ -265,7 +265,7 @@ main (int argc, const char *argv[])
          fprintf (H, "typedef struct revk_settings_binary_s revk_settings_binary_t;\n"  //
                   "struct revk_settings_binary_s {\n"   //
                   " uint16_t len;\n"    //
-                  " uint8_t *data;\n"   //
+                  " uint8_t data[];\n"   //
                   "};\n");
       for (d = defs; d && (!d->type || strcmp (d->type, "gpio")); d = d->next);
       if (d)
