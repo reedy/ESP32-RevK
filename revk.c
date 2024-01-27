@@ -258,8 +258,8 @@ struct setting_s
    uint16_t dup:1;              // Set in parent if it is a duplicate of a child
    uint16_t used:1;             // Used in settings as temp
 };
+static setting_t *setting = NULL;
 #endif
-
 
 /* Public */
 const char *revk_version = "";  /* Git version */
@@ -307,7 +307,6 @@ static uint32_t restart_time = 0;
 static uint32_t nvs_time = 0;
 static const char *restart_reason = NULL;
 static nvs_handle nvs = -1;
-static setting_t *setting = NULL;
 #if    defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 static uint32_t link_down = 1;  // When link last down
 esp_netif_t *sta_netif = NULL;
