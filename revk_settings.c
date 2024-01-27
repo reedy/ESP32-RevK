@@ -257,10 +257,10 @@ main (int argc, const char *argv[])
          fprintf (H, "typedef struct revk_gpio_s revk_gpio_t;\n"        //
                   "struct revk_gpio_s {\n"      //
                   " uint16_t num:12;\n" //
-                  " uint16_t inv:1\n"   //
-                  " uint16_t pulldown:1\n"      //
-                  " uint16_t pullup:1\n"        //
-                  " uint16_t set:1\n"   //
+                  " uint16_t inv:1;\n"   //
+                  " uint16_t pulldown:1;\n"      //
+                  " uint16_t pullup:1;\n"        //
+                  " uint16_t set:1;\n"   //
                   "};\n");
       for (d = defs; d && (!d->type || strcmp (d->type, "bit")); d = d->next);
       if (d)
@@ -277,7 +277,7 @@ main (int argc, const char *argv[])
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, " uint8_t %s%s:1,\n", d->name1 ? : "", d->name2 ? : "");
+               fprintf (H, " uint8_t %s%s:1;\n", d->name1 ? : "", d->name2 ? : "");
          fprintf (H, "};\n");
          for (d = defs; d; d = d->next)
             if (d->define)
