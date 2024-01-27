@@ -234,6 +234,7 @@ main (int argc, const char *argv[])
       fprintf (H, "#include \"esp_system.h\"\n");
       fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
                "struct revk_settings_s {\n"     //
+	       " void *ptr;\n"	//
                " const char *name1;\n"  //
                " const char *name2;\n"  //
                " const char *def;\n"    //
@@ -272,13 +273,13 @@ main (int argc, const char *argv[])
             else if (d->type && !strcmp (d->type, "bit"))
                fprintf (H, " REVK_SETTINGS_BITFIELD_%s%s,\n", d->name1 ? : "", d->name2 ? : "");
          fprintf (H, "};\n");
-         fprintf (H, "struct revk_settings_bitfield {\n");
+         fprintf (H, "struct {\n");
          for (d = defs; d; d = d->next)
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
                fprintf (H, " uint8_t %s%s:1;\n", d->name1 ? : "", d->name2 ? : "");
-         fprintf (H, "};\n");
+         fprintf (H, "} revk_settings_bitfield;\n");
          for (d = defs; d; d = d->next)
             if (d->define)
                fprintf (H, "%s\n", d->define);
@@ -317,6 +318,7 @@ main (int argc, const char *argv[])
                fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s%s", d->name1 ? : "", d->name2 ? : "");
             else
             {
+               fprintf (C, ",.ptr=&%s%s",d->name1 ? : "", d->name2 ? : "");
                fprintf (C, ",.size=sizeof(");
                typename (C, d->type);
                fprintf (C, ")");
