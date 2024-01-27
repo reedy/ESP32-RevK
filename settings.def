@@ -1,6 +1,6 @@
 s	ota.host	CONFIG_REVK_OTAHOST	.revk=1
 s8	ota.auto	CONFIG_REVK_OTAAUTO	.revk=1
-s	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1
+binary	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1
 s	ntphost		CONFIG_REVK_NTPHOST	.revk=1
 s	tz		CONFIG_REVK_TZ		.revk=1
 u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1
@@ -14,8 +14,8 @@ s	prefix.info	info			.revk=1
 s	prefix.error	error			.revk=1
 bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=1
-s	client.key				.revk=1	.base64=1
-s	client.cert				.revk=1	.base64=1
+binary	client.key				.revk=1	.base64=1
+binary	client.cert				.revk=1	.base64=1
 
 
 #ifdef  CONFIG_REVK_APMODE
@@ -30,7 +30,7 @@ gpio	ap.gpio		CONFIG_REVK_APGPIO	.revk=1
 s	mqtt.host	CONFIG_REVK_MQTTHOST	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS
 s	mqtt.user	CONFIG_REVK_MQTTUSER	.revk=1 .array=CONFIG_REVK_MQTT_CLIENTS
 s	mqtt.pass	CONFIG_REVK_MQTTPASS	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.pass=1
-s	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.base64=1
+binary	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.base64=1
 #endif  
 
 
@@ -40,7 +40,7 @@ s	wifi.ssid	CONFIG_REVK_WIFISSID	.revk=1
 s	wifi.ip		CONFIG_REVK_WIFIIP	.revk=1
 s	wifi.gw		CONFIG_REVK_WIFIGW	.revk=1
 s	wifi.dns	CONFIG_REVK_WIFIDNS	.revk=1	.array=3
-c	wifi.bssid	CONFIG_REVK_WIFIBSSID	.revk=1	.array=6	.hex=1
+binary	wifi.bssid	CONFIG_REVK_WIFIBSSID	.revk=1	.array=6	.hex=1
 u8	wifi.chan	CONFIG_REVK_WIFICHAN	.revk=1
 s	wifi.pass	CONFIG_REVK_WIFIPASS	.revk=1	.pass=1
 bit	wifi.ps		CONFIG_REVK_WIFIPS	.revk=1
@@ -61,8 +61,8 @@ bit	ap.hide		CONFIG_REVK_APHIDE	.revk=1
 #ifdef	CONFIG_REVK_MESH
 s	nodename				.revk=1
 u16	mesh.reset	CONFIG_REVK_MESHRESET	.revk=1
-c	mesh.id		CONFIG_REVK_MESHID	.revk=1	.array=6	.hex=1
-c	mesh.key				.revk=1	.array=16	.pass=1	.hex=1
+binary	mesh.id		CONFIG_REVK_MESHID	.revk=1	.array=6	.hex=1
+binary	mesh.key				.revk=1	.array=16	.pass=1	.hex=1
 u16	mesh.width	CONFIG_REVK_MESHWIDTH	.revk=1
 u16	mesh.depth	CONFIG_REVK_MESHDEPTH	.revk=1
 u16	mesh.max	CONFIG_REVK_MESHMAX	.revk=1

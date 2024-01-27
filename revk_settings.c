@@ -27,10 +27,12 @@ def_t *defs = NULL,
    *deflast = NULL;
 
 int
-typename (FILE * O, const char *type)
+typename (FILE * O, const char *type,int array)
 {
    if (!strcmp (type, "gpio"))
-      fprintf (O, "revk_gpio_t");
+      fprintf (O, "revk_settings_gpio_t");
+   else if (!strcmp (type, "binary"))
+      fprintf (O, array?"uint8_t":"revk_settings_binary_t");
    else if (!strcmp (type, "s"))
       fprintf (O, "char*");
    else if (!strcmp (type, "c"))
@@ -253,10 +255,17 @@ main (int argc, const char *argv[])
                "};\n");
 
       def_t *d;
+      for (d = defs; d && (!d->type || strcmp (d->type, "binary")); d = d->next);
+      if (d)
+	      fprintf(H,"typedef struct revk_settings_binary_s revk_settings_binary_t;\n" //
+			      "struct revk_settings_binary_s {\n" //
+			      " uint16_t len;\n"//
+			      " uint8_t *data;\n"//
+			      "};\n");
       for (d = defs; d && (!d->type || strcmp (d->type, "gpio")); d = d->next);
       if (d)
-         fprintf (H, "typedef struct revk_gpio_s revk_gpio_t;\n"        //
-                  "struct revk_gpio_s {\n"      //
+         fprintf (H, "typedef struct revk_settings_gpio_s revk_settings_gpio_t;\n"        //
+                  "struct revk_settings_gpio_s {\n"      //
                   " uint16_t num:12;\n" //
                   " uint16_t inv:1;\n"   //
                   " uint16_t pulldown:1;\n"      //
@@ -289,7 +298,7 @@ main (int argc, const char *argv[])
             else if (d->type)
             {
                fprintf (H, "extern ");
-               if (typename (H, d->type))
+               if (typename (H, d->type,d->array))
                   errx (1, "Unknown type %s in %s", d->type, d->fn);
                fprintf (H, " %s%s", d->name1 ? : "", d->name2 ? : "");
                if (d->array)
@@ -320,7 +329,7 @@ main (int argc, const char *argv[])
             {
                fprintf (C, ",.ptr=&%s%s",d->name1 ? : "", d->name2 ? : "");
                fprintf (C, ",.size=sizeof(");
-               typename (C, d->type);
+               typename (C, d->type,d->array);
                fprintf (C, ")");
             }
             if (!strcmp (d->type, "gpio"))
