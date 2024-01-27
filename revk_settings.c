@@ -243,9 +243,9 @@ main (int argc, const char *argv[])
       fprintf (H, "// Settings\n");
       fprintf (H, "#include <stdint.h>\n");
       fprintf (H, "#include \"esp_system.h\"\n");
-      for (d = defs; d && (!d->type || (strcmp (d->type, "f")&&strcmp(d->type,"d")&&strcmp(d->type,"l"))); d = d->next);
+      for (d = defs; d && (!d->type || (strcmp (d->type, "f") && strcmp (d->type, "d") && strcmp (d->type, "l"))); d = d->next);
       if (d)
-	      fprintf(H,"#include <math.h>\n");
+         fprintf (H, "#include <math.h>\n");
       fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
                "struct revk_settings_s {\n"     //
                " void *ptr;\n"  //
@@ -253,7 +253,8 @@ main (int argc, const char *argv[])
                " const char *name2;\n"  //
                " const char *def;\n"    //
                " const char *bitfield;\n"       //
-               " uint8_t size;\n"       //
+               " uint16_t size;\n"      //
+               " uint8_t binary:1;\n"   //
                " uint8_t bit;\n"        //
                " uint8_t array;\n"      //
                " uint8_t decimal;\n"    //
@@ -271,7 +272,7 @@ main (int argc, const char *argv[])
          fprintf (H, "typedef struct revk_settings_binary_s revk_settings_binary_t;\n"  //
                   "struct revk_settings_binary_s {\n"   //
                   " uint16_t len;\n"    //
-                  " uint8_t data[];\n"   //
+                  " uint8_t data[];\n"  //
                   "};\n");
       for (d = defs; d && (!d->type || strcmp (d->type, "gpio")); d = d->next);
       if (d)
@@ -339,12 +340,17 @@ main (int argc, const char *argv[])
             else
             {
                fprintf (C, ",.ptr=&%s%s", d->name1 ? : "", d->name2 ? : "");
-               fprintf (C, ",.size=sizeof(");
-               typename (C, d->type);
-               fprintf (C, ")");
+               if (strcmp (d->type, "s") && strcmp (d->type, "binary"))
+               {
+                  fprintf (C, ",.size=sizeof(");
+                  typename (C, d->type);
+                  fprintf (C, ")");
+               }
             }
             if (!strcmp (d->type, "gpio"))
                fprintf (C, ",.fix=1,.set=1,.bitfield=\"↑↓-\"");
+            if (!strcmp (d->type, "binary"))
+               fprintf (C, ",.binary=1");
             if (d->attributes)
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
