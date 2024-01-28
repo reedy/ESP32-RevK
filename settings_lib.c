@@ -4,6 +4,7 @@
 static const char __attribute__((unused)) * TAG = "Settings";
 
 extern revk_settings_t revk_settings[];
+extern uint32_t revk_nvs_time;
 
 static nvs_handle nvs[2] = { -1, -1 };
 
@@ -40,17 +41,108 @@ strndup (const char *s, size_t l)
    return o;
 }
 
+static size_t
+value_len (revk_settings_t * s)
+{                               // memory needed for a value
+   if (is_pointer (s))
+      return sizeof (void *);
+   if (is_bit (s))
+      return 1;                 // Bit
+   if (is_fixed (s))
+      return s->array;          // Fixed block
+   return s->size;              // Value
+}
+
+static const char *
+nvs_erase (revk_settings_t * s, const char *tag)
+{
+   revk_nvs_time = uptime () + 60;
+   nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7));
+   if (nvs_erase_key (nvs[s->revk], tag))
+      return "Failed to erase";
+   return NULL;
+}
+
+static const char *
+nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
+{
+   if (s->array && index >= s->array)
+      return "Array overflow";
+   char tag[17];
+   int taglen = strlen (prefix);
+   if (taglen + 1 > sizeof (tag))
+      return "Tag too long";
+   strncpy (tag, prefix, sizeof (tag));
+   if (s->array && !is_fixed (s))
+   {
+      tag[taglen++] = 0x80 + index;
+      tag[taglen] = 0;
+   }
+   if (taglen > 15)
+      return "Tag too long";
+   ESP_LOGE (TAG, "Write %s", tag);
+   if (!ptr && s->ptr)
+      ptr = s->ptr + index * value_len (s);
+   ESP_LOG_BUFFER_HEX_LEVEL (TAG, ptr, value_len (s), ESP_LOG_ERROR);
+   revk_nvs_time = uptime () + 60;
+   nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
+   if (is_bit (s))
+   {                            // Bit
+      uint8_t bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
+      if (ptr)
+         bit = *((uint8_t *) ptr);
+      if (nvs_set_u8 (nvs[s->revk], tag, bit))
+         return "Cannot store bit";
+      return NULL;
+   }
+   if (is_blob (s))
+   {                            // Blob
+      revk_settings_blob_t *b = *((revk_settings_blob_t **) ptr);
+      if (nvs_set_blob (nvs[s->revk], tag, b->data, b->len))
+         return "Cannot store blob";
+      return NULL;
+   }
+   if (is_fixed (s))
+   {                            // Fixed block
+      if (nvs_set_blob (nvs[s->revk], tag, ptr, s->array))
+         return "Cannot store fixed block";
+      return NULL;
+   }
+   if (is_string (s))
+   {                            // String
+      if (nvs_set_str (nvs[s->revk], tag, *((char **) ptr)))
+         return "Cannot store string";
+      return NULL;
+   }
+   // Numeric
+   if (s->sign)
+   {
+      if ((s->size == 8 && nvs_set_i64 (nvs[s->revk], tag, *((uint64_t *) ptr))) ||     //
+          (s->size == 4 && nvs_set_i32 (nvs[s->revk], tag, *((uint32_t *) ptr))) ||     //
+          (s->size == 2 && nvs_set_i16 (nvs[s->revk], tag, *((uint16_t *) ptr))) ||     //
+          (s->size == 1 && nvs_set_i8 (nvs[s->revk], tag, *((uint8_t *) ptr))))
+         return "Cannot store number (signed)";
+      return NULL;
+   }
+   if ((s->size == 8 && nvs_set_u64 (nvs[s->revk], tag, *((uint64_t *) ptr))) ||        //
+       (s->size == 4 && nvs_set_u32 (nvs[s->revk], tag, *((uint32_t *) ptr))) ||        //
+       (s->size == 2 && nvs_set_u16 (nvs[s->revk], tag, *((uint16_t *) ptr))) ||        //
+       (s->size == 1 && nvs_set_u8 (nvs[s->revk], tag, *((uint8_t *) ptr))))
+      return "Cannot store number (unsigned)";
+   return NULL;
+}
+
 static const char *
 nvs_get (revk_settings_t * s, const char *tag, int index)
 {                               // Getting NVS
    if (s->array && index >= s->array)
       return "Array overflow";
+   ESP_LOGE (TAG, "Read %s", s->name);
    size_t len = 0;
-   esp_err_t err;
    if (is_bit (s))
    {                            // Bit
       uint8_t data = 0;
-      if ((err = nvs_get_u8 (nvs[s->revk], tag, &data)))
+      if (nvs_get_u8 (nvs[s->revk], tag, &data))
          return "Cannot load bit";
       if (data)
          ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
@@ -105,17 +197,17 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    // Numeric
    if (s->sign)
    {
-      if ((s->size == 8 && (err = nvs_get_i64 (nvs[s->revk], tag, s->ptr))) ||  //
-          (s->size == 4 && (err = nvs_get_i32 (nvs[s->revk], tag, s->ptr))) ||  //
-          (s->size == 2 && (err = nvs_get_i16 (nvs[s->revk], tag, s->ptr))) ||  //
-          (s->size == 1 && (err = nvs_get_i8 (nvs[s->revk], tag, s->ptr))))
+      if ((s->size == 8 && nvs_get_i64 (nvs[s->revk], tag, s->ptr)) ||  //
+          (s->size == 4 && nvs_get_i32 (nvs[s->revk], tag, s->ptr)) ||  //
+          (s->size == 2 && nvs_get_i16 (nvs[s->revk], tag, s->ptr)) ||  //
+          (s->size == 1 && nvs_get_i8 (nvs[s->revk], tag, s->ptr)))
          return "Cannot load number (signed)";
       return NULL;
    }
-   if ((s->size == 8 && (err = nvs_get_u64 (nvs[s->revk], tag, s->ptr))) ||     //
-       (s->size == 4 && (err = nvs_get_u32 (nvs[s->revk], tag, s->ptr))) ||     //
-       (s->size == 2 && (err = nvs_get_u16 (nvs[s->revk], tag, s->ptr))) ||     //
-       (s->size == 1 && (err = nvs_get_u8 (nvs[s->revk], tag, s->ptr))))
+   if ((s->size == 8 && nvs_get_u64 (nvs[s->revk], tag, s->ptr)) ||     //
+       (s->size == 4 && nvs_get_u32 (nvs[s->revk], tag, s->ptr)) ||     //
+       (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, s->ptr)) ||     //
+       (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, s->ptr)))
       return "Cannot load number (unsigned)";
    return NULL;
 }
@@ -239,22 +331,10 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
    return err;
 }
 
-static size_t
-value_len (revk_settings_t * s)
-{                               // memory needed for a value
-   if (is_pointer (s))
-      return sizeof (void *);
-   if (is_bit (s))
-      return 1;                 // Bit
-   if (is_fixed (s))
-      return s->array;          // Fixed block
-   return s->size;              // Value
-}
-
-
 static int
 value_cmp (revk_settings_t * s, void *a, void *b)
 {
+   int len = value_len (s);
    if (is_pointer (s))
    {
       if (is_blob (s))
@@ -268,9 +348,8 @@ value_cmp (revk_settings_t * s, void *a, void *b)
          return memcmp (((revk_settings_blob_t *) a)->data, ((revk_settings_blob_t *) b)->data,
                         alen + sizeof (revk_settings_blob_t));
       } else
-         return strcmp (a, b);
+         return strcmp (*((char **) a), *((char **) b));
    }
-   int len = value_len (s);
    return memcmp (a, b, len);
 }
 
@@ -322,7 +401,6 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
          if (d < e)
          {
             *p = mallocspi (sizeof (revk_settings_blob_t) + e - d);
-
             ((revk_settings_blob_t *) (*p))->len = (e - d);
             memcpy ((*p) + sizeof (revk_settings_blob_t), d, e - d);
          } else
@@ -409,7 +487,6 @@ revk_settings_load (const char *tag, const char *appname)
                int l = strlen (info.key);
                revk_settings_t *s;
                const char *err = NULL;
-               int count = 0;
                for (s = revk_settings; s->len; s++)
                {
                   if (!s->array && s->len == l && !memcmp (s->name, info.key, l))
@@ -428,14 +505,13 @@ revk_settings_load (const char *tag, const char *appname)
                      // Flag to be written back?
                      break;
                   }
-                  count++;
                }
                if (!s->len)
                   err = "Not found";
                if (err)
                   ESP_LOGE (tag, "NVS %s Failed %s", info.key, err);
                else
-                  nvs_found[count / 8] |= (1 << (count & 7));
+                  nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
                // TODO delete?
             }
          }
@@ -443,15 +519,16 @@ revk_settings_load (const char *tag, const char *appname)
       }
       nvs_release_iterator (i);
    }
-   int count = 0;
    for (revk_settings_t * s = revk_settings; s->len; s++)
    {
-      if (s->fix && !(nvs_found[count / 8] & (1 << (count & 7))))
+      if (s->fix && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
       {                         // Fix, save to flash
-         // TODO
-
+         if (s->array && !is_fixed (s))
+            nvs_put (s, s->name, 0, NULL);
+         else
+            for (int i = i; i < s->array; i++)
+               nvs_put (s, s->name, i, NULL);
       }
-      count++;
    }
 }
 
@@ -468,6 +545,7 @@ revk_setting (jo_t j)
    jo_type_t t;
    if ((t = jo_here (j)) != JO_OBJECT)
       return "Not an object";
+   char change = 0;
    const char *err = NULL;
    char tag[16];
    void scan (int plen)
@@ -479,17 +557,17 @@ revk_setting (jo_t j)
             err = "Too long";
          else
          {
-            jo_strncpy (j, tag + plen, l+1);
+            jo_strncpy (j, tag + plen, l + 1);
             revk_settings_t *s;
             for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->len1 != plen) || strcmp (s->name, tag)); s++);
-            if (!s->len)
-            {
-               err = "Not found";
-               break;
-            }
             // TODO number suffix?
             void store (int index)
             {
+               if (!s->len)
+               {
+                  err = "Not found";
+                  return;
+               }
                if (s->array && index >= s->array)
                {
                   err = "Too many entries";
@@ -500,6 +578,7 @@ revk_setting (jo_t j)
                {                // Default
                   if (!index && s->def)
                      val = strdup (s->def);
+                  nvs_erase (s, tag);
                } else if (t != JO_CLOSE)
                   val = jo_strdup (j);
                int len = value_len (s);
@@ -508,12 +587,14 @@ revk_setting (jo_t j)
                   err = "malloc";
                else
                {
+                  memset (temp, 0, len);
                   uint8_t dofree = is_pointer (s);
                   uint8_t bit = 0;
                   void *ptr = s->ptr ? : &bit;
                   if (is_bit (s))
-                     bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (s->bit & 7)) ? 1 : 0);
-                  ptr += index;
+                     bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
+                  else
+                     ptr += index * value_len (s);
                   err = load_value (s, val, index, temp);
                   if (value_cmp (s, ptr, temp))
                   {             // Change
@@ -533,8 +614,9 @@ revk_setting (jo_t j)
                            dofree = 0;
                         }
                      }
-                     // To NVS
-                     // TODO
+                     err = nvs_put (s, s->name, index, temp);
+                     if (!err && !s->live)
+                        change = 1;
                   }
                   if (dofree)
                      free (*(void **) temp);
@@ -548,7 +630,7 @@ revk_setting (jo_t j)
                   err = "Nested too far";
                else
                   scan (l);
-               // TODO missing fields
+               // TODO missing fields erase
             } else if (t == JO_ARRAY)
             {                   // Array
                if (!s->array)
@@ -569,14 +651,14 @@ revk_setting (jo_t j)
                }
             } else
                store (0);
-            t = jo_next (j);
          }
       }
    }
-   ESP_LOGE (TAG, "Settings JSON");
    scan (0);
    if (err)
       ESP_LOGE (TAG, "Failed %s at %s", err, jo_debug (j));
+   if (change)
+      revk_restart ("Settings changed", 5);
    return err ? : "";
 }
 
