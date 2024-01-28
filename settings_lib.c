@@ -5,6 +5,26 @@ extern revk_settings_t revk_settings[];
 
 static nvs_handle nvs[2] = { -1, -1 };
 
+char *__malloc_like __result_use_check strdup(const char *s)
+{
+	int l=strlen(s);
+	char *o=mallocspi(l+1);
+	if(!o)return NULL;
+	memcpy(o,s,l+1);
+	return o;
+}
+
+char *__malloc_like __result_use_check strndup(const char *s,size_t l)
+{
+	int l2=strlen(s);
+	if(l2<l)l=l2;
+	char *o=mallocspi(l+1);
+	if(!o)return NULL;
+	memcpy(o,s,l);
+	o[l]=0;
+	return o;
+}
+
 static void
 load_default (revk_settings_t * s)
 {
@@ -65,7 +85,7 @@ load_default (revk_settings_t * s)
          {                      // String
             free (*p);
             if (d)
-               *p = strdnup (d, (int) (e - d));
+               *p = strndup (d, (int) (e - d));
             else
                *p = strdup ("");
             if (a)
