@@ -96,3 +96,12 @@ Additional attributes relate to each setting as follows:-
 |`.pass`|Set if this is a password|
 
 The `.set` and `.bitfield` attributes can apply to a numeric value, and cause top bits in the integer value to be set. `.set` is always the top bit if present, so if you have a `u16` with `.set=1` and a value of `123` is set, it will be `32891`. The `.bitfield` defines a string of one or more utf-8 characters that represent bits starting from the top bit (or next bit if `.set` is used as well). When parsing, any of the bitfield characters can be before or after the number. When output, they are normally before rhe number, unless there is a space in the bitfield and those characters after the space come after the number (the space is not assigned a bit).
+
+## JSON
+
+- A simple variable, string or number, etc, is set using a JSON string or number.
+- A simple variable can be set to `null` to set default.
+- A bit is set with `0`/`1`, or `true`/`false`
+- An array should be set using an array, any missing final elements are cleared to zero value
+- A sub object can be set, or each value can be set directly. If an object, any missing sub values are set to default
+- And array or object can be set to `null` to set to defaults

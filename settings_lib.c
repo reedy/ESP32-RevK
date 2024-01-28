@@ -15,6 +15,7 @@ static revk_setting_bits_t nvs_found = { 0 };
 #define	is_fixed(s)	((s)->ptr && (s)->size == 1 && (s)->array && ((s)->hex || (s)->base64))
 #define	is_string(s)	((s)->ptr && !(s)->size)
 #define	is_pointer(s)	(is_blob(s)||is_string(s))
+#define is_numeric(s)	(!is_pointer(s)&&!is_bit(s)&&!is_fixed(s))
 
 char *__malloc_like __result_use_check
 strdup (const char *s)
@@ -98,10 +99,8 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
    }
    if (taglen > 15)
       return "Tag too long";
-   ESP_LOGE (TAG, "Write %s", tag);
    if (!ptr && s->ptr)
       ptr = s->ptr + index * value_len (s);
-   ESP_LOG_BUFFER_HEX_LEVEL (TAG, ptr, value_len (s), ESP_LOG_ERROR);
    revk_nvs_time = uptime () + 60;
    nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
    if (is_bit (s))
@@ -260,26 +259,30 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    // Numeric
    if (s->sign)
    {
-      if ((s->size == 8 && nvs_get_i64 (nvs[s->revk], tag, s->ptr)) ||  //
-          (s->size == 4 && nvs_get_i32 (nvs[s->revk], tag, s->ptr)) ||  //
-          (s->size == 2 && nvs_get_i16 (nvs[s->revk], tag, s->ptr)) ||  //
-          (s->size == 1 && nvs_get_i8 (nvs[s->revk], tag, s->ptr)))
+      void *p = s->ptr;
+      p += index * s->size;
+      if ((s->size == 8 && nvs_get_i64 (nvs[s->revk], tag, p)) ||       //
+          (s->size == 4 && nvs_get_i32 (nvs[s->revk], tag, p)) ||       //
+          (s->size == 2 && nvs_get_i16 (nvs[s->revk], tag, p)) ||       //
+          (s->size == 1 && nvs_get_i8 (nvs[s->revk], tag, p)))
          return "Cannot load number (signed)";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
-      int64_t v = (int64_t) (s->size == 1 ? *((int8_t *) s->ptr) : s->size == 2 ? *((int16_t *) s->ptr) : s->size ==
-                             +4 ? *((int32_t *) s->ptr) : *((int64_t *) s->ptr));
+      int64_t v = (int64_t) (s->size == 1 ? *((int8_t *) p) : s->size == 2 ? *((int16_t *) p) : s->size ==
+                             +4 ? *((int32_t *) p) : *((int64_t *) p));
       ESP_LOGE (TAG, "Read %s signed %lld 0x%0*llX", taga, v, s->size * 2, v);
 #endif
       return NULL;
    }
-   if ((s->size == 8 && nvs_get_u64 (nvs[s->revk], tag, s->ptr)) ||     //
-       (s->size == 4 && nvs_get_u32 (nvs[s->revk], tag, s->ptr)) ||     //
-       (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, s->ptr)) ||     //
-       (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, s->ptr)))
+   void *p = s->ptr;
+   p += index * s->size;
+   if ((s->size == 8 && nvs_get_u64 (nvs[s->revk], tag, p)) ||  //
+       (s->size == 4 && nvs_get_u32 (nvs[s->revk], tag, p)) ||  //
+       (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, p)) ||  //
+       (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, p)))
       return "Cannot load number (unsigned)";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
-   uint64_t v = (uint64_t) (s->size == 1 ? *((uint8_t *) s->ptr) : s->size == 2 ? *((uint16_t *) s->ptr) : s->size ==
-                            +4 ? *((uint32_t *) s->ptr) : *((uint64_t *) s->ptr));
+   uint64_t v = (uint64_t) (s->size == 1 ? *((uint8_t *) p) : s->size == 2 ? *((uint16_t *) p) : s->size ==
+                            +4 ? *((uint32_t *) p) : *((uint64_t *) p));
    ESP_LOGE (TAG, "Read %s unsigned %llu 0x%0*llX", taga, v, s->size * 2, v);
 #endif
    return NULL;
@@ -392,9 +395,9 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
             err = "Bad number size";
       }
    }
-   while (d && d < e && *d == ' ')
+   while (d && d < e && *d == ' ' && *d != ',' && *d != '\t')
       d++;
-   if (d && d < e && *d == ',')
+   if (d && d < e && (*d == ',' || *d == '\t'))
       d++;
    while (d && d < e && *d == ' ')
       d++;
@@ -421,7 +424,9 @@ value_cmp (revk_settings_t * s, void *a, void *b)
          return memcmp (((revk_settings_blob_t *) a)->data, ((revk_settings_blob_t *) b)->data,
                         alen + sizeof (revk_settings_blob_t));
       } else
+      {
          return strcmp (*((char **) a), *((char **) b));
+      }
    }
    return memcmp (a, b, len);
 }
@@ -469,28 +474,25 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    } else if (is_blob (s))
    {                            // Blob
       void **p = (void **) ptr;
-      if (index >= 0)
+      if (index > 0)
          p += index;
-      else
+      if (d < e)
       {
-         if (d < e)
-         {
-            *p = mallocspi (sizeof (revk_settings_blob_t) + e - d);
-            ((revk_settings_blob_t *) (*p))->len = (e - d);
-            memcpy ((*p) + sizeof (revk_settings_blob_t), d, e - d);
-         } else
+         *p = mallocspi (sizeof (revk_settings_blob_t) + e - d);
+         ((revk_settings_blob_t *) (*p))->len = (e - d);
+         memcpy ((*p) + sizeof (revk_settings_blob_t), d, e - d);
+      } else
+      {
+         *p = mallocspi (sizeof (revk_settings_blob_t));
+         ((revk_settings_blob_t *) (*p))->len = 0;
+      }
+      if (a && index < 0)
+         while (--a)
          {
             *p = mallocspi (sizeof (revk_settings_blob_t));
             ((revk_settings_blob_t *) (*p))->len = 0;
-            if (a && index < 0)
-               while (--a)
-               {
-                  *p = mallocspi (sizeof (revk_settings_blob_t));
-                  ((revk_settings_blob_t *) (*p))->len = 0;
-                  p++;
-               }
+            p++;
          }
-      }
    } else if (is_fixed (s))
    {                            // Fixed string
       void *p = (void *) ptr;
@@ -505,7 +507,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    } else if (is_string (s))
    {                            // String
       void **p = (void **) ptr;
-      if (index >= 0)
+      if (index > 0)
          p += index;
       free (*p);
       if (d)
@@ -521,10 +523,10 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    } else
    {                            // Numeric
       void *p = (void *) ptr;
-      if (index >= 0)
-         p += s->size * index;
       if (d < e)
       {
+         if (index > 0)
+            p += s->size * index;
          err = parse_numeric (s, &p, &d, e);
          if (a && index < 0)
             while (!err && --a)
@@ -534,7 +536,6 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       } else
          memset (p, 0, s->size * (a ? : 1));
    }
-
    if (err)
       ESP_LOGE (TAG, "%s %s", s->name, err);
    return err;
@@ -646,6 +647,7 @@ revk_setting (jo_t j)
    char change = 0;
    const char *err = NULL;
    char tag[16];
+   revk_setting_bits_t found = { 0 };
    void scan (int plen)
    {
       while (!err && (t = jo_next (j)) == JO_TAG)
@@ -665,6 +667,7 @@ revk_setting (jo_t j)
                   err = "Not found";
                   return;
                }
+               found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
                if (s->array && index >= s->array)
                {
                   err = "Too many entries";
@@ -673,8 +676,36 @@ revk_setting (jo_t j)
                char *val = NULL;
                if (t == JO_NULL)
                {                // Default
-                  if (!index && s->def)
-                     val = strdup (s->def);
+                  if (s->def)
+                  {
+                     val = (char *) s->def;
+                     if (s->array && is_numeric (s))
+                     {
+                        if (s->dq && *val == '"')
+                           val++;
+                        int i = index;
+                        while (i--)
+                        {
+                           while (*val && *val != ',' && *val != ' ' && *val != '\t')
+                              val++;
+                           while (*val && *val == ' ')
+                              val++;
+                           if (*val && (*val == ',' || *val == '\t'))
+                              val++;
+                           while (*val && *val == ' ')
+                              val++;
+                        }
+                     }
+                     val = strdup (val);
+                     if (s->array && is_numeric (s))
+                     {
+                        char *v = val;
+                        while (*v && *v != ' ' && *v != ',' && *v != '\t' && (s->dq && *v != '"'))
+                           v++;
+                        *v = 0;
+                     }
+                     ESP_LOGE (TAG, "index %d value %s", index, val);
+                  }
                } else if (t != JO_CLOSE)
                   val = jo_strdup (j);
                int len = value_len (s);
@@ -724,18 +755,18 @@ revk_setting (jo_t j)
                free (val);
             }
             t = jo_next (j);
+            void zapdef (void)
+            {
+               if (s->array && !is_fixed (s))
+                  for (int i = 0; i < s->array; i++)
+                     store (i);
+               else
+                  store (0);
+            }
             if (t == JO_NULL)
             {
-               void zap (void)
-               {
-                  if (s->array && !is_fixed (s))
-                     for (int i = 0; i < s->array; i++)
-                        store (i);
-                  else
-                     store (0);
-               }
                if (s->len)
-                  zap ();
+                  zapdef ();
                else if (!plen)
                {
                   for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
@@ -744,7 +775,7 @@ revk_setting (jo_t j)
                      int group = s->group;
                      for (s = revk_settings; s->len; s++)
                         if (s->group == group)
-                           zap ();
+                           zapdef ();
                   }
                } else
                   err = "Invalid null";
@@ -752,9 +783,22 @@ revk_setting (jo_t j)
             {                   // Object
                if (plen)
                   err = "Nested too far";
+               else if (s)
+                  err = "Not an object";
                else
-                  scan (l);
-               // TODO missing fields erase
+               {
+                  for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+                  if (!s->len)
+                     err = "Unknown object";
+                  else
+                  {
+                     int group = s->group;
+                     scan (l);
+                     for (s = revk_settings; s->len; s++)
+                        if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+                           zapdef ();
+                  }
+               }
             } else if (t == JO_ARRAY)
             {                   // Array
                if (!s->array)
