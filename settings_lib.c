@@ -52,7 +52,8 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    }
    if (s->blob)
    {
-      void **p = s->ptr + (s->size ? : sizeof (void *)) * index;
+      void **p = s->ptr;
+      p += index;
       if (nvs_get_blob (nvs[s->revk], tag, NULL, &len))
          return "Cannot get blob len";
       len += sizeof (revk_settings_blob_t);
@@ -68,7 +69,8 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    }
    if (!s->size)
    {                            /* String */
-      void **p = s->ptr + (s->size ? : sizeof (void *)) * index;
+      void **p = s->ptr;
+      p += index;
       if (nvs_get_str (nvs[s->revk], tag, NULL, &len))
          return "Cannot get string len";
       if (!len)
@@ -78,6 +80,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
          return "malloc";
       if (nvs_get_str (nvs[s->revk], tag, data, &len))
          return "Cannot load string";
+      data[len - 1] = 0;        // Just in case
       free (*p);
       *p = data;
       return NULL;
@@ -356,6 +359,7 @@ revk_settings_load (const char *tag, const char *appname)
                   } else if (s->array && s->len < l && !memcmp (s->name, info.key, s->len) && isdigit ((int) info.key[s->len]))
                   {             // Array match, old
                      err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
+                     // TODO needs replacing
                      break;
                   }
                }
