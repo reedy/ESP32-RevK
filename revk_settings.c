@@ -326,7 +326,7 @@ main (int argc, const char *argv[])
                " const char *bitfield;\n"       //
                " uint16_t size;\n"      //
                " uint8_t group;\n"      //
-               " uint8_t len1:4;\n"     //
+               " uint8_t dot:4;\n"     //
                " uint8_t len:4;\n"      //
                " uint8_t bit;\n"        //
                " uint8_t array:7;\n"    //
@@ -413,8 +413,9 @@ main (int argc, const char *argv[])
             fprintf (C, ".name=\"%s\"", d->name);
             if (d->group)
                fprintf (C, ",.group=%d", d->group);
-            fprintf (C, ",.len1=%d", (int) strlen (d->name1));
             fprintf (C, ",.len=%d", (int) strlen (d->name));
+	    if(d->name2)
+            fprintf (C, ",.dot=%d", (int) strlen (d->name1));
             if (!d->name2)
                for (int g = 0; g < groups; g++)
                   if (!strcmp (d->name1, group[g]))

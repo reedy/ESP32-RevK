@@ -458,4 +458,10 @@ menu "RevK"
 	default y
         help
 		Use old settings librarey
+
+	config REVK_SETTINGS_DEBUG
+	bool "Log NVS access for settings"
+	default n
+        help
+		Log NVS access for settings
 endmenu

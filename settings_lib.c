@@ -60,6 +60,17 @@ nvs_erase (revk_settings_t * s, const char *tag)
    nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7));
    if (nvs_erase_key (nvs[s->revk], tag))
       return "Failed to erase";
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+   char taga[20];
+   {
+      int l = strlen (tag);
+      if (tag[l - 1] > 0x80)
+         sprintf (taga, "%.*s[%d]", l - 1, tag, tag[l - 1] - 0x80);
+      else
+         strcpy (taga, tag);
+   }
+   ESP_LOGE (TAG, "Erase %s", taga);
+#endif
    return NULL;
 }
 
@@ -72,6 +83,13 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
    int taglen = strlen (prefix);
    if (taglen + 1 > sizeof (tag))
       return "Tag too long";
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+   char taga[20];
+   if (s->array && !is_fixed (s))
+      sprintf (taga, "%s[%d]", prefix, index);
+   else
+      strcpy (taga, prefix);
+#endif
    strncpy (tag, prefix, sizeof (tag));
    if (s->array && !is_fixed (s))
    {
@@ -93,6 +111,9 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
          bit = *((uint8_t *) ptr);
       if (nvs_set_u8 (nvs[s->revk], tag, bit))
          return "Cannot store bit";
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Write %s bit %d", taga, bit);
+#endif
       return NULL;
    }
    if (is_blob (s))
@@ -100,35 +121,54 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
       revk_settings_blob_t *b = *((revk_settings_blob_t **) ptr);
       if (nvs_set_blob (nvs[s->revk], tag, b->data, b->len))
          return "Cannot store blob";
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Write %s fixed %d", taga, b->len);
+      ESP_LOG_BUFFER_HEX_LEVEL (TAG, b->data, b->len, ESP_LOG_ERROR);
+#endif
       return NULL;
    }
    if (is_fixed (s))
    {                            // Fixed block
       if (nvs_set_blob (nvs[s->revk], tag, ptr, s->array))
          return "Cannot store fixed block";
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Write %s fixed %d", taga, s->array);
+      ESP_LOG_BUFFER_HEX_LEVEL (TAG, ptr, s->array, ESP_LOG_ERROR);
+#endif
       return NULL;
    }
    if (is_string (s))
    {                            // String
       if (nvs_set_str (nvs[s->revk], tag, *((char **) ptr)))
          return "Cannot store string";
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Write %s string %s", taga, *((char **) ptr));
+#endif
       return NULL;
    }
    // Numeric
    if (s->sign)
    {
-      if ((s->size == 8 && nvs_set_i64 (nvs[s->revk], tag, *((uint64_t *) ptr))) ||     //
-          (s->size == 4 && nvs_set_i32 (nvs[s->revk], tag, *((uint32_t *) ptr))) ||     //
-          (s->size == 2 && nvs_set_i16 (nvs[s->revk], tag, *((uint16_t *) ptr))) ||     //
-          (s->size == 1 && nvs_set_i8 (nvs[s->revk], tag, *((uint8_t *) ptr))))
+      int64_t __attribute__((unused)) v = 0;
+      if ((s->size == 8 && nvs_set_i64 (nvs[s->revk], tag, v = *((uint64_t *) ptr))) || //
+          (s->size == 4 && nvs_set_i32 (nvs[s->revk], tag, v = *((uint32_t *) ptr))) || //
+          (s->size == 2 && nvs_set_i16 (nvs[s->revk], tag, v = *((uint16_t *) ptr))) || //
+          (s->size == 1 && nvs_set_i8 (nvs[s->revk], tag, v = *((uint8_t *) ptr))))
          return "Cannot store number (signed)";
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Write %s signed %lld %0*llX", taga, v, s->size * 2, v);
+#endif
       return NULL;
    }
-   if ((s->size == 8 && nvs_set_u64 (nvs[s->revk], tag, *((uint64_t *) ptr))) ||        //
-       (s->size == 4 && nvs_set_u32 (nvs[s->revk], tag, *((uint32_t *) ptr))) ||        //
-       (s->size == 2 && nvs_set_u16 (nvs[s->revk], tag, *((uint16_t *) ptr))) ||        //
-       (s->size == 1 && nvs_set_u8 (nvs[s->revk], tag, *((uint8_t *) ptr))))
+   uint64_t __attribute__((unused)) v = 0;
+   if ((s->size == 8 && nvs_set_u64 (nvs[s->revk], tag, v = *((uint64_t *) ptr))) ||    //
+       (s->size == 4 && nvs_set_u32 (nvs[s->revk], tag, v = *((uint32_t *) ptr))) ||    //
+       (s->size == 2 && nvs_set_u16 (nvs[s->revk], tag, v = *((uint16_t *) ptr))) ||    //
+       (s->size == 1 && nvs_set_u8 (nvs[s->revk], tag, v = *((uint8_t *) ptr))))
       return "Cannot store number (unsigned)";
+#ifdef	CONFIG_REVK_SETTINGS_DEBUG
+   ESP_LOGE (TAG, "Write %s unsigned %llu %0*llX", taga, v, s->size * 2, v);
+#endif
    return NULL;
 }
 
@@ -137,7 +177,16 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 {                               // Getting NVS
    if (s->array && index >= s->array)
       return "Array overflow";
-   ESP_LOGE (TAG, "Read %s %d", s->name,index);
+#ifdef	CONFIG_REVK_SETTINGS_DEBUG
+   char taga[20];
+   {
+      int l = strlen (tag);
+      if (tag[l - 1] > 0x80)
+         sprintf (taga, "%.*s[%d]", l - 1, tag, tag[l - 1] - 0x80);
+      else
+         strcpy (taga, tag);
+   }
+#endif
    size_t len = 0;
    if (is_bit (s))
    {                            // Bit
@@ -148,6 +197,9 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
          ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
       else
          ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
+#ifdef	CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Read %s bit %d", taga, ((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7)) ? 1 : 0);
+#endif
       return NULL;
    }
    if (is_blob (s))
@@ -165,6 +217,10 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
       d->len = len - sizeof (revk_settings_blob_t);
       free (*p);
       *p = &d;
+#ifdef	CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Read %s blog %d", taga, d->len);
+      ESP_LOG_BUFFER_HEX_LEVEL (TAG, d->data, d->len, ESP_LOG_ERROR);
+#endif
       return NULL;
    }
    if (is_fixed (s))
@@ -174,6 +230,10 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
          return "Cannot load fixed block";
       if (len != s->len)
          return "Bad fixed block size";
+#ifdef	CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Read %s fixed %d", taga, len);
+      ESP_LOG_BUFFER_HEX_LEVEL (TAG, s->ptr, len, ESP_LOG_ERROR);
+#endif
       return NULL;
    }
    if (is_string (s))
@@ -192,6 +252,9 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
       data[len - 1] = 0;        // Just in case
       free (*p);
       *p = data;
+#ifdef	CONFIG_REVK_SETTINGS_DEBUG
+      ESP_LOGE (TAG, "Read %s string %s", taga, (char *) data);
+#endif
       return NULL;
    }
    // Numeric
@@ -202,6 +265,11 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
           (s->size == 2 && nvs_get_i16 (nvs[s->revk], tag, s->ptr)) ||  //
           (s->size == 1 && nvs_get_i8 (nvs[s->revk], tag, s->ptr)))
          return "Cannot load number (signed)";
+#ifdef	CONFIG_REVK_SETTINGS_DEBUG
+      int64_t v = (int64_t) (s->size == 1 ? *((int8_t *) s->ptr) : s->size == 2 ? *((int16_t *) s->ptr) : s->size ==
+                             +4 ? *((int32_t *) s->ptr) : *((int64_t *) s->ptr));
+      ESP_LOGE (TAG, "Read %s signed %lld %0*llX", taga, v, s->size * 2, v);
+#endif
       return NULL;
    }
    if ((s->size == 8 && nvs_get_u64 (nvs[s->revk], tag, s->ptr)) ||     //
@@ -209,6 +277,11 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
        (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, s->ptr)) ||     //
        (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, s->ptr)))
       return "Cannot load number (unsigned)";
+#ifdef	CONFIG_REVK_SETTINGS_DEBUG
+   uint64_t v = (uint64_t) (s->size == 1 ? *((uint8_t *) s->ptr) : s->size == 2 ? *((uint16_t *) s->ptr) : s->size ==
+                            +4 ? *((uint32_t *) s->ptr) : *((uint64_t *) s->ptr));
+   ESP_LOGE (TAG, "Read %s unsigned %llu %0*llX", taga, v, s->size * 2, v);
+#endif
    return NULL;
 }
 
@@ -475,15 +548,25 @@ revk_settings_load (const char *tag, const char *appname)
    // Scan
    for (int revk = 0; revk < 2; revk++)
    {
+      struct zap_s
+      {
+         struct zap_s *next;
+         char tag[0];
+      } *zap = NULL;
       nvs_open_from_partition (revk ? tag : "nvs", revk ? tag : appname, NVS_READWRITE, &nvs[revk]);
-      // TODO Make list of deletions...
-      // TODO loading values
       nvs_iterator_t i = NULL;
       if (!nvs_entry_find (revk ? tag : "nvs", revk ? tag : appname, NVS_TYPE_ANY, &i))
       {
          do
          {
             nvs_entry_info_t info = { 0 };
+            void addzap (void)
+            {
+               struct zap_s *z = malloc (sizeof (*z) + strlen (info.key) + 1);
+               strcpy (z->tag, info.key);
+               z->next = zap;
+               zap = z;
+            }
             if (!nvs_entry_info (i, &info))
             {
                int l = strlen (info.key);
@@ -504,22 +587,35 @@ revk_settings_load (const char *tag, const char *appname)
                      err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
                      if (!err)
                         err = "Old style record in nvs, being replaced";
-                     // Flag to be written back?
+                     addzap ();
                      break;
                   }
                }
                if (!s->len)
+               {
+                  addzap ();
                   err = "Not found";
+               }
                if (err)
                   ESP_LOGE (tag, "NVS %s Failed %s", info.key, err);
                else
                   nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
-               // TODO delete?
             }
          }
          while (!nvs_entry_next (&i));
       }
       nvs_release_iterator (i);
+      while (zap)
+      {
+         struct zap_s *z = zap->next;
+         if (nvs_erase_key (nvs[revk], zap->tag))
+            ESP_LOGE (tag, "Erase %s failed", zap->tag);
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+         ESP_LOGE (TAG, "Erase %s", zap->tag);
+#endif
+         free (zap);
+         zap = z;
+      }
    }
    for (revk_settings_t * s = revk_settings; s->len; s++)
    {
@@ -561,8 +657,7 @@ revk_setting (jo_t j)
          {
             jo_strncpy (j, tag + plen, l + 1);
             revk_settings_t *s;
-            for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->len1 != plen) || strcmp (s->name, tag)); s++);
-            // TODO number suffix?
+            for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
             void store (int index)
             {
                if (!s->len)
@@ -580,7 +675,6 @@ revk_setting (jo_t j)
                {                // Default
                   if (!index && s->def)
                      val = strdup (s->def);
-                  nvs_erase (s, tag);
                } else if (t != JO_CLOSE)
                   val = jo_strdup (j);
                int len = value_len (s);
@@ -616,7 +710,10 @@ revk_setting (jo_t j)
                            dofree = 0;
                         }
                      }
-                     err = nvs_put (s, s->name, index, temp);
+                     if (t == JO_NULL && !s->fix)
+                        err = nvs_erase (s, s->name);
+                     else
+                        err = nvs_put (s, s->name, index, temp);
                      if (!err && !s->live)
                         change = 1;
                   }
@@ -626,7 +723,32 @@ revk_setting (jo_t j)
                }
                free (val);
             }
-            if ((t = jo_next (j)) == JO_OBJECT)
+            t = jo_next (j);
+            if (t == JO_NULL)
+            {
+               void zap (void)
+               {
+                  if (s->array && !is_fixed (s))
+                     for (int i = 0; i < s->array; i++)
+                        store (i);
+                  else
+                     store (0);
+               }
+               if (s->len)
+                  zap ();
+               else if (!plen)
+               {
+                  for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+                  if (s->len)
+                  {             // object reset
+                     int group = s->group;
+                     for (s = revk_settings; s->len; s++)
+                        if (s->group == group)
+                           zap ();
+                  }
+               } else
+                  err = "Invalid null";
+            } else if (t == JO_OBJECT)
             {                   // Object
                if (plen)
                   err = "Nested too far";
