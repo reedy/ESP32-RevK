@@ -57,21 +57,25 @@ value_len (revk_settings_t * s)
 static const char *
 nvs_erase (revk_settings_t * s, const char *tag)
 {
-   revk_nvs_time = uptime () + 60;
    nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7));
-   if (nvs_erase_key (nvs[s->revk], tag))
+   esp_err_t e = nvs_erase_key (nvs[s->revk], tag);
+   if (e && e != ESP_ERR_NVS_NOT_FOUND)
       return "Failed to erase";
-#ifdef  CONFIG_REVK_SETTINGS_DEBUG
-   char taga[20];
+   if (!e)
    {
-      int l = strlen (tag);
-      if (tag[l - 1] & 0x80)
-         sprintf (taga, "%.*s[%d]", l - 1, tag, tag[l - 1] - 0x80);
-      else
-         strcpy (taga, tag);
-   }
-   ESP_LOGE (TAG, "Erase %s", taga);
+      revk_nvs_time = uptime () + 60;
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+      char taga[20];
+      {
+         int l = strlen (tag);
+         if (tag[l - 1] & 0x80)
+            sprintf (taga, "%.*s[%d]", l - 1, tag, tag[l - 1] - 0x80);
+         else
+            strcpy (taga, tag);
+      }
+      ESP_LOGE (TAG, "Erase %s", taga);
 #endif
+   }
    return NULL;
 }
 
@@ -746,7 +750,8 @@ revk_setting (jo_t j)
                         err = nvs_put (s, s->name, index, temp);
                      if (!err && !s->live)
                         change = 1;
-                  }
+                  } else if (t == JO_NULL && !s->fix)
+                     err = nvs_erase (s, s->name);
                   if (dofree)
                      free (*(void **) temp);
                   free (temp);
@@ -782,7 +787,7 @@ revk_setting (jo_t j)
             {                   // Object
                if (plen)
                   err = "Nested too far";
-               else if (s)
+               else if (s->len)
                   err = "Not an object";
                else
                {
@@ -793,6 +798,7 @@ revk_setting (jo_t j)
                   {
                      int group = s->group;
                      scan (l);
+                     t = JO_NULL;       // Default
                      for (s = revk_settings; s->len; s++)
                         if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
                            zapdef ();
@@ -823,7 +829,7 @@ revk_setting (jo_t j)
    }
    scan (0);
    if (err)
-      ESP_LOGE (TAG, "Failed %s at %s", err, jo_debug (j));
+      ESP_LOGE (TAG, "Failed %s at [%s]", err, jo_debug (j));
    if (change)
       revk_restart ("Settings changed", 5);
    return err ? : "";
