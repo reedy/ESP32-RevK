@@ -64,7 +64,7 @@ nvs_erase (revk_settings_t * s, const char *tag)
    char taga[20];
    {
       int l = strlen (tag);
-      if (tag[l - 1] > 0x80)
+      if (tag[l - 1] & 0x80)
          sprintf (taga, "%.*s[%d]", l - 1, tag, tag[l - 1] - 0x80);
       else
          strcpy (taga, tag);
@@ -156,7 +156,7 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
           (s->size == 1 && nvs_set_i8 (nvs[s->revk], tag, v = *((uint8_t *) ptr))))
          return "Cannot store number (signed)";
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
-      ESP_LOGE (TAG, "Write %s signed %lld %0*llX", taga, v, s->size * 2, v);
+      ESP_LOGE (TAG, "Write %s signed %lld 0x%0*llX", taga, v, s->size * 2, v);
 #endif
       return NULL;
    }
@@ -167,7 +167,7 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
        (s->size == 1 && nvs_set_u8 (nvs[s->revk], tag, v = *((uint8_t *) ptr))))
       return "Cannot store number (unsigned)";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
-   ESP_LOGE (TAG, "Write %s unsigned %llu %0*llX", taga, v, s->size * 2, v);
+   ESP_LOGE (TAG, "Write %s unsigned %llu 0x%0*llX", taga, v, s->size * 2, v);
 #endif
    return NULL;
 }
@@ -181,7 +181,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    char taga[20];
    {
       int l = strlen (tag);
-      if (tag[l - 1] > 0x80)
+      if (tag[l - 1] & 0x80)
          sprintf (taga, "%.*s[%d]", l - 1, tag, tag[l - 1] - 0x80);
       else
          strcpy (taga, tag);
@@ -268,7 +268,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
       int64_t v = (int64_t) (s->size == 1 ? *((int8_t *) s->ptr) : s->size == 2 ? *((int16_t *) s->ptr) : s->size ==
                              +4 ? *((int32_t *) s->ptr) : *((int64_t *) s->ptr));
-      ESP_LOGE (TAG, "Read %s signed %lld %0*llX", taga, v, s->size * 2, v);
+      ESP_LOGE (TAG, "Read %s signed %lld 0x%0*llX", taga, v, s->size * 2, v);
 #endif
       return NULL;
    }
@@ -280,7 +280,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
    uint64_t v = (uint64_t) (s->size == 1 ? *((uint8_t *) s->ptr) : s->size == 2 ? *((uint16_t *) s->ptr) : s->size ==
                             +4 ? *((uint32_t *) s->ptr) : *((uint64_t *) s->ptr));
-   ESP_LOGE (TAG, "Read %s unsigned %llu %0*llX", taga, v, s->size * 2, v);
+   ESP_LOGE (TAG, "Read %s unsigned %llu 0x%0*llX", taga, v, s->size * 2, v);
 #endif
    return NULL;
 }
@@ -578,7 +578,7 @@ revk_settings_load (const char *tag, const char *appname)
                   {             // Exact match
                      err = nvs_get (s, info.key, 0);
                      break;
-                  } else if (s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len) && info.key[s->len] >= 0x80)
+                  } else if (s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len) && (info.key[s->len] & 0x80))
                   {             // Array match, new
                      err = nvs_get (s, info.key, info.key[s->len] - 0x80);
                      break;
@@ -789,6 +789,9 @@ revk_setting (jo_t j)
 void
 revk_settings_commit (void)
 {
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+   ESP_LOGE (TAG, "NVC commit");
+#endif
    REVK_ERR_CHECK (nvs_commit (nvs[0]));
    REVK_ERR_CHECK (nvs_commit (nvs[1]));
 }
