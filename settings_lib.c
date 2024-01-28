@@ -137,7 +137,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 {                               // Getting NVS
    if (s->array && index >= s->array)
       return "Array overflow";
-   ESP_LOGE (TAG, "Read %s", s->name);
+   ESP_LOGE (TAG, "Read %s %d", s->name,index);
    size_t len = 0;
    if (is_bit (s))
    {                            // Bit
@@ -358,6 +358,8 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
 {
    if (!ptr)
       ptr = s->ptr;
+   else
+      index = 0;
    const char *err = NULL;
    int a = s->array;
    const char *e = NULL;
