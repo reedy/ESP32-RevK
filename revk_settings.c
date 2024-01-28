@@ -22,7 +22,8 @@ struct def_s
    char *def;
    char *attributes;
    char *array;
-   char config:1;
+   char config:1;               // Is CONFIG_... def
+   char quoted:1;               // Is quoted def
 };
 def_t *defs = NULL,
    *deflast = NULL;
@@ -53,7 +54,7 @@ typeinit (FILE * O, const char *type)
    fprintf (O, "=");
    if (!strcmp (type, "gpio"))
       fprintf (O, "{0}");
-   else if (!strcmp (type, "binary")||!strcmp (type, "s"))
+   else if (!strcmp (type, "binary") || !strcmp (type, "s"))
       fprintf (O, "NULL");
    else
       fprintf (O, "0");
@@ -148,9 +149,11 @@ main (int argc, const char *argv[])
                {
                   if (*p == '"')
                   {             // Quoted default
-                     d->def = p;
-                     while (*p && *p != '"');
+                     d->quoted = 1;
                      p++;
+                     d->def = p;
+                     while (*p && *p != '"')
+                        p++;
                      if (*p)
                         *p++ = 0;
                   } else if (*p != '.' && *p != '/' && p[1] != '/')
@@ -158,8 +161,6 @@ main (int argc, const char *argv[])
                      d->def = p;
                      while (*p && !isspace (*p))
                         p++;
-                     if (!strncmp (d->def, "CONFIG_", 7))
-                        d->config = 1;
                   }
                }
                while (*p && isspace (*p))
@@ -194,7 +195,17 @@ main (int argc, const char *argv[])
             if (d->name2)
                d->name2 = strdup (d->name2);
             if (d->def)
+            {
                d->def = strdup (d->def);
+               if (!strncmp (d->def, "CONFIG_", 7))
+               {
+                  char *p = d->def + 7;
+                  while (*p && (isalnum (*p) || *p == '_'))
+                     p++;
+                  if (!*p)
+                     d->config = 1;
+               }
+            }
             if (d->attributes)
             {
                char *i = d->attributes,
@@ -339,6 +350,7 @@ main (int argc, const char *argv[])
       }
 
       fprintf (C, "#define	str(s)	#s\n");
+      fprintf (C, "#define	quote(s)	#s\n");
       fprintf (C, "revk_settings_t const revk_settings[]={\n");
       int count = 0;
       for (d = defs; d; d = d->next)
@@ -356,8 +368,10 @@ main (int argc, const char *argv[])
             {
                if (!d->config)
                   fprintf (C, ",.def=\"%s\"", d->def);
+               else if (d->quoted)
+                  fprintf (C, ",.def=quote(%s)", d->def);
                else
-                  fprintf (C, ",.def=str(%s)", d->def);
+                  fprintf (C, ",.def=%s", d->def);
             }
             if (!strcmp (d->type, "bit"))
                fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s%s", d->name1 ? : "", d->name2 ? : "");
@@ -380,6 +394,7 @@ main (int argc, const char *argv[])
             fprintf (C, "},\n");
          }
       fprintf (C, "{0}};\n");
+      fprintf (C, "#undef quote\n");
       fprintf (C, "#undef str\n");
       for (d = defs; d; d = d->next)
          if (d->define)
