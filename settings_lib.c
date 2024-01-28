@@ -704,7 +704,6 @@ revk_setting (jo_t j)
                            v++;
                         *v = 0;
                      }
-                     ESP_LOGE (TAG, "index %d value %s", index, val);
                   }
                } else if (t != JO_CLOSE)
                   val = jo_strdup (j);
