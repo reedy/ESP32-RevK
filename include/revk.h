@@ -43,6 +43,15 @@
 #include "../../settings.h"
 #endif
 
+#ifndef CONFIG_MQTT_BUFFER_SIZE
+#define CONFIG_MQTT_BUFFER_SIZE 2048
+#endif
+#ifdef  CONFIG_REVK_MESH
+#define MQTT_MAX MESH_MPS
+#else
+#define MQTT_MAX CONFIG_MQTT_BUFFER_SIZE
+#endif
+
 // Types
 
         // MQTT rx callback: Do not consume jo_t! Return error or NULL. Returning "" means handled the command with no error.
@@ -88,7 +97,7 @@ jo_t jo_make (const char *nodename);    // Start object with node name
 
 #define freez(x) do{if(x){free((void*)x);x=NULL;}}while(0)      // Just useful - yes free(x) is valid when x is NULL, but this sets x NULL as a result as well
 
-void *mallocspi(size_t);        // Malloc from SPI preferred
+void *mallocspi (size_t);       // Malloc from SPI preferred
 uint32_t uptime (void);         // Seconds uptime
 
 // Calls
@@ -177,11 +186,12 @@ void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink
 
 uint16_t revk_num_web_handlers (void);  // Number of handlers used by revk_web_settings_add()
 void revk_web_send (httpd_req_t * req, const char *format, ...);
-jo_t revk_web_query (httpd_req_t * req); // Get post/get form in JSON form
+jo_t revk_web_query (httpd_req_t * req);        // Get post/get form in JSON form
 esp_err_t revk_web_settings_add (httpd_handle_t webserver);     // Add URLs
 esp_err_t revk_web_settings_remove (httpd_handle_t webserver);  // Remove URLs
 esp_err_t revk_web_settings (httpd_req_t * req);        // Call for web config for SSID/password/mqtt (GET/POST) - needs 4 URLS
-void revk_web_setting_s (httpd_req_t *req, const char *tag, const char *field, const char *value, const char *place, const char *suffix, char af);
+void revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const char *value, const char *place,
+                         const char *suffix, char af);
 void revk_web_setting_i (httpd_req_t * req, const char *tag, const char *field, int64_t value, const char *suffix);
 void revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8_t value, const char *suffix);
 void revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8_t value, const char *suffix);
@@ -216,11 +226,11 @@ time_t revk_moon_new (time_t t);        // Current new moon - may be >t or <=t
 time_t revk_moon_full_next (time_t t);  // next full moon (so >t)
 #endif
 
-void revk_enable_wifi(void);
-void revk_disable_wifi(void);
-void revk_enable_ap(void);
-void revk_disable_ap(void);
-void revk_enable_settings(void);
-void revk_disable_settings(void);
+void revk_enable_wifi (void);
+void revk_disable_wifi (void);
+void revk_enable_ap (void);
+void revk_disable_ap (void);
+void revk_enable_settings (void);
+void revk_disable_settings (void);
 
 #endif

@@ -1,5 +1,5 @@
 // Settings generation too
-
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <popt.h>
@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <err.h>
+#include <malloc.h>
 
 typedef struct def_s def_t;
 struct def_s
@@ -17,6 +18,9 @@ struct def_s
    char *define;
    char *comment;
    char *type;
+   int group;
+   int decimal;
+   char *name;
    char *name1;
    char *name2;
    char *def;
@@ -28,13 +32,16 @@ struct def_s
 def_t *defs = NULL,
    *deflast = NULL;
 
+int groups = 0;
+char **group = NULL;
+
 int
 typename (FILE * O, const char *type)
 {
    if (!strcmp (type, "gpio"))
       fprintf (O, "revk_settings_gpio_t");
-   else if (!strcmp (type, "binary"))
-      fprintf (O, "revk_settings_binary_t*");
+   else if (!strcmp (type, "blob"))
+      fprintf (O, "revk_settings_blob_t*");
    else if (!strcmp (type, "s"))
       fprintf (O, "char*");
    else if (!strcmp (type, "c"))
@@ -54,7 +61,7 @@ typeinit (FILE * O, const char *type)
    fprintf (O, "=");
    if (!strcmp (type, "gpio"))
       fprintf (O, "{0}");
-   else if (!strcmp (type, "binary") || !strcmp (type, "s"))
+   else if (!strcmp (type, "blob") || !strcmp (type, "s"))
       fprintf (O, "NULL");
    else
       fprintf (O, "0");
@@ -197,7 +204,7 @@ main (int argc, const char *argv[])
             if (d->def)
             {
                d->def = strdup (d->def);
-               if (!d->quoted&&!strncmp (d->def, "CONFIG_", 7))
+               if (!d->quoted && !strncmp (d->def, "CONFIG_", 7))
                {
                   char *p = d->def + 7;
                   while (*p && (isalnum (*p) || *p == '_'))
@@ -218,7 +225,7 @@ main (int argc, const char *argv[])
                      *o++ = *i++;
                      while (*i && *i != c)
                      {
-                        if (*i == '\\')
+                        if (*i == '\\' && i[1])
                            *o++ = *i++;
                         *o++ = *i++;
                      }
@@ -234,18 +241,50 @@ main (int argc, const char *argv[])
                *o = 0;
                d->attributes = strdup (d->attributes);
                for (i = d->attributes; *i; i++)
-                  if (!strncmp (i, ".array=", 7))
+                  if (*i == '"')
+                  {
+                     i++;
+                     while (*i && *i != '"')
+                     {
+                        if (*i == '\\' && i[1])
+                           i++;
+                        i++;
+                     }
+                  } else if (!strncmp (i, ".array=", 7))
                   {
                      i += 7;
                      for (o = i; *o && *o != ','; o++);
                      d->array = strndup (i, (int) (o - i));
-                     break;
+                  } else if (!strncmp (i, ".decimal=", 9))
+                  {
+                     i += 9;
+                     d->decimal = atoi (i);
+                     warnx ("here %s", i);
                   }
             }
             if (d->type && !d->name1)
                errx (1, "Missing name for %s in %s", d->type, fn);
             if (strlen (d->name1 ? : "") + strlen (d->name2 ? : "") + (d->array ? 1 : 0) > maxname)
                errx (1, "name too long for %s%s in %s", d->name1 ? : "", d->name2 ? : "", fn);
+            if (d->name1)
+            {
+               asprintf (&d->name, "%s%s", d->name1, d->name2 ? : "");
+               for (def_t * q = defs; q; q = q->next)
+                  if (q->name && !strcmp (q->name, d->name))
+                     errx (1, "Duplicate %s (%s/%s)", d->name, d->fn, q->fn);
+               if (d->name2)
+               {
+                  int g;
+                  for (g = 0; g < groups && strcmp (group[g], d->name1); g++);
+                  if (g == groups)
+                  {
+                     groups++;
+                     group = realloc (group, sizeof (*group) * groups);
+                     group[g] = d->name1;
+                  }
+                  d->group = g + 1;     // 0 means not group
+               }
+            }
             if (defs)
                deflast->next = d;
             else
@@ -279,9 +318,10 @@ main (int argc, const char *argv[])
                " const char *def;\n"    //
                " const char *bitfield;\n"       //
                " uint16_t size;\n"      //
+               " uint8_t group;\n"      //
                " uint8_t len1:4;\n"     //
                " uint8_t len2:4;\n"     //
-               " uint8_t binary:1;\n"   //
+               " uint8_t blob:1;\n"     //
                " uint8_t bit;\n"        //
                " uint8_t array;\n"      //
                " uint8_t decimal;\n"    //
@@ -292,12 +332,13 @@ main (int argc, const char *argv[])
                " uint8_t hex:1;\n"      //
                " uint8_t base64:1;\n"   //
                " uint8_t pass:1;\n"     //
+               " uint8_t dq:1;\n"       //
                "};\n", maxname + 1);
 
-      for (d = defs; d && (!d->type || strcmp (d->type, "binary")); d = d->next);
+      for (d = defs; d && (!d->type || strcmp (d->type, "blob")); d = d->next);
       if (d)
-         fprintf (H, "typedef struct revk_settings_binary_s revk_settings_binary_t;\n"  //
-                  "struct revk_settings_binary_s {\n"   //
+         fprintf (H, "typedef struct revk_settings_blob_s revk_settings_blob_t;\n"      //
+                  "struct revk_settings_blob_s {\n"     //
                   " uint16_t len;\n"    //
                   " uint8_t data[];\n"  //
                   "};\n");
@@ -305,10 +346,12 @@ main (int argc, const char *argv[])
       if (d)
          fprintf (H, "typedef struct revk_settings_gpio_s revk_settings_gpio_t;\n"      //
                   "struct revk_settings_gpio_s {\n"     //
-                  " uint16_t num:12;\n" //
-                  " uint16_t inv:1;\n"  //
+                  " uint16_t num:10;\n" //
+                  " uint16_t strong2:1;\n"      //
+                  " uint16_t strong:1;\n"       //
                   " uint16_t pulldown:1;\n"     //
-                  " uint16_t pullup:1;\n"       //
+                  " uint16_t nopull:1;\n"       //
+                  " uint16_t invert:1;\n"       //
                   " uint16_t set:1;\n"  //
                   "};\n");
       for (d = defs; d && (!d->type || strcmp (d->type, "bit")); d = d->next);
@@ -319,7 +362,7 @@ main (int argc, const char *argv[])
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, " REVK_SETTINGS_BITFIELD_%s%s,\n", d->name1, d->name2 ? : "");
+               fprintf (H, " REVK_SETTINGS_BITFIELD_%s,\n", d->name);
          fprintf (H, "};\n");
          fprintf (H, "typedef struct revk_settings_bitfield_s revk_settings_bitfield_t;\n");
          fprintf (H, "struct revk_settings_bitfield_s {\n");
@@ -328,20 +371,19 @@ main (int argc, const char *argv[])
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, " uint8_t %s%s:1;\n", d->name1, d->name2 ? : "");
+               fprintf (H, " uint8_t %s:1;\n", d->name);
          fprintf (H, "};\n");
          for (d = defs; d; d = d->next)
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, "#define	%s%s	revk_settings_bitfield.%s%s\n", d->name1, d->name2 ? : "", d->name1,
-                        d->name2 ? : "");
+               fprintf (H, "#define	%s	revk_settings_bitfield.%s\n", d->name, d->name);
             else if (d->type)
             {
                fprintf (H, "extern ");
                if (typename (H, d->type))
                   errx (1, "Unknown type %s in %s", d->type, d->fn);
-               fprintf (H, " %s%s", d->name1, d->name2 ? : "");
+               fprintf (H, " %s", d->name);
                if (d->array)
                   fprintf (H, "[%s]", d->array);
                fprintf (H, ";\n");
@@ -356,27 +398,33 @@ main (int argc, const char *argv[])
       for (d = defs; d; d = d->next)
          if (d->define)
             fprintf (C, "%s\n", d->define);
-         else if (d->name1)
+         else if (d->name)
          {
             count++;
             fprintf (C, " {");
-            fprintf (C, ".name=\"%s%s\"", d->name1, d->name2 ? : "");
+            fprintf (C, ".name=\"%s\"", d->name);
+            if (d->group)
+               fprintf (C, ",.group=%d", d->group);
             fprintf (C, ",.len1=%d", (int) strlen (d->name1));
             if (d->name2)
                fprintf (C, ",.len2=%d", (int) strlen (d->name2));
+            else
+               for (int g = 0; g < groups; g++)
+                  if (!strcmp (d->name1, group[g]))
+                     errx (1, "Clash %s in %s with sub object", d->name1, d->fn);
             if (d->def)
             {
                if (!d->config)
                   fprintf (C, ",.def=\"%s\"", d->def);
                else
-                  fprintf (C, ",.def=quote(%s)", d->def); // Always re quote, string def parsing assumes "
+                  fprintf (C, ",.dq=1,.def=quote(%s)", d->def); // Always re quote, string def parsing assumes "
             }
             if (!strcmp (d->type, "bit"))
-               fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s%s", d->name1 ? : "", d->name2 ? : "");
+               fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s", d->name);
             else
             {
-               fprintf (C, ",.ptr=&%s%s", d->name1 ? : "", d->name2 ? : "");
-               if (strcmp (d->type, "s") && strcmp (d->type, "binary"))
+               fprintf (C, ",.ptr=&%s", d->name);
+               if (strcmp (d->type, "s") && strcmp (d->type, "blob"))
                {
                   fprintf (C, ",.size=sizeof(");
                   typename (C, d->type);
@@ -384,9 +432,13 @@ main (int argc, const char *argv[])
                }
             }
             if (!strcmp (d->type, "gpio"))
-               fprintf (C, ",.fix=1,.set=1,.bitfield=\"↑↓-\"");
-            if (!strcmp (d->type, "binary"))
-               fprintf (C, ",.binary=1");
+            {
+               if (!d->attributes || !strstr (d->attributes, ".fix="))
+                  fprintf (C, ",.fix=1");
+               fprintf (C, ",.set=1,.bitfield=\"- ~↓↕⇕\"");
+            }
+            if (!strcmp (d->type, "blob"))
+               fprintf (C, ",.blob=1");
             if (d->attributes)
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
@@ -400,15 +452,24 @@ main (int argc, const char *argv[])
          else if (d->type && strcmp (d->type, "bit"))
          {
             typename (C, d->type);
-            fprintf (C, " %s%s", d->name1 ? : "", d->name2 ? : "");
+            fprintf (C, " %s", d->name);
             if (d->array)
                fprintf (C, "[%s]={0}", d->array);
             else
                typeinit (C, d->type);
             fprintf (C, ";\n");
          }
-
-      fprintf (H, "typedef uint8_t revk_setting_bits_t[%d];\n", (count + 7) / 8);       // Yes, H
+      // Final includes
+      for (d = defs; d; d = d->next)
+         if (d->name && d->decimal)
+         {
+            fprintf (H, "#define	%s_scale	1", d->name);
+            for (int i = 0; i < d->decimal; i++)
+               fputc ('0', H);
+            fprintf (H, "\n");
+         }
+      fprintf (H, "typedef uint8_t revk_setting_bits_t[%d];\n", (count + 7) / 8);
+      fprintf (H, "typedef uint8_t revk_setting_group_t[%d];\n", (groups + 8) / 8);
       fclose (H);
       fclose (C);
    }
