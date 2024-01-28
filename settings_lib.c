@@ -10,6 +10,18 @@ load_default (revk_settings_t * s)
 {
    int a = s->array;
    const char *d = s->def;
+   const char *e = NULL;
+   if (d)
+   {
+      e = d + strlen (d);
+      if (s->dq && e > d + 1 && *d == '"' && e[-1] == '"')
+      {
+         d++;
+         e--;
+      }
+      if (d == e)
+         d = e = NULL;
+   }
    if (s->ptr)
    {                            // value
       if (s->size)
@@ -38,9 +50,8 @@ load_default (revk_settings_t * s)
             if (d)
             {
                // TODO
-
             } else
-            {                   // Empty blog
+            {                   // Empty blob
                free (*p);
                *p = calloc (1, 2);
                if (a)
@@ -54,12 +65,8 @@ load_default (revk_settings_t * s)
          {                      // String
             free (*p);
             if (d)
-            {
-               if (!s->dq || *d != '"' || !d[1])
-                  *p = strdup (d);
-               else
-                  *p = strndup (d + 1, strlen (d) - 2); // Strip quotes from CONFIG_...
-            } else
+               *p = strdnup (d, (int) (e - d));
+            else
                *p = strdup ("");
             if (a)
                while (--a)
@@ -69,7 +76,9 @@ load_default (revk_settings_t * s)
                }
          }
       }
-   } else
+   }
+
+   else
    {                            // bitfield
       if (d && (*d == '1' || *d == 't'))
          ((uint8_t *) & revk_settings_bitfield)[s->bit / 8] |= (1 << (s->bit & 7));
