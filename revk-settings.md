@@ -35,7 +35,7 @@ The setting types are defined below.
 The setting name is the name of the setting as seen in C code, e.g. `baud`, and used in JSON over MQTT. The name can also contain a `.`, e.g. `uart.tx`, to allow grouping in an object in JSON, but in the C code there is no `.`, e.g. `uarttx`.
 
 The default value for a numeric setting can just be a number, e.g. `123`. For a string it can be in quotes, e.g. `"ota.rev.uk"`. The quotes can be omitted for simple text with no spaces and not starting with a `.`.
-There is a special case where the default starts `CONFIG_...` and is just letters/numbers/underscore. It is assumed to be a reference to a config variable. If the config variable is numeric, the default must be quoted, and if it is a string already it must not be quoted.
+The default can also be (unquoted) a `CONFIG_...` reference.
 Where not specified the defaults for all strings are an empty string `""` (not NULL), and values are all `0`.
 
 Additional attributes are in the form of C structure initialised values, e.g. `.array=10`. These can be separated by commas or spaces.

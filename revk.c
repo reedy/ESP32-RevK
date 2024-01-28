@@ -1962,22 +1962,38 @@ nvs_scan (const char *appname)
    for (revk_settings_t * r = revk_settings; r->len1; r++)
    {
       if (r->ptr && !r->size)
+         // TODO Bodges for now...
       {                         // String - set some defaults
          int a = r->array;
          char **p = (char **) r->ptr;
-         *p++ = (char *) (r->def ? : "");
-         if (a)
-            while (--a)
-               *p++ = "";
+         if (r->binary)
+         {
+            *p = calloc (1, 2); // Bodge
+            if (a)
+               while (--a)
+                  *++p = calloc (1, 2);
+         } else
+         {
+            if (!r->def)
+               *p = strdup ("");
+            else if (*r->def != '"' || !r->def[1])
+               *p = strdup (r->def);
+            else
+               *p = strndup (r->def + 1, strlen (r->def) - 2);
+            ESP_LOGE (TAG, "%s=%s", r->name, *p);
+            if (a)
+               while (--a)
+                  *++p = strdup ("");
+         }
       }
    }
    // Scan
    for (int revk = 0; revk < 2; revk++)
    {
-	   // TODO Make list of deletions...
-	   // TODO loading values
+      // TODO Make list of deletions...
+      // TODO loading values
       nvs_iterator_t i = NULL;
-      if (!nvs_entry_find (revk ? TAG : "nvs", revk?TAG:appname, NVS_TYPE_ANY, &i))
+      if (!nvs_entry_find (revk ? TAG : "nvs", revk ? TAG : appname, NVS_TYPE_ANY, &i))
       {
          do
          {

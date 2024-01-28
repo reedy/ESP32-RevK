@@ -197,7 +197,7 @@ main (int argc, const char *argv[])
             if (d->def)
             {
                d->def = strdup (d->def);
-               if (!strncmp (d->def, "CONFIG_", 7))
+               if (!d->quoted&&!strncmp (d->def, "CONFIG_", 7))
                {
                   char *p = d->def + 7;
                   while (*p && (isalnum (*p) || *p == '_'))
@@ -350,7 +350,7 @@ main (int argc, const char *argv[])
       }
 
       fprintf (C, "#define	str(s)	#s\n");
-      fprintf (C, "#define	quote(s)	#s\n");
+      fprintf (C, "#define	quote(s)	str(s)\n");
       fprintf (C, "revk_settings_t const revk_settings[]={\n");
       int count = 0;
       for (d = defs; d; d = d->next)
@@ -368,10 +368,8 @@ main (int argc, const char *argv[])
             {
                if (!d->config)
                   fprintf (C, ",.def=\"%s\"", d->def);
-               else if (d->quoted)
-                  fprintf (C, ",.def=quote(%s)", d->def);
                else
-                  fprintf (C, ",.def=%s", d->def);
+                  fprintf (C, ",.def=quote(%s)", d->def); // Always re quote, string def parsing assumes "
             }
             if (!strcmp (d->type, "bit"))
                fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s%s", d->name1 ? : "", d->name2 ? : "");

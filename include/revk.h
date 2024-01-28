@@ -61,6 +61,12 @@ extern mac_t revk_mac;          // Our mac
 extern uint64_t revk_binid;     // Chip ID binary
 
 #ifdef  CONFIG_REVK_OLD_SETTINGS
+typedef struct
+{                               // Dynamic binary data
+   uint16_t len;
+   uint8_t data[];
+} revk_bindata_t;
+
 extern char *prefixcommand;
 extern char *prefixsetting;
 extern char *prefixstate;
@@ -79,12 +85,6 @@ extern led_strip_handle_t revk_strip;
 #endif
 
 jo_t jo_make (const char *nodename);    // Start object with node name
-
-typedef struct
-{                               // Dynamic binary data
-   uint16_t len;
-   uint8_t data[];
-} revk_bindata_t;
 
 #define freez(x) do{if(x){free((void*)x);x=NULL;}}while(0)      // Just useful - yes free(x) is valid when x is NULL, but this sets x NULL as a result as well
 
