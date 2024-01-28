@@ -7,6 +7,14 @@ extern revk_settings_t revk_settings[];
 
 static nvs_handle nvs[2] = { -1, -1 };
 
+static revk_setting_bits_t nvs_found = { 0 };
+
+#define	is_bit(s)	(!(s)->ptr)
+#define	is_blob(s)	((s)->ptr && (s)->blob)
+#define	is_fixed(s)	((s)->ptr && (s)->size == 1 && (s)->array && ((s)->hex || (s)->base64))
+#define	is_string(s)	((s)->ptr && !(s)->size)
+#define	is_pointer(s)	(is_blob(s)||is_string(s))
+
 char *__malloc_like __result_use_check
 strdup (const char *s)
 {
@@ -39,7 +47,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
       return "Array overflow";
    size_t len = 0;
    esp_err_t err;
-   if (!s->ptr)
+   if (is_bit (s))
    {                            // Bit
       uint8_t data = 0;
       if ((err = nvs_get_u8 (nvs[s->revk], tag, &data)))
@@ -50,8 +58,8 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
          ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
       return NULL;
    }
-   if (s->blob)
-   {
+   if (is_blob (s))
+   {                            // Blob
       void **p = s->ptr;
       p += index;
       if (nvs_get_blob (nvs[s->revk], tag, NULL, &len))
@@ -67,8 +75,17 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
       *p = &d;
       return NULL;
    }
-   if (!s->size)
-   {                            /* String */
+   if (is_fixed (s))
+   {                            // Fixed block
+      size_t len = s->array;
+      if (nvs_get_blob (nvs[s->revk], tag, s->ptr, &len))
+         return "Cannot load fixed block";
+      if (len != s->len)
+         return "Bad fixed block size";
+      return NULL;
+   }
+   if (is_string (s))
+   {                            // String
       void **p = s->ptr;
       p += index;
       if (nvs_get_str (nvs[s->revk], tag, NULL, &len))
@@ -85,23 +102,20 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
       *p = data;
       return NULL;
    }
-   void *data = s->ptr;
-   uint64_t temp;
-   if (!data)
-      data = &temp;
+   // Numeric
    if (s->sign)
    {
-      if ((s->size == 8 && (err = nvs_get_i64 (nvs[s->revk], tag, data))) ||    //
-          (s->size == 4 && (err = nvs_get_i32 (nvs[s->revk], tag, data))) ||    //
-          (s->size == 2 && (err = nvs_get_i16 (nvs[s->revk], tag, data))) ||    //
-          (s->size == 1 && (err = nvs_get_i8 (nvs[s->revk], tag, data))))
+      if ((s->size == 8 && (err = nvs_get_i64 (nvs[s->revk], tag, s->ptr))) ||  //
+          (s->size == 4 && (err = nvs_get_i32 (nvs[s->revk], tag, s->ptr))) ||  //
+          (s->size == 2 && (err = nvs_get_i16 (nvs[s->revk], tag, s->ptr))) ||  //
+          (s->size == 1 && (err = nvs_get_i8 (nvs[s->revk], tag, s->ptr))))
          return "Cannot load number (signed)";
       return NULL;
    }
-   if ((s->size == 8 && (err = nvs_get_u64 (nvs[s->revk], tag, data))) ||       //
-       (s->size == 4 && (err = nvs_get_u32 (nvs[s->revk], tag, data))) ||       //
-       (s->size == 2 && (err = nvs_get_u16 (nvs[s->revk], tag, data))) ||       //
-       (s->size == 1 && (err = nvs_get_u8 (nvs[s->revk], tag, data))))
+   if ((s->size == 8 && (err = nvs_get_u64 (nvs[s->revk], tag, s->ptr))) ||     //
+       (s->size == 4 && (err = nvs_get_u32 (nvs[s->revk], tag, s->ptr))) ||     //
+       (s->size == 2 && (err = nvs_get_u16 (nvs[s->revk], tag, s->ptr))) ||     //
+       (s->size == 1 && (err = nvs_get_u8 (nvs[s->revk], tag, s->ptr))))
       return "Cannot load number (unsigned)";
    return NULL;
 }
@@ -225,12 +239,48 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
    return err;
 }
 
-static const char *
-load_default (revk_settings_t * s)
+static size_t
+value_len (revk_settings_t * s)
+{                               // memory needed for a value
+   if (is_pointer (s))
+      return sizeof (void *);
+   if (is_bit (s))
+      return 1;                 // Bit
+   if (is_fixed (s))
+      return s->array;          // Fixed block
+   return s->size;              // Value
+}
+
+
+static int
+value_cmp (revk_settings_t * s, void *a, void *b)
 {
+   if (is_pointer (s))
+   {
+      if (is_blob (s))
+      {
+         int alen = ((revk_settings_blob_t *) a)->len;
+         int blen = ((revk_settings_blob_t *) b)->len;
+         if (alen > blen)
+            return 1;
+         if (alen < blen)
+            return -1;
+         return memcmp (((revk_settings_blob_t *) a)->data, ((revk_settings_blob_t *) b)->data,
+                        alen + sizeof (revk_settings_blob_t));
+      } else
+         return strcmp (a, b);
+   }
+   int len = value_len (s);
+   return memcmp (a, b, len);
+}
+
+static const char *
+load_value (revk_settings_t * s, const char *d, int index, void *ptr)
+{
+   if (!ptr)
+      ptr = s->ptr;
    const char *err = NULL;
    int a = s->array;
-   const char *d = s->def;
    const char *e = NULL;
    if (d)
    {
@@ -243,82 +293,95 @@ load_default (revk_settings_t * s)
       if (d == e)
          d = e = NULL;
    }
-   if (d && s->hex)
+   if (d < e && s->hex)
    {
       // TODO
    }
-   if (d && s->base64)
+   if (d < e && s->base64)
    {
       // TODO
    }
-   if (s->ptr)
-   {                            // value
-      if (s->size)
-      {                         // Value
-         void *p = s->ptr;
-         if (a && s->size == 1 && a && (s->hex || s->base64))
-         {                      // Fixed string
-            if (d)
-            {
-               // TODO
-            } else
-               memset (p, 0, a);
+   if (is_bit (s))
+   {                            // Bit
+      if (ptr)
+         *(char *) ptr = ((d < e && (*d == '1' || *d == 't')) ? 1 : 0);
+      else
+      {
+         if (d < e && (*d == '1' || *d == 't'))
+            ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
+         else
+            ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
+      }
+   } else if (is_blob (s))
+   {                            // Blob
+      void **p = (void **) ptr;
+      if (index >= 0)
+         p += index;
+      else
+      {
+         if (d < e)
+         {
+            *p = mallocspi (sizeof (revk_settings_blob_t) + e - d);
+
+            ((revk_settings_blob_t *) (*p))->len = (e - d);
+            memcpy ((*p) + sizeof (revk_settings_blob_t), d, e - d);
          } else
-         {                      // Value(s)
-            if (d)
-            {
-               err = parse_numeric (s, &p, &d, e);
-               if (a)
-                  while (!err && --a)
-                     err = parse_numeric (s, &p, &d, e);
-               if (!err && d < e)
-                  err = "Extra data on end of number";
-            } else
-               memset (p, 0, s->size * (a ? : 1));
-         }
-      } else
-      {                         // Pointer
-         void **p = (void **) s->ptr;
-         if (s->blob)
-         {                      // Blob
-            if (d)
-            {
-               // TODO
-            } else
-            {                   // Empty blob
-               free (*p);
-               *p = calloc (1, 2);
-               if (a)
-                  while (--a)
-                  {
-                     free (*++p);
-                     *p = calloc (1, 2);
-                  }
-            }
-         } else
-         {                      // String
-            free (*p);
-            if (d)
-               *p = strndup (d, (int) (e - d));
-            else
-               *p = strdup ("");
-            if (a)
+         {
+            *p = mallocspi (sizeof (revk_settings_blob_t));
+            ((revk_settings_blob_t *) (*p))->len = 0;
+            if (a && index < 0)
                while (--a)
                {
-                  free (*++p);
-                  *p = strdup ("");
+                  *p = mallocspi (sizeof (revk_settings_blob_t));
+                  ((revk_settings_blob_t *) (*p))->len = 0;
+                  p++;
                }
          }
       }
+   } else if (is_fixed (s))
+   {                            // Fixed string
+      void *p = (void *) ptr;
+      if (d < e)
+      {
+         if (e - d != s->array)
+            err = "Wrong length";
+         else
+            memcpy (p, d, e - d);
+      } else
+         memset (p, 0, a);
+   } else if (is_string (s))
+   {                            // String
+      void **p = (void **) ptr;
+      if (index >= 0)
+         p += index;
+      free (*p);
+      if (d)
+         *p = strndup (d, (int) (e - d));
+      else
+         *p = strdup ("");
+      if (a && index < 0)
+         while (--a)
+         {
+            free (*++p);
+            *p = strdup ("");
+         }
+   } else
+   {                            // Numeric
+      void *p = (void *) ptr;
+      if (index >= 0)
+         p += s->size * index;
+      if (d < e)
+      {
+         err = parse_numeric (s, &p, &d, e);
+         if (a && index < 0)
+            while (!err && --a)
+               err = parse_numeric (s, &p, &d, e);
+         if (!err && d < e)
+            err = "Extra data on end of number";
+      } else
+         memset (p, 0, s->size * (a ? : 1));
    }
 
-   else
-   {                            // bitfield
-      if (d && (*d == '1' || *d == 't'))
-         ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
-      else
-         ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
-   }
    if (err)
       ESP_LOGE (TAG, "%s %s", s->name, err);
    return err;
@@ -327,8 +390,8 @@ load_default (revk_settings_t * s)
 void
 revk_settings_load (const char *tag, const char *appname)
 {                               // Scan NVS to load values to settings
-   for (revk_settings_t * s = revk_settings; s->len1; s++)
-      load_default (s);
+   for (revk_settings_t * s = revk_settings; s->len; s++)
+      load_value (s, s->def, -1, NULL);
    // Scan
    for (int revk = 0; revk < 2; revk++)
    {
@@ -346,7 +409,8 @@ revk_settings_load (const char *tag, const char *appname)
                int l = strlen (info.key);
                revk_settings_t *s;
                const char *err = NULL;
-               for (s = revk_settings; s->len1; s++)
+               int count = 0;
+               for (s = revk_settings; s->len; s++)
                {
                   if (!s->array && s->len == l && !memcmp (s->name, info.key, l))
                   {             // Exact match
@@ -359,20 +423,35 @@ revk_settings_load (const char *tag, const char *appname)
                   } else if (s->array && s->len < l && !memcmp (s->name, info.key, s->len) && isdigit ((int) info.key[s->len]))
                   {             // Array match, old
                      err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
-                     // TODO needs replacing
+                     if (!err)
+                        err = "Old style record in nvs, being replaced";
+                     // Flag to be written back?
                      break;
                   }
+                  count++;
                }
-               if (!s->len1)
+               if (!s->len)
                   err = "Not found";
                if (err)
                   ESP_LOGE (tag, "NVS %s Failed %s", info.key, err);
+               else
+                  nvs_found[count / 8] |= (1 << (count & 7));
                // TODO delete?
             }
          }
          while (!nvs_entry_next (&i));
       }
       nvs_release_iterator (i);
+   }
+   int count = 0;
+   for (revk_settings_t * s = revk_settings; s->len; s++)
+   {
+      if (s->fix && !(nvs_found[count / 8] & (1 << (count & 7))))
+      {                         // Fix, save to flash
+         // TODO
+
+      }
+      count++;
    }
 }
 
@@ -385,7 +464,120 @@ revk_setting_dump (void)
 const char *
 revk_setting (jo_t j)
 {
-   return "TODO";
+   jo_rewind (j);
+   jo_type_t t;
+   if ((t = jo_here (j)) != JO_OBJECT)
+      return "Not an object";
+   const char *err = NULL;
+   char tag[16];
+   void scan (int plen)
+   {
+      while (!err && (t = jo_next (j)) == JO_TAG)
+      {
+         int l = jo_strlen (j);
+         if (l + plen > sizeof (tag) - 1)
+            err = "Too long";
+         else
+         {
+            jo_strncpy (j, tag + plen, l+1);
+            revk_settings_t *s;
+            for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->len1 != plen) || strcmp (s->name, tag)); s++);
+            if (!s->len)
+            {
+               err = "Not found";
+               break;
+            }
+            // TODO number suffix?
+            void store (int index)
+            {
+               if (s->array && index >= s->array)
+               {
+                  err = "Too many entries";
+                  return;
+               }
+               char *val = NULL;
+               if (t == JO_NULL)
+               {                // Default
+                  if (!index && s->def)
+                     val = strdup (s->def);
+               } else if (t != JO_CLOSE)
+                  val = jo_strdup (j);
+               int len = value_len (s);
+               uint8_t *temp = mallocspi (len);
+               if (!temp)
+                  err = "malloc";
+               else
+               {
+                  uint8_t dofree = is_pointer (s);
+                  uint8_t bit = 0;
+                  void *ptr = s->ptr ? : &bit;
+                  if (is_bit (s))
+                     bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (s->bit & 7)) ? 1 : 0);
+                  ptr += index;
+                  err = load_value (s, val, index, temp);
+                  if (value_cmp (s, ptr, temp))
+                  {             // Change
+                     if (s->live)
+                     {          // Apply live
+                        if (is_bit (s))
+                        {
+                           if (bit)
+                              ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
+                           else
+                              ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
+                        } else
+                        {
+                           if (is_pointer (s))
+                              free (*(void **) ptr);
+                           memcpy (ptr, temp, len);
+                           dofree = 0;
+                        }
+                     }
+                     // To NVS
+                     // TODO
+                  }
+                  if (dofree)
+                     free (*(void **) temp);
+                  free (temp);
+               }
+               free (val);
+            }
+            if ((t = jo_next (j)) == JO_OBJECT)
+            {                   // Object
+               if (plen)
+                  err = "Nested too far";
+               else
+                  scan (l);
+               // TODO missing fields
+            } else if (t == JO_ARRAY)
+            {                   // Array
+               if (!s->array)
+                  err = "Unexpected array";
+               else
+               {
+                  int index = 0;
+                  while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
+                  {
+                     store (index);
+                     index++;
+                  }
+                  while (index < s->array)
+                  {             // NULLs
+                     store (index);
+                     index++;
+                  }
+               }
+            } else
+               store (0);
+            t = jo_next (j);
+         }
+      }
+   }
+   ESP_LOGE (TAG, "Settings JSON");
+   scan (0);
+   if (err)
+      ESP_LOGE (TAG, "Failed %s at %s", err, jo_debug (j));
+   return err ? : "";
 }
 
 void
