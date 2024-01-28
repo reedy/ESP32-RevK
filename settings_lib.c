@@ -33,6 +33,77 @@ strndup (const char *s, size_t l)
 }
 
 static const char *
+nvs_get (revk_settings_t * s, const char *tag, int index)
+{                               // Getting NVS
+   if (s->array && index >= s->array)
+      return "Array overflow";
+   size_t len = 0;
+   esp_err_t err;
+   if (!s->ptr)
+   {                            // Bit
+      uint8_t data = 0;
+      if ((err = nvs_get_u8 (nvs[s->revk], tag, &data)))
+         return "Cannot load bit";
+      if (data)
+         ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
+      else
+         ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
+      return NULL;
+   }
+   if (s->blob)
+   {
+      void **p = s->ptr + (s->size ? : sizeof (void *)) * index;
+      if (nvs_get_blob (nvs[s->revk], tag, NULL, &len))
+         return "Cannot get blob len";
+      len += sizeof (revk_settings_blob_t);
+      revk_settings_blob_t *d = mallocspi (len);
+      if (!d)
+         return "malloc";
+      if (nvs_get_blob (nvs[s->revk], tag, d->data, &len))
+         return "Cannot load blob";
+      d->len = len - sizeof (revk_settings_blob_t);
+      free (*p);
+      *p = &d;
+      return NULL;
+   }
+   if (!s->size)
+   {                            /* String */
+      void **p = s->ptr + (s->size ? : sizeof (void *)) * index;
+      if (nvs_get_str (nvs[s->revk], tag, NULL, &len))
+         return "Cannot get string len";
+      if (!len)
+         return "Bad string len";
+      char *data = mallocspi (len);
+      if (!data)
+         return "malloc";
+      if (nvs_get_str (nvs[s->revk], tag, data, &len))
+         return "Cannot load string";
+      free (*p);
+      *p = data;
+      return NULL;
+   }
+   void *data = s->ptr;
+   uint64_t temp;
+   if (!data)
+      data = &temp;
+   if (s->sign)
+   {
+      if ((s->size == 8 && (err = nvs_get_i64 (nvs[s->revk], tag, data))) ||    //
+          (s->size == 4 && (err = nvs_get_i32 (nvs[s->revk], tag, data))) ||    //
+          (s->size == 2 && (err = nvs_get_i16 (nvs[s->revk], tag, data))) ||    //
+          (s->size == 1 && (err = nvs_get_i8 (nvs[s->revk], tag, data))))
+         return "Cannot load number (signed)";
+      return NULL;
+   }
+   if ((s->size == 8 && (err = nvs_get_u64 (nvs[s->revk], tag, data))) ||       //
+       (s->size == 4 && (err = nvs_get_u32 (nvs[s->revk], tag, data))) ||       //
+       (s->size == 2 && (err = nvs_get_u16 (nvs[s->revk], tag, data))) ||       //
+       (s->size == 1 && (err = nvs_get_u8 (nvs[s->revk], tag, data))))
+      return "Cannot load number (unsigned)";
+   return NULL;
+}
+
+static const char *
 parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
 {                               // Single numeric parse to memory, advance memory and source
    if (!s || !dp || !pp)
@@ -145,7 +216,7 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
       d++;
    while (d && d < e && *d == ' ')
       d++;
-   p += s->size;
+   p += (s->size ? : sizeof (void *));
    *pp = p;
    *dp = d;
    return err;
@@ -241,9 +312,9 @@ load_default (revk_settings_t * s)
    else
    {                            // bitfield
       if (d && (*d == '1' || *d == 't'))
-         ((uint8_t *) & revk_settings_bitfield)[s->bit / 8] |= (1 << (s->bit & 7));
+         ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
       else
-         ((uint8_t *) & revk_settings_bitfield)[s->bit / 8] &= ~(1 << (s->bit & 7));
+         ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
    }
    if (err)
       ESP_LOGE (TAG, "%s %s", s->name, err);
@@ -253,8 +324,8 @@ load_default (revk_settings_t * s)
 void
 revk_settings_load (const char *tag, const char *appname)
 {                               // Scan NVS to load values to settings
-   for (revk_settings_t * r = revk_settings; r->len1; r++)
-      load_default (r);
+   for (revk_settings_t * s = revk_settings; s->len1; s++)
+      load_default (s);
    // Scan
    for (int revk = 0; revk < 2; revk++)
    {
@@ -269,8 +340,30 @@ revk_settings_load (const char *tag, const char *appname)
             nvs_entry_info_t info = { 0 };
             if (!nvs_entry_info (i, &info))
             {
-               ESP_LOGE (tag, "Found %s %s type %d", info.namespace_name, info.key, info.type);
-               // TODO
+               int l = strlen (info.key);
+               revk_settings_t *s;
+               const char *err = NULL;
+               for (s = revk_settings; s->len1; s++)
+               {
+                  if (!s->array && s->len == l && !memcmp (s->name, info.key, l))
+                  {             // Exact match
+                     err = nvs_get (s, info.key, 0);
+                     break;
+                  } else if (s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len) && info.key[s->len] >= 0x80)
+                  {             // Array match, new
+                     err = nvs_get (s, info.key, info.key[s->len] - 0x80);
+                     break;
+                  } else if (s->array && s->len < l && !memcmp (s->name, info.key, s->len) && isdigit ((int) info.key[s->len]))
+                  {             // Array match, old
+                     err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
+                     break;
+                  }
+               }
+               if (!s->len1)
+                  err = "Not found";
+               if (err)
+                  ESP_LOGE (tag, "NVS %s Failed %s", info.key, err);
+               // TODO delete?
             }
          }
          while (!nvs_entry_next (&i));

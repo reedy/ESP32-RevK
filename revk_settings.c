@@ -273,7 +273,6 @@ main (int argc, const char *argv[])
                   {
                      i += 9;
                      d->decimal = atoi (i);
-                     warnx ("here %s", i);
                   }
             }
             if (d->type && !d->name1)
@@ -328,12 +327,12 @@ main (int argc, const char *argv[])
                " uint16_t size;\n"      //
                " uint8_t group;\n"      //
                " uint8_t len1:4;\n"     //
-               " uint8_t len2:4;\n"     //
-               " uint8_t blob:1;\n"     //
+               " uint8_t len:4;\n"      //
                " uint8_t bit;\n"        //
-               " uint8_t array;\n"      //
-               " uint8_t decimal;\n"    //
-               " uint8_t sign;\n"       //
+               " uint8_t array:7;\n"    //
+               " uint8_t sign:1;\n"     //
+               " uint8_t decimal:5;\n"  //
+               " uint8_t blob:1;\n"     //
                " uint8_t revk:1;\n"     //
                " uint8_t live:1;\n"     //
                " uint8_t fix:1;\n"      //
@@ -373,9 +372,9 @@ main (int argc, const char *argv[])
             else if (d->type && !strcmp (d->type, "bit"))
                fprintf (H, " REVK_SETTINGS_BITFIELD_%s,\n", d->name);
          fprintf (H, "};\n");
-         fprintf (H, "typedef struct revk_settings_bitfield_s revk_settings_bitfield_t;\n");
-         fprintf (H, "struct revk_settings_bitfield_s {\n");
-         fprintf (C, "revk_settings_bitfield_t revk_settings_bitfield={0};\n");
+         fprintf (H, "typedef struct revk_settings_bits_s revk_settings_bits_t;\n");
+         fprintf (H, "struct revk_settings_bits_s {\n");
+         fprintf (C, "revk_settings_bits_t revk_settings_bits={0};\n");
          for (d = defs; d; d = d->next)
             if (d->define)
                fprintf (H, "%s\n", d->define);
@@ -386,7 +385,7 @@ main (int argc, const char *argv[])
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, "#define	%s	revk_settings_bitfield.%s\n", d->name, d->name);
+               fprintf (H, "#define	%s	revk_settings_bits.%s\n", d->name, d->name);
             else if (d->type)
             {
                fprintf (H, "extern ");
@@ -397,7 +396,7 @@ main (int argc, const char *argv[])
                   fprintf (H, "[%s]", d->array);
                fprintf (H, ";\n");
             }
-         fprintf (H, "extern revk_settings_bitfield_t revk_settings_bitfield;\n");
+         fprintf (H, "extern revk_settings_bits_t revk_settings_bits;\n");
       }
 
       fprintf (C, "#define	str(s)	#s\n");
@@ -415,9 +414,8 @@ main (int argc, const char *argv[])
             if (d->group)
                fprintf (C, ",.group=%d", d->group);
             fprintf (C, ",.len1=%d", (int) strlen (d->name1));
-            if (d->name2)
-               fprintf (C, ",.len2=%d", (int) strlen (d->name2));
-            else
+            fprintf (C, ",.len=%d", (int) strlen (d->name));
+            if (!d->name2)
                for (int g = 0; g < groups; g++)
                   if (!strcmp (d->name1, group[g]))
                      errx (1, "Clash %s in %s with sub object", d->name1, d->fn);
@@ -453,7 +451,8 @@ main (int argc, const char *argv[])
             if (d->attributes)
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
-	    if(d->array&&!strcmp(d->type,"bit"))errx(1,"Cannot do bit array %s in %s",d->name,d->fn);
+            if (d->array && !strcmp (d->type, "bit"))
+               errx (1, "Cannot do bit array %s in %s", d->name, d->fn);
          }
       fprintf (C, "{0}};\n");
       fprintf (C, "#undef quote\n");
