@@ -100,6 +100,19 @@ main (int argc, const char *argv[])
          return -1;
       }
 
+      FILE *C = fopen (cfile, "w+");
+      if (!C)
+         err (1, "Cannot open %s", cfile);
+      FILE *H = fopen (hfile, "w+");
+      if (!H)
+         err (1, "Cannot open %s", hfile);
+
+      fprintf (C, "// Settings\n");
+      fprintf (C, "// Generated from:-\n");
+
+      fprintf (H, "// Settings\n");
+      fprintf (H, "// Generated from:-\n");
+
       char *line = NULL;
       size_t len = 0;
       const char *fn;
@@ -108,6 +121,8 @@ main (int argc, const char *argv[])
          char *ext = strrchr (fn, '.');
          if (!ext || strcmp (ext + 1, extension))
             continue;
+         fprintf (C, "// %s\n", fn);
+         fprintf (H, "// %s\n", fn);
          FILE *I = fopen (fn, "r");
          if (!I)
             err (1, "Cannot open %s", fn);
@@ -294,23 +309,17 @@ main (int argc, const char *argv[])
          fclose (I);
       }
 
-      FILE *C = fopen (cfile, "w+");
-      if (!C)
-         err (1, "Cannot open %s", cfile);
-      FILE *H = fopen (hfile, "w+");
-      if (!H)
-         err (1, "Cannot open %s", hfile);
-
       def_t *d;
 
-      fprintf (C, "// Settings\n");
+      fprintf (C, "\n");
       fprintf (C, "#include <stdint.h>\n");
       fprintf (C, "#include \"sdkconfig.h\"\n");
       fprintf (C, "#include \"settings.h\"\n");
 
-      fprintf (H, "// Settings\n");
+      fprintf (H, "\n");
       fprintf (H, "#include <stdint.h>\n");
-      fprintf (H, "#include \"esp_system.h\"\n");
+      fprintf (H, "#include <stddef.h>\n");
+
       fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
                "struct revk_settings_s {\n"     //
                " void *ptr;\n"  //
@@ -325,6 +334,7 @@ main (int argc, const char *argv[])
                " uint8_t bit;\n"        //
                " uint8_t array;\n"      //
                " uint8_t decimal;\n"    //
+               " uint8_t sign;\n"       //
                " uint8_t revk:1;\n"     //
                " uint8_t live:1;\n"     //
                " uint8_t fix:1;\n"      //
@@ -437,11 +447,14 @@ main (int argc, const char *argv[])
                   fprintf (C, ",.fix=1");
                fprintf (C, ",.set=1,.bitfield=\"- ~↓↕⇕\"");
             }
+            if (*d->type == 's' && isdigit (d->type[1]))
+               fprintf (C, ",.sign=1");
             if (!strcmp (d->type, "blob"))
                fprintf (C, ",.blob=1");
             if (d->attributes)
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
+	    if(d->array&&!strcmp(d->type,"bit"))errx(1,"Cannot do bit array %s in %s",d->name,d->fn);
          }
       fprintf (C, "{0}};\n");
       fprintf (C, "#undef quote\n");
