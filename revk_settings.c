@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <err.h>
-#include <malloc.h>
 
 typedef struct def_s def_t;
 struct def_s
