@@ -107,10 +107,12 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
          if (d < e && *d == '.')
          {
             d++;
-            while (!err && d < e && isdigit ((int) *d) && q--)
+            while (!err && d < e && isdigit ((int) *d) && q && q--)
                add (*d++);
+            if (!err && d < e && isdigit ((int) *d))
+               err = "Too many decimal places";
          }
-         while (q--)
+         while (!err && q--)
             add ('0');
       }
       if (b)
