@@ -386,7 +386,7 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
                   f |= (1ULL << bit);
                   d += l;
                   break;
-               } else if (*q != ' ' && !((*q & 0xC0) == 0x80))
+               } else if (*q != ' ' && ((*q & 0xC0) != 0x80))
                   bit--;
             if (!*q)
                break;           // Not found
@@ -395,7 +395,7 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
       if (b)
       {                         // Bit fields
          for (const char *q = b; *q; q++)
-            if (*q != ' ' && !((*q & 0xC0) == 0x80))
+            if (*q != ' ' && ((*q & 0xC0) != 0x80))
                bits--;
          if (!err && bits < 0)
             err = "Too many flags";
@@ -494,11 +494,11 @@ text_numeric (revk_settings_t * s, void *p)
       {
          // Count down bits in use
          for (f = s->flags; *f; f++)
-            if (*f != ' ' && !((*f & 0xC0) == 0x80))
+            if (*f != ' ' && ((*f & 0xC0) != 0x80))
                bits--;
          // Prefix
          for (f = s->flags; *f && *f != ' '; f++)
-            if (!((*f & 0xC0) == 0x80) && (v & (1ULL << bit--)))
+            if (((*f & 0xC0) != 0x80) && (v & (1ULL << (bit--))))
             {
                const char *i = f;
                *t++ = *i++;
@@ -506,36 +506,41 @@ text_numeric (revk_settings_t * s, void *p)
                   *t++ = *i++;
             }
       }
+      {
+         uint64_t val = v;
+         if (bits < 64)
+            val &= ((1ULL << bits) - 1);
 #ifdef	REVK_SETTINGS_HAS_SIGNED
-      if (s->type == REVK_SETTINGS_SIGNED && (v & (1ULL << (bits - 1))))
-      {
-         *t++ = '-';
-         v = -v;
-      }
-#endif
-      if (bits < 64)
-         v &= ((1ULL << bits) - 1);
-      if (bits)
-      {
-         if (s->decimal)
+         if (s->type == REVK_SETTINGS_SIGNED && (v & (1ULL << (bits - 1))))
          {
-            sprintf (t, "%021llu", v);
-            char *i = t,
-               *e = t + 21 - s->decimal;
-            while (i < e - 1 && *i != '0')
-               i++;
-            while (i < e)
-               *t++ = *i++;
-            *t++ = '.';
-            while (*i)
-               *t++ = *i++;
-         } else
-            t += sprintf (t, "%llu", v);
+            *t++ = '-';
+            val = -val;
+            if (bits < 64)
+               val |= ~((1ULL << bits) - 1);
+         }
+#endif
+         if (bits)
+         {
+            if (s->decimal)
+            {
+               sprintf (t, "%021llu", val);
+               char *i = t,
+                  *e = t + 21 - s->decimal;
+               while (i < e - 1 && *i != '0')
+                  i++;
+               while (i < e)
+                  *t++ = *i++;
+               *t++ = '.';
+               while (*i)
+                  *t++ = *i++;
+            } else
+               t += sprintf (t, "%llu", val);
+         }
       }
       // Suffix
       if (f && *f == ' ')
          for (f++; *f; f++)
-            if (!((*f & 0xC0) == 0x80) && (v & (1ULL << bit--)))
+            if (((*f & 0xC0) != 0x80) && (v & (1ULL << (bit--))))
             {
                const char *i = f;
                *t++ = *i++;
@@ -636,11 +641,11 @@ text_value (revk_settings_t * s, int index, int *lenp)
    }
    if (s->hex)
    {
-	   // TODO
+      // TODO
    }
    if (s->base64)
    {
-	   // TODO
+      // TODO
    }
    if (lenp)
       *lenp = len;
@@ -1031,9 +1036,9 @@ revk_setting_dump (void)
                   break;
                }
             }
-	    __attribute__((fallthrough));
+            __attribute__((fallthrough));
 #endif
-	 default:
+         default:
             jo_stringn (p, tag, data, len);
          }
          free (data);
