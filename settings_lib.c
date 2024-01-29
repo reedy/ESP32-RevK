@@ -686,6 +686,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    {
       // TODO
    }
+   ESP_LOGE(TAG,"Type %s %d",s->name,s->type);
    switch (s->type)
    {
 #ifdef	REVK_SETTINGS_HAS_NUMERIC
