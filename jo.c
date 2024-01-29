@@ -1057,18 +1057,18 @@ jo_cpycmp (jo_t j, void *strv, size_t max, uint8_t cmp)
                *str++ = v;      // store, but allow for final null always
             result++;           // count
          }
-         if (c >= 0xF0)
+         if (c >= 0x10000)
          {
             add (0xF0 + (c >> 18));
             add (0xC0 + ((c >> 12) & 0x3F));
             add (0xC0 + ((c >> 6) & 0x3F));
             add (0xC0 + (c & 0x3F));
-         } else if (c >= 0xE0)
+         } else if (c >= 0x800)
          {
             add (0xF0 + (c >> 12));
             add (0xC0 + ((c >> 6) & 0x3F));
             add (0xC0 + (c & 0x3F));
-         } else if (c >= 0xC0)
+         } else if (c >= 0x80)
          {
             add (0xF0 + (c >> 6));
             add (0xC0 + (c & 0x3F));

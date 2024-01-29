@@ -59,17 +59,17 @@ typename (FILE * O, const char *type)
 void
 typesuffix (FILE * O, const char *type)
 {
-   if((*type=='o'||*type=='c')&&isdigit(type[1]))
-	   fprintf(O,"[%s]",type+1);
+   if ((*type == 'o' || *type == 'c') && isdigit (type[1]))
+      fprintf (O, "[%s]", type + 1);
 }
 
 void
 typeinit (FILE * O, const char *type)
 {
    fprintf (O, "=");
-   if(*type=='c'&&isdigit(type[1]))
+   if (*type == 'c' && isdigit (type[1]))
       fprintf (O, "\"\"");
-   else if (!strcmp (type, "gpio")||(*type=='o'&&isdigit(type[1])))
+   else if (!strcmp (type, "gpio") || (*type == 'o' && isdigit (type[1])))
       fprintf (O, "{0}");
    else if (!strcmp (type, "blob") || !strcmp (type, "s"))
       fprintf (O, "NULL");
@@ -337,20 +337,20 @@ main (int argc, const char *argv[])
                " const char *flags;\n"  //
                " uint16_t size;\n"      //
                " uint8_t group;\n"      //
-	       " uint8_t bit;\n"	//
+               " uint8_t bit;\n"        //
                " uint8_t dot:4;\n"      //
                " uint8_t len:4;\n"      //
                " uint8_t type:3;\n"     //
                " uint8_t decimal:5;\n"  //
                " uint8_t array:7;\n"    //
-               " uint8_t malloc:1;\n"  //
+               " uint8_t malloc:1;\n"   //
                " uint8_t revk:1;\n"     //
                " uint8_t live:1;\n"     //
                " uint8_t fix:1;\n"      //
                " uint8_t set:1;\n"      //
                " uint8_t hex:1;\n"      //
                " uint8_t base64:1;\n"   //
-               " uint8_t secret:1;\n"     //
+               " uint8_t secret:1;\n"   //
                " uint8_t dq:1;\n"       //
                "};\n", maxname + 1);
 
@@ -435,7 +435,7 @@ main (int argc, const char *argv[])
                if (typename (H, d->type))
                   errx (1, "Unknown type %s in %s", d->type, d->fn);
                fprintf (H, " %s", d->name);
-	       typesuffix(H,d->type);
+               typesuffix (H, d->type);
                if (d->array)
                   fprintf (H, "[%s]", d->array);
                fprintf (H, ";\n");
@@ -457,7 +457,7 @@ main (int argc, const char *argv[])
       if (hasoctet)
          fprintf (H, " REVK_SETTINGS_OCTET,\n");
       fprintf (H, "};\n");
-      if (hassigned||hasunsigned)
+      if (hassigned || hasunsigned)
          fprintf (H, "#define	REVK_SETTINGS_HAS_NUMERIC\n");
       if (hassigned)
          fprintf (H, "#define	REVK_SETTINGS_HAS_SIGNED\n");
@@ -483,11 +483,13 @@ main (int argc, const char *argv[])
          {
             count++;
             fprintf (C, " {");
-            if (d->attributes&&!(*d->type == 's'||*d->type=='u')&& isdigit (d->type[1]))
-	    { // non numeric
-		    if(strstr(d->attributes,".set="))errx(1,".set on no numeric for %s in %s",d->name,d->type);
-		    if(strstr(d->attributes,".flags="))errx(1,".flags on no numeric for %s in %s",d->name,d->type);
-	    }
+            if (d->attributes && !(*d->type == 's' || *d->type == 'u') && isdigit (d->type[1]))
+            {                   // non numeric
+               if (strstr (d->attributes, ".set="))
+                  errx (1, ".set on no numeric for %s in %s", d->name, d->type);
+               if (strstr (d->attributes, ".flags="))
+                  errx (1, ".flags on no numeric for %s in %s", d->name, d->type);
+            }
             if (*d->type == 's' && isdigit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_SIGNED");
             else if ((*d->type == 'u' && isdigit (d->type[1])) || !strcmp (d->type, "gpio"))
@@ -496,7 +498,7 @@ main (int argc, const char *argv[])
                fprintf (C, ".type=REVK_SETTINGS_BIT");
             else if (!strcmp (d->type, "blob"))
                fprintf (C, ".type=REVK_SETTINGS_BLOB");
-            else if (!strcmp (d->type, "s")||(*d->type == 'c' && isdigit (d->type[1])))
+            else if (!strcmp (d->type, "s") || (*d->type == 'c' && isdigit (d->type[1])))
                fprintf (C, ".type=REVK_SETTINGS_STRING");
             else if (*d->type == 'o' && isdigit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_OCTET");
@@ -558,10 +560,11 @@ main (int argc, const char *argv[])
             fprintf (C, " %s", d->name);
             if (d->array)
                fprintf (C, "[%s]", d->array);
-	    typesuffix(C,d->type);
+            typesuffix (C, d->type);
             if (d->array)
                fprintf (C, "={0}");
-	    else typeinit(C,d->type);
+            else
+               typeinit (C, d->type);
             fprintf (C, ";\n");
          }
       // Final includes

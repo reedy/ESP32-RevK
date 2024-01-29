@@ -101,10 +101,10 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
    case REVK_SETTINGS_SIGNED:
       {
          int64_t __attribute__((unused)) v = 0;
-         if ((s->size == 8 && nvs_set_i64 (nvs[s->revk], tag, v = *((uint64_t *) ptr))) ||      //
-             (s->size == 4 && nvs_set_i32 (nvs[s->revk], tag, v = *((uint32_t *) ptr))) ||      //
-             (s->size == 2 && nvs_set_i16 (nvs[s->revk], tag, v = *((uint16_t *) ptr))) ||      //
-             (s->size == 1 && nvs_set_i8 (nvs[s->revk], tag, v = *((uint8_t *) ptr))))
+         if ((s->size == 8 && nvs_set_i64 (nvs[s->revk], tag, v = *((int64_t *) ptr))) ||       //
+             (s->size == 4 && nvs_set_i32 (nvs[s->revk], tag, v = *((int32_t *) ptr))) ||       //
+             (s->size == 2 && nvs_set_i16 (nvs[s->revk], tag, v = *((int16_t *) ptr))) ||       //
+             (s->size == 1 && nvs_set_i8 (nvs[s->revk], tag, v = *((int8_t *) ptr))))
             return "Cannot store number (signed)";
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
          ESP_LOGE (TAG, "Write %s signed %lld 0x%0*llX", taga, v, s->size * 2, v);
@@ -364,6 +364,7 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
       memset (p, 0, s->size);
    } else
    {                            // Value
+      ESP_LOG_BUFFER_HEX_LEVEL (TAG, d, e - d, ESP_LOG_ERROR);
       uint64_t v = 0,
          f = 0;
       char sign = 0;
@@ -471,6 +472,84 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
 }
 #endif
 
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
+static char *
+text_numeric (revk_settings_t * s, void *p)
+{
+   char *temp = mallocspi (100),
+      *t = temp;
+   uint64_t v = 0;
+   if (s->size == 8)
+      v = *((uint64_t *) p);
+   else if (s->size == 4)
+      v = *((uint32_t *) p);
+   else if (s->size == 2)
+      v = *((uint16_t *) p);
+   else if (s->size == 1)
+      v = *((uint8_t *) p);
+   int bits = s->size * 8;
+   if (!s->set || (v & (1ULL << --bits)))
+   {
+      const char *f = NULL;
+      int bit = bits - 1;
+      if (s->flags)
+      {
+         // Count down bits in use
+         for (f = s->flags; *f; f++)
+            if (*f != ' ' && !((*f & 0xC0) == 0x80))
+               bits--;
+         // Prefix
+         for (f = s->flags; *f && *f != ' '; f++)
+            if (!((*f & 0xC0) == 0x80) && (v & (1ULL << bits--)))
+            {
+               const char *i = f;
+               *t++ = *i++;
+               while ((*i & 0xC0) == 0x80)
+                  *t++ = *i++;
+            }
+      }
+#ifdef	REVK_SETTINGS_HAS_SIGNED
+      if (s->type == REVK_SETTINGS_SIGNED && (v & (1ULL << (bits - 1))))
+      {
+         *t++ = '-';
+         v = -v;
+      }
+#endif
+      if (bits < 64)
+         v &= ((1ULL << bits) - 1);
+      if (bits)
+      {
+         if (s->decimal)
+         {
+            sprintf (t, "%021llu", v);
+            char *i = t,
+               *e = t + 21 - s->decimal;
+            while (i < e - 1 && *i != '0')
+               i++;
+            while (i < e)
+               *t++ = *i++;
+            *t++ = '.';
+            while (*i)
+               *t++ = *i++;
+         } else
+            t += sprintf (t, "%llu", v);
+      }
+      // Suffix
+      if (f && *f == ' ')
+         for (f++; *f; f++)
+            if (!((*f & 0xC0) == 0x80) && (v & (1ULL << bit--)))
+            {
+               const char *i = f;
+               *t++ = *i++;
+               while ((*i & 0xC0) == 0x80)
+                  *t++ = *i++;
+            }
+   }
+   *t = 0;
+   return temp;
+}
+#endif
+
 static int
 value_cmp (revk_settings_t * s, void *a, void *b)
 {                               // Pointer to actual data
@@ -490,7 +569,82 @@ value_cmp (revk_settings_t * s, void *a, void *b)
    if (s->type == REVK_SETTINGS_STRING)
       return strcmp (*((char **) a), *((char **) b));
 #endif
-   return memcmp (a, b, s->size);
+   return memcmp (a, b, s->size ? : 1);
+}
+
+static char *
+text_value (revk_settings_t * s, int index, int *lenp)
+{                               // Malloc'd string for value
+   void *ptr = s->ptr;
+   if (s->array)
+      ptr += index * (s->malloc ? sizeof (void *) : s->size);
+   if (s->malloc)
+      ptr = *(void **) ptr;
+   char *data = NULL;
+   size_t len = 0;
+   switch (s->type)
+   {
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
+#ifdef	REVK_SETTINGS_HAS_SIGNED
+   case REVK_SETTINGS_SIGNED:
+#endif
+#ifdef	REVK_SETTINGS_HAS_UNSIGNED
+   case REVK_SETTINGS_UNSIGNED:
+#endif
+      data = text_numeric (s, ptr);
+      if (data)
+         len = strlen (data);
+      break;
+#endif
+#ifdef	REVK_SETTINGS_HAS_BIT
+   case REVK_SETTINGS_BIT:
+      uint8_t bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
+      data = strdup (bit ? "true" : "false");
+      if (data)
+         len = strlen (data);
+      break;
+#endif
+#ifdef	REVK_SETTINGS_HAS_BLOB
+   case REVK_SETTINGS_BLOB:
+      {
+         revk_settings_blob_t *b = ptr;
+         len = b->len;
+         if (len)
+         {
+            data = mallocspi (len);
+            memcpy (data, b->data, len);
+         }
+      }
+      break;
+#endif
+#ifdef	REVK_SETTINGS_HAS_STRING
+   case REVK_SETTINGS_STRING:
+      {
+         data = strdup (ptr);
+         if (data)
+            len = strlen (data);
+      }
+      break;
+#endif
+#ifdef	REVK_SETTINGS_HAS_OCTET
+   case REVK_SETTINGS_OCTET:
+      {
+         len = s->size;
+         data = mallocspi (len);
+         memcpy (data, ptr, len);
+      }
+      break;
+#endif
+   }
+   if (s->hex)
+   {
+   }
+   if (s->base64)
+   {
+   }
+   if (lenp)
+      *lenp = len;
+   return data;
 }
 
 static const char *
@@ -501,12 +655,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    else
       index = 0;
    if (index > 0)
-   {
-      if (s->malloc)
-         ptr += index * sizeof (void *);
-      else
-         ptr += index * s->size;
-   }
+      ptr += index * (s->malloc ? sizeof (void *) : s->size);
    const char *err = NULL;
    int a = s->array;
    const char *e = NULL;
@@ -786,10 +935,7 @@ revk_setting_dump (void)
       if (s->secret)
          continue;
       if (s->group && (group[s->group / 8] & (1 << (s->group & 7))))
-      {
-         ESP_LOGE (TAG, "Group %d %.*s done already", s->group, s->dot, s->name);
          continue;              // Already done
-      }
       jo_t p = NULL;
       void start (void)
       {
@@ -843,53 +989,86 @@ revk_setting_dump (void)
          return 0;
       }
 
-      void addvalue (revk_settings_t * s, int index, int base)
+      void addvalue (revk_settings_t * s, int index, const char *tag)
       {
          if (!s->array && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
-         {
-            ESP_LOGE (TAG, "Value %d %s defaults", s - revk_settings, s->name);
             return;             // Default
+         int len = 0;
+         char *data = text_value (s, index, &len);
+         switch (s->type)
+         {
+#ifdef  REVK_SETTINGS_HAS_BIT
+         case REVK_SETTINGS_BIT:
+            jo_lit (p, tag, data);
+            break;
+#endif
+#ifdef  REVK_SETTINGS_HAS_NUMERIC
+#ifdef  REVK_SETTINGS_HAS_SIGNED
+         case REVK_SETTINGS_SIGNED:
+#endif
+#ifdef  REVK_SETTINGS_HAS_UNSIGNED
+         case REVK_SETTINGS_UNSIGNED:
+#endif
+            if (len)
+            {
+               char *d = data;
+               if (*d == '-')
+                  d++;
+               if (isdigit ((int) *d))
+               {
+                  while (isdigit ((int) *d))
+                     d++;
+                  if (*d == '.')
+                  {
+                     d++;
+                     while (isdigit ((int) *d))
+                        d++;
+                  }
+               }
+               if (!*d)
+               {
+                  jo_lit (p, tag, data);
+                  break;
+               }
+            }
+            // Drop though
+#endif
+            jo_stringn (p, tag, data, len);
          }
-         jo_null (j, s->name + base);   // TODO
+         free (data);
       }
 
       void addarray (revk_settings_t * s, int base)
       {
          if (!(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
-         {
-            ESP_LOGE (TAG, "Array %d %s defaults", s - revk_settings, s->name);
             return;             // Default
-         }
          int max = s->array;
          while (max > 0 && is_zero (s, max - 1))
             max--;
-         jo_array (j, s->name + base);
+         jo_array (p, s->name + base);
          for (int i = 0; i < max; i++)
-            addvalue (s, i, base);
-         jo_close (j);
+            addvalue (s, i, NULL);
+         jo_close (p);
       }
 
       void addgroup (revk_settings_t * s)
       {
-         ESP_LOGE (TAG, "Group %d %.*s now done", s->group, s->dot, s->name);
          group[s->group / 8] |= (1 << (s->group & 7));
          revk_settings_t *r;
          for (r = revk_settings;
               r->len && (r->group != s->group || !(nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7)))); r++);
          if (!r->len)
-         {
-            ESP_LOGE (TAG, "Group %d %.*s defaults", s - revk_settings, s->len, s->name);
             return;             // Maybe returning NULL would be clearer?
-         }
          char tag[16];
          if (s->dot + 1 > sizeof (tag))
             return;
-         strncpy (tag, s->name, s->dot);
-         jo_object (j, tag);
+         strcpy (tag, s->name);
+         tag[s->dot] = 0;
+         jo_object (p, tag);
          for (r = revk_settings; r->len; r++)
             if (r->group == s->group && (nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7))))
-               addvalue (r, 0, s->dot);
-         jo_close (j);
+               addvalue (r, 0, s->name + s->dot);
+         jo_close (p);
       }
 
       void addsetting (void)
@@ -900,7 +1079,7 @@ revk_setting_dump (void)
          else if (s->array)
             addarray (s, 0);
          else
-            addvalue (s, 0, 0);
+            addvalue (s, 0, s->name);
       }
 
       addsetting ();
@@ -1035,10 +1214,7 @@ revk_setting (jo_t j)
                      bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
                   else
 #endif
-                  if (s->malloc)
-                     ptr += index * sizeof (void *);
-                  else
-                     ptr += index * s->size;
+                     ptr += index * (s->malloc ? sizeof (void *) : s->size);
                   err = load_value (s, val, index, temp);
                   if (value_cmp (s, ptr, temp))
                   {             // Change
@@ -1114,7 +1290,7 @@ revk_setting (jo_t j)
                   {
                      int group = s->group;
                      scan (l);
-                     t = JO_NULL;       // Default
+                     t = JO_NULL;       // Default unspecified
                      for (s = revk_settings; s->len; s++)
                         if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
                            zapdef ();
