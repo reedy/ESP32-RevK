@@ -4076,7 +4076,7 @@ uint8_t
 revk_gpio_get (revk_settings_gpio_t g)
 {
    if (g.set)
-      return gpio_get_level (g.num) ^ g.iinvert;
+      return gpio_get_level (g.num) ^ g.invert;
    return 0;
 }
 #endif
