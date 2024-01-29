@@ -205,7 +205,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 #ifdef  REVK_SETTINGS_HAS_SIGNED
       case REVK_SETTINGS_SIGNED:
          {
-            data = mallocspi (len = s->size / 8);
+            data = mallocspi (len = s->size);
             if (!data)
                return "malloc";
             if ((s->size == 8 && nvs_get_i64 (nvs[s->revk], tag, data)) ||      //
@@ -224,7 +224,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 #ifdef  REVK_SETTINGS_HAS_UNSIGNED
       case REVK_SETTINGS_UNSIGNED:
          {
-            data = mallocspi (len = s->size / 8);
+            data = mallocspi (len = s->size);
             if (!data)
                return "malloc";
             if ((s->size == 8 && nvs_get_u64 (nvs[s->revk], tag, data)) ||      //
@@ -806,155 +806,91 @@ revk_setting_dump (void)
             jo_free (&p);       // Did not fit
          return err;
       }
-#if 0
-      void addvalue (revk_setting_t * s, const char *tag, int n)
-      {                         // Add a value
-         start ();
-         void *data = s->data;
-         const char *defval = s->defval ? : "";
-         if (!(s->flags & SETTING_BOOLEAN))
-            data += (s->size ? : sizeof (void *)) * n;
-         if (s->flags & SETTING_BINDATA)
-         {                      // Binary data
-            int len = s->size;
-            if (!len)
-            {                   // alloc'd with len at start
-               revk_bindata_t *d = *(void **) data;
-               len = d->len;
-               data = d->data;
-            }
-            if (s->flags & SETTING_HEX)
-               jo_base16 (p, tag, data, len);
-            else
-               jo_base64 (p, tag, data, len);
-         } else if (!s->size)
+
+      int is_zero (revk_settings_t * s, int index)
+      {                         // Not checking bit as only used in array and no array bits yet
+         uint8_t *d = s->ptr;
+         if (s->malloc)
          {
-            char *v = *(char **) data;
-            if (v)
-            {
-               jo_string (p, tag, v);   // String
-            } else
-               jo_null (p, tag);        // Null string - should not happen
-         } else
-         {
-            uint64_t v = 0;
-            if (s->size == 1)
-               v = *(uint8_t *) data;
-            else if (s->size == 2)
-               v = *(uint16_t *) data;
-            else if (s->size == 4)
-               v = *(uint32_t *) data;
-            else if (s->size == 8)
-               v = *(uint64_t *) data;
-            if (s->flags & SETTING_BOOLEAN)
-            {
-               jo_bool (p, tag, (v >> n) & 1);
-            } else
-            {                   // numeric
-               char temp[100],
-                *t = temp;
-               uint8_t bits = s->size * 8;
-               if (s->flags & SETTING_SET)
-                  bits--;
-               if (!(s->flags & SETTING_SET) || ((v >> bits) & 1))
-               {
-                  if (s->flags & SETTING_BITFIELD)
-                  {
-                     while (*defval && *defval != ' ')
-                     {
-                        bits--;
-                        if ((v >> bits) & 1)
-                           *t++ = *defval;
-                        defval++;
-                     }
-                     if (*defval == ' ')
-                        defval++;
-                  }
-                  if (s->flags & SETTING_SIGNED)
-                  {
-                     bits--;
-                     if ((v >> bits) & 1)
-                     {
-                        *t++ = '-';
-                        v = (v ^ ((1ULL << bits) - 1)) + 1;
-                     }
-                  }
-                  v &= ((1ULL << bits) - 1);
-                  if (s->flags & SETTING_HEX)
-                     t += sprintf (t, "%llX", v);
-                  else if (bits)
-                     t += sprintf (t, "%llu", v);
-               }
-               *t = 0;
-               t = temp;
-               if (*t == '-')
-                  t++;
-               if (*t == '0')
-                  t++;
-               else
-                  while (*t >= '0' && *t <= '9')
-                     t++;
-               if (t == temp || *t || (s->flags & SETTING_HEX))
-                  jo_string (p, tag, temp);
-               else
-                  jo_lit (p, tag, temp);
-            }
+            void **p = s->ptr;
+            p += index;
+            d = (*p);
+            if (!d)
+               return 1;
          }
-      }
-      void addsub (setting_t * s, const char *tag, int n)
-      {                         // n is 0 based
-         if (s->parent)
+         if (s->size)
          {
-            if (!tag || (!n && hasdef (s)) || !isempty (s, n))
-            {
-               start ();
-               jo_object (p, tag);
-               setting_t *q;
-               for (q = setting; q; q = q->next)
-                  if (q->child && !strncmp (q->name, s->name, s->namelen))
-                     if ((!n && hasdef (q)) || !isempty (q, n))
-                        addvalue (q, q->name + s->namelen, n);
-               jo_close (p);
-            }
-         } else
-            addvalue (s, tag, n);
+            int i;
+            for (i = 0; i < s->size && !d[i]; i++);
+            return i == s->size;
+         }
+         switch (s->type)
+         {
+#ifdef  REVK_SETTINGS_HAS_BLOB
+         case REVK_SETTINGS_BLOB:
+            return ((revk_settings_blob_t *) (d))->len == 0;
+#endif
+#ifdef  REVK_SETTINGS_HAS_STRING
+         case REVK_SETTINGS_STRING:
+            return *d == 0;
+#endif
+         }
+         return 0;
       }
+
+      void addvalue (revk_settings_t * s, int index, int base)
+      {
+         if (!s->array && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+            return;             // Default
+         jo_null (j, s->name + base);   // TODO
+      }
+
+      void addarray (revk_settings_t * s, int base)
+      {
+         if (!(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+            return;             // Default
+         int max = s->array;
+         while (max > 0 && is_zero (s, max - 1))
+            max--;
+         jo_array (j, s->name + base);
+         for (int i = 0; i < max; i++)
+            addvalue (s, i, base);
+         jo_close (j);
+      }
+
+      void addgroup (revk_settings_t * s)
+      {
+         revk_settings_t *r;
+         for (r = revk_settings;
+              r->len && (r->group != s->group || !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))); r++);
+         if (!r->len)
+            return;             // Maybe returning NULL would be clearer?
+         char tag[16];
+         if (s->dot + 1 > sizeof (tag))
+            return;
+         strncpy (tag, s->name, s->dot);
+         jo_object (j, tag);
+         for (r = revk_settings; r->len; r++)
+            if (r->group == s->group && (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+               addvalue (r, 0,s->dot);
+         jo_close (j);
+      }
+
       void addsetting (void)
       {                         // Add a whole setting
-         if (s->parent)
-         {
-            if (s->array)
-            {                   // Array above
-               if (max || hasdef (s))
-               {
-                  start ();
-                  jo_array (p, s->name);
-                  for (int n = 0; n < max; n++)
-                     addsub (s, NULL, n);
-                  jo_close (p);
-               }
-            } else
-               addsub (s, s->name, 0);
-         } else if (s->array)
-         {
-            if (max || hasdef (s))
-            {
-               start ();
-               jo_array (p, s->name);
-               for (int n = 0; n < max; n++)
-                  addvalue (s, NULL, n);
-               jo_close (p);
-            }
-         } else if (hasdef (s) || !isempty (s, 0))
-            addvalue (s, s->name, 0);
+         if (s->group)
+            addgroup (s);
+         else if (s->array)
+            addarray (s,0);
+         addvalue (s,0,0);
       }
+
       addsetting ();
       if (failed () && j)
       {
          send ();               // Failed, clear what we were sending and try again
          addsetting ();
       }
-#endif
       if (!failed ())
       {                         // Fitted, move forward
          if (p)
@@ -972,6 +908,7 @@ revk_setting_dump (void)
          revk_error (TAG, &j);
       }
    }
+
    send ();
    free (buf);
    return NULL;
