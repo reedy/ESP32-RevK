@@ -61,29 +61,26 @@ nvs_erase (revk_settings_t * s, const char *tag)
 }
 
 static const char *
-nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
+nvs_put (revk_settings_t * s, int index, void *ptr)
 {                               // Put data, can be from ptr or from settings
    if (s->array && index >= s->array)
       return "Array overflow";
-   char tag[17];
-   int taglen = strlen (prefix);
-   if (taglen + 1 > sizeof (tag))
+   char tag[16];
+   if (s->len + 1+(s->array?1:0) > sizeof (tag))
       return "Tag too long";
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
    char taga[20];
    if (s->array)
-      sprintf (taga, "%s[%d]", prefix, index);
+      sprintf (taga, "%s[%d]", s->name, index);
    else
-      strcpy (taga, prefix);
+      strcpy (taga, s->name);
 #endif
-   strncpy (tag, prefix, sizeof (tag));
+   strcpy (tag, s->name);
    if (s->array)
    {
-      tag[taglen++] = 0x80 + index;
-      tag[taglen] = 0;
+      tag[s->len] = 0x80 + index;
+      tag[s->len+1] = 0;
    }
-   if (taglen > 15)
-      return "Tag too long";
    if(ptr)
    {
 	   if(s->malloc)ptr=*(void**)ptr;
@@ -748,10 +745,10 @@ revk_settings_load (const char *tag, const char *appname)
       if (s->fix && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
       {                         // Fix, save to flash
          if (!s->array)
-            nvs_put (s, s->name, 0, NULL);
+            nvs_put (s, 0, NULL);
          else
             for (int i = 0; i < s->array; i++)
-               nvs_put (s, s->name, i, NULL);
+               nvs_put (s,i, NULL);
       }
    }
 }
@@ -1050,7 +1047,7 @@ revk_setting (jo_t j)
                      if (t == JO_NULL && !s->fix)
                         err = nvs_erase (s, s->name);
                      else
-                        err = nvs_put (s, s->name, index, temp);
+                        err = nvs_put (s, index, temp);
                      if (!err && !s->live)
                         change = 1;
                   } else if (t == JO_NULL && !s->fix)
