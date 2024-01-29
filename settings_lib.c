@@ -498,7 +498,7 @@ text_numeric (revk_settings_t * s, void *p)
                bits--;
          // Prefix
          for (f = s->flags; *f && *f != ' '; f++)
-            if (!((*f & 0xC0) == 0x80) && (v & (1ULL << bits--)))
+            if (!((*f & 0xC0) == 0x80) && (v & (1ULL << bit--)))
             {
                const char *i = f;
                *t++ = *i++;
