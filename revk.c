@@ -4052,7 +4052,7 @@ revk_gpio_input (revk_settings_gpio_t g)
       return;
    gpio_reset_pin (g.num);
    gpio_set_direction (g.num, GPIO_MODE_INPUT);
-   if (!g.pulldown && g.nopull)
+   if (!g.pulldown && !g.nopull)
    {
       gpio_pullup_en (g.num);
       rtc_gpio_pullup_en (g.num);
@@ -4061,7 +4061,7 @@ revk_gpio_input (revk_settings_gpio_t g)
       gpio_pullup_dis (g.num);
       rtc_gpio_pullup_dis (g.num);
    }
-   if (g.pulldown)
+   if (g.pulldown && !g.nopull)
    {
       gpio_pulldown_en (g.num);
       rtc_gpio_pulldown_en (g.num);
