@@ -786,7 +786,10 @@ revk_setting_dump (void)
       if (s->secret)
          continue;
       if (s->group && (group[s->group / 8] & (1 << (s->group & 7))))
+      {
+         ESP_LOGE (TAG, "Group %d %.*s done already", s->group, s->dot, s->name);
          continue;              // Already done
+      }
       jo_t p = NULL;
       void start (void)
       {
@@ -843,14 +846,20 @@ revk_setting_dump (void)
       void addvalue (revk_settings_t * s, int index, int base)
       {
          if (!s->array && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+         {
+            ESP_LOGE (TAG, "Value %d %s defaults", s - revk_settings, s->name);
             return;             // Default
+         }
          jo_null (j, s->name + base);   // TODO
       }
 
       void addarray (revk_settings_t * s, int base)
       {
          if (!(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+         {
+            ESP_LOGE (TAG, "Array %d %s defaults", s - revk_settings, s->name);
             return;             // Default
+         }
          int max = s->array;
          while (max > 0 && is_zero (s, max - 1))
             max--;
@@ -862,12 +871,16 @@ revk_setting_dump (void)
 
       void addgroup (revk_settings_t * s)
       {
+         ESP_LOGE (TAG, "Group %d %.*s now done", s->group, s->dot, s->name);
          group[s->group / 8] |= (1 << (s->group & 7));
          revk_settings_t *r;
          for (r = revk_settings;
               r->len && (r->group != s->group || !(nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7)))); r++);
          if (!r->len)
+         {
+            ESP_LOGE (TAG, "Group %d %.*s defaults", s - revk_settings, s->len, s->name);
             return;             // Maybe returning NULL would be clearer?
+         }
          char tag[16];
          if (s->dot + 1 > sizeof (tag))
             return;
@@ -913,7 +926,6 @@ revk_setting_dump (void)
          revk_error (TAG, &j);
       }
    }
-
    send ();
    free (buf);
    return NULL;
