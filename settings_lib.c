@@ -360,11 +360,9 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
    while (d && d < e && *d == ' ')
       d++;
    if (!d || d >= e)
-   {                            // Empty
-      memset (p, 0, s->size);
-   } else
+      memset (p, 0, s->size);   // Empty
+   else
    {                            // Value
-      ESP_LOG_BUFFER_HEX_LEVEL (TAG, d, e - d, ESP_LOG_ERROR);
       uint64_t v = 0,
          f = 0;
       char sign = 0;
@@ -1067,7 +1065,7 @@ revk_setting_dump (void)
          jo_object (p, tag);
          for (r = revk_settings; r->len; r++)
             if (r->group == s->group && (nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7))))
-               addvalue (r, 0, s->name + s->dot);
+               addvalue (r, 0, r->name + r->dot);
          jo_close (p);
       }
 

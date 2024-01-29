@@ -1060,18 +1060,18 @@ jo_cpycmp (jo_t j, void *strv, size_t max, uint8_t cmp)
          if (c >= 0x10000)
          {
             add (0xF0 + (c >> 18));
-            add (0xC0 + ((c >> 12) & 0x3F));
-            add (0xC0 + ((c >> 6) & 0x3F));
-            add (0xC0 + (c & 0x3F));
+            add (0x80 + ((c >> 12) & 0x3F));
+            add (0x80 + ((c >> 6) & 0x3F));
+            add (0x80 + (c & 0x3F));
          } else if (c >= 0x800)
          {
-            add (0xF0 + (c >> 12));
-            add (0xC0 + ((c >> 6) & 0x3F));
-            add (0xC0 + (c & 0x3F));
+            add (0xE0 + (c >> 12));
+            add (0x80 + ((c >> 6) & 0x3F));
+            add (0x80 + (c & 0x3F));
          } else if (c >= 0x80)
          {
-            add (0xF0 + (c >> 6));
-            add (0xC0 + (c & 0x3F));
+            add (0xC0 + (c >> 6));
+            add (0x80 + (c & 0x3F));
          } else
             add (c);
       }
