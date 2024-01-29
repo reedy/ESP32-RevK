@@ -184,8 +184,6 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
 static const char *
 nvs_get (revk_settings_t * s, const char *tag, int index)
 {                               // Getting NVS
-			  if(s->ptr&&s->malloc)
-			  ESP_LOGE(TAG,"Get %s ptr %p value %p",s->name,s->ptr, *(void**)s->ptr);//TODO
    if (s->array && index >= s->array)
       return "Array overflow";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
@@ -281,13 +279,12 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                return "Cannot get string len";
             if (!len)
                return "Bad string len";
-	    ESP_LOGE(TAG,"String %s %d",s->name,len); // TODO
             data = mallocspi (len);
             if (!data)
                return "malloc";
             if (nvs_get_str (nvs[s->revk], tag, data, &len))
                return "Cannot load string";
-            ((char*)data)[len - 1] = 0;  // Just in case
+            ((char *) data)[len - 1] = 0;       // Just in case
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
             ESP_LOGE (TAG, "Read %s string %s", taga, (char *) data);
 #endif
@@ -501,10 +498,13 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       ptr = s->ptr;
    else
       index = 0;
-   if (s->malloc)
-      ptr += index * sizeof (void *);
-   else
-      ptr += index * s->size;
+   if (index > 0)
+   {
+      if (s->malloc)
+         ptr += index * sizeof (void *);
+      else
+         ptr += index * s->size;
+   }
    const char *err = NULL;
    int a = s->array;
    const char *e = NULL;
