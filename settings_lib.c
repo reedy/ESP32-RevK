@@ -66,7 +66,7 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
    if (s->array && index >= s->array)
       return "Array overflow";
    char tag[16];
-   if (s->len + 1+(s->array?1:0) > sizeof (tag))
+   if (s->len + 1 + (s->array ? 1 : 0) > sizeof (tag))
       return "Tag too long";
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
    char taga[20];
@@ -79,13 +79,14 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
    if (s->array)
    {
       tag[s->len] = 0x80 + index;
-      tag[s->len+1] = 0;
+      tag[s->len + 1] = 0;
    }
-   if(ptr)
+   // Deference
+   if (ptr)
    {
-	   if(s->malloc)ptr=*(void**)ptr;
-   }
-   else if (!ptr && s->ptr)
+      if (s->malloc)
+         ptr = *(void **) ptr;
+   } else if (!ptr && s->ptr)
    {                            // Does not apply to bit as ptr not set
       if (s->malloc)
          ptr = ((void **) s->ptr)[index];
@@ -709,7 +710,7 @@ revk_settings_load (const char *tag, const char *appname)
                   {             // Array match, old
                      err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
                      if (!err)
-                        err = "Old style record in nvs, being replaced"; // And error should mean any .fix is written back
+                        err = "Old style record in nvs, being replaced";        // And error should mean any .fix is written back
                      addzap ();
                      break;
                   }
@@ -748,7 +749,7 @@ revk_settings_load (const char *tag, const char *appname)
             nvs_put (s, 0, NULL);
          else
             for (int i = 0; i < s->array; i++)
-               nvs_put (s,i, NULL);
+               nvs_put (s, i, NULL);
       }
    }
 }
@@ -861,9 +862,10 @@ revk_setting_dump (void)
 
       void addgroup (revk_settings_t * s)
       {
+         group[s->group / 8] |= (1 << (s->group & 7));
          revk_settings_t *r;
          for (r = revk_settings;
-              r->len && (r->group != s->group || !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))); r++);
+              r->len && (r->group != s->group || !(nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7)))); r++);
          if (!r->len)
             return;             // Maybe returning NULL would be clearer?
          char tag[16];
@@ -872,7 +874,7 @@ revk_setting_dump (void)
          strncpy (tag, s->name, s->dot);
          jo_object (j, tag);
          for (r = revk_settings; r->len; r++)
-            if (r->group == s->group && (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+            if (r->group == s->group && (nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7))))
                addvalue (r, 0, s->dot);
          jo_close (j);
       }
@@ -884,7 +886,8 @@ revk_setting_dump (void)
             addgroup (s);
          else if (s->array)
             addarray (s, 0);
-         addvalue (s, 0, 0);
+         else
+            addvalue (s, 0, 0);
       }
 
       addsetting ();
@@ -939,6 +942,7 @@ revk_setting (jo_t j)
             jo_strncpy (j, tag + plen, l + 1);
             revk_settings_t *s;
             for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
+            // TODO array number suffix
             void store (int index)
             {
                if (!s->len)
