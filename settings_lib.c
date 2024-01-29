@@ -636,9 +636,11 @@ text_value (revk_settings_t * s, int index, int *lenp)
    }
    if (s->hex)
    {
+	   // TODO
    }
    if (s->base64)
    {
+	   // TODO
    }
    if (lenp)
       *lenp = len;
@@ -1029,8 +1031,9 @@ revk_setting_dump (void)
                   break;
                }
             }
-            // Drop though
+	    __attribute__((fallthrough));
 #endif
+	 default:
             jo_stringn (p, tag, data, len);
          }
          free (data);
@@ -1065,7 +1068,12 @@ revk_setting_dump (void)
          jo_object (p, tag);
          for (r = revk_settings; r->len; r++)
             if (r->group == s->group && (nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7))))
-               addvalue (r, 0, r->name + r->dot);
+            {
+               if (r->array)
+                  addarray (r, r->dot);
+               else
+                  addvalue (r, 0, r->name + r->dot);
+            }
          jo_close (p);
       }
 
