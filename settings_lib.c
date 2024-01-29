@@ -122,7 +122,7 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
              (s->size == 1 && nvs_set_u8 (nvs[s->revk], tag, v = *((uint8_t *) ptr))))
             return "Cannot store number (unsigned)";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
-         ESP_LOGE (TAG, "Write %s unsigned %llu 0x%0*llX (ptr %p sptr %p)", taga, v, s->size * 2, v,ptr,s->ptr);
+         ESP_LOGE (TAG, "Write %s unsigned %llu 0x%0*llX", taga, v, s->size * 2, v);
 #endif
       }
       break;
@@ -463,7 +463,7 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
       d++;
    while (d && d < e && *d == ' ')
       d++;
-   p += (s->size ? : sizeof (void *));
+   p += (s->malloc ? sizeof (void *):s->size);
    *pp = p;
    *dp = d;
    return err;
@@ -674,7 +674,8 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       }
       if (d == e)
          d = e = NULL;
-   }
+ 
+   if(d)ESP_LOGE(TAG,"Load %s %.*s",s->name,(int)(e-d),d);}
    if (d < e && s->hex)
    {
       // TODO
