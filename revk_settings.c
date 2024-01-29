@@ -59,8 +59,10 @@ typename (FILE * O, const char *type)
 void
 typesuffix (FILE * O, const char *type)
 {
-   if ((*type == 'o' || *type == 'c') && isdigit (type[1]))
+   if (*type == 'o' && isdigit (type[1]))
       fprintf (O, "[%s]", type + 1);
+   else if (*type == 'c' && isdigit (type[1]))
+      fprintf (O, "[%d]", atoi (type + 1) + 1);
 }
 
 void

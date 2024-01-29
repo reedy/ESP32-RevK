@@ -249,7 +249,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
             if (nvs_get_u8 (nvs[s->revk], tag, data))
                return "Cannot load bit";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
-            ESP_LOGE (TAG, "Read %s bit %d", taga, ((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7)) ? 1 : 0);
+            ESP_LOGE (TAG, "Read %s bit %d", taga, *(uint8_t *) data);
 #endif
          }
          break;
@@ -556,22 +556,25 @@ text_numeric (revk_settings_t * s, void *p)
 static int
 value_cmp (revk_settings_t * s, void *a, void *b)
 {                               // Pointer to actual data
-#ifdef	REVK_SETTINGS_HAS_BLOB
-   if (s->type == REVK_SETTINGS_BLOB)
+   if (s->malloc)
    {
-      revk_settings_blob_t *A = *(void **) a;
-      revk_settings_blob_t *B = *(void **) b;
-      if (!A || !B || A->len > B->len)
-         return 1;
-      if (A->len < B->len)
-         return -1;
-      return memcmp (A->data, B->data, A->len);
-   }
+#ifdef	REVK_SETTINGS_HAS_BLOB
+      if (s->type == REVK_SETTINGS_BLOB)
+      {
+         revk_settings_blob_t *A = *(void **) a;
+         revk_settings_blob_t *B = *(void **) b;
+         if (!A || !B || A->len > B->len)
+            return 1;
+         if (A->len < B->len)
+            return -1;
+         return memcmp (A->data, B->data, A->len);
+      }
 #endif
 #ifdef	REVK_SETTINGS_HAS_STRING
-   if (s->type == REVK_SETTINGS_STRING)
-      return strcmp (*((char **) a), *((char **) b));
+      if (s->type == REVK_SETTINGS_STRING)
+         return strcmp (*((char **) a), *((char **) b));
 #endif
+   }
    return memcmp (a, b, s->size ? : 1);
 }
 
@@ -1153,7 +1156,7 @@ revk_setting (jo_t j)
          debug = jo_debug (j);
          int l = jo_strlen (j);
          if (l + plen > sizeof (tag) - 1)
-            err = "Too long";
+            err = "Not found";
          else
          {
             jo_strncpy (j, tag + plen, l + 1);
@@ -1242,34 +1245,37 @@ revk_setting (jo_t j)
 #endif
                      ptr += index * (s->malloc ? sizeof (void *) : s->size);
                   err = load_value (s, val, index, temp);
-                  if (value_cmp (s, ptr, temp))
-                  {             // Change
-                     if (s->live)
-                     {          // Apply live
+                  if (!err)
+                  {
+                     if (value_cmp (s, ptr, temp))
+                     {          // Change
+                        if (s->live)
+                        {       // Apply live
 #ifdef	REVK_SETTINGS_HAS_BIT
-                        if (s->type == REVK_SETTINGS_BIT)
-                        {
-                           if (bit)
-                              ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
-                           else
-                              ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
-                        } else
+                           if (s->type == REVK_SETTINGS_BIT)
+                           {
+                              if (bit)
+                                 ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
+                              else
+                                 ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
+                           } else
 #endif
-                        {
-                           if (s->malloc)
-                              free (*(void **) ptr);
-                           memcpy (ptr, temp, len);
-                           dofree = 0;
+                           {
+                              if (s->malloc)
+                                 free (*(void **) ptr);
+                              memcpy (ptr, temp, len);
+                              dofree = 0;
+                           }
                         }
-                     }
-                     if (t == JO_NULL && !s->fix)
+                        if (t == JO_NULL && !s->fix)
+                           err = nvs_erase (s, s->name);
+                        else
+                           err = nvs_put (s, index, temp);
+                        if (!err && !s->live)
+                           change = 1;
+                     } else if (t == JO_NULL && !s->fix)
                         err = nvs_erase (s, s->name);
-                     else
-                        err = nvs_put (s, index, temp);
-                     if (!err && !s->live)
-                        change = 1;
-                  } else if (t == JO_NULL && !s->fix)
-                     err = nvs_erase (s, s->name);
+                  }
                   if (dofree)
                      free (*(void **) temp);
                   free (temp);
