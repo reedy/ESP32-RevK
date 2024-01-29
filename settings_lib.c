@@ -83,11 +83,11 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
    }
    // Deference
    if (ptr)
-   { // Copy
+   {                            // Copy
       if (s->malloc)
          ptr = *(void **) ptr;
    } else if (!ptr && s->ptr)
-   { // Live (not relevant for bit as no s->ptr)
+   {                            // Live (not relevant for bit as no s->ptr)
       if (s->malloc)
          ptr = ((void **) s->ptr)[index];
       else
@@ -359,6 +359,8 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
    void *p = *pp;
    while (d && d < e && *d == ' ')
       d++;
+   if (d)
+      ESP_LOGE (TAG, "Parse %s %.*s", s->name, (int) (e - d), d);
    if (!d || d >= e)
       memset (p, 0, s->size);   // Empty
    else
@@ -457,13 +459,14 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
             err = "Bad number size";
       }
    }
+
    while (d && d < e && *d == ' ' && *d != ',' && *d != '\t')
       d++;
    if (d && d < e && (*d == ',' || *d == '\t'))
       d++;
    while (d && d < e && *d == ' ')
       d++;
-   p += (s->malloc ? sizeof (void *):s->size);
+   p += (s->malloc ? sizeof (void *) : s->size);
    *pp = p;
    *dp = d;
    return err;
@@ -674,8 +677,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       }
       if (d == e)
          d = e = NULL;
- 
-   if(d)ESP_LOGE(TAG,"Load %s %.*s",s->name,(int)(e-d),d);}
+   }
    if (d < e && s->hex)
    {
       // TODO
