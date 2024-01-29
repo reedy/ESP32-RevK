@@ -457,6 +457,8 @@ main (int argc, const char *argv[])
       if (hasoctet)
          fprintf (H, " REVK_SETTINGS_OCTET,\n");
       fprintf (H, "};\n");
+      if (hassigned||hasunsigned)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_NUMERIC\n");
       if (hassigned)
          fprintf (H, "#define	REVK_SETTINGS_HAS_SIGNED\n");
       if (hasunsigned)
@@ -481,6 +483,11 @@ main (int argc, const char *argv[])
          {
             count++;
             fprintf (C, " {");
+            if (d->attributes&&!(*d->type == 's'||*d->type=='u')&& isdigit (d->type[1]))
+	    { // non numeric
+		    if(strstr(d->attributes,".set="))errx(1,".set on no numeric for %s in %s",d->name,d->type);
+		    if(strstr(d->attributes,".flags="))errx(1,".flags on no numeric for %s in %s",d->name,d->type);
+	    }
             if (*d->type == 's' && isdigit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_SIGNED");
             else if ((*d->type == 'u' && isdigit (d->type[1])) || !strcmp (d->type, "gpio"))

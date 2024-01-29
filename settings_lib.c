@@ -184,7 +184,8 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
 static const char *
 nvs_get (revk_settings_t * s, const char *tag, int index)
 {                               // Getting NVS
-			  ESP_LOGE(TAG,"Get %s",s->name);//TODO
+			  if(s->ptr&&s->malloc)
+			  ESP_LOGE(TAG,"Get %s ptr %p value %p",s->name,s->ptr, *(void**)s->ptr);//TODO
    if (s->array && index >= s->array)
       return "Array overflow";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
@@ -345,7 +346,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    return err;
 }
 
-#if	defined(REVK_SETTINGS_HAS_SIGNED) || defined(REVK_SETTINGS_HAS_UNSIGNED)
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
 static const char *
 parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
 {                               // Single numeric parse to memory, advance memory and source
@@ -527,7 +528,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    }
    switch (s->type)
    {
-#if	defined(REVK_SETTINGS_HAS_SIGNED) || defined(REVK_SETTINGS_HAS_UNSIGNED)
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
 #ifdef  REVK_SETTINGS_HAS_SIGNED
    case REVK_SETTINGS_SIGNED:
 #endif
@@ -1017,7 +1018,7 @@ revk_setting (jo_t j)
                   if (s->def)
                   {
                      val = (char *) s->def;
-#if	defined(REVK_SETTINGS_HAS_SIGNED) || defined(REVK_SETTINGS_HAS_UNSIGNED)
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
                      if (s->array && (1
 #ifdef	REVK_SETTINGS_HAS_SIGNED
                                       || s->type == REVK_SETTINGS_SIGNED
@@ -1044,7 +1045,7 @@ revk_setting (jo_t j)
                      }
 #endif
                      val = strdup (val);
-#if	defined(REVK_SETTINGS_HAS_SIGNED) || defined(REVK_SETTINGS_HAS_UNSIGNED)
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
                      if (s->array && (1
 #ifdef	REVK_SETTINGS_HAS_SIGNED
                                       || s->type == REVK_SETTINGS_SIGNED
