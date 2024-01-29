@@ -259,13 +259,12 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
          {
             if (nvs_get_blob (nvs[s->revk], tag, NULL, &len))
                return "Cannot get blob len";
-            len += sizeof (revk_settings_blob_t);
-            revk_settings_blob_t *b = mallocspi (len);
+            revk_settings_blob_t *b = mallocspi (sizeof (revk_settings_blob_t) + len);
             if (!b)
                return "malloc";
+            b->len = len;
             if (nvs_get_blob (nvs[s->revk], tag, b->data, &len))
                return "Cannot load blob";
-            b->len = len - sizeof (revk_settings_blob_t);
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
             ESP_LOGE (TAG, "Read %s blog %d", taga, b->len);
             ESP_LOG_BUFFER_HEX_LEVEL (TAG, b->data, b->len, ESP_LOG_ERROR);
