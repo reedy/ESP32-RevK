@@ -668,13 +668,11 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    if (d)
    {
       e = d + strlen (d);
-      ESP_LOGE (TAG, "Parse1 %s %.*s", s->name, (int) (e - d), d);
       if (s->dq && e > d + 1 && *d == '"' && e[-1] == '"')
       {
          d++;
          e--;
       }
-      ESP_LOGE (TAG, "Parse2 %s %.*s", s->name, (int) (e - d), d);
       if (d == e)
          d = e = NULL;
    }
@@ -686,7 +684,6 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    {
       // TODO
    }
-   ESP_LOGE(TAG,"Type %s %d",s->name,s->type);
    switch (s->type)
    {
 #ifdef	REVK_SETTINGS_HAS_NUMERIC
@@ -696,12 +693,10 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
 #ifdef  REVK_SETTINGS_HAS_UNSIGNED
    case REVK_SETTINGS_UNSIGNED:
 #endif
-      ESP_LOGE (TAG, "Parse3 %s %.*s", s->name, (int) (e - d), d);
       if (s->malloc)
          err = "Malloc number not supported";
       else
       {
-      ESP_LOGE (TAG, "Parse4 %s %.*s", s->name, (int) (e - d), d);
          err = parse_numeric (s, &ptr, &d, e);
          if (a && index < 0)
             while (!err && --a)
