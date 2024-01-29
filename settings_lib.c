@@ -184,6 +184,7 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
 static const char *
 nvs_get (revk_settings_t * s, const char *tag, int index)
 {                               // Getting NVS
+			  ESP_LOGE(TAG,"Get %s",s->name);//TODO
    if (s->array && index >= s->array)
       return "Array overflow";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
@@ -344,6 +345,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    return err;
 }
 
+#if	defined(REVK_SETTINGS_HAS_SIGNED) || defined(REVK_SETTINGS_HAS_UNSIGNED)
 static const char *
 parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
 {                               // Single numeric parse to memory, advance memory and source
@@ -430,8 +432,8 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
       if (b)
          scan ();
       if (!err && sign
-#ifdef	REVK_SETTINGS_HAS_SIGNED
-          && s->type == REVK_SETTINGS_SIGNED
+#ifdef	REVK_SETTINGS_HAS_UNSIGNED
+          && s->type == REVK_SETTINGS_UNSIGNED
 #endif
          )
          err = "Negative not allowed";
@@ -466,6 +468,7 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
    *dp = d;
    return err;
 }
+#endif
 
 static int
 value_cmp (revk_settings_t * s, void *a, void *b)
