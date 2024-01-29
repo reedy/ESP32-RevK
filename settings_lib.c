@@ -526,7 +526,7 @@ text_numeric (revk_settings_t * s, void *p)
                sprintf (t, "%021llu", val);
                char *i = t,
                   *e = t + 21 - s->decimal;
-               while (i < e - 1 && *i != '0')
+               while (i < e - 1 && *i == '0')
                   i++;
                while (i < e)
                   *t++ = *i++;
@@ -1041,7 +1041,7 @@ revk_setting_dump (void)
                         d++;
                   }
                }
-               if (!*d)
+               if (!*d && strcmp (data, "-0"))
                {
                   jo_lit (p, tag, data);
                   break;
@@ -1162,18 +1162,33 @@ revk_setting (jo_t j)
             jo_strncpy (j, tag + plen, l + 1);
             revk_settings_t *s;
             for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
-            // TODO array number suffix
             void store (int index)
             {
                if (!s->len)
                {
-                  err = "Not found";
-                  return;
+                  if (!index)
+                  {
+                     int e = l;
+                     while (e && isdigit ((int) tag[plen + e - 1]))
+                        e--;
+                     if (e < l)
+                     {
+                        for (s = revk_settings;
+                             s->len && (s->len != plen + e || (plen && s->dot != plen) || strncmp (s->name, tag, plen + e)); s++);
+                        if (s)
+                           index = atoi (tag + plen + e) - 1;
+                     }
+                  }
+                  if (!s->len)
+                  {
+                     err = "Not found";
+                     return;
+                  }
                }
                found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
-               if (s->array && index >= s->array)
+               if ((s->array && (index < 0 || index >= s->array)) || (!s->array && index))
                {
-                  err = "Too many entries";
+                  err = "Bad index";
                   return;
                }
                char *val = NULL;

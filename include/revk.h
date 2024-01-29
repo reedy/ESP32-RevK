@@ -200,16 +200,7 @@ esp_err_t revk_web_wifilist (httpd_req_t * req);        // WS for list of SSIDs
 void revk_web_head (httpd_req_t * req, const char *title);      // Generic html heading
 esp_err_t revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra);     // Generic html footing and return
 
-#ifndef	CONFIG_LED_BLINK
-void revk_blinker (             // Call every 0.1s if app controls blinking - strip means set first LED in strip
-#ifdef  CONFIG_REVK_LED_STRIP
-                     led_strip_handle_t strip
-#else
-                     void
-#endif
-   );
-#endif
-
+uint32_t revk_blinker (void); // Return colour for blinking LED
 #ifdef  CONFIG_REVK_LED_STRIP
 extern const uint8_t gamma8[256];
 uint32_t revk_rgb (char c);     // Provide RGB colour for character
@@ -217,7 +208,7 @@ void revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb); 
 #endif
 
 #ifdef	CONFIG_REVK_SEASON
-char revk_season (time_t now);  // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
+const char* revk_season (time_t now);  // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
 #endif
 
 #ifdef	CONFIG_REVK_LUNAR
