@@ -359,8 +359,6 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
    void *p = *pp;
    while (d && d < e && *d == ' ')
       d++;
-   if (d)
-      ESP_LOGE (TAG, "Parse %s %.*s", s->name, (int) (e - d), d);
    if (!d || d >= e)
       memset (p, 0, s->size);   // Empty
    else
@@ -670,6 +668,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    if (d)
    {
       e = d + strlen (d);
+      ESP_LOGE (TAG, "Parse %s %.*s", s->name, (int) (e - d), d);
       if (s->dq && e > d + 1 && *d == '"' && e[-1] == '"')
       {
          d++;
@@ -699,6 +698,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
          err = "Malloc number not supported";
       else
       {
+      ESP_LOGE (TAG, "Parse %s %.*s", s->name, (int) (e - d), d);
          err = parse_numeric (s, &ptr, &d, e);
          if (a && index < 0)
             while (!err && --a)
