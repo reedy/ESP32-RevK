@@ -50,6 +50,8 @@ Note the basic syntax of the definition files are checked, but not whether they 
 |`gpio`|A GPIO definition, see below|
 |`blob`|Binary data (up to 64K if space in NVS), see below|
 |`s`|String i.e. `char*`|
+|`c`*N*|String allowing up to *N* characters, null terminated in a `char [N+1]` array|
+|`o`*N*|Fixed octet array `unit8_t [N]`, typically used with `.hex=1` or `.base64=1`, data has to be full size|
 |`u8`|`uint8_t`|
 |`u16`|`uint16_t`|
 |`u32`|`uint32_t`|
@@ -89,13 +91,13 @@ Additional attributes relate to each setting as follows:-
 |`.live`|This setting can be updated `live` without a reboot. If the setting is changed then it is changed in memory (as well as being stored to NVS).|
 |`.fix`|The setting is to be fixed, i.e. the default value is only used if not defined in NVS, and the value, even if default, is stored to NVS. This assumed for `gpio` type.|
 |`.set`|The top bit of the value is set if the value is defined.|
-|`.bitfield`|This is a string that are characters which can be prefixed (and./or suffixed) on a numeric value and set in the top bits of the value (see below).|
+|`.flags`|This is a string that are characters which can be prefixed (and./or suffixed) on a numeric value and set in the top bits of the value (see below).|
 |`.hex`|The value should be hex encoded in JSON. Typically used with `c` and `.array` set|
 |`.base64`|The value should be base64 encoded in JSON. Typically used with `c` and `.array` set|
 |`.decimal`|Used with integer types this scales by specified number of digits. E.g. `.decimal=2` will show `123` as `1.23` in JSON. A `#define` is for the variable suffixed with `_scale` defining the scale, e.g. `100` for `.decimal=2`.|
-|`.pass`|Set if this is a password|
+|`.secret`|Set if this is a secvet and not output in settings JSON|
 
-The `.set` and `.bitfield` attributes can apply to a numeric value, and cause top bits in the integer value to be set. `.set` is always the top bit if present, so if you have a `u16` with `.set=1` and a value of `123` is set, it will be `32891`. The `.bitfield` defines a string of one or more utf-8 characters that represent bits starting from the top bit (or next bit if `.set` is used as well). When parsing, any of the bitfield characters can be before or after the number. When output, they are normally before rhe number, unless there is a space in the bitfield and those characters after the space come after the number (the space is not assigned a bit).
+The `.set` and `.flags` attributes can apply to a numeric value, and cause top bits in the integer value to be set. `.set` is always the top bit if present, so if you have a `u16` with `.set=1` and a value of `123` is set, it will be `32891`. The `.flags` defines a string of one or more utf-8 characters that represent bits starting from the top bit (or next bit if `.set` is used as well). When parsing, any of the flags characters can be before or after the number. When output, they are normally before rhe number, unless there is a space in the flags and those characters after the space come after the number (the space is not assigned a bit).
 
 ## JSON
 

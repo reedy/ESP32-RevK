@@ -43,8 +43,10 @@ typename (FILE * O, const char *type)
       fprintf (O, "revk_settings_blob_t*");
    else if (!strcmp (type, "s"))
       fprintf (O, "char*");
-   else if (!strcmp (type, "c"))
+   else if (*type == 'c' && isdigit ((int) type[1]))
       fprintf (O, "char");
+   else if (*type == 'o' && isdigit ((int) type[1]))
+      fprintf (O, "uint8_t");
    else if (*type == 'u' && isdigit ((int) type[1]))
       fprintf (O, "uint%s_t", type + 1);
    else if (*type == 's' && isdigit ((int) type[1]))
@@ -55,10 +57,19 @@ typename (FILE * O, const char *type)
 }
 
 void
+typesuffix (FILE * O, const char *type)
+{
+   if((*type=='o'||*type=='c')&&isdigit(type[1]))
+	   fprintf(O,"[%s]",type+1);
+}
+
+void
 typeinit (FILE * O, const char *type)
 {
    fprintf (O, "=");
-   if (!strcmp (type, "gpio"))
+   if(*type=='c'&&isdigit(type[1]))
+      fprintf (O, "\"\"");
+   else if (!strcmp (type, "gpio")||(*type=='o'&&isdigit(type[1])))
       fprintf (O, "{0}");
    else if (!strcmp (type, "blob") || !strcmp (type, "s"))
       fprintf (O, "NULL");
@@ -323,35 +334,65 @@ main (int argc, const char *argv[])
                " void *ptr;\n"  //
                " const char name[%d];\n"        //
                " const char *def;\n"    //
-               " const char *bitfield;\n"       //
+               " const char *flags;\n"  //
                " uint16_t size;\n"      //
                " uint8_t group;\n"      //
-               " uint8_t dot:4;\n"     //
+	       " uint8_t bit;\n"	//
+               " uint8_t dot:4;\n"      //
                " uint8_t len:4;\n"      //
-               " uint8_t bit;\n"        //
-               " uint8_t array:7;\n"    //
-               " uint8_t sign:1;\n"     //
+               " uint8_t type:3;\n"     //
                " uint8_t decimal:5;\n"  //
-               " uint8_t blob:1;\n"     //
+               " uint8_t array:7;\n"    //
+               " uint8_t malloc:1;\n"  //
                " uint8_t revk:1;\n"     //
                " uint8_t live:1;\n"     //
                " uint8_t fix:1;\n"      //
                " uint8_t set:1;\n"      //
                " uint8_t hex:1;\n"      //
                " uint8_t base64:1;\n"   //
-               " uint8_t pass:1;\n"     //
+               " uint8_t secret:1;\n"     //
                " uint8_t dq:1;\n"       //
                "};\n", maxname + 1);
 
+      char hasblob = 0;
+      char hasbit = 0;
+      char hasunsigned = 0;
+      char hassigned = 0;
+      char hasoctet = 0;
+      char hasstring = 0;
+
+      for (d = defs; d && (!d->type || *d->type != 'o' || !isdigit (d->type[1])); d = d->next);
+      if (d)
+         hasoctet = 1;
+
+      for (d = defs; d && (!d->type || *d->type != 's' || !isdigit (d->type[1])); d = d->next);
+      if (d)
+         hassigned = 1;
+
+      for (d = defs; d && (!d->type || *d->type != 'u' || !isdigit (d->type[1])); d = d->next);
+      if (d)
+         hasunsigned = 1;
+
+      for (d = defs; d && (!d->type || *d->type != 'c' || !isdigit (d->type[1])); d = d->next);
+      if (!d)
+         for (d = defs; d && (!d->type || strcmp (d->type, "s")); d = d->next);
+      if (d)
+         hasstring = 1;
+
       for (d = defs; d && (!d->type || strcmp (d->type, "blob")); d = d->next);
       if (d)
+      {
          fprintf (H, "typedef struct revk_settings_blob_s revk_settings_blob_t;\n"      //
                   "struct revk_settings_blob_s {\n"     //
                   " uint16_t len;\n"    //
                   " uint8_t data[];\n"  //
                   "};\n");
+         hasblob = 1;
+      }
       for (d = defs; d && (!d->type || strcmp (d->type, "gpio")); d = d->next);
       if (d)
+      {
+         hasunsigned = 1;       // GPIO is treated as a u16
          fprintf (H, "typedef struct revk_settings_gpio_s revk_settings_gpio_t;\n"      //
                   "struct revk_settings_gpio_s {\n"     //
                   " uint16_t num:10;\n" //
@@ -362,9 +403,11 @@ main (int argc, const char *argv[])
                   " uint16_t invert:1;\n"       //
                   " uint16_t set:1;\n"  //
                   "};\n");
+      }
       for (d = defs; d && (!d->type || strcmp (d->type, "bit")); d = d->next);
       if (d)
       {                         // Bit fields
+         hasbit = 1;
          fprintf (H, "enum {\n");
          for (d = defs; d; d = d->next)
             if (d->define)
@@ -392,12 +435,40 @@ main (int argc, const char *argv[])
                if (typename (H, d->type))
                   errx (1, "Unknown type %s in %s", d->type, d->fn);
                fprintf (H, " %s", d->name);
+	       typesuffix(H,d->type);
                if (d->array)
                   fprintf (H, "[%s]", d->array);
                fprintf (H, ";\n");
             }
          fprintf (H, "extern revk_settings_bits_t revk_settings_bits;\n");
       }
+
+      fprintf (H, "enum {\n");
+      if (hassigned)
+         fprintf (H, " REVK_SETTINGS_SIGNED,\n");
+      if (hasunsigned)
+         fprintf (H, " REVK_SETTINGS_UNSIGNED,\n");
+      if (hasbit)
+         fprintf (H, " REVK_SETTINGS_BIT,\n");
+      if (hasblob)
+         fprintf (H, " REVK_SETTINGS_BLOB,\n");
+      if (hasstring)
+         fprintf (H, " REVK_SETTINGS_STRING,\n");
+      if (hasoctet)
+         fprintf (H, " REVK_SETTINGS_OCTET,\n");
+      fprintf (H, "};\n");
+      if (hassigned)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_SIGNED\n");
+      if (hasunsigned)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_UNSIGNED\n");
+      if (hasbit)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_BIT\n");
+      if (hasblob)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_BLOB\n");
+      if (hasstring)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_STRING\n");
+      if (hasoctet)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_OCTET\n");
 
       fprintf (C, "#define	str(s)	#s\n");
       fprintf (C, "#define	quote(s)	str(s)\n");
@@ -410,12 +481,26 @@ main (int argc, const char *argv[])
          {
             count++;
             fprintf (C, " {");
-            fprintf (C, ".name=\"%s\"", d->name);
+            if (*d->type == 's' && isdigit (d->type[1]))
+               fprintf (C, ".type=REVK_SETTINGS_SIGNED");
+            else if ((*d->type == 'u' && isdigit (d->type[1])) || !strcmp (d->type, "gpio"))
+               fprintf (C, ".type=REVK_SETTINGS_UNSIGNED");
+            else if (!strcmp (d->type, "bit"))
+               fprintf (C, ".type=REVK_SETTINGS_BIT");
+            else if (!strcmp (d->type, "blob"))
+               fprintf (C, ".type=REVK_SETTINGS_BLOB");
+            else if (!strcmp (d->type, "s")||(*d->type == 'c' && isdigit (d->type[1])))
+               fprintf (C, ".type=REVK_SETTINGS_STRING");
+            else if (*d->type == 'o' && isdigit (d->type[1]))
+               fprintf (C, ".type=REVK_SETTINGS_OCTET");
+            else
+               errx (1, "Unknown type %s for %s in %s", d->type, d->name, d->fn);
+            fprintf (C, ",.name=\"%s\"", d->name);
             if (d->group)
                fprintf (C, ",.group=%d", d->group);
             fprintf (C, ",.len=%d", (int) strlen (d->name));
-	    if(d->name2)
-            fprintf (C, ",.dot=%d", (int) strlen (d->name1));
+            if (d->name2)
+               fprintf (C, ",.dot=%d", (int) strlen (d->name1));
             if (!d->name2)
                for (int g = 0; g < groups; g++)
                   if (!strcmp (d->name1, group[g]))
@@ -430,12 +515,15 @@ main (int argc, const char *argv[])
             if (!strcmp (d->type, "bit"))
                fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s", d->name);
             else
-            {
+            {                   // Bits are the only one without pointers
                fprintf (C, ",.ptr=&%s", d->name);
-               if (strcmp (d->type, "s") && strcmp (d->type, "blob"))
-               {
+               if (!strcmp (d->type, "s") || !strcmp (d->type, "blob"))
+                  fprintf (C, ",.malloc=1");
+               else
+               {                // Code allows for a .pointer and .size but none of the types we use do that at present, as all .size are fixed in situ
                   fprintf (C, ",.size=sizeof(");
                   typename (C, d->type);
+                  typesuffix (C, d->type);
                   fprintf (C, ")");
                }
             }
@@ -443,12 +531,8 @@ main (int argc, const char *argv[])
             {
                if (!d->attributes || !strstr (d->attributes, ".fix="))
                   fprintf (C, ",.fix=1");
-               fprintf (C, ",.set=1,.bitfield=\"- ~↓↕⇕\"");
+               fprintf (C, ",.set=1,.flags=\"- ~↓↕⇕\"");
             }
-            if (*d->type == 's' && isdigit (d->type[1]))
-               fprintf (C, ",.sign=1");
-            if (!strcmp (d->type, "blob"))
-               fprintf (C, ",.blob=1");
             if (d->attributes)
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
@@ -466,9 +550,11 @@ main (int argc, const char *argv[])
             typename (C, d->type);
             fprintf (C, " %s", d->name);
             if (d->array)
-               fprintf (C, "[%s]={0}", d->array);
-            else
-               typeinit (C, d->type);
+               fprintf (C, "[%s]", d->array);
+	    typesuffix(C,d->type);
+            if (d->array)
+               fprintf (C, "={0}");
+	    else typeinit(C,d->type);
             fprintf (C, ";\n");
          }
       // Final includes
