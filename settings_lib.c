@@ -559,13 +559,13 @@ value_cmp (revk_settings_t * s, void *a, void *b)
 #ifdef	REVK_SETTINGS_HAS_BLOB
    if (s->type == REVK_SETTINGS_BLOB)
    {
-      int alen = ((revk_settings_blob_t *) a)->len;
-      int blen = ((revk_settings_blob_t *) b)->len;
-      if (alen > blen)
+      revk_settings_blob_t *A = *(void **) a;
+      revk_settings_blob_t *B = *(void **) b;
+      if (!A || !B || A->len > B->len)
          return 1;
-      if (alen < blen)
+      if (A->len < B->len)
          return -1;
-      return memcmp (((revk_settings_blob_t *) a)->data, ((revk_settings_blob_t *) b)->data, alen + sizeof (revk_settings_blob_t));
+      return memcmp (A->data, B->data, A->len);
    }
 #endif
 #ifdef	REVK_SETTINGS_HAS_STRING
@@ -889,7 +889,8 @@ revk_settings_load (const char *tag, const char *appname)
          if (nvs_erase_key (nvs[revk], zap->tag))
             ESP_LOGE (tag, "Erase %s failed", zap->tag);
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
-         ESP_LOGE (TAG, "Erase %s", zap->tag);
+         else
+            ESP_LOGE (TAG, "Erase %s", zap->tag);
 #endif
          free (zap);
          zap = z;
@@ -1252,7 +1253,12 @@ revk_setting (jo_t j)
                      else
                         err = nvs_put (s, index, temp);
                      if (!err && !s->live)
+                     {
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+                        ESP_LOGE (TAG, "Changed %s %d", s->name, index);
+#endif
                         change = 1;
+                     }
                   } else if (t == JO_NULL && !s->fix)
                      err = nvs_erase (s, s->name);
                   if (dofree)
