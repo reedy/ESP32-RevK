@@ -91,7 +91,7 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
       if (s->malloc)
          ptr = ((void **) s->ptr)[index];
       else
-         ptr = s->ptr + s->size;
+         ptr = s->ptr + index * s->size;
    }
    revk_nvs_time = uptime () + 60;
    nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
@@ -1040,7 +1040,7 @@ revk_setting_dump (void)
             __attribute__((fallthrough));
 #endif
          default:
-            jo_stringn (p, tag, data, len);
+            jo_stringn (p, tag, data ? : "", len);
          }
          free (data);
       }
