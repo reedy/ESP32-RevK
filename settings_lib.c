@@ -656,6 +656,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    const char *err = NULL;
    int a = s->array;
    const char *e = NULL;
+   char *mem=NULL;
    if (d)
    {
       e = d + strlen (d);
@@ -679,7 +680,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
          d = e = NULL;
       else
       {
-         char *mem = mallocspi (len);
+         mem = mallocspi (len);
          jo_strncpyd (j, mem, len, s->base64 ? 6 : 4, s->base64 ? JO_BASE64 : JO_BASE16);
          d = mem;
          e = mem + len;
@@ -822,6 +823,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    }
    if (err)
       ESP_LOGE (TAG, "%s %s", s->name, err);
+   free(mem);
    return err;
 }
 
