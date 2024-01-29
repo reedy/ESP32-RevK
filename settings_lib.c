@@ -872,17 +872,18 @@ revk_setting_dump (void)
          jo_object (j, tag);
          for (r = revk_settings; r->len; r++)
             if (r->group == s->group && (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
-               addvalue (r, 0,s->dot);
+               addvalue (r, 0, s->dot);
          jo_close (j);
       }
 
       void addsetting (void)
       {                         // Add a whole setting
+         start ();
          if (s->group)
             addgroup (s);
          else if (s->array)
-            addarray (s,0);
-         addvalue (s,0,0);
+            addarray (s, 0);
+         addvalue (s, 0, 0);
       }
 
       addsetting ();
