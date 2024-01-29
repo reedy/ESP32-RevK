@@ -318,8 +318,10 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    }
    if (s->malloc)
    {
-      free (*((void **) s->ptr));
-      *((void **) s->ptr) = data;
+      void **p = s->ptr;
+      p += index;
+      free (*p);
+      *p = data;
    }
 #ifdef  REVK_SETTINGS_HAS_BIT
    else if (s->type == REVK_SETTINGS_BIT)
