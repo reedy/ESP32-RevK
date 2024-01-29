@@ -281,6 +281,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                return "Cannot get string len";
             if (!len)
                return "Bad string len";
+	    ESP_LOGE(TAG,"%s string len %d",tag,len);
             char *data = mallocspi (len);
             if (!data)
                return "malloc";
@@ -320,6 +321,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
    }
    if (s->malloc)
    {
+	   if(!data)err="NULL data";
       void **p = s->ptr;
       p += index;
       free (*p);
