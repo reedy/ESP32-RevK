@@ -640,14 +640,6 @@ text_value (revk_settings_t * s, int index, int *lenp)
       break;
 #endif
    }
-   if (s->hex)
-   {
-      // TODO
-   }
-   if (s->base64)
-   {
-      // TODO
-   }
    if (lenp)
       *lenp = len;
    return data;
@@ -676,13 +668,24 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       if (d == e)
          d = e = NULL;
    }
-   if (d < e && s->hex)
+   if (d < e && (s->hex || s->base64))
    {
-      // TODO
-   }
-   if (d < e && s->base64)
-   {
-      // TODO
+      jo_t j = jo_create_alloc ();
+      jo_stringn (j, NULL, d, e - d);
+      jo_rewind (j);
+      ssize_t len = jo_strncpyd (j, NULL, 0, s->base64 ? 6 : 4, s->base64 ? JO_BASE64 : JO_BASE16);
+      if (len <= 0)
+         err = s->base64 ? "Bad base64" : "Bad hex";
+      if (err)
+         d = e = NULL;
+      else
+      {
+         char *mem = mallocspi (len);
+         jo_strncpyd (j, mem, len, s->base64 ? 6 : 4, s->base64 ? JO_BASE64 : JO_BASE16);
+         d = mem;
+         e = mem + len;
+      }
+      jo_free (&j);
    }
    switch (s->type)
    {
@@ -1043,7 +1046,12 @@ revk_setting_dump (void)
             __attribute__((fallthrough));
 #endif
          default:
-            jo_stringn (p, tag, data ? : "", len);
+            if (s->hex)
+               jo_base16 (p, tag, data ? : "", len);
+            else if (s->base64)
+               jo_base64 (p, tag, data ? : "", len);
+            else
+               jo_stringn (p, tag, data ? : "", len);
          }
          free (data);
       }
