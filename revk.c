@@ -2140,6 +2140,7 @@ revk_boot (app_callback_t * app_callback_cb)
 void
 revk_start (void)
 {                               // Start stuff, init all done
+#ifdef REVK_BLINK_LIB
 #ifdef  CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[0].num == blink[1].num)
    {
@@ -2166,6 +2167,7 @@ revk_start (void)
             gpio_set_direction (p, GPIO_MODE_OUTPUT);   /* Blinking LED */
          }
       }
+#endif
 #ifndef CONFIG_ENABLE_WIFI_STATION
    esp_netif_init ();
 #endif
