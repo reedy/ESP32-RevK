@@ -294,12 +294,12 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 #ifdef  REVK_SETTINGS_HAS_OCTET
       case REVK_SETTINGS_OCTET:
          {
-            data = mallocspi (len = s->array);
+            data = mallocspi (len = s->size);
             if (!data)
                return "malloc";
             if (nvs_get_blob (nvs[s->revk], tag, data, &len))
                return "Cannot load fixed block";
-            if (len != s->len)
+            if (len != s->size)
                return "Bad fixed block size";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
             ESP_LOGE (TAG, "Read %s fixed %d", taga, len);
@@ -656,7 +656,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    const char *err = NULL;
    int a = s->array;
    const char *e = NULL;
-   char *mem=NULL;
+   char *mem = NULL;
    if (d)
    {
       e = d + strlen (d);
@@ -823,7 +823,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
    }
    if (err)
       ESP_LOGE (TAG, "%s %s", s->name, err);
-   free(mem);
+   free (mem);
    return err;
 }
 
@@ -1145,10 +1145,12 @@ revk_setting (jo_t j)
    const char *err = NULL;
    char tag[16];
    revk_setting_bits_t found = { 0 };
+   const char *debug = NULL;
    void scan (int plen)
    {
       while (!err && (t = jo_next (j)) == JO_TAG)
       {
+         debug = jo_debug (j);
          int l = jo_strlen (j);
          if (l + plen > sizeof (tag) - 1)
             err = "Too long";
@@ -1265,12 +1267,7 @@ revk_setting (jo_t j)
                      else
                         err = nvs_put (s, index, temp);
                      if (!err && !s->live)
-                     {
-#ifdef  CONFIG_REVK_SETTINGS_DEBUG
-                        ESP_LOGE (TAG, "Changed %s %d", s->name, index);
-#endif
                         change = 1;
-                     }
                   } else if (t == JO_NULL && !s->fix)
                      err = nvs_erase (s, s->name);
                   if (dofree)
@@ -1350,7 +1347,7 @@ revk_setting (jo_t j)
    }
    scan (0);
    if (err)
-      ESP_LOGE (TAG, "Failed %s at [%s]", err, jo_debug (j));
+      ESP_LOGE (TAG, "Failed %s at [%s]", err, debug ? : "?");
    if (change)
       revk_restart ("Settings changed", 5);
    return err ? : "";
