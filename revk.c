@@ -39,6 +39,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include "esp_phy_init.h"
 #include "esp_sleep.h"
 #include <driver/gpio.h>
+#include <driver/rtc_io.h>
 #ifdef	CONFIG_REVK_MESH
 #include <esp_mesh.h>
 #include "freertos/semphr.h"
