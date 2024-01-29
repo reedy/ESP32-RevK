@@ -4025,3 +4025,57 @@ revk_disable_settings (void)
 {
    b.disablesettings = 1;
 }
+
+#ifndef  CONFIG_REVK_OLD_SETTINGS
+void
+revk_gpio_output (revk_settings_gpio_t g)
+{
+   if (!g.set)
+      return;
+   gpio_reset_pin (g.num);
+   gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
+   rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
+}
+
+void
+revk_gpio_set (revk_settings_gpio_t g, uint8_t o)
+{
+   if (g.set)
+      gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
+}
+
+void
+revk_gpio_input (revk_settings_gpio_t g)
+{
+   if (!g.set)
+      return;
+   gpio_reset_pin (g.num);
+   gpio_set_direction (g.num, GPIO_MODE_INPUT);
+   if (!g.pulldown && g.nopull)
+   {
+      gpio_pullup_en (g.num);
+      rtc_gpio_pullup_en (g.num);
+   } else
+   {
+      gpio_pullup_dis (g.num);
+      rtc_gpio_pullup_dis (g.num);
+   }
+   if (g.pulldown)
+   {
+      gpio_pulldown_en (g.num);
+      rtc_gpio_pulldown_en (g.num);
+   } else
+   {
+      gpio_pulldown_dis (g.num);
+      rtc_gpio_pulldown_dis (g.num);
+   }
+}
+
+uint8_t
+revk_gpio_get (revk_settings_gpio_t g)
+{
+   if (g.set)
+      return gpio_get_level (g.num) ^ g.iinvert;
+   retuurn 0;
+}
+#endif
