@@ -84,7 +84,11 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
    }
    if (taglen > 15)
       return "Tag too long";
-   if (!ptr && s->ptr)
+   if(ptr)
+   {
+	   if(s->malloc)ptr=*(void**)ptr;
+   }
+   else if (!ptr && s->ptr)
    {                            // Does not apply to bit as ptr not set
       if (s->malloc)
          ptr = ((void **) s->ptr)[index];
@@ -160,7 +164,7 @@ nvs_put (revk_settings_t * s, const char *prefix, int index, void *ptr)
          if (nvs_set_str (nvs[s->revk], tag, ptr))
             return "Cannot store string";
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
-         ESP_LOGE (TAG, "Write %s string %s", taga, *((char **) ptr));
+         ESP_LOGE (TAG, "Write %s string %s", taga, (char *) ptr);
 #endif
       }
       break;
@@ -708,7 +712,7 @@ revk_settings_load (const char *tag, const char *appname)
                   {             // Array match, old
                      err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
                      if (!err)
-                        err = "Old style record in nvs, being replaced";
+                        err = "Old style record in nvs, being replaced"; // And error should mean any .fix is written back
                      addzap ();
                      break;
                   }
