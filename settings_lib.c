@@ -373,7 +373,7 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
       const char *b = s->flags;
       void scan (void)
       {                         // Scan for flags
-         while (d < e)
+         while (d < e && *d != ' ' && *d != ',')
          {
             int l = 1;
             while (d + l < e && (d[l] & 0xC0) == 0x80)
@@ -815,7 +815,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
 #endif
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
    default:
-      ESP_LOGE(TAG,"Bad type %s %d",s->name,s->type);
+      ESP_LOGE (TAG, "Bad type %s %d", s->name, s->type);
 #endif
    }
    if (err)

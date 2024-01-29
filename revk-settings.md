@@ -97,7 +97,7 @@ Additional attributes relate to each setting as follows:-
 |`.decimal`|Used with integer types this scales by specified number of digits. E.g. `.decimal=2` will show `123` as `1.23` in JSON. A `#define` is for the variable suffixed with `_scale` defining the scale, e.g. `100` for `.decimal=2`.|
 |`.secret`|Set if this is a secvet and not output in settings JSON|
 
-The `.set` and `.flags` attributes can apply to a numeric value, and cause top bits in the integer value to be set. `.set` is always the top bit if present, so if you have a `u16` with `.set=1` and a value of `123` is set, it will be `32891`. The `.flags` defines a string of one or more utf-8 characters that represent bits starting from the top bit (or next bit if `.set` is used as well). When parsing, any of the flags characters can be before or after the number. When output, they are normally before rhe number, unless there is a space in the flags and those characters after the space come after the number (the space is not assigned a bit).
+The `.set` and `.flags` attributes can apply to a numeric value, and cause top bits in the integer value to be set. `.set` is always the top bit if present, so if you have a `u16` with `.set=1` and a value of `123` is set, it will be `32891`. The `.flags` defines a string of one or more utf-8 characters that represent bits starting from the top bit (or next bit if `.set` is used as well). When parsing, any of the flags characters can be before or after the number. When output, they are normally before rhe number, unless there is a space in the flags and those characters after the space come after the number (the space is not assigned a bit). Don't use `,` in flags, and use `-` with caution.
 
 ## JSON
 
