@@ -83,11 +83,11 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
    }
    // Deference
    if (ptr)
-   {
+   { // Copy
       if (s->malloc)
          ptr = *(void **) ptr;
    } else if (!ptr && s->ptr)
-   {                            // Does not apply to bit as ptr not set
+   { // Live (not relevant for bit as no s->ptr)
       if (s->malloc)
          ptr = ((void **) s->ptr)[index];
       else
@@ -122,7 +122,7 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
              (s->size == 1 && nvs_set_u8 (nvs[s->revk], tag, v = *((uint8_t *) ptr))))
             return "Cannot store number (unsigned)";
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
-         ESP_LOGE (TAG, "Write %s unsigned %llu 0x%0*llX", taga, v, s->size * 2, v);
+         ESP_LOGE (TAG, "Write %s unsigned %llu 0x%0*llX (ptr %p sptr %p)", taga, v, s->size * 2, v,ptr,s->ptr);
 #endif
       }
       break;
@@ -897,7 +897,6 @@ revk_settings_load (const char *tag, const char *appname)
       }
    }
    for (revk_settings_t * s = revk_settings; s->len; s++)
-   {
       if (s->fix && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
       {                         // Fix, save to flash
          if (!s->array)
@@ -906,7 +905,6 @@ revk_settings_load (const char *tag, const char *appname)
             for (int i = 0; i < s->array; i++)
                nvs_put (s, i, NULL);
       }
-   }
 }
 
 const char *
