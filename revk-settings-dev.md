@@ -40,7 +40,7 @@ Where not specified the defaults for all strings are an empty string `""` (not N
 
 Additional attributes are in the form of C structure initialised values, e.g. `.array=10`. These can be separated by commas or spaces.
 
-Note the basic syntax of the definition files are checked, but not whether they attributes are correct, they will be reported when compiling `settings.c`.
+Note the basic syntax of the definition files are checked, and some invalid combinations reported, but not whether all the attributes are correct, they will be reported when compiling `settings.c`.
 
 ## Data types
 
