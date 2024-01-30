@@ -250,7 +250,7 @@ led_strip_handle_t revk_strip = NULL;
 /* Local */
 static struct
 {                               // Flags
-   uint8_t setting_dump_requested:1;
+   uint8_t setting_dump_requested:2;
    uint8_t wdt_test:1;
    uint8_t disablewifi:1;
    uint8_t disableap:1;
@@ -1064,13 +1064,14 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
             err = (err ? : revk_command (suffix, j));
          else if (prefix && !strcmp (prefix, prefixsetting))
          {
+            err = "";
             if (!suffix && !plen)
-            {
                b.setting_dump_requested = 1;
-               err = "";
-            } else if (suffix)
-               err = "";        // Not sensible, we have been addressed (suffix is used as JSON if present with no JSON), clash prefixapp and not
-            else
+            else if (suffix && !strcmp (suffix, "*"))
+               b.setting_dump_requested = 2;
+            else if (suffix && !strcmp (suffix, "**"))
+               b.setting_dump_requested = 3;
+            else if (suffix)
                err = ((err ? : revk_setting (j)) ? : "Unknown setting");
          } else
             err = (err ? : ""); // Ignore
@@ -1614,8 +1615,8 @@ task (void *pvParameters)
 #endif
          if (b.setting_dump_requested)
          {                      // Done here so not reporting from MQTT
+            revk_setting_dump (b.setting_dump_requested);
             b.setting_dump_requested = 0;
-            revk_setting_dump ();
          }
       }
       static uint32_t last = 0;

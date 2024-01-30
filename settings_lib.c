@@ -920,8 +920,59 @@ revk_settings_load (const char *tag, const char *appname)
 }
 
 const char *
-revk_setting_dump (void)
+revk_setting_dump (int level)
 {
+   // level 1 - all stored
+   // level 2 - all stored or with default
+   // level 3 - all
+   int is_zero (revk_settings_t * s, int index)
+   {
+#ifdef  REVK_SETTINGS_HAS_BIT
+      if (s->type == REVK_SETTINGS_BIT && !(((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))))
+         return 1;
+#endif
+      uint8_t *d = s->ptr;
+      if (s->malloc)
+      {
+         void **p = s->ptr;
+         p += index;
+         d = (*p);
+         if (!d)
+            return 1;
+      }
+      if (s->size)
+      {
+         int i;
+         for (i = 0; i < s->size && !d[i]; i++);
+         return i == s->size;
+      }
+      switch (s->type)
+      {
+#ifdef  REVK_SETTINGS_HAS_BLOB
+      case REVK_SETTINGS_BLOB:
+         return ((revk_settings_blob_t *) (d))->len == 0;
+#endif
+#ifdef  REVK_SETTINGS_HAS_STRING
+      case REVK_SETTINGS_STRING:
+         return *d == 0;
+#endif
+      }
+      return 0;
+   }
+   int visible (revk_settings_t * s)
+   {
+      if (s->secret)
+         return 0;
+      if (level > 2)
+         return 1;
+      if (level <= 1 && !s->array && s->fix && (!s->def || !*s->def || (s->dq && !strcmp (s->def, "\"\""))) && is_zero (s, 0))
+         return 0;
+      if (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
+         return 1;
+      if (level > 1 && !s->array && !(!s->def || !*s->def || (s->dq && !strcmp (s->def, "\"\""))))
+         return 1;
+      return 0;
+   }
    const char *err = NULL;
    jo_t j = NULL;
    void send (void)
@@ -933,7 +984,7 @@ revk_setting_dump (void)
       if (!prefixapp)
          an = sl = "";
       char *topic = NULL;
-      asprintf (&topic, "%s%s%s/%s", prefixsetting, sl, an, revk_id);
+      asprintf (&topic, "%s%s%s/%s%s", prefixsetting, sl, an, revk_id, level <= 1 ? "" : "*");
       revk_mqtt_send (NULL, 0, topic, &j);
       free (topic);
    }
@@ -948,8 +999,6 @@ revk_setting_dump (void)
    revk_setting_group_t group = { 0 };
    for (revk_settings_t * s = revk_settings; s->len; s++)
    {
-      if (s->secret)
-         continue;
       if (s->group && (group[s->group / 8] & (1 << (s->group & 7))))
          continue;              // Already done
       jo_t p = NULL;
@@ -974,40 +1023,9 @@ revk_setting_dump (void)
          return err;
       }
 
-      int is_zero (revk_settings_t * s, int index)
-      {                         // Not checking bit as only used in array and no array bits yet
-         uint8_t *d = s->ptr;
-         if (s->malloc)
-         {
-            void **p = s->ptr;
-            p += index;
-            d = (*p);
-            if (!d)
-               return 1;
-         }
-         if (s->size)
-         {
-            int i;
-            for (i = 0; i < s->size && !d[i]; i++);
-            return i == s->size;
-         }
-         switch (s->type)
-         {
-#ifdef  REVK_SETTINGS_HAS_BLOB
-         case REVK_SETTINGS_BLOB:
-            return ((revk_settings_blob_t *) (d))->len == 0;
-#endif
-#ifdef  REVK_SETTINGS_HAS_STRING
-         case REVK_SETTINGS_STRING:
-            return *d == 0;
-#endif
-         }
-         return 0;
-      }
-
       void addvalue (revk_settings_t * s, int index, const char *tag)
       {
-         if (!s->array && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+         if (!s->array && !visible (s))
             return;             // Default
          int len = 0;
          char *data = text_value (s, index, &len);
@@ -1062,7 +1080,7 @@ revk_setting_dump (void)
 
       void addarray (revk_settings_t * s, int base)
       {
-         if (!(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+         if (!visible (s))
             return;             // Default
          int max = s->array;
          while (max > 0 && is_zero (s, max - 1))
@@ -1077,10 +1095,9 @@ revk_setting_dump (void)
       {
          group[s->group / 8] |= (1 << (s->group & 7));
          revk_settings_t *r;
-         for (r = revk_settings;
-              r->len && (r->group != s->group || !(nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7)))); r++);
+         for (r = revk_settings; r->len && (r->group != s->group || !visible (r)); r++);
          if (!r->len)
-            return;             // Maybe returning NULL would be clearer?
+            return;
          char tag[16];
          if (s->dot + 1 > sizeof (tag))
             return;
@@ -1088,7 +1105,7 @@ revk_setting_dump (void)
          tag[s->dot] = 0;
          jo_object (p, tag);
          for (r = revk_settings; r->len; r++)
-            if (r->group == s->group && (nvs_found[(r - revk_settings) / 8] & (1 << ((r - revk_settings) & 7))))
+            if (r->group == s->group && visible (r))
             {
                if (r->array)
                   addarray (r, r->dot);

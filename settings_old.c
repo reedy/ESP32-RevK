@@ -610,8 +610,9 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
 }
 
 const char *
-revk_setting_dump (void)
+revk_setting_dump (int level)
 {                               // Dump settings (in JSON)
+   level = level;
    const char *err = NULL;
    jo_t j = NULL;
    void send (void)
