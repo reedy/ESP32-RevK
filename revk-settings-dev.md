@@ -95,7 +95,7 @@ Additional attributes relate to each setting as follows:-
 |`.live`|This setting can be updated `live` without a reboot. If the setting is changed then it is changed in memory (as well as being stored to NVS).|
 |`.fix`|The setting is to be fixed, i.e. the default value is only used if not defined in NVS, and the value, even if default, is stored to NVS. This assumed for `gpio` type.|
 |`.set`|The top bit of the value is set if the value is defined.|
-|`.flags`|This is a string that are characters which can be prefixed (and./or suffixed) on a numeric value and set in the top bits of the value (see below).|
+|`.flags`|This is a string that are characters which can be prefixed (and/or suffixed) on a numeric value and set in the top bits of the value (see below).|
 |`.hex`|The value should be hex encoded in JSON. Typically used with `c` and `.array` set|
 |`.base64`|The value should be base64 encoded in JSON. Typically used with `c` and `.array` set|
 |`.decimal`|Used with integer types this scales by specified number of digits. E.g. `.decimal=2` will show `123` as `1.23` in JSON. A `#define` is for the variable suffixed with `_scale` defining the scale, e.g. `100` for `.decimal=2`.|
