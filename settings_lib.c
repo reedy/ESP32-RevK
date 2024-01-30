@@ -1279,6 +1279,7 @@ revk_setting (jo_t j)
                }
             } else if (t != JO_CLOSE)
                val = jo_strdup (j);
+		 ESP_LOGE(TAG,"Store %s %s",s->name,val);
             int len = s->malloc ? sizeof (void *) : s->size ? : 1;
             uint8_t *temp = mallocspi (len);
             if (!temp)
@@ -1305,7 +1306,7 @@ revk_setting (jo_t j)
 #ifdef	REVK_SETTINGS_HAS_BIT
                         if (s->type == REVK_SETTINGS_BIT)
                         {
-                           if (bit)
+                           if (*temp)
                               ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
                            else
                               ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
