@@ -1318,7 +1318,7 @@ revk_setting (jo_t j)
                      int group = s->group;
                      for (s = revk_settings; s->len; s++)
                         if (s->group == group)
-                           zapdef (); // Including secrets
+                           zapdef ();   // Including secrets
                   }
                } else
                   err = "Invalid null";
@@ -1339,8 +1339,8 @@ revk_setting (jo_t j)
                      scan (l);
                      t = JO_NULL;       // Set to default
                      for (s = revk_settings; s->len; s++)
-                        if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))&&!s->secret)
-                           zapdef (); // Not secrets, D'Oh
+                        if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
+                           zapdef ();   // Not secrets, D'Oh
                   }
                }
             } else if (t == JO_ARRAY)
