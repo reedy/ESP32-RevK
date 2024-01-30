@@ -492,10 +492,14 @@ main (int argc, const char *argv[])
             fprintf (C, " {");
             if (d->attributes && !(*d->type == 's' || *d->type == 'u') && isdigit (d->type[1]))
             {                   // non numeric
-               if (strstr (d->attributes, ".set="))
+               if (strstr (d->attributes, ".set=1"))
                   errx (1, ".set on no numeric for %s in %s", d->name, d->type);
                if (strstr (d->attributes, ".flags="))
                   errx (1, ".flags on no numeric for %s in %s", d->name, d->type);
+               if (strstr (d->attributes, ".base64=1"))
+                  errx (1, ".base64 on no numeric for %s in %s", d->name, d->type);
+               if (strstr (d->attributes, ".decimal=")&&strstr(d->attributes,".hex=1"))
+                  errx (1, ".hex and .decimal on no numeric for %s in %s", d->name, d->type);
             }
             if (*d->type == 's' && isdigit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_SIGNED");

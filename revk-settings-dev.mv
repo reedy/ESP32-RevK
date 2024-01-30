@@ -83,6 +83,8 @@ The `blob` format is a structure with `.len` and `.data`.
 
 The `o` type allows a fixed block of binary data, usually with `.hex` or `.base64`.
 
+Note that numeric types allow `.hex` as well, but not with `.decimal`.
+
 ## Attributes
 
 Additional attributes relate to each setting as follows:-

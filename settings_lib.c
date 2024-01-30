@@ -401,18 +401,26 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
          scan ();
       }
       // Numeric value
-      if (d < e && *d == '-')
-         sign = *d++;
-      if (!err && bits && (d >= e || !isdigit ((int) *d)))
-         err = "No number found";
+      int dig (int c)
+      {
+         if (c >= '0' && c <= '9')
+            return c - '0';
+         if (s->hex && ((c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')))
+            return 9 + (c & 0xF);
+         return -1;
+      }
       void add (char c)
       {
          uint64_t wrap = v;
-         v = v * 10 + (c + -'0');
+         v = v * (s->hex ? 16 : 10) + dig (c);
          if (!err && v < wrap)
             err = "Number too large";
       }
-      while (!err && d < e && isdigit ((int) *d))
+      if (d < e && *d == '-')
+         sign = *d++;
+      if (!err && bits && (d >= e || dig (*d) < 0))
+         err = "No number found";
+      while (!err && d < e && dig (*d) >= 0)
          add (*d++);
       if (!err && s->decimal)
       {
@@ -420,9 +428,9 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
          if (d < e && *d == '.')
          {
             d++;
-            while (!err && d < e && isdigit ((int) *d) && q && q--)
+            while (!err && d < e && dig (*d) >= 0 && q && q--)
                add (*d++);
-            if (!err && d < e && isdigit ((int) *d))
+            if (!err && d < e && dig (*d) >= 0)
                err = "Too many decimal places";
          }
          while (!err && q--)
@@ -533,7 +541,9 @@ text_numeric (revk_settings_t * s, void *p)
                *t++ = '.';
                while (*i)
                   *t++ = *i++;
-            } else
+            } else if (s->hex)
+               t += sprintf (t, "%llX", val);
+            else
                t += sprintf (t, "%llu", val);
          }
       }
@@ -671,7 +681,16 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       if (d == e)
          d = e = NULL;
    }
-   if (d < e && (s->hex || s->base64))
+   if (d < e && (s->hex || s->base64)
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
+#ifdef  REVK_SETTINGS_HAS_SIGNED
+       && s->type != REVK_SETTINGS_SIGNED
+#endif
+#ifdef  REVK_SETTINGS_HAS_UNSIGNED
+       && s->type != REVK_SETTINGS_UNSIGNED
+#endif
+#endif
+      )
    {
       jo_t j = jo_create_alloc ();
       jo_stringn (j, NULL, d, e - d);
@@ -1066,7 +1085,8 @@ revk_setting_dump (int level)
                   break;
                }
             }
-            __attribute__((fallthrough));
+            jo_stringn (p, tag, data ? : "", len);
+            break;
 #endif
          default:
             if (s->hex)
@@ -1172,268 +1192,256 @@ revk_setting (jo_t j)
    char tag[16];
    revk_setting_bits_t found = { 0 };
    const char *debug = NULL;
-   void scan (int plen, int pindex)
+   const char *scan (int plen, int pindex)
    {
       while (!err && (t = jo_next (j)) == JO_TAG)
       {
          debug = jo_debug (j);
          int l = jo_strlen (j);
          if (l + plen > sizeof (tag) - 1)
-            err = "Not found";
-         else
+            return "Not found";
+         jo_strncpy (j, tag + plen, l + 1);
+         revk_settings_t *s;
+         for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
+         const char *store (int index)
          {
-            jo_strncpy (j, tag + plen, l + 1);
-            revk_settings_t *s;
-            for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
-            void store (int index)
+            if (!s->len)
             {
-               if (!s->len)
-               {
-                  if (index < 0)
-                  {
-                     int e = l;
-                     while (e && isdigit ((int) tag[plen + e - 1]))
-                        e--;
-                     if (e < l)
-                     {
-                        for (s = revk_settings;
-                             s->len && (!s->array || s->len != plen + e || (plen && s->dot != plen)
-                                        || strncmp (s->name, tag, plen + e)); s++);
-                        if (s)
-                           index = atoi (tag + plen + e) - 1;
-                     }
-                  }
-                  if (!s->len)
-                  {
-                     err = "Not found";
-                     return;
-                  }
-               }
                if (index < 0)
-                  index = 0;
-               found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
-               if ((s->array && (index < 0 || index >= s->array)) || (!s->array && index))
                {
-                  err = "Bad array index";
-                  return;
-               }
-               char *val = NULL;
-               if (t == JO_NULL)
-               {                // Default
-                  if (s->def)
+                  int e = l;
+                  while (e && isdigit ((int) tag[plen + e - 1]))
+                     e--;
+                  if (e < l)
                   {
-                     val = (char *) s->def;
-#ifdef	REVK_SETTINGS_HAS_NUMERIC
-                     if (s->array && (1
-#ifdef	REVK_SETTINGS_HAS_SIGNED
-                                      || s->type == REVK_SETTINGS_SIGNED
-#endif
-#ifdef	REVK_SETTINGS_HAS_UNSIGNED
-                                      || s->type == REVK_SETTINGS_UNSIGNED
-#endif
-                         ))
-                     {          // Skip to the entry
-                        if (s->dq && *val == '"')
-                           val++;
-                        int i = index;
-                        while (i--)
-                        {
-                           while (*val && *val != ',' && *val != ' ' && *val != '\t')
-                              val++;
-                           while (*val && *val == ' ')
-                              val++;
-                           if (*val && (*val == ',' || *val == '\t'))
-                              val++;
-                           while (*val && *val == ' ')
-                              val++;
-                        }
-                     }
-#endif
-                     val = strdup (val);
-#ifdef	REVK_SETTINGS_HAS_NUMERIC
-                     if (s->array && (1
-#ifdef	REVK_SETTINGS_HAS_SIGNED
-                                      || s->type == REVK_SETTINGS_SIGNED
-#endif
-#ifdef	REVK_SETTINGS_HAS_UNSIGNED
-                                      || s->type == REVK_SETTINGS_UNSIGNED
-#endif
-                         ))
-                     {
-                        char *v = val;
-                        while (*v && *v != ' ' && *v != ',' && *v != '\t' && (s->dq && *v != '"'))
-                           v++;
-                        *v = 0;
-                     }
-#endif
+                     for (s = revk_settings;
+                          s->len && (!s->array || s->len != plen + e || (plen && s->dot != plen)
+                                     || strncmp (s->name, tag, plen + e)); s++);
+                     if (s)
+                        index = atoi (tag + plen + e) - 1;
                   }
-               } else if (t != JO_CLOSE)
-                  val = jo_strdup (j);
-               int len = s->malloc ? sizeof (void *) : s->size ? : 1;
-               uint8_t *temp = mallocspi (len);
-               if (!temp)
-                  err = "malloc";
-               else
-               {
-                  memset (temp, 0, len);
-                  uint8_t dofree = s->malloc;
-                  uint8_t bit = 0;
-                  void *ptr = s->ptr ? : &bit;
-#ifdef	REVK_SETTINGS_HAS_BIT
-                  if (s->type == REVK_SETTINGS_BIT)
-                     bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
-                  else
-#endif
-                     ptr += index * (s->malloc ? sizeof (void *) : s->size);
-                  err = load_value (s, val, index, temp);
-                  if (!err)
-                  {
-                     if (value_cmp (s, ptr, temp))
-                     {          // Change
-                        if (s->live)
-                        {       // Apply live
-#ifdef	REVK_SETTINGS_HAS_BIT
-                           if (s->type == REVK_SETTINGS_BIT)
-                           {
-                              if (bit)
-                                 ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
-                              else
-                                 ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
-                           } else
-#endif
-                           {
-                              if (s->malloc)
-                                 free (*(void **) ptr);
-                              memcpy (ptr, temp, len);
-                              dofree = 0;
-                           }
-                        }
-                        if (t == JO_NULL && !s->fix)
-                           err = nvs_erase (s, s->name);
-                        else
-                           err = nvs_put (s, index, temp);
-                        if (!err && !s->live)
-                           change = 1;
-                     } else if (t == JO_NULL && !s->fix)
-                        err = nvs_erase (s, s->name);
-                  }
-                  if (dofree)
-                     free (*(void **) temp);
-                  free (temp);
                }
-               free (val);
+               if (!s->len)
+                  return "Not found";
             }
-            t = jo_next (j);
-            void zapdef (void)
-            {
-               if (pindex >= 0)
-                  store (pindex);
-               else if (s->array)
-                  for (int i = 0; i < s->array; i++)
-                     store (i);
-               else
-                  store (-1);
-            }
+            if (index < 0)
+               index = 0;
+            found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
+            if ((s->array && (index < 0 || index >= s->array)) || (!s->array && index))
+               return "Bad array index";
+            char *val = NULL;
             if (t == JO_NULL)
-            {
-               if (s->len)
-                  zapdef ();
-               else if (!plen)
+            {                   // Default
+               if (s->def)
                {
-                  for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-                  if (s->len)
-                  {             // object reset
-                     int group = s->group;
-                     for (s = revk_settings; s->len; s++)
-                        if (s->group == group)
-                           zapdef ();   // Including secrets
-                  }
-               } else
-                  err = "Invalid null";
-            } else if (t == JO_OBJECT)
-            {                   // Object
-               if (plen)
-                  err = "Nested too far";
-               else if (s->len)
-                  err = "Not an object";
-               else
-               {
-                  for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-                  if (!s->len)
-                     err = "Unknown object";
-                  else
-                  {
-                     int group = s->group;
-                     scan (l, -1);
-                     t = JO_NULL;       // Set to default
-                     for (s = revk_settings; s->len; s++)
-                        if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
-                           zapdef ();   // Not secrets, D'Oh
-                  }
-               }
-            } else if (t == JO_ARRAY)
-            {                   // Array
-               if (pindex >= 0)
-                  err = "Unexpected array";
-               else
-               {
-                  if (!s->len)
-                  {
-                     for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-                     if (!s->len)
-                        err = "Not found";
-                     else
-                     {          // Array of objects
-                        int group = s->group;
-                        int index = 0;
-                        while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
-                        {
-                           for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-                           if (!s->len)
-                              err = "Unknown object";
-                           else
-                              scan (l, index);
-                           index++;
-                        }
-                        while (1)
-                        {       // Clean up
-                           for (s = revk_settings; s->len && (s->group != group || s->array <= index); s++);
-                           if (!s->len)
-                              break;
-                           for (s = revk_settings; s->len; s++)
-                              if (s->group == group && s->array >= index)
-                                 store (index);
-                           index++;
-                        }
-                        t = JO_NULL;    // Set to default
-                        for (s = revk_settings; s->len; s++)
-                           if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
-                               && !s->secret)
-                              zapdef ();        // Not secrets, D'Oh
-                     }
-                  } else if (!s->array)
-                     err = "Unexpected array";
-                  else
-                  {
-                     int index = 0;
-                     while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
+                  val = (char *) s->def;
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
+                  if (s->array && (0
+#ifdef	REVK_SETTINGS_HAS_SIGNED
+                                   || s->type == REVK_SETTINGS_SIGNED
+#endif
+#ifdef	REVK_SETTINGS_HAS_UNSIGNED
+                                   || s->type == REVK_SETTINGS_UNSIGNED
+#endif
+                      ))
+                  {             // Skip to the entry
+                     if (s->dq && *val == '"')
+                        val++;
+                     int i = index;
+                     while (i--)
                      {
-                        store (index);
-                        index++;
-                     }
-                     while (index < s->array)
-                     {          // NULLs
-                        store (index);
-                        index++;
+                        while (*val && *val != ',' && *val != ' ' && *val != '\t')
+                           val++;
+                        while (*val && *val == ' ')
+                           val++;
+                        if (*val && (*val == ',' || *val == '\t'))
+                           val++;
+                        while (*val && *val == ' ')
+                           val++;
                      }
                   }
+#endif
+                  val = strdup (val);
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
+                  if (s->array && (1
+#ifdef	REVK_SETTINGS_HAS_SIGNED
+                                   || s->type == REVK_SETTINGS_SIGNED
+#endif
+#ifdef	REVK_SETTINGS_HAS_UNSIGNED
+                                   || s->type == REVK_SETTINGS_UNSIGNED
+#endif
+                      ))
+                  {
+                     char *v = val;
+                     while (*v && *v != ' ' && *v != ',' && *v != '\t' && (s->dq && *v != '"'))
+                        v++;
+                     *v = 0;
+                  }
+#endif
+               }
+            } else if (t != JO_CLOSE)
+               val = jo_strdup (j);
+            int len = s->malloc ? sizeof (void *) : s->size ? : 1;
+            uint8_t *temp = mallocspi (len);
+            if (!temp)
+               err = "malloc";
+            else
+            {
+               memset (temp, 0, len);
+               uint8_t dofree = s->malloc;
+               uint8_t bit = 0;
+               void *ptr = s->ptr ? : &bit;
+#ifdef	REVK_SETTINGS_HAS_BIT
+               if (s->type == REVK_SETTINGS_BIT)
+                  bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
+               else
+#endif
+                  ptr += index * (s->malloc ? sizeof (void *) : s->size);
+               err = load_value (s, val, index, temp);
+               if (!err)
+               {
+                  if (value_cmp (s, ptr, temp))
+                  {             // Change
+                     if (s->live)
+                     {          // Apply live
+#ifdef	REVK_SETTINGS_HAS_BIT
+                        if (s->type == REVK_SETTINGS_BIT)
+                        {
+                           if (bit)
+                              ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
+                           else
+                              ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
+                        } else
+#endif
+                        {
+                           if (s->malloc)
+                              free (*(void **) ptr);
+                           memcpy (ptr, temp, len);
+                           dofree = 0;
+                        }
+                     }
+                     if (t == JO_NULL && !s->fix)
+                        err = nvs_erase (s, s->name);
+                     else
+                        err = nvs_put (s, index, temp);
+                     if (!err && !s->live)
+                        change = 1;
+                  } else if (t == JO_NULL && !s->fix)
+                     err = nvs_erase (s, s->name);
+               }
+               if (dofree)
+                  free (*(void **) temp);
+               free (temp);
+            }
+            free (val);
+            return err;
+         }
+         t = jo_next (j);
+         void zapdef (void)
+         {
+            if (pindex >= 0)
+               err = store (pindex);
+            else if (s->array)
+               for (int i = 0; !err && i < s->array; i++)
+                  err = store (i);
+            else
+               err = store (-1);
+         }
+         if (t == JO_NULL)
+         {
+            if (s->len)
+               zapdef ();
+            else if (!plen)
+            {
+               for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+               if (s->len)
+               {                // object reset
+                  int group = s->group;
+                  for (s = revk_settings; s->len; s++)
+                     if (s->group == group)
+                        zapdef ();      // Including secrets
                }
             } else
-               store (pindex);
-         }
+               return "Invalid null";
+         } else if (t == JO_OBJECT)
+         {                      // Object
+            if (plen)
+               return "Nested too far";
+            if (s->len)
+               return "Not an object";
+            for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+            if (!s->len)
+               err = "Unknown object";
+            else
+            {
+               int group = s->group;
+               err = scan (l, -1);
+               if (err)
+                  return err;
+               t = JO_NULL;     // Set to default
+               for (s = revk_settings; s->len; s++)
+                  if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
+                     zapdef (); // Not secrets, D'Oh
+            }
+         } else if (t == JO_ARRAY)
+         {                      // Array
+            if (pindex >= 0)
+               return "Unexpected array";
+            if (!s->len)
+            {
+               for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+               if (!s->len)
+                  return "Not found";
+               int group = s->group;
+               int index = 0;
+               while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
+               {
+                  for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+                  if (!s->len)
+                     return "Unknown object";
+                  if ((err = scan (l, index)))
+                     return err;
+                  index++;
+               }
+               while (1)
+               {                // Clean up
+                  for (s = revk_settings; s->len && (s->group != group || s->array <= index); s++);
+                  if (!s->len)
+                     break;
+                  for (s = revk_settings; s->len; s++)
+                     if (s->group == group && s->array >= index)
+                        if ((err = store (index)))
+                           return err;
+                  index++;
+               }
+               t = JO_NULL;     // Set to default
+               for (s = revk_settings; s->len; s++)
+                  if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
+                     zapdef (); // Not secrets, D'Oh
+            } else if (!s->array)
+               return "Unexpected array";
+            else
+            {
+               int index = 0;
+               while (!err && (t = jo_next (j)) != JO_CLOSE && index < s->array)
+               {
+                  if ((err = store (index)))
+                     return err;
+                  index++;
+               }
+               while (!err && index < s->array)
+               {                // NULLs
+                  if ((err = store (index)))
+                     return err;
+                  index++;
+               }
+            }
+         } else if ((err = store (pindex)))
+            return err;
       }
+      return err;
    }
-   scan (0, -1);
+   err = scan (0, -1);
    if (err)
    {
       ESP_LOGE (TAG, "Failed %s at [%s]", err, debug ? : "?");
