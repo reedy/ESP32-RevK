@@ -39,6 +39,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include "esp_phy_init.h"
 #include "esp_sleep.h"
 #include <driver/gpio.h>
+#include <driver/rtc_io.h>
 #ifdef	CONFIG_REVK_MESH
 #include <esp_mesh.h>
 #include "freertos/semphr.h"
@@ -1510,14 +1511,8 @@ revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb)
 }
 #endif
 
-void
-revk_blinker (
-#ifdef	CONFIG_REVK_LED_STRIP
-                led_strip_handle_t strip
-#else
-                void
-#endif
-   )
+uint32_t
+revk_blinker (void)
 {                               // LED blinking controls
    static uint32_t rgb = 0;     // Current colour (2 bits per)
    static uint8_t tick = 255;   // Blink cycle counter
@@ -1543,41 +1538,15 @@ revk_blinker (
       rgb = revk_rgb (col);
    }
    // Updated LED every 10th second
+   uint8_t scale = 0;
    if (tick < on)
-   {                            // On period in cycle
-#ifdef  CONFIG_REVK_LED_STRIP
-      if (strip)
-      {                         // WS2812B fading on (this can be independent of direct LED control, and could be part of a pre-set longer strip)
-         revk_led (strip, 0, 255 * (tick + 1) / on, rgb);
-         led_strip_refresh (strip);
-      }
-#endif
-      if (!blink[1].set)
-         gpio_set_level (blink[0].num, (rgb ? 1 : 0) ^ blink[0].invert);        // Single LED on
-      else if (blink[0].num != blink[1].num)
-      {                         // Separate RGB on
-         gpio_set_level (blink[0].num, ((rgb >> 31) ^ blink[0].invert) & 1);
-         gpio_set_level (blink[1].num, ((rgb >> 15) ^ blink[1].invert) & 1);
-         gpio_set_level (blink[2].num, ((rgb >> 7) ^ blink[2].invert) & 1);
-      }
-   } else
-   {                            // Off part of cycle
-#ifdef  CONFIG_REVK_LED_STRIP
-      if (strip)
-      {                         // WS2812B fading off (this can be independent of direct LED control, and could be part of a pre-set longer strip)
-         revk_led (strip, 0, 255 * (on + off - tick - 1) / off, rgb);
-         led_strip_refresh (strip);
-      }
-#endif
-      if (!blink[1].set)
-         gpio_set_level (blink[0].num, blink[0].invert);        // Single LED off
-      else if (blink[0].num != blink[1].num)
-      {                         // Separate RGB off
-         gpio_set_level (blink[0].num, blink[0].invert);
-         gpio_set_level (blink[1].num, blink[1].invert);
-         gpio_set_level (blink[2].num, blink[2].invert);
-      }
-   }
+      scale = 255 * (tick + 1) / on;
+   else
+      scale = 255 * (on + off - tick - 1) / off;
+   rgb = ((scale * ((rgb >> 24) & 255) / 255) << 24) +  //
+      ((scale * ((rgb >> 16) & 255) / 255) << 16) +     //
+      (scale * (rgb & 255) / 255);
+   return rgb;
 }
 
 static void
@@ -1626,16 +1595,22 @@ task (void *pvParameters)
          }
          tick += 100000ULL;     /* 10th second */
 #ifdef CONFIG_REVK_BLINK_LIB
-         if (blink[0].set
+         if (blink[0].set)
+         {
+            uint32_t rgb = revk_blinker ();
+            if (!blink[1].set)
+               gpio_set_level (blink[0].num, (rgb ? 1 : 0) ^ blink[0].invert);  // Single LED on
+            else if (blink[0].num != blink[1].num)
+            {                   // Separate RGB on
+               gpio_set_level (blink[0].num, ((rgb >> 31) ^ blink[0].invert) & 1);
+               gpio_set_level (blink[1].num, ((rgb >> 15) ^ blink[1].invert) & 1);
+               gpio_set_level (blink[2].num, ((rgb >> 7) ^ blink[2].invert) & 1);
+            }
 #ifdef  CONFIG_REVK_LED_STRIP
-             || revk_strip
+            else
+               revk_led (revk_strip, 0, 255, rgb);
 #endif
-            )
-            revk_blinker (
-#ifdef  CONFIG_REVK_LED_STRIP
-                            revk_strip
-#endif
-               );
+         }
 #endif
          if (b.setting_dump_requested)
          {                      // Done here so not reporting from MQTT
@@ -2166,6 +2141,7 @@ revk_boot (app_callback_t * app_callback_cb)
 void
 revk_start (void)
 {                               // Start stuff, init all done
+#ifdef REVK_BLINK_LIB
 #ifdef  CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[0].num == blink[1].num)
    {
@@ -2192,6 +2168,7 @@ revk_start (void)
             gpio_set_direction (p, GPIO_MODE_OUTPUT);   /* Blinking LED */
          }
       }
+#endif
 #ifndef CONFIG_ENABLE_WIFI_STATION
    esp_netif_init ();
 #endif
@@ -3865,34 +3842,46 @@ revk_build_date (char d[20])
 }
 
 #ifdef	CONFIG_REVK_SEASON
-char
+const char *
 revk_season (time_t now)
-{                               // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
+{                               // Return a characters for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween, V=Valentines, F=Full Moon, N=New moon
+   static char temp[8],
+    *p = temp;
    struct tm t;
    localtime_r (&now, &t);
-   if (t.tm_year < 100)
-      return 0;                 // Assume not set
-   if (t.tm_mon == 11 && t.tm_mday <= 25)
-      return 'X';               // Xmas for 1st to 25th Dec
-   if (t.tm_mon == 0 && t.tm_mday <= 7)
-      return 'Y';               // New Year for 1st to 7th Jan
-   if (t.tm_mon == 9 && t.tm_mday == 31 && t.tm_hour >= 16)
-      return 'H';               // Halloween from 4pm on 31st Oct
-   const uint8_t ed[] = { 114, 103, 23, 111, 31, 118, 108, 28, 116, 105, 25, 113, 102, 22, 110, 30,
-      117, 107, 27
-   };
+   if (t.tm_year >= 100)
    {
-      struct tm e;
-      int m = ed[(t.tm_year + 1900) % 19];
-      e.tm_year = t.tm_year;
-      e.tm_mon = 2 + m / 100;
-      e.tm_mday = m % 100;
-      mktime (&e);
-      int gf = e.tm_yday + (7 - e.tm_wday) - 2; // good Friday;
-      if (t.tm_yday >= gf && t.tm_yday <= gf + 3)
-         return 'E';            // Good Friday to Easter Monday
+#ifdef	CONFIG_REVK_LUNAR
+      if (now < revk_moon_full_last (now) + 12 * 3600 || now > revk_moon_full_next (now) - 12 * 3600)
+         *p++ = 'M';
+      if (now < revk_moon_new (now) + 12 * 3600 && now > revk_moon_new (now) - 12 * 3600)
+         *p++ = 'N';
+#endif
+      if (t.tm_mon == 1 && t.tm_mday == 14)
+         *p++ = 'V';
+      if (t.tm_mon == 11 && t.tm_mday <= 25)
+         *p++ = 'X';
+      if (t.tm_mon == 0 && t.tm_mday <= 7)
+         *p++ = 'Y';
+      if (t.tm_mon == 9 && t.tm_mday == 31 && t.tm_hour >= 16)
+         *p++ = 'H';
+      const uint8_t ed[] = { 114, 103, 23, 111, 31, 118, 108, 28, 116, 105, 25, 113, 102, 22, 110, 30,
+         117, 107, 27
+      };
+      {
+         struct tm e;
+         int m = ed[(t.tm_year + 1900) % 19];
+         e.tm_year = t.tm_year;
+         e.tm_mon = 2 + m / 100;
+         e.tm_mday = m % 100;
+         mktime (&e);
+         int gf = e.tm_yday + (7 - e.tm_wday) - 2;      // good Friday;
+         if (t.tm_yday >= gf && t.tm_yday <= gf + 3)
+            *p++ = 'E';
+      }
    }
-   return 0;
+   *p = 0;
+   return temp;
 }
 #endif
 
@@ -4037,3 +4026,57 @@ revk_disable_settings (void)
 {
    b.disablesettings = 1;
 }
+
+#ifndef  CONFIG_REVK_OLD_SETTINGS
+void
+revk_gpio_output (revk_settings_gpio_t g)
+{
+   if (!g.set)
+      return;
+   gpio_reset_pin (g.num);
+   gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
+   rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
+}
+
+void
+revk_gpio_set (revk_settings_gpio_t g, uint8_t o)
+{
+   if (g.set)
+      gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
+}
+
+void
+revk_gpio_input (revk_settings_gpio_t g)
+{
+   if (!g.set)
+      return;
+   gpio_reset_pin (g.num);
+   gpio_set_direction (g.num, GPIO_MODE_INPUT);
+   if (!g.pulldown && !g.nopull)
+   {
+      gpio_pullup_en (g.num);
+      rtc_gpio_pullup_en (g.num);
+   } else
+   {
+      gpio_pullup_dis (g.num);
+      rtc_gpio_pullup_dis (g.num);
+   }
+   if (g.pulldown && !g.nopull)
+   {
+      gpio_pulldown_en (g.num);
+      rtc_gpio_pulldown_en (g.num);
+   } else
+   {
+      gpio_pulldown_dis (g.num);
+      rtc_gpio_pulldown_dis (g.num);
+   }
+}
+
+uint8_t
+revk_gpio_get (revk_settings_gpio_t g)
+{
+   if (g.set)
+      return gpio_get_level (g.num) ^ g.invert;
+   return 0;
+}
+#endif

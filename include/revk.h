@@ -102,6 +102,12 @@ uint32_t uptime (void);         // Seconds uptime
 
 // Calls
 int gpio_ok (uint8_t gpio);     // non 0 if OK to use in current platform (bit 0 for out, bit 1 for in, bit 2 for special use - e.g. USB)
+#ifndef  CONFIG_REVK_OLD_SETTINGS
+void revk_gpio_output(revk_settings_gpio_t g);
+void revk_gpio_set(revk_settings_gpio_t g,uint8_t o);
+void revk_gpio_input(revk_settings_gpio_t g);
+uint8_t revk_gpio_get(revk_settings_gpio_t g);
+#endif
 void revk_boot (app_callback_t * app_callback);
 void revk_start (void);
 void revk_pre_shutdown (void);
@@ -200,16 +206,7 @@ esp_err_t revk_web_wifilist (httpd_req_t * req);        // WS for list of SSIDs
 void revk_web_head (httpd_req_t * req, const char *title);      // Generic html heading
 esp_err_t revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra);     // Generic html footing and return
 
-#ifndef	CONFIG_LED_BLINK
-void revk_blinker (             // Call every 0.1s if app controls blinking - strip means set first LED in strip
-#ifdef  CONFIG_REVK_LED_STRIP
-                     led_strip_handle_t strip
-#else
-                     void
-#endif
-   );
-#endif
-
+uint32_t revk_blinker (void); // Return colour for blinking LED
 #ifdef  CONFIG_REVK_LED_STRIP
 extern const uint8_t gamma8[256];
 uint32_t revk_rgb (char c);     // Provide RGB colour for character
@@ -217,7 +214,7 @@ void revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb); 
 #endif
 
 #ifdef	CONFIG_REVK_SEASON
-char revk_season (time_t now);  // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
+const char* revk_season (time_t now);  // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween
 #endif
 
 #ifdef	CONFIG_REVK_LUNAR
