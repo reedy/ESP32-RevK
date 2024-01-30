@@ -12,7 +12,7 @@ The make process needs to run `revk_settings` on the `.def` files to make `setti
 
 The application build needs to include `settings.c` which defines the actual variables. You may want `settings.c` and `settings.h` in `.gitignore`.
 
-The C code using settings need to `#include 'settings.h'` to have the `extern` references to the settings.
+The C code including `revk.h` will include `settings.h`.
 
 The settings are loaded in to the C variables when `revk_boot()` is called.
 
