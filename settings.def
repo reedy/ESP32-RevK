@@ -13,7 +13,7 @@ s	prefix.event	event			.revk=1
 s	prefix.info	info			.revk=1
 s	prefix.error	error			.revk=1
 bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1
-#ifdef	REVK_BLINK_LIB
+#ifdef	CONFIG_REVK_BLINK_LIB
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3
 #endif
 blob	client.key				.revk=1	.base64=1

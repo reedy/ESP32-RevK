@@ -26,7 +26,7 @@ menu "RevK"
 		One or more (space separated) LED GPIOs
 
 	config REVK_LED_STRIP
-	bool "Support LED strip for status LED"
+	bool "LED strip support functions"
 	default n
         help
 		Support LED strip for status LED - set by build system if led_strip managed_component is present
