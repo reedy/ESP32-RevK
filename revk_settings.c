@@ -212,7 +212,8 @@ main (int argc, const char *argv[])
                }
                if (*p == '/' && p[1] == '/')
                {
-                  p += 2;
+                  *p++ = 0;
+                  p++;
                   while (*p && isspace (*p))
                      p++;
                   d->comment = p;
@@ -401,7 +402,7 @@ main (int argc, const char *argv[])
                   "struct revk_settings_gpio_s {\n"     //
                   " uint16_t num:10;\n" //
                   " uint16_t strong:1;\n"       //
-                  " uint16_t weak:1;\n"      //
+                  " uint16_t weak:1;\n" //
                   " uint16_t pulldown:1;\n"     //
                   " uint16_t nopull:1;\n"       //
                   " uint16_t invert:1;\n"       //
