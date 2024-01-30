@@ -843,8 +843,6 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       ESP_LOGE (TAG, "Bad type %s %d", s->name, s->type);
 #endif
    }
-   if (err)
-      ESP_LOGE (TAG, "%s %s", s->name, err);
    free (mem);
    return err;
 }
