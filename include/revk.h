@@ -103,10 +103,12 @@ uint32_t uptime (void);         // Seconds uptime
 // Calls
 int gpio_ok (uint8_t gpio);     // non 0 if OK to use in current platform (bit 0 for out, bit 1 for in, bit 2 for special use - e.g. USB)
 #ifndef  CONFIG_REVK_OLD_SETTINGS
+#ifdef	CONFIG_REVK_HAS_GPIO
 void revk_gpio_output(revk_settings_gpio_t g);
 void revk_gpio_set(revk_settings_gpio_t g,uint8_t o);
 void revk_gpio_input(revk_settings_gpio_t g);
 uint8_t revk_gpio_get(revk_settings_gpio_t g);
+#endif
 #endif
 void revk_boot (app_callback_t * app_callback);
 void revk_start (void);

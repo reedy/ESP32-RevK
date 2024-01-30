@@ -362,6 +362,7 @@ main (int argc, const char *argv[])
       char hassigned = 0;
       char hasoctet = 0;
       char hasstring = 0;
+      char hasgpio = 0;
 
       for (d = defs; d && (!d->type || *d->type != 'o' || !isdigit (d->type[1])); d = d->next);
       if (d)
@@ -394,12 +395,13 @@ main (int argc, const char *argv[])
       for (d = defs; d && (!d->type || strcmp (d->type, "gpio")); d = d->next);
       if (d)
       {
+         hasgpio = 1;
          hasunsigned = 1;       // GPIO is treated as a u16
          fprintf (H, "typedef struct revk_settings_gpio_s revk_settings_gpio_t;\n"      //
                   "struct revk_settings_gpio_s {\n"     //
                   " uint16_t num:10;\n" //
-                  " uint16_t strong2:1;\n"      //
                   " uint16_t strong:1;\n"       //
+                  " uint16_t weak:1;\n"      //
                   " uint16_t pulldown:1;\n"     //
                   " uint16_t nopull:1;\n"       //
                   " uint16_t invert:1;\n"       //
@@ -459,6 +461,8 @@ main (int argc, const char *argv[])
       if (hasoctet)
          fprintf (H, " REVK_SETTINGS_OCTET,\n");
       fprintf (H, "};\n");
+      if (hasgpio)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_GPIO\n");
       if (hassigned || hasunsigned)
          fprintf (H, "#define	REVK_SETTINGS_HAS_NUMERIC\n");
       if (hassigned)

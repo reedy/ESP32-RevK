@@ -72,8 +72,8 @@ The `gpio` type makes a structure which has the following fields.
 |`-`|`.invert`|If the GPIO is to be treated as logically inverted.|
 |`~`|`.nopull`|If the GPIO not pulled. Default is pull up.|
 |`↓`|`.pulldown`|If the GPIO is be pulled down (input) or open drain (output)|
-|`↕`|`.strong1`|The output is set to strength 1|
-|`⇕`|`.strong2`|The output is set to strength 2, both for strength 3|
+|`↕`|`.weak`|The output is set to strength 0 (i.e. weak)|
+|`⇕`|`.strong`|The output is set to strength 3, both for strength 1, neither for the default strength 2|
 
 In many cases, in JSON, the GPIO is just a number, but if it would not be valid in JSON, e.g. `4↑` or `-0`, then it is quoted as a string value.
 

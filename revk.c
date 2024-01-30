@@ -1071,8 +1071,8 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                b.setting_dump_requested = 2;
             else if (suffix && !strcmp (suffix, "**"))
                b.setting_dump_requested = 3;
-            else if (suffix)
-               err = ((err ? : revk_setting (j)) ? : "Unknown setting");
+            else
+               err = ((err && *err ? err : revk_setting (j)) ? : "Unknown setting");
          } else
             err = (err ? : ""); // Ignore
       }
@@ -1097,7 +1097,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
             jo_string (e, "suffix", suffix);
          if (plen)
             jo_string (e, "payload", (char *) payload);
-         revk_error (suffix, &e);
+         revk_error (suffix ? : prefix, &e);
       }
       jo_free (&j);
    } else if (payload)
@@ -3882,6 +3882,16 @@ revk_season (time_t now)
       }
    }
    *p = 0;
+   if (p > temp + 1)
+   {                            // Swap first in list based on hour
+      int l = t.tm_hour % (p - temp);
+      if (l)
+      {
+         char c = *temp;
+         *temp = temp[l];
+         temp[l] = c;
+      }
+   }
    return temp;
 }
 #endif
@@ -4029,14 +4039,22 @@ revk_disable_settings (void)
 }
 
 #ifndef  CONFIG_REVK_OLD_SETTINGS
+#ifdef	CONFIG_REVK_HAS_GPIO
 void
 revk_gpio_output (revk_settings_gpio_t g)
 {
-   if (!g.set)
+   if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       return;
+   if (rtc_gpio_is_valid_gpio (g.num))
+      rtc_gpio_deinit (g.num);
    gpio_reset_pin (g.num);
    gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
-   rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
+   gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
+   if (rtc_gpio_is_valid_gpio (g.num))
+   {
+      rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
+      rtc_gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
+   }
 }
 
 void
@@ -4049,27 +4067,30 @@ revk_gpio_set (revk_settings_gpio_t g, uint8_t o)
 void
 revk_gpio_input (revk_settings_gpio_t g)
 {
-   if (!g.set)
+   if (!g.set || !GPIO_IS_VALID_GPIO (g.num))
       return;
+   if (rtc_gpio_is_valid_gpio (g.num))
+      rtc_gpio_deinit (g.num);
    gpio_reset_pin (g.num);
    gpio_set_direction (g.num, GPIO_MODE_INPUT);
    if (!g.pulldown && !g.nopull)
-   {
       gpio_pullup_en (g.num);
-      rtc_gpio_pullup_en (g.num);
-   } else
-   {
+   else
       gpio_pullup_dis (g.num);
-      rtc_gpio_pullup_dis (g.num);
-   }
    if (g.pulldown && !g.nopull)
-   {
       gpio_pulldown_en (g.num);
-      rtc_gpio_pulldown_en (g.num);
-   } else
-   {
+   else
       gpio_pulldown_dis (g.num);
-      rtc_gpio_pulldown_dis (g.num);
+   if (rtc_gpio_is_valid_gpio (g.num))
+   {
+      if (!g.pulldown && !g.nopull)
+         rtc_gpio_pullup_en (g.num);
+      else
+         rtc_gpio_pullup_dis (g.num);
+      if (g.pulldown && !g.nopull)
+         rtc_gpio_pulldown_en (g.num);
+      else
+         rtc_gpio_pulldown_dis (g.num);
    }
 }
 
@@ -4080,4 +4101,5 @@ revk_gpio_get (revk_settings_gpio_t g)
       return gpio_get_level (g.num) ^ g.invert;
    return 0;
 }
+#endif
 #endif

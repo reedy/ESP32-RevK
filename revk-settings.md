@@ -1,16 +1,16 @@
 # Settings
 
-Settings are simple named values that are stored in non volatile storage and cane be read or changed. Some settings have defaulkt values.
+Settings are simple named values that are stored in non volatile storage and cane be read or changed. Some settings have default values.
 
 ## Changing settings
 
-Settings are normally represented as a JSON value (i.e. string, number, boolean), and you can change the value with the `setting` command, e.g. sending `setting/myapp` with payload `{"timeout":30}` woould change the `timeout` setting to `30`. You can include any number of settings at once.
+Settings are normally represented as a JSON value (i.e. string, number, boolean), and you can change the value with the `setting` command, e.g. sending `setting/myapp` with payload `{"timeout":30}` would change the `timeout` setting to `30`. You can include any number of settings at once.
 
-There is also a shortcode for a single setting, e.g. sending `setting/myapp/timeout` with a payload of `30` is the same, and changes one setting at a time.
+There is also a short cut for a single setting, e.g. sending `setting/myapp/timeout` with a payload of `30` is the same, and changes one setting at a time.
 
 ## Seeing settings
 
-You can see settings by sending the `setting` command with no payload, e.fg. `setting/myapp` might return `{"timeout":30,"a":1,"b":2,"c":3}`. If the settings would be too long they are split over more than one message, each a JSON object.
+You can see settings by sending the `setting` command with no payload, e.g. `setting/myapp` might return `{"timeout":30,"a":1,"b":2,"c":3}`. If the settings would be too long they are split over more than one message, each a JSON object.
 
 This only includes settings stored in non volatile memory. There will be other settings, and some will have default values. Send the `setting` command with `*`, e.g. `setting/myapp/*` to see all settings that are store in non volatile storage or that have a default value. This does not include any that are not stored and have no default value.
 
@@ -30,11 +30,11 @@ You can force a setting back to not being stored, and hence to any default value
 
 Some settings are *forced* in to non volatile memory regardless, and GPIOs are an example of this. This is because the GPIOs relate to your board, and you do not a later board design with different GPIOs and hence new defaults in the software to change your GPIOs. This means that even setting to `null` will still save (the current default) in non volatile storage and show when you view settings.
 
-Some numeric settinsg can also have extra flags, and GPIOs are a good example. The `-` sign is a prefix that means *inverted*. This is common for an input button that may be pulled up and connected to ground when pushed, so *active* reads as `0` and *inactive* as `1`. As such you might see `{"button":-5}` meaning GPIO `5` but *inverted* logic. There are other characters such as `↓` meaning *pull down* rather than the default *pull up*.
+Some numeric settings can also have extra flags, and GPIOs are a good example. The `-` sign is a prefix that means *inverted*. This is common for an input button that may be pulled up and connected to ground when pushed, so *active* reads as `0` and *inactive* as `1`. As such you might see `{"button":-5}` meaning GPIO `5` but *inverted* logic. There are other characters such as `↓` meaning *pull down* rather than the default *pull up*.
 
 ## Zero/unset values
 
-Some settings, and GPIO are a good example, have a concept of being *set*. You might think this is simple, `0` could be *unset* and any other number is *set*, but GPIOs are a good exmaple where GPIO `0` is valid and different to the GPIO being *unset*. To set such a value to *unset* stet it to `""`.
+Some settings, and GPIO are a good example, have a concept of being *set*. You might think this is simple, `0` could be *unset* and any other number is *set*, but GPIOs are a good example where GPIO `0` is valid and different to the GPIO being *unset*. To set such a value to *unset* stet it to `""`.
 
 ## Setting groups
 
@@ -53,3 +53,7 @@ You can set individual values with a number, e.g. `{"blink2":5}` would change th
 If you send an array, e.g. `{"blink":[5,6]}` all that you omit will be cleared (not set to defaults, but cleared).
 
 Sending an empty array, e.g. `{"blink":[]}` clears/unsets all values. Sending `null`, e.g. `{"blink":null}` sets the values to their defaults.
+
+## Groups and arrays
+
+In some cases a setting group may have settings that are arrays, e.g. `{"input":{"gpio":[1,2],"timeout":[10,20]}}`. In such cases you can turn this around and specify an array of objects, e.g. `{"input}":[{"gpio":1,"timeout":10},{"gpio":2,"timeout":20}]}`.

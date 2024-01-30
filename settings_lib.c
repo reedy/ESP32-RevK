@@ -939,7 +939,8 @@ revk_setting_dump (int level)
          d = (*p);
          if (!d)
             return 1;
-      }
+      } else
+         d += index * s->size;
       if (s->size)
       {
          int i;
@@ -1085,10 +1086,13 @@ revk_setting_dump (int level)
          int max = s->array;
          while (max > 0 && is_zero (s, max - 1))
             max--;
-         jo_array (p, s->name + base);
-         for (int i = 0; i < max; i++)
-            addvalue (s, i, NULL);
-         jo_close (p);
+         if (max || level > 1 || !s->fix || !(!s->def || !*s->def || (s->dq && !strcmp (s->def, "\"\""))))
+         {
+            jo_array (p, s->name + base);
+            for (int i = 0; i < max; i++)
+               addvalue (s, i, NULL);
+            jo_close (p);
+         }
       }
 
       void addgroup (revk_settings_t * s)
@@ -1157,6 +1161,8 @@ revk_setting_dump (int level)
 const char *
 revk_setting (jo_t j)
 {
+   if (!j)
+      return "";
    jo_rewind (j);
    jo_type_t t;
    if ((t = jo_here (j)) != JO_OBJECT)
@@ -1166,7 +1172,7 @@ revk_setting (jo_t j)
    char tag[16];
    revk_setting_bits_t found = { 0 };
    const char *debug = NULL;
-   void scan (int plen)
+   void scan (int plen, int pindex)
    {
       while (!err && (t = jo_next (j)) == JO_TAG)
       {
@@ -1183,7 +1189,7 @@ revk_setting (jo_t j)
             {
                if (!s->len)
                {
-                  if (!index)
+                  if (index < 0)
                   {
                      int e = l;
                      while (e && isdigit ((int) tag[plen + e - 1]))
@@ -1191,7 +1197,8 @@ revk_setting (jo_t j)
                      if (e < l)
                      {
                         for (s = revk_settings;
-                             s->len && (s->len != plen + e || (plen && s->dot != plen) || strncmp (s->name, tag, plen + e)); s++);
+                             s->len && (!s->array || s->len != plen + e || (plen && s->dot != plen)
+                                        || strncmp (s->name, tag, plen + e)); s++);
                         if (s)
                            index = atoi (tag + plen + e) - 1;
                      }
@@ -1202,10 +1209,12 @@ revk_setting (jo_t j)
                      return;
                   }
                }
+               if (index < 0)
+                  index = 0;
                found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
                if ((s->array && (index < 0 || index >= s->array)) || (!s->array && index))
                {
-                  err = "Bad index";
+                  err = "Bad array index";
                   return;
                }
                char *val = NULL;
@@ -1317,11 +1326,13 @@ revk_setting (jo_t j)
             t = jo_next (j);
             void zapdef (void)
             {
-               if (s->array)
+               if (pindex >= 0)
+                  store (pindex);
+               else if (s->array)
                   for (int i = 0; i < s->array; i++)
                      store (i);
                else
-                  store (0);
+                  store (-1);
             }
             if (t == JO_NULL)
             {
@@ -1353,7 +1364,7 @@ revk_setting (jo_t j)
                   else
                   {
                      int group = s->group;
-                     scan (l);
+                     scan (l, -1);
                      t = JO_NULL;       // Set to default
                      for (s = revk_settings; s->len; s++)
                         if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
@@ -1362,30 +1373,75 @@ revk_setting (jo_t j)
                }
             } else if (t == JO_ARRAY)
             {                   // Array
-               if (!s->array)
+               if (pindex >= 0)
                   err = "Unexpected array";
                else
                {
-                  int index = 0;
-                  while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
+                  if (!s->len)
                   {
-                     store (index);
-                     index++;
-                  }
-                  while (index < s->array)
-                  {             // NULLs
-                     store (index);
-                     index++;
+                     for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+                     if (!s->len)
+                        err = "Not found";
+                     else
+                     {          // Array of objects
+                        int group = s->group;
+                        int index = 0;
+                        while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
+                        {
+                           for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+                           if (!s->len)
+                              err = "Unknown object";
+                           else
+                              scan (l, index);
+                           index++;
+                        }
+                        while (1)
+                        {       // Clean up
+                           for (s = revk_settings; s->len && (s->group != group || s->array <= index); s++);
+                           if (!s->len)
+                              break;
+                           for (s = revk_settings; s->len; s++)
+                              if (s->group == group && s->array >= index)
+                                 store (index);
+                           index++;
+                        }
+                        t = JO_NULL;    // Set to default
+                        for (s = revk_settings; s->len; s++)
+                           if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
+                               && !s->secret)
+                              zapdef ();        // Not secrets, D'Oh
+                     }
+                  } else if (!s->array)
+                     err = "Unexpected array";
+                  else
+                  {
+                     int index = 0;
+                     while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
+                     {
+                        store (index);
+                        index++;
+                     }
+                     while (index < s->array)
+                     {          // NULLs
+                        store (index);
+                        index++;
+                     }
                   }
                }
             } else
-               store (0);
+               store (pindex);
          }
       }
    }
-   scan (0);
+   scan (0, -1);
    if (err)
+   {
       ESP_LOGE (TAG, "Failed %s at [%s]", err, debug ? : "?");
+      jo_t e = jo_make (NULL);
+      jo_string (e, "error", err);
+      jo_string (e, "location", debug);
+      revk_error (prefixsetting, &e);
+   }
    if (change)
       revk_restart ("Settings changed", 5);
    return err ? : "";
