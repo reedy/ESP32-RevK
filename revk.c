@@ -1054,27 +1054,30 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          }
          jo_rewind (j);
       }
-      if (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id) || (*hostname && !strcmp (target, hostname)))
-         target = NULL;         // Mark as us for simple testing by app_command, etc
-      if (!client && prefix && !strcmp (prefix, prefixcommand) && suffix && !strcmp (suffix, "upgrade"))
-         err = (err ? : revk_upgrade (target, j));      // Special case as command can be to other host
-      else if (!client && !target)
-      {                         // For us (could otherwise be for app callback)
-         if (prefix && !strcmp (prefix, prefixcommand))
-            err = (err ? : revk_command (suffix, j));
-         else if (prefix && !strcmp (prefix, prefixsetting))
-         {
-            err = "";
-            if (!suffix && !plen)
-               b.setting_dump_requested = 1;
-            else if (suffix && !strcmp (suffix, "*"))
-               b.setting_dump_requested = 2;
-            else if (suffix && !strcmp (suffix, "**"))
-               b.setting_dump_requested = 3;
-            else
-               err = ((err && *err ? err : revk_setting (j)) ? : "Unknown setting");
-         } else
-            err = (err ? : ""); // Ignore
+      if (!err)
+      {
+         if (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id) || (*hostname && !strcmp (target, hostname)))
+            target = NULL;      // Mark as us for simple testing by app_command, etc
+         if (!client && prefix && !strcmp (prefix, prefixcommand) && suffix && !strcmp (suffix, "upgrade"))
+            err = (err ? : revk_upgrade (target, j));   // Special case as command can be to other host
+         else if (!client && !target)
+         {                      // For us (could otherwise be for app callback)
+            if (prefix && !strcmp (prefix, prefixcommand))
+               err = (err ? : revk_command (suffix, j));
+            else if (prefix && !strcmp (prefix, prefixsetting))
+            {
+               err = "";
+               if (!suffix && !plen)
+                  b.setting_dump_requested = 1;
+               else if (suffix && !strcmp (suffix, "*"))
+                  b.setting_dump_requested = 2;
+               else if (suffix && !strcmp (suffix, "**"))
+                  b.setting_dump_requested = 3;
+               else
+                  err = ((err && *err ? err : revk_setting (j)) ? : "Unknown setting");
+            } else
+               err = (err ? : "");      // Ignore
+         }
       }
       if ((!err || !*err) && app_callback)
       {                         /* Pass to app, even if we handled with no error */
