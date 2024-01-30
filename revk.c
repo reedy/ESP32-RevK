@@ -4039,7 +4039,7 @@ revk_disable_settings (void)
 }
 
 #ifndef  CONFIG_REVK_OLD_SETTINGS
-#ifdef	CONFIG_REVK_HAS_GPIO
+#ifdef	REVK_SETTINGS_HAS_GPIO
 void
 revk_gpio_output (revk_settings_gpio_t g)
 {
