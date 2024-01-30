@@ -91,7 +91,7 @@ Additional attributes relate to each setting as follows:-
 
 |Attribute|Meaning|
 |---------|-------|
-|`.array`|A number defining how many entries this has, it creates an array in JSON (unless type is `c`).|
+|`.array`|A number defining how many entries this has, it creates an array in JSON.|
 |`.live`|This setting can be updated `live` without a reboot. If the setting is changed then it is changed in memory (as well as being stored to NVS).|
 |`.fix`|The setting is to be fixed, i.e. the default value is only used if not defined in NVS, and the value, even if default, is stored to NVS. This assumed for `gpio` type.|
 |`.set`|The top bit of the value is set if the value is defined.|
