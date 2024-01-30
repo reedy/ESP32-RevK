@@ -1279,7 +1279,6 @@ revk_setting (jo_t j)
                }
             } else if (t != JO_CLOSE)
                val = jo_strdup (j);
-		 ESP_LOGE(TAG,"Store %s %s",s->name,val);
             int len = s->malloc ? sizeof (void *) : s->size ? : 1;
             uint8_t *temp = mallocspi (len);
             if (!temp)
