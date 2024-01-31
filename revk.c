@@ -101,7 +101,9 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #ifdef  CONFIG_REVK_OLD_SETTINGS
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
-		s8(otaauto,CONFIG_REVK_OTAAUTO);	\
+		u8(otaauto,CONFIG_REVK_OTAAUTO);	\
+		b(otastartup,"true")			\
+		b(otabeta,"false")			\
 		bd(otacert,CONFIG_REVK_OTACERT);	\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
@@ -1562,10 +1564,10 @@ task (void *pvParameters)
    /* Log if unexpected restart */
    int64_t tick = 0;
    uint32_t ota_check = 0;
-   if (otaauto > 0)
+   if (otastart)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
-   else if (otaauto < 0)
-      ota_check = 86400 * (-otaauto) + (esp_random () % 3600);  // Min periodic check
+   else if (otaauto)
+      ota_check = 86400 * otaauto + (esp_random () % 3600);     // Min periodic check
 #ifdef	CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[0].num == blink[1].num && !revk_strip)
@@ -1636,10 +1638,10 @@ task (void *pvParameters)
                ota_check = now + (esp_random () % 21600);       // A periodic check should be in the middle of the night, so wait a bit more (<7200 is a startup check)
             else
             {                   // Do a check
-               if (otaauto > 0)
+               if (otastart)
                   ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);  // Next check approx otaauto days later
-               else if (otaauto < 0)
-                  ota_check = 86400 * (-otaauto) + (esp_random () % 3600);      // Min periodic check
+               else if (otaauto)
+                  ota_check = 86400 * otaauto + (esp_random () % 3600); // Min periodic check
                else
                   ota_check = 0;
 #ifdef CONFIG_REVK_MESH
@@ -2815,7 +2817,8 @@ revk_web_settings (httpd_req_t * req)
 #endif
       revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
-         revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s'>", otahost);
+         revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s%s'>", otahost,
+                        otabeta ? " (beta)" : "");
       revk_web_send (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
@@ -2878,7 +2881,8 @@ revk_web_settings (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
    if (otaauto && *otahost)
-      revk_web_send (req, "<p>Note, automatic upgrade from <i>%s</i> is enabled. See instructions to make changes.</p>", otahost);
+      revk_web_send (req, "<p>Note, automatic %supgrade from <i>%s</i> is enabled. See instructions to make changes.</p>",
+                     otabeta ? "beta " : "", otahost);
    {                            // IP info
       revk_web_send (req, "<table>");
       int32_t up = uptime ();
@@ -3380,10 +3384,11 @@ ota_task (void *pvParameters)
             {
                revk_restart ("OTA Download fail", 3);
                ota_percent = -4;
-               if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && (otaauto > 0 || otaauto > -30))
+               if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otaauto > 0 && otaauto < 30 && otastart)
                {                // Force long recheck delay
                   jo_t j = jo_make (NULL);
-                  jo_int (j, "otaauto", -30);
+                  jo_int (j, "otaauto", 30);
+                  jo_bool (j, "otastart", 0);
                   revk_setting (j);
                   jo_free (&j);
                }
@@ -3420,7 +3425,7 @@ revk_upgrade_url (const char *val)
 {                               // OTA URL (malloc'd)
    char *url;                   // Passed to task
    if (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7))
-      url = strdup (val);       // Whole URL provided
+      url = strdup (val);       // Whole URL provided (ignore beta)
    else if (*val == '/')
       asprintf (&url, "%s://%s%s",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
@@ -3428,15 +3433,15 @@ revk_upgrade_url (const char *val)
 #else
                 "http",         /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-                otahost, val);  // Leaf provided
+                otahost, val);  // Leaf provided (ignore beta)
    else
-      asprintf (&url, "%s://%s/%s%s.bin",
+      asprintf (&url, "%s://%s/%s%s%s.bin",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                 otacert->len ? "https" : "http",
 #else
                 "http",         /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-                *val ? val : otahost, appname, revk_build_suffix);      // Hostname provided
+                *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix);      // Hostname provided
    return url;
 }
 
