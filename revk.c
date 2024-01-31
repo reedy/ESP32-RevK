@@ -102,8 +102,8 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		u8(otaauto,CONFIG_REVK_OTAAUTO);	\
-		b(otastartup,"true")			\
-		b(otabeta,"false")			\
+		b(otastart,true)			\
+		b(otabeta,false)			\
 		bd(otacert,CONFIG_REVK_OTACERT);	\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
@@ -164,7 +164,7 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
     		u16(meshmax,CONFIG_REVK_MESHMAX);	\
 		sp(meshpass,CONFIG_REVK_MESHPASS);	\
 		b(meshlr,CONFIG_REVK_MESHLR);		\
-    		b(meshroot,"false");			\
+    		b(meshroot,false);			\
 
 struct gpio_s
 {
@@ -1565,7 +1565,7 @@ task (void *pvParameters)
    int64_t tick = 0;
    uint32_t ota_check = 0;
    if (otabeta)
-      ota_check = now + 86400 - 1800 + (esp_random () % 3600);  //  A day ish
+      ota_check = 86400 - 1800 + (esp_random () % 3600);  //  A day ish
    else if (otastart)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
    else if (otaauto)
@@ -3386,7 +3386,7 @@ ota_task (void *pvParameters)
             {
                revk_restart ("OTA Download fail", 3);
                ota_percent = -4;
-               if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otaauto > 0 && otaauto < 30 && otastart)
+               if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otaauto < 30 && otastart)
                {                // Force long recheck delay
                   jo_t j = jo_make (NULL);
                   if (otabeta)
