@@ -150,7 +150,7 @@ const char *revk_mqtt_send_raw (const char *topic, int retain, const char *paylo
 const char *revk_mqtt_send_payload_clients (const char *prefix, int retain, const char *suffix, const char *payload,
                                             uint8_t clients);
 const char *revk_mqtt_send_str_clients (const char *str, int retain, uint8_t clients);
-#define	revk_mqtt_send_str(s) revk_mqtt_send_str_clients(s,0,1);
+#define	revk_mqtt_send_str(s) revk_mqtt_send_str_clients(s,0,1)
 const char *revk_state_clients (const char *suffix, jo_t *, uint8_t clients);
 #define revk_state(t,j) revk_state_clients(t,j,1)
 const char *revk_event_clients (const char *suffix, jo_t *, uint8_t clients);
