@@ -1564,7 +1564,9 @@ task (void *pvParameters)
    /* Log if unexpected restart */
    int64_t tick = 0;
    uint32_t ota_check = 0;
-   if (otastart)
+   if (otabeta)
+      ota_check = now + 86400 - 1800 + (esp_random () % 3600);  //  A day ish
+   else if (otastart)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
    else if (otaauto)
       ota_check = 86400 * otaauto + (esp_random () % 3600);     // Min periodic check
@@ -1638,10 +1640,10 @@ task (void *pvParameters)
                ota_check = now + (esp_random () % 21600);       // A periodic check should be in the middle of the night, so wait a bit more (<7200 is a startup check)
             else
             {                   // Do a check
-               if (otastart)
-                  ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);  // Next check approx otaauto days later
+               if (otabeta)
+                  ota_check = now + 86400 - 1800 + (esp_random () % 3600);      // A day ish
                else if (otaauto)
-                  ota_check = 86400 * otaauto + (esp_random () % 3600); // Min periodic check
+                  ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);  // Next check approx otaauto days later
                else
                   ota_check = 0;
 #ifdef CONFIG_REVK_MESH
@@ -3387,8 +3389,13 @@ ota_task (void *pvParameters)
                if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otaauto > 0 && otaauto < 30 && otastart)
                {                // Force long recheck delay
                   jo_t j = jo_make (NULL);
-                  jo_int (j, "otaauto", 30);
-                  jo_bool (j, "otastart", 0);
+                  if (otabeta)
+                     jo_bool (j, "otabeta", 0);
+                  else
+                  {
+                     jo_int (j, "otaauto", 30);
+                     jo_bool (j, "otastart", 0);
+                  }
                   revk_setting (j);
                   jo_free (&j);
                }
