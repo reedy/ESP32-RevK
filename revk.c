@@ -102,8 +102,8 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		u8(otaauto,CONFIG_REVK_OTAAUTO);	\
-		b(otastart,true)			\
-		b(otabeta,false)			\
+		b(otastart,true);			\
+		b(otabeta,false);			\
 		bd(otacert,CONFIG_REVK_OTACERT);	\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
 		s(tz,CONFIG_REVK_TZ);			\
