@@ -539,9 +539,9 @@ text_numeric (revk_settings_t * s, void *p)
          {
             if (s->decimal)
             {
-               sprintf (t, "%021llu", val);
+               sprintf (t, "00%020llu", val);   // Extra 0s to allow space for adding .
                char *i = t,
-                  *e = t + 21 - s->decimal;
+                  *e = t + 22 - s->decimal;
                while (i < e - 1 && *i == '0')
                   i++;
                while (i < e)
