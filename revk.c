@@ -4056,8 +4056,6 @@ revk_disable_settings (void)
    b.disablesettings = 1;
 }
 
-#ifndef  CONFIG_REVK_OLD_SETTINGS
-#ifdef	REVK_SETTINGS_HAS_GPIO
 void
 revk_gpio_output (revk_settings_gpio_t g)
 {
@@ -4066,6 +4064,7 @@ revk_gpio_output (revk_settings_gpio_t g)
    if (rtc_gpio_is_valid_gpio (g.num))
       rtc_gpio_deinit (g.num);
    gpio_reset_pin (g.num);
+#ifdef	REVK_SETTINGS_HAS_GPIO
    gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
    gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
    if (rtc_gpio_is_valid_gpio (g.num))
@@ -4073,6 +4072,9 @@ revk_gpio_output (revk_settings_gpio_t g)
       rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
       rtc_gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
    }
+#else
+   gpio_set_direction (g.num, GPIO_MODE_OUTPUT);
+#endif
 }
 
 void
@@ -4091,6 +4093,7 @@ revk_gpio_input (revk_settings_gpio_t g)
       rtc_gpio_deinit (g.num);
    gpio_reset_pin (g.num);
    gpio_set_direction (g.num, GPIO_MODE_INPUT);
+#ifdef	REVK_SETTINGS_HAS_GPIO
    if (!g.pulldown && !g.nopull)
       gpio_pullup_en (g.num);
    else
@@ -4110,6 +4113,7 @@ revk_gpio_input (revk_settings_gpio_t g)
       else
          rtc_gpio_pulldown_dis (g.num);
    }
+#endif
 }
 
 uint8_t
@@ -4119,5 +4123,3 @@ revk_gpio_get (revk_settings_gpio_t g)
       return gpio_get_level (g.num) ^ g.invert;
    return 0;
 }
-#endif
-#endif
