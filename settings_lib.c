@@ -930,7 +930,10 @@ revk_settings_load (const char *tag, const char *appname)
                         if (s->len)
                            err = nvs_get (s, info.key, 0);      // Exact match (old)
                         else
+                        {
                            addzap (NULL, 0);    // Not doing old array or old style array - can add if needed
+                           err = "Not matched";
+                        }
                      }
                   }
                }
