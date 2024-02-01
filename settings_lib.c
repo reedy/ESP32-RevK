@@ -1202,12 +1202,12 @@ revk_setting (jo_t j)
    const char *err = NULL;
    char tag[16];
    revk_setting_bits_t found = { 0 };
-   const char *debug = NULL;
+   const char *location = NULL;
    const char *scan (int plen, int pindex)
    {
       while (!err && (t = jo_next (j)) == JO_TAG)
       {
-         debug = jo_debug (j);
+         location = jo_debug (j);
          int l = jo_strlen (j);
          if (l + plen > sizeof (tag) - 1)
             return "Not found";
@@ -1455,10 +1455,10 @@ revk_setting (jo_t j)
    err = scan (0, -1);
    if (err)
    {
-      ESP_LOGE (TAG, "Failed %s at [%s]", err, debug ? : "?");
+      ESP_LOGE (TAG, "Failed %s at [%s]", err, location ? : "?");
       jo_t e = jo_make (NULL);
       jo_string (e, "error", err);
-      jo_string (e, "location", debug);
+      jo_string (e, "location", location);
       revk_error (prefixsetting, &e);
    }
    if (change)
