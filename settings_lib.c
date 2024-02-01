@@ -935,7 +935,7 @@ revk_settings_load (const char *tag, const char *appname)
                   }
                }
                if (err)
-                  ESP_LOGE (TAG, "NVS %s/%s/%s fail: %s", part, ns, tag, err);
+                  ESP_LOGE (TAG, "NVS %s/%s/%s fail: %s", part, ns, info.key, err);
             }
             while (!nvs_entry_next (&i));
          }
