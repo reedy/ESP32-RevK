@@ -935,10 +935,10 @@ revk_settings_load (const char *tag, const char *appname)
                   }
                }
                if (err)
-	       {
+               {
                   ESP_LOGE (TAG, "NVS %s/%s/%s(%d): %s", part, ns, info.key, info.type, err);
-		  addzap(NULL,0);
-	       }
+                  addzap (NULL, 0);
+               }
             }
             while (!nvs_entry_next (&i));
          }
@@ -1366,7 +1366,12 @@ revk_setting (jo_t j)
                      else
                         err = nvs_put (s, index, temp);
                      if (!err && !s->live)
+                     {
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+                        ESP_LOGE (TAG, "Changed %s[%d]", s->name, index);
+#endif
                         change = 1;
+                     }
                   } else if (t == JO_NULL && !s->fix)
                      err = nvs_erase (s, s->name);
                }
