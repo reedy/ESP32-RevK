@@ -1565,7 +1565,7 @@ task (void *pvParameters)
    int64_t tick = 0;
    uint32_t ota_check = 0;
    if (otabeta)
-      ota_check = 86400 - 1800 + (esp_random () % 3600);  //  A day ish
+      ota_check = 86400 - 1800 + (esp_random () % 3600);        //  A day ish
    else if (otastart)
       ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
    else if (otaauto)
@@ -1616,7 +1616,10 @@ task (void *pvParameters)
             }
 #ifdef  CONFIG_REVK_LED_STRIP
             else
+            {
                revk_led (revk_strip, 0, 255, rgb);
+               led_strip_refresh (revk_strip);
+            }
 #endif
          }
 #endif
