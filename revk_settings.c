@@ -353,6 +353,7 @@ main (int argc, const char *argv[])
                " uint8_t base64:1;\n"   //
                " uint8_t secret:1;\n"   //
                " uint8_t dq:1;\n"       //
+	       " uint8_t gpio:1\n"	//
                "};\n", maxname + 1);
 
       char hasblob = 0;
@@ -501,8 +502,10 @@ main (int argc, const char *argv[])
             }
             if (*d->type == 's' && isdigit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_SIGNED");
-            else if ((*d->type == 'u' && isdigit (d->type[1])) || !strcmp (d->type, "gpio"))
+            else if (*d->type == 'u' && isdigit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_UNSIGNED");
+            else if (!strcmp (d->type, "gpio"))
+               fprintf (C, ".type=REVK_SETTINGS_UNSIGNED,.gpio=1");
             else if (!strcmp (d->type, "bit"))
                fprintf (C, ".type=REVK_SETTINGS_BIT");
             else if (!strcmp (d->type, "blob"))

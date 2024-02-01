@@ -234,7 +234,14 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                 (s->size == 4 && nvs_get_u32 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, data)))
-               return "Cannot load number (unsigned)";
+            {
+               if (s->gpio && s->size == 2 && nvs_get_u8 (nvs[s->revk], tag, data))
+               {                // Legacy... Old GPIO to new
+                  data[1] = (*data & 0xC0);
+                  data[0] = (*data & 0x3F);
+               } else
+                  return "Cannot load number (unsigned)";
+            }
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
             uint64_t v = (uint64_t) (s->size == 1 ? *((uint8_t *) data) : s->size == 2 ? *((uint16_t *) data) : s->size ==
                                      +4 ? *((uint32_t *) data) : *((uint64_t *) data));
@@ -870,10 +877,10 @@ revk_settings_load (const char *tag, const char *appname)
          do
          {
             nvs_entry_info_t info = { 0 };
-            void addzap (revk_settings_t *s,int index)
+            void addzap (revk_settings_t * s, int index)
             {
                struct zap_s *z = malloc (sizeof (*z) + strlen (info.key) + 1);
-               strcpy ((char*)z->tag, info.key);
+               strcpy ((char *) z->tag, info.key);
                z->next = zap;
                z->s = s;
                z->index = index;
@@ -910,20 +917,20 @@ revk_settings_load (const char *tag, const char *appname)
                   addzap (NULL, 0);
                continue;
             }
-            for (s = revk_settings; s->len && !(s->old&&!s->array && strcmp(s->old,info.key)); s++);
+            for (s = revk_settings; s->len && !(s->old && !s->array && strcmp (s->old, info.key)); s++);
             if (s->len)
             {                   // Exact match (old)
                nvs_get (s, info.key, 0);
                continue;
             }
-	    // Not doing old array or old style array - can add if needed
-            addzap (NULL,0);
+            // Not doing old array or old style array - can add if needed
+            addzap (NULL, 0);
          }
          while (!nvs_entry_next (&i));
       }
       nvs_release_iterator (i);
       for (struct zap_s * z = zap; z; z = z->next)
-         if (z->s&&!z->s->fix)
+         if (z->s && !z->s->fix)
             nvs_put (z->s, z->index, NULL);
       while (zap)
       {
