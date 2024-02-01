@@ -208,10 +208,10 @@ esp_err_t revk_web_wifilist (httpd_req_t * req);        // WS for list of SSIDs
 void revk_web_head (httpd_req_t * req, const char *title);      // Generic html heading
 esp_err_t revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra);     // Generic html footing and return
 
-uint32_t revk_blinker (void); // Return colour for blinking LED
+uint32_t revk_blinker (void); // Return colour for blinking LED (as per revk_rgb) plug top bit for basic blink cycle
 #ifdef  CONFIG_REVK_LED_STRIP
 extern const uint8_t gamma8[256];
-uint32_t revk_rgb (char c);     // Provide RGB colour for character
+uint32_t revk_rgb (char c);     // Provide RGB colour for character, with scaling, and so on, in bottom 3 bytes. Top byte has 2 bits per colour.
 void revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb); // Set LED from RGB with scale and apply gamma
 #endif
 
