@@ -859,6 +859,8 @@ revk_settings_load (const char *tag, const char *appname)
       {
          struct zap_s *next;
          char tag[0];
+	 revk_settings_t *s;
+	 int index;
       } *zap = NULL;
       nvs_open_from_partition (revk ? tag : "nvs", revk ? tag : appname, NVS_READWRITE, &nvs[revk]);
       nvs_iterator_t i = NULL;
@@ -867,10 +869,12 @@ revk_settings_load (const char *tag, const char *appname)
          do
          {
             nvs_entry_info_t info = { 0 };
-            void addzap (void)
+            void addzap (revk_settings_t*s,int index)
             {
                struct zap_s *z = malloc (sizeof (*z) + strlen (info.key) + 1);
                strcpy (z->tag, info.key);
+	       z->s=s;
+	       z->index=index;
                z->next = zap;
                zap = z;
             }
@@ -891,16 +895,18 @@ revk_settings_load (const char *tag, const char *appname)
                      break;
                   } else if (s->array && s->len < l && !memcmp (s->name, info.key, s->len) && isdigit ((int) info.key[s->len]))
                   {             // Array match, old
-                     err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
-                     if (!err)
-                        err = "Old style record in nvs, being replaced";        // And error should mean any .fix is written back
-                     addzap ();
+				int index=atoi (info.key + s->len) - 1;
+				if(index>=0&&index<a->array)
+				{
+                     err = nvs_get (s, info.key, index);
+                     addzap (s,index);
+				}else addzap(NULL,0);
                      break;
                   }
                }
                if (!s->len)
                {
-                  addzap ();
+                  addzap (NULL,0);
                   err = "Not found";
                }
                if (err)

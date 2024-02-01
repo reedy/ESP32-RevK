@@ -338,6 +338,7 @@ main (int argc, const char *argv[])
                " const char name[%d];\n"        //
                " const char *def;\n"    //
                " const char *flags;\n"  //
+	       " const char *old;\n"	//
                " uint16_t size;\n"      //
                " uint8_t group;\n"      //
                " uint8_t bit;\n"        //
