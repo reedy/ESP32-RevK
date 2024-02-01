@@ -878,7 +878,7 @@ revk_settings_load (const char *tag, const char *appname)
          if (!nvs_entry_find (part, ns, NVS_TYPE_ANY, &i))
          {
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
-            ESP_LOGE (TAG, "Svan %s/%s", part, ns);
+            ESP_LOGE (TAG, "Scan %s/%s", part, ns);
 #endif
             do
             {
