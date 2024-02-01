@@ -1610,9 +1610,9 @@ task (void *pvParameters)
                gpio_set_level (blink[0].num, (rgb ? 1 : 0) ^ blink[0].invert);  // Single LED on
             else if (blink[0].num != blink[1].num)
             {                   // Separate RGB on
-               gpio_set_level (blink[0].num, ((rgb >> 31) ^ blink[0].invert) & 1);
-               gpio_set_level (blink[1].num, ((rgb >> 15) ^ blink[1].invert) & 1);
-               gpio_set_level (blink[2].num, ((rgb >> 7) ^ blink[2].invert) & 1);
+               gpio_set_level (blink[0].num, ((rgb >> 24) ^ blink[0].invert) & 0xF0 ? 1 : 0);
+               gpio_set_level (blink[1].num, ((rgb >> 16) ^ blink[1].invert) & 0xF0 ? 1 : 0);
+               gpio_set_level (blink[2].num, (rgb ^ blink[2].invert) & 0xF0 ? 1 : 0);
             }
 #ifdef  CONFIG_REVK_LED_STRIP
             else
