@@ -870,7 +870,7 @@ revk_settings_load (const char *tag, const char *appname)
          do
          {
             nvs_entry_info_t info = { 0 };
-            void addzap (void)
+            void addzap (revk_settings_t *s,int index)
             {
                struct zap_s *z = malloc (sizeof (*z) + strlen (info.key) + 1);
                strcpy (z->tag, info.key);
