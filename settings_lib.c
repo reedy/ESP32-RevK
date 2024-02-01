@@ -1151,8 +1151,9 @@ revk_setting_dump (int level)
          if (!visible (s))
             return;             // Default
          int max = s->array;
-         while (max > 0 && is_zero (s, max - 1))
-            max--;
+         if (level < 3)
+            while (max > 0 && is_zero (s, max - 1))
+               max--;
          if (max || level > 1 || !s->fix || !(!s->def || !*s->def || (s->dq && !strcmp (s->def, "\"\""))))
          {
             jo_array (p, s->name + base);
