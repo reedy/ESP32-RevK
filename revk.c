@@ -1548,7 +1548,7 @@ revk_blinker (void)
       char col = *c++;          // Next colour
       rgb = (revk_rgb (col) | 0xC0000000);
    } else
-      rgb &= 0x00FFFFFF;
+      rgb &= 0x00FFFFFF; // Off
    // Updated LED every 10th second
    uint8_t scale = 0;
    if (tick < on)
