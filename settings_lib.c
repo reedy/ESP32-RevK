@@ -941,7 +941,7 @@ revk_settings_load (const char *tag, const char *appname)
                if (err)
                {
                   ESP_LOGE (TAG, "NVS %s/%s/%s(%d): %s", part, ns, info.key, info.type, err);
-                  addzap (s, idnex);
+                  addzap (s, index);
                }
             }
             while (!nvs_entry_next (&i));
