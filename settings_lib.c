@@ -859,9 +859,9 @@ revk_settings_load (const char *tag, const char *appname)
       struct zap_s
       {
          struct zap_s *next;
-         char tag[0];
          revk_settings_t *s;
          int index;
+         char tag[0];
       } *zap = NULL;
       nvs_open_from_partition (revk ? tag : "nvs", revk ? tag : appname, NVS_READWRITE, &nvs[revk]);
       nvs_iterator_t i = NULL;
@@ -873,7 +873,7 @@ revk_settings_load (const char *tag, const char *appname)
             void addzap (revk_settings_t *s,int index)
             {
                struct zap_s *z = malloc (sizeof (*z) + strlen (info.key) + 1);
-               strcpy (z->tag, info.key);
+               strcpy ((char*)z->tag, info.key);
                z->next = zap;
                z->s = s;
                z->index = index;
