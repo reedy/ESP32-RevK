@@ -353,7 +353,7 @@ main (int argc, const char *argv[])
                " uint8_t base64:1;\n"   //
                " uint8_t secret:1;\n"   //
                " uint8_t dq:1;\n"       //
-	       " uint8_t gpio:1\n"	//
+	       " uint8_t gpio:1;\n"	//
                "};\n", maxname + 1);
 
       char hasblob = 0;
