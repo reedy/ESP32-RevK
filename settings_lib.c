@@ -953,21 +953,23 @@ revk_settings_load (const char *tag, const char *appname)
          ESP_LOGE (TAG, "Failed NVS %s/%s", part, ns);
 #endif
       for (struct zap_s * z = zap; z; z = z->next)
+      {
+         if (nvs_erase_key (nvs[revk], z->tag))
+            ESP_LOGE (tag, "Erase %s failed", z->tag);
+#ifdef  CONFIG_REVK_SETTINGS_DEBUG
+         else
+            ESP_LOGE (TAG, "Erase %s", z->tag);
+#endif
          if (z->s && z->s->len)
          {
             const char *err = nvs_put (z->s, z->index, NULL);
             if (err)
                ESP_LOGE (TAG, "%s failed: %s", z->s->name, err);
          }
+      }
       while (zap)
       {
          struct zap_s *z = zap->next;
-         if (nvs_erase_key (nvs[revk], zap->tag))
-            ESP_LOGE (tag, "Erase %s failed", zap->tag);
-#ifdef  CONFIG_REVK_SETTINGS_DEBUG
-         else
-            ESP_LOGE (TAG, "Erase %s", zap->tag);
-#endif
          free (zap);
          zap = z;
       }
