@@ -918,7 +918,7 @@ revk_settings_load (const char *tag, const char *appname)
                   addzap (NULL, 0);
                continue;
             }
-            for (s = revk_settings; s->len && !(s->old && !s->array && strcmp (s->old, info.key)); s++);
+            for (s = revk_settings; s->len && !(s->old && !s->array && !strcmp (s->old, info.key)); s++);
             if (s->len)
             {                   // Exact match (old)
                nvs_get (s, info.key, 0);
