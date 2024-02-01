@@ -897,6 +897,7 @@ revk_settings_load (const char *tag, const char *appname)
                   continue;     // ?;
                const char *err = NULL;
                int l = strlen (info.key);
+               int index = 0;
                revk_settings_t *s;
                for (s = revk_settings; s->len && !(s->revk == revk && !s->array && s->len == l && !memcmp (s->name, info.key, l));
                     s++);
@@ -908,7 +909,7 @@ revk_settings_load (const char *tag, const char *appname)
                        s->len && !(s->revk == revk && s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len)
                                    && (info.key[s->len] & 0x80)); s++);
                   if (s->len)
-                     err = nvs_get (s, info.key, info.key[s->len] - 0x80);      // Array match, new
+                     err = nvs_get (s, info.key, index = info.key[s->len] - 0x80);      // Array match, new
                   else
                   {
                      for (s = revk_settings;
@@ -916,7 +917,7 @@ revk_settings_load (const char *tag, const char *appname)
                                       && isdigit ((int) info.key[s->len])); s++);
                      if (s->len)
                      {          // Array match, old
-                        int index = atoi (info.key + s->len) - 1;
+                        index = atoi (info.key + s->len) - 1;
                         if (index >= 0 && index < s->array)
                         {
                            err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
@@ -940,7 +941,7 @@ revk_settings_load (const char *tag, const char *appname)
                if (err)
                {
                   ESP_LOGE (TAG, "NVS %s/%s/%s(%d): %s", part, ns, info.key, info.type, err);
-                  addzap (NULL, 0);
+                  addzap (s, idnex);
                }
             }
             while (!nvs_entry_next (&i));
@@ -952,7 +953,7 @@ revk_settings_load (const char *tag, const char *appname)
          ESP_LOGE (TAG, "Failed NVS %s/%s", part, ns);
 #endif
       for (struct zap_s * z = zap; z; z = z->next)
-         if (z->s && !z->s->fix)
+         if (z->s && z->s->len)
          {
             const char *err = nvs_put (z->s, z->index, NULL);
             if (err)
