@@ -168,9 +168,9 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
 struct gpio_s
 {
-   uint16_t num:14;
-   uint16_t invert:1;
-   uint16_t set:1;
+   uint8_t num:6;
+   uint8_t invert:1;
+   uint8_t set:1;
 };
 #define s(n,d)		char *n;
 #define sp(n,d)		char *n;
