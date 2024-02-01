@@ -1554,7 +1554,7 @@ revk_blinker (void)
    if (tick < on)
    {
       uint8_t scale = 255 * (tick + 1) / on;
-      ESP_LOGE (TAG, "RGB %08lX scale %3d on %08lX %08lX %08lX %08lX", rgb, scale,((scale * ((rgb >> 24) & 0xFF) / 255) << 24),((scale * ((rgb >> 16) & 0xFF) / 255) << 16),(scale * (rgb & 0xFF) / 255),(rgb & 0xFF000000));
+      ESP_LOGE (TAG, "RGB %08lX scale %3d on  %08lX %08lX %08lX %08lX", rgb, scale,((scale * ((rgb >> 24) & 0xFF) / 255) << 24),((scale * ((rgb >> 16) & 0xFF) / 255) << 16),(scale * (rgb & 0xFF) / 255),(rgb & 0xFF000000));
       return ((scale * ((rgb >> 24) & 0xFF) / 255) << 24) + ((scale * ((rgb >> 16) & 0xFF) / 255) << 16) +
          (scale * (rgb & 0xFF) / 255) + (rgb & 0xFF000000);
    } else
