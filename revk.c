@@ -1546,16 +1546,17 @@ revk_blinker (void)
       if (!*c)
          c = base;              // End of sequence to loop
       char col = *c++;          // Next colour
-      rgb = (revk_rgb (col) | 0xC0000000);
-   } else
-      rgb &= 0x00FFFFFF;        // Off
+      rgb = revk_rgb (col);
+      if (col != 'K')
+         rgb |= 0xC0000000;
+   }
    // Updated LED every 10th second
    if (tick < on)
    {
       uint8_t scale = 255 * (tick + 1) / on;
-      ESP_LOGE (TAG, "RGB %08lX scale %3d on", rgb, scale);
+      ESP_LOGE (TAG, "RGB %08lX scale %3d on %08lX %08lX %08lX %08lX", rgb, scale,((scale * ((rgb >> 24) & 0xFF) / 255) << 24),((scale * ((rgb >> 16) & 0xFF) / 255) << 16),(scale * (rgb & 0xFF) / 255),(rgb & 0xFF000000));
       return ((scale * ((rgb >> 24) & 0xFF) / 255) << 24) + ((scale * ((rgb >> 16) & 0xFF) / 255) << 16) +
-         /(scale * (rgb & 0xFF) / 255) + (rgb & 0xFF000000);
+         (scale * (rgb & 0xFF) / 255) + (rgb & 0xFF000000);
    } else
    {
       uint8_t scale = 255 * (on + off - tick - 1) / off;
