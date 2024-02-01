@@ -1610,9 +1610,9 @@ task (void *pvParameters)
                revk_gpio_set (blink[0], rgb ? 1 : 0);
             else if (blink[0].num != blink[1].num)
             {                   // Separate RGB on
-               revk_gpio_set (blink[0], (rgb >> 24) & 0xFF ? 1 : 0);
-               revk_gpio_set (blink[1], (rgb >> 16) & 0xFF ? 1 : 0);
-               revk_gpio_set (blink[2], rgb & 0xFF ? 1 : 0);
+               revk_gpio_set (blink[0], (rgb >> 24) & 0xFE ? 1 : 0);
+               revk_gpio_set (blink[1], (rgb >> 16) & 0xFE ? 1 : 0);
+               revk_gpio_set (blink[2], rgb & 0xFE ? 1 : 0);
             }
 #ifdef  CONFIG_REVK_LED_STRIP
             else
