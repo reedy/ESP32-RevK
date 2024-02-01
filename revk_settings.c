@@ -296,9 +296,6 @@ main (int argc, const char *argv[])
             if (d->name1)
             {
                asprintf (&d->name, "%s%s", d->name1, d->name2 ? : "");
-               for (def_t * q = defs; q; q = q->next)
-                  if (q->name && !strcmp (q->name, d->name))
-                     errx (1, "Duplicate %s (%s/%s)", d->name, d->fn, q->fn);
                if (d->name2)
                {
                   int g;
