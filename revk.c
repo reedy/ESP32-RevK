@@ -1468,8 +1468,8 @@ revk_rgb (char c)
 #ifdef	CONFIG_REVK_RGB_MAX_R
    uint8_t r = (u == 'R' || u == 'O' ? CONFIG_REVK_RGB_MAX_R : u == 'Y'
                 || u == 'M' ? CONFIG_REVK_RGB_MAX_R * 2 / 3 : u == 'W' ? CONFIG_REVK_RGB_MAX_R / 2 : 0);
-   uint8_t g = (u == 'G' ? CONFIG_REVK_RGB_MAX_G : u == 'Y'
-                || u == 'C' || u == 'O' ? CONFIG_REVK_RGB_MAX_G * 2 / 3 : u == 'W' ? CONFIG_REVK_RGB_MAX_G / 2 : 0);
+   uint8_t g = (u == 'G' ? CONFIG_REVK_RGB_MAX_G : u == 'Y' || u == 'C'
+                || u == 'O' ? CONFIG_REVK_RGB_MAX_G * 2 / 3 : u == 'W' ? CONFIG_REVK_RGB_MAX_G / 2 : 0);
    uint8_t b = (u == 'B' ? CONFIG_REVK_RGB_MAX_B : u == 'M'
                 || u == 'C' ? CONFIG_REVK_RGB_MAX_B * 2 / 3 : u == 'W' ? CONFIG_REVK_RGB_MAX_B / 2 : 0);
 #else
@@ -1478,12 +1478,17 @@ revk_rgb (char c)
    uint8_t b = (u == 'B' ? 0xFF : u == 'M' || u == 'C' ? 0xFF / 2 : u == 'W' ? 0xFF / 3 : 0);
 #endif
    if (islower (c))
-   {
+   {                            // Dim
       r /= 2;
       g /= 2;
       b /= 2;
    }
-   return (r << 16) + (g << 8) + b;
+   uint32_t rgb = (r << 16) + (g << 8) + b;
+   // Add simple bits for colour
+   rgb |= ((u == 'R' || u == 'Y' || u == 'M' || u == 'W' || u == 'O' ? 3 : 0) << 28);
+   rgb |= ((u == 'G' || u == 'Y' || u == 'C' || u == 'W' ? 3 : u == 'O' ? 1 : 0) << 26);
+   rgb |= ((u == 'B' || u == 'M' || u == 'C' || u == 'W' ? 3 : 0) << 24);
+   return rgb;
 }
 
 #ifdef	CONFIG_REVK_LED_STRIP
@@ -1549,9 +1554,10 @@ revk_blinker (void)
       scale = 255 * (tick + 1) / on;
    else
       scale = 255 * (on + off - tick - 1) / off;
-   rgb = ((scale * ((rgb >> 24) & 255) / 255) << 24) +  //
-      ((scale * ((rgb >> 16) & 255) / 255) << 16) +     //
-      (scale * (rgb & 255) / 255);
+   rgb = (rgb & 0xFF000000) +   //
+      ((scale * ((rgb >> 24) & 0xFF) / 255) << 24) +    //
+      ((scale * ((rgb >> 16) & 0xFF) / 255) << 16) +    //
+      (scale * (rgb & 0xFF) / 255);
    return rgb;
 }
 
@@ -1607,12 +1613,12 @@ task (void *pvParameters)
          {
             uint32_t rgb = revk_blinker ();
             if (!blink[1].set)
-               revk_gpio_set (blink[0], rgb ? 1 : 0);
+               revk_gpio_set (blink[0], (rgb >> 31) & 1);
             else if (blink[0].num != blink[1].num)
             {                   // Separate RGB on
-               revk_gpio_set (blink[0], (rgb >> 24) & 0xFE ? 1 : 0);
-               revk_gpio_set (blink[1], (rgb >> 16) & 0xFE ? 1 : 0);
-               revk_gpio_set (blink[2], rgb & 0xFE ? 1 : 0);
+               revk_gpio_set (blink[0], (rgb >> 29) & 1);
+               revk_gpio_set (blink[1], (rgb >> 27) & 1);
+               revk_gpio_set (blink[2], (rgb >> 25) & 1);
             }
 #ifdef  CONFIG_REVK_LED_STRIP
             else
