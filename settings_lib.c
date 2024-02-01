@@ -765,25 +765,24 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       else
       {
          void **p = (void **) ptr;
+         free (*p);
          if (d < e)
          {
-            free (*p);
             *p = mallocspi (sizeof (revk_settings_blob_t) + e - d);
             ((revk_settings_blob_t *) (*p))->len = (e - d);
             memcpy ((*p) + sizeof (revk_settings_blob_t), d, e - d);
          } else
          {
-            free (*p);
             *p = mallocspi (sizeof (revk_settings_blob_t));
             ((revk_settings_blob_t *) (*p))->len = 0;
          }
          if (a && index < 0)
             while (--a)
             {
+               p++;
                free (*p);
                *p = mallocspi (sizeof (revk_settings_blob_t));
                ((revk_settings_blob_t *) (*p))->len = 0;
-               p++;
             }
       }
       break;
@@ -803,8 +802,8 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
             if (a && index < 0)
                while (--a)
                {
-                  memset (ptr, 0, s->size);
                   ptr += s->size;
+                  memset (ptr, 0, s->size);
                }
          } else
          {                      // Malloc
@@ -817,7 +816,8 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
             if (a && index < 0)
                while (--a)
                {
-                  free (*++p);
+                  p++;
+                  free (*p);
                   *p = strdup ("");
                }
          }
