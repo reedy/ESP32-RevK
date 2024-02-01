@@ -1550,16 +1550,19 @@ revk_blinker (void)
    } else
       rgb &= 0x00FFFFFF;        // Off
    // Updated LED every 10th second
-   uint8_t scale = 0;
    if (tick < on)
-      scale = 255 * (tick + 1) / on;
-   else
-      scale = 255 * (on + off - tick - 1) / off;
-   ESP_LOGE(TAG,"RGB %08lX scale %d",rgb,scale);
-   return (rgb & 0xFF000000) +  //
-      ((scale * ((rgb >> 24) & 0xFF) / 255) << 24) +    //
-      ((scale * ((rgb >> 16) & 0xFF) / 255) << 16) +    //
-      (scale * (rgb & 0xFF) / 255);
+   {
+      uint8_t scale = 255 * (tick + 1) / on;
+      ESP_LOGE (TAG, "RGB %08lX scale %3d on", rgb, scale);
+      return ((scale * ((rgb >> 24) & 0xFF) / 255) << 24) + ((scale * ((rgb >> 16) & 0xFF) / 255) << 16) +
+         /(scale * (rgb & 0xFF) / 255) + (rgb & 0xFF000000);
+   } else
+   {
+      uint8_t scale = 255 * (on + off - tick - 1) / off;
+      ESP_LOGE (TAG, "RGB %08lX scale %3d off", rgb, scale);
+      return ((scale * ((rgb >> 24) & 0xFF) / 255) << 24) + ((scale * ((rgb >> 16) & 0xFF) / 255) << 16) +
+         (scale * (rgb & 0xFF) / 255);
+   }
 }
 
 static void
