@@ -188,6 +188,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 {                               // Getting NVS
    if (s->array && index >= s->array)
       return "Array overflow";
+   nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
    char taga[20];
    {
@@ -859,8 +860,8 @@ revk_settings_load (const char *tag, const char *appname)
       {
          struct zap_s *next;
          char tag[0];
-	 revk_settings_t *s;
-	 int index;
+         revk_settings_t *s;
+         int index;
       } *zap = NULL;
       nvs_open_from_partition (revk ? tag : "nvs", revk ? tag : appname, NVS_READWRITE, &nvs[revk]);
       nvs_iterator_t i = NULL;
@@ -869,55 +870,61 @@ revk_settings_load (const char *tag, const char *appname)
          do
          {
             nvs_entry_info_t info = { 0 };
-            void addzap (revk_settings_t*s,int index)
+            void addzap (void)
             {
                struct zap_s *z = malloc (sizeof (*z) + strlen (info.key) + 1);
                strcpy (z->tag, info.key);
-	       z->s=s;
-	       z->index=index;
                z->next = zap;
+               z->s = s;
+               z->index = index;
                zap = z;
             }
-            if (!nvs_entry_info (i, &info))
-            {
-               int l = strlen (info.key);
-               revk_settings_t *s;
-               const char *err = NULL;
-               for (s = revk_settings; s->len; s++)
-               {
-                  if (!s->array && s->len == l && !memcmp (s->name, info.key, l))
-                  {             // Exact match
-                     err = nvs_get (s, info.key, 0);
-                     break;
-                  } else if (s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len) && (info.key[s->len] & 0x80))
-                  {             // Array match, new
-                     err = nvs_get (s, info.key, info.key[s->len] - 0x80);
-                     break;
-                  } else if (s->array && s->len < l && !memcmp (s->name, info.key, s->len) && isdigit ((int) info.key[s->len]))
-                  {             // Array match, old
-				int index=atoi (info.key + s->len) - 1;
-				if(index>=0&&index<a->array)
-				{
-                     err = nvs_get (s, info.key, index);
-                     addzap (s,index);
-				}else addzap(NULL,0);
-                     break;
-                  }
-               }
-               if (!s->len)
-               {
-                  addzap (NULL,0);
-                  err = "Not found";
-               }
-               if (err)
-                  ESP_LOGE (tag, "NVS %s Failed %s", info.key, err);
-               else
-                  nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
+            if (nvs_entry_info (i, &info))
+               continue;        // ?;
+            int l = strlen (info.key);
+            revk_settings_t *s;
+            for (s = revk_settings; s->len && !(!s->array && s->len == l && !memcmp (s->name, info.key, l)); s++);
+            if (s->len)
+            {                   // Exact match
+               nvs_get (s, info.key, 0);
+               continue;
             }
+            for (s = revk_settings;
+                 s->len && !(s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len) && (info.key[s->len] & 0x80)); s++);
+            if (s->len)
+            {                   // Array match, new
+               nvs_get (s, info.key, info.key[s->len] - 0x80);
+               continue;
+            }
+            for (s = revk_settings;
+                 s->len && !(s->array && s->len < l && !memcmp (s->name, info.key, s->len) && isdigit ((int) info.key[s->len]));
+                 s++);
+            if (s->len)
+            {                   // Array match, old
+               int index = atoi (info.key + s->len) - 1;
+               if (index >= 0 && index < s->array)
+               {
+                  nvs_get (s, info.key, atoi (info.key + s->len) - 1);
+                  addzap (s, index);
+               } else
+                  addzap (NULL, 0);
+               continue;
+            }
+            for (s = revk_settings; s->len && !(s->old&&!s->array && strcmp(s->old,info.key)); s++);
+            if (s->len)
+            {                   // Exact match (old)
+               nvs_get (s, info.key, 0);
+               continue;
+            }
+	    // Not doing old array or old style array - can add if needed
+            addzap (NULL,0);
          }
          while (!nvs_entry_next (&i));
       }
       nvs_release_iterator (i);
+      for (struct zap_s * z = zap; z; z = z->next)
+         if (z->s&&!z->s->fix)
+            nvs_put (z->s, z->index, NULL);
       while (zap)
       {
          struct zap_s *z = zap->next;

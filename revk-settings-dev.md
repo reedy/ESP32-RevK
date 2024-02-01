@@ -21,6 +21,7 @@ The settings are loaded in to the C variables when `revk_boot()` is called.
 The settings definitions file consist of a line per setting, but can also have blank lines and lines starting `//` as a comment.
 
 It can also include any lines starting with `#`. This is to allow `#ifdef CONFIG_`... Such lines are included in the output files in the appropriate place to allow conditional settings.
+This can also be used for `#define` which are then referenced in settings
 
 Each setting in the file has:-
 
