@@ -188,7 +188,6 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
 {                               // Getting NVS
    if (s->array && index >= s->array)
       return "Array overflow";
-   nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
    char taga[20];
    {
@@ -325,6 +324,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
       free (data);
       return err;
    }
+   nvs_found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
    if (s->malloc)
    {
       void **p = s->ptr;
