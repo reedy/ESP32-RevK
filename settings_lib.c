@@ -237,8 +237,8 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
             {
                if (s->gpio && s->size == 2 && nvs_get_u8 (nvs[s->revk], tag, data))
                {                // Legacy... Old GPIO to new
-                  data[1] = (*data & 0xC0);
-                  data[0] = (*data & 0x3F);
+                  ((uint8_t*)data)[1] = (*((uint8_t*)data) & 0xC0);
+                  ((uint8_t*)data)[0] = (*((uint8_t*)data) & 0x3F);
                } else
                   return "Cannot load number (unsigned)";
             }
