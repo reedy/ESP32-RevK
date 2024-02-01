@@ -238,6 +238,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                {                // Legacy... Old GPIO to new
                   ((uint8_t *) data)[1] = (*((uint8_t *) data) & 0xC0);
                   ((uint8_t *) data)[0] = (*((uint8_t *) data) & 0x3F);
+                  return "*Migrated GPIO";
                } else
                   return "Cannot load number (unsigned)";
             }
@@ -319,7 +320,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
       return NULL;
    }
    const char *err = store ();
-   if (err)
+   if (err && *err != '*')
    {
       free (data);
       return err;
@@ -894,45 +895,47 @@ revk_settings_load (const char *tag, const char *appname)
                }
                if (nvs_entry_info (i, &info))
                   continue;     // ?;
+               const char *err = NULL;
                int l = strlen (info.key);
                revk_settings_t *s;
                for (s = revk_settings; s->len && !(s->revk == revk && !s->array && s->len == l && !memcmp (s->name, info.key, l));
                     s++);
                if (s->len)
-               {                // Exact match
-                  nvs_get (s, info.key, 0);
-                  continue;
-               }
-               for (s = revk_settings;
-                    s->len && !(s->revk == revk && s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len)
-                                && (info.key[s->len] & 0x80)); s++);
-               if (s->len)
-               {                // Array match, new
-                  nvs_get (s, info.key, info.key[s->len] - 0x80);
-                  continue;
-               }
-               for (s = revk_settings;
-                    s->len && !(s->revk == revk && s->array && s->len < l && !memcmp (s->name, info.key, s->len)
-                                && isdigit ((int) info.key[s->len])); s++);
-               if (s->len)
-               {                // Array match, old
-                  int index = atoi (info.key + s->len) - 1;
-                  if (index >= 0 && index < s->array)
+                  err = nvs_get (s, info.key, 0);       // Exact match
+               else
+               {
+                  for (s = revk_settings;
+                       s->len && !(s->revk == revk && s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len)
+                                   && (info.key[s->len] & 0x80)); s++);
+                  if (s->len)
+                     err = nvs_get (s, info.key, info.key[s->len] - 0x80);      // Array match, new
+                  else
                   {
-                     nvs_get (s, info.key, atoi (info.key + s->len) - 1);
-                     addzap (s, index);
-                  } else
-                     addzap (NULL, 0);
-                  continue;
+                     for (s = revk_settings;
+                          s->len && !(s->revk == revk && s->array && s->len < l && !memcmp (s->name, info.key, s->len)
+                                      && isdigit ((int) info.key[s->len])); s++);
+                     if (s->len)
+                     {          // Array match, old
+                        int index = atoi (info.key + s->len) - 1;
+                        if (index >= 0 && index < s->array)
+                        {
+                           err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
+                           addzap (s, index);
+                        } else
+                           addzap (NULL, 0);
+                     } else
+                     {
+                        for (s = revk_settings;
+                             s->len && !(s->revk == revk && s->old && !s->array && !strcmp (s->old, info.key)); s++);
+                        if (s->len)
+                           err = nvs_get (s, info.key, 0);      // Exact match (old)
+                        else
+                           addzap (NULL, 0);    // Not doing old array or old style array - can add if needed
+                     }
+                  }
                }
-               for (s = revk_settings; s->len && !(s->revk == revk && s->old && !s->array && !strcmp (s->old, info.key)); s++);
-               if (s->len)
-               {                // Exact match (old)
-                  nvs_get (s, info.key, 0);
-                  continue;
-               }
-               // Not doing old array or old style array - can add if needed
-               addzap (NULL, 0);
+               if (err)
+                  ESP_LOGE (TAG, "NVS %s/%s/%s fail: %s", part, ns, tag, err);
             }
             while (!nvs_entry_next (&i));
          }
@@ -944,7 +947,11 @@ revk_settings_load (const char *tag, const char *appname)
 #endif
       for (struct zap_s * z = zap; z; z = z->next)
          if (z->s && !z->s->fix)
-            nvs_put (z->s, z->index, NULL);
+         {
+            const char *err = nvs_put (z->s, z->index, NULL);
+            if (err)
+               ESP_LOGE (TAG, "%s failed: %s", z->s->name, err);
+         }
       while (zap)
       {
          struct zap_s *z = zap->next;
