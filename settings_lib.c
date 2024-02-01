@@ -896,23 +896,24 @@ revk_settings_load (const char *tag, const char *appname)
                   continue;     // ?;
                int l = strlen (info.key);
                revk_settings_t *s;
-               for (s = revk_settings; s->len && !(!s->array && s->len == l && !memcmp (s->name, info.key, l)); s++);
+               for (s = revk_settings; s->len && !(s->revk == revk && !s->array && s->len == l && !memcmp (s->name, info.key, l));
+                    s++);
                if (s->len)
                {                // Exact match
                   nvs_get (s, info.key, 0);
                   continue;
                }
                for (s = revk_settings;
-                    s->len && !(s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len) && (info.key[s->len] & 0x80));
-                    s++);
+                    s->len && !(s->revk == revk && s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len)
+                                && (info.key[s->len] & 0x80)); s++);
                if (s->len)
                {                // Array match, new
                   nvs_get (s, info.key, info.key[s->len] - 0x80);
                   continue;
                }
                for (s = revk_settings;
-                    s->len && !(s->array && s->len < l && !memcmp (s->name, info.key, s->len) && isdigit ((int) info.key[s->len]));
-                    s++);
+                    s->len && !(s->revk == revk && s->array && s->len < l && !memcmp (s->name, info.key, s->len)
+                                && isdigit ((int) info.key[s->len])); s++);
                if (s->len)
                {                // Array match, old
                   int index = atoi (info.key + s->len) - 1;
@@ -924,7 +925,7 @@ revk_settings_load (const char *tag, const char *appname)
                      addzap (NULL, 0);
                   continue;
                }
-               for (s = revk_settings; s->len && !(s->old && !s->array && !strcmp (s->old, info.key)); s++);
+               for (s = revk_settings; s->len && !(s->revk == revk && s->old && !s->array && !strcmp (s->old, info.key)); s++);
                if (s->len)
                {                // Exact match (old)
                   nvs_get (s, info.key, 0);
