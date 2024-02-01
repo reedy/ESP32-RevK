@@ -1607,12 +1607,12 @@ task (void *pvParameters)
          {
             uint32_t rgb = revk_blinker ();
             if (!blink[1].set)
-               gpio_set_level (blink[0].num, (rgb ? 1 : 0) ^ blink[0].invert);  // Single LED on
+               revk_gpio_set (blink[0], rgb ? 1 : 0);
             else if (blink[0].num != blink[1].num)
             {                   // Separate RGB on
-               gpio_set_level (blink[0].num, ((rgb >> 24) ^ blink[0].invert) & 0xF0 ? 1 : 0);
-               gpio_set_level (blink[1].num, ((rgb >> 16) ^ blink[1].invert) & 0xF0 ? 1 : 0);
-               gpio_set_level (blink[2].num, (rgb ^ blink[2].invert) & 0xF0 ? 1 : 0);
+               revk_gpio_set (blink[0], (rgb >> 24) & 0xF0 ? 1 : 0);
+               revk_gpio_set (blink[1], (rgb >> 16) & 0xF0 ? 1 : 0);
+               revk_gpio_set (blink[2], rgb & 0xF0 ? 1 : 0);
             }
 #ifdef  CONFIG_REVK_LED_STRIP
             else
@@ -2115,11 +2115,7 @@ revk_boot (app_callback_t * app_callback_cb)
          ESP_LOGE (TAG, "Not using GPIO %d", p);
          apgpio.set = 0;
       }
-      if (apgpio.set)
-      {
-         gpio_reset_pin (p);
-         gpio_set_direction (p, GPIO_MODE_INPUT);       /* AP mode button */
-      }
+      revk_gpio_input (apgpio);
    }
 #endif
    app_callback = app_callback_cb;
@@ -2174,9 +2170,7 @@ revk_start (void)
                blink[b].set = 0;
                continue;
             }
-            gpio_reset_pin (p);
-            gpio_set_level (p, 1 - blink[b].invert);    /* on */
-            gpio_set_direction (p, GPIO_MODE_OUTPUT);   /* Blinking LED */
+            revk_gpio_output (blink[b]);
          }
       }
 #endif
