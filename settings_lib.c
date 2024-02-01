@@ -234,7 +234,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                 (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, data)))
             {
-               if (s->gpio && s->size == 2 && nvs_get_u8 (nvs[s->revk], tag, data))
+               if (s->gpio && s->size == 2 && !nvs_get_u8 (nvs[s->revk], tag, data))
                {                // Legacy... Old GPIO to new
                   ((uint8_t *) data)[1] = (*((uint8_t *) data) & 0xC0);
                   ((uint8_t *) data)[0] = (*((uint8_t *) data) & 0x3F);
