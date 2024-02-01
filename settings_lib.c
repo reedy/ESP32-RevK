@@ -237,8 +237,8 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
             {
                if (s->gpio && s->size == 2 && nvs_get_u8 (nvs[s->revk], tag, data))
                {                // Legacy... Old GPIO to new
-                  ((uint8_t*)data)[1] = (*((uint8_t*)data) & 0xC0);
-                  ((uint8_t*)data)[0] = (*((uint8_t*)data) & 0x3F);
+                  ((uint8_t *) data)[1] = (*((uint8_t *) data) & 0xC0);
+                  ((uint8_t *) data)[0] = (*((uint8_t *) data) & 0x3F);
                } else
                   return "Cannot load number (unsigned)";
             }
@@ -870,7 +870,8 @@ revk_settings_load (const char *tag, const char *appname)
          int index;
          char tag[0];
       } *zap = NULL;
-      nvs_open_from_partition (revk ? tag : "nvs", revk ? tag : appname, NVS_READWRITE, &nvs[revk]);
+      if (!revk || nvs_open_from_partition (tag, tag, NVS_READWRITE, &nvs[revk]))
+         nvs_open (appname, NVS_READWRITE, &nvs[revk]);
       nvs_iterator_t i = NULL;
       if (!nvs_entry_find (revk ? tag : "nvs", revk ? tag : appname, NVS_TYPE_ANY, &i))
       {
