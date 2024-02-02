@@ -491,7 +491,7 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
 static char *
 text_numeric (revk_settings_t * s, void *p)
 {
-   char *temp = mallocspi (100),
+   char *temp = mallocspi (257),
       *t = temp;
    uint64_t v = 0;
    if (s->size == 8)
@@ -597,8 +597,8 @@ value_cmp (revk_settings_t * s, void *a, void *b)
    return memcmp (a, b, s->size ? : 1);
 }
 
-static char *
-text_value (revk_settings_t * s, int index, int *lenp)
+char *
+revk_settings_text(revk_settings_t * s, int index, int *lenp)
 {                               // Malloc'd string for value
    void *ptr = s->ptr;
    if (s->array)
@@ -1101,7 +1101,7 @@ revk_setting_dump (int level)
          if (!s->array && !visible (s))
             return;             // Default
          int len = 0;
-         char *data = text_value (s, index, &len);
+         char *data = revk_settings_text (s, index, &len);
          switch (s->type)
          {
 #ifdef  REVK_SETTINGS_HAS_BIT
@@ -1529,6 +1529,35 @@ revk_settings_commit (void)
 #endif
    REVK_ERR_CHECK (nvs_commit (nvs[0]));
    REVK_ERR_CHECK (nvs_commit (nvs[1]));
+}
+
+revk_settings_t *
+revk_settings_find (const char *tag, int *indexp)
+{
+   revk_settings_t *s = NULL;
+   int index = 0;
+   if (tag && *tag)
+   {
+      int l = strlen (tag);
+      for (s = revk_settings; s->len && (s->len != l || strcmp (s->name, tag)); s++);
+      if (!s)
+      {
+         int e = l;
+         while (e && isdigit ((int) tag[e - 1]))
+            e--;
+         if (e < l)
+         {
+            for (s = revk_settings; s->len && (!s->array || s->len != e || strncmp (s->name, tag, e)); s++);
+            if (s)
+               index = atoi (tag + e) - 1;
+            if (index < 0 || index >= s->array)
+               return NULL;
+         }
+      }
+   }
+   if (indexp)
+      *indexp = index;
+   return s;
 }
 
 #endif

@@ -2668,28 +2668,45 @@ get_status_text (void)
 }
 
 void
-revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const char *value, const char *place, const char *suffix,
-                    char af)
+revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const char *place, const char *suffix)
 {
-   revk_web_send (req, "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'%s> %s</td></tr>", tag, field, field,     //
-                  value && *value ? strstr (field, "pass") && *revk_settings_secret ? revk_settings_secret : value : "",        //
-                  place ? : "", (!value || !*value) && af ? " autofocus" : "", suffix ? : "");
-}
-
-void
-revk_web_setting_i (httpd_req_t * req, const char *tag, const char *field, int64_t value, const char *suffix)
-{
+   int index = 0;
+   revk_settings_t *s = revk_settings_find (field, &index);
+   if (!s)
+      return;
+   int len = 0;
+   char *value = revk_settings_text (s, index, &len);
+   if (!value)
+      return;
+#ifdef  REVK_SETTINGS_HAS_BIT
+   if (s->type == REVK_SETTINGS_BIT)
+   {
+      revk_web_send (req, "<tr><td>%s</td><td><label for='0%s'><input type='radio' id='0%s' name='%s' value='0'%s><i>Off</i></label></td><td><label for='1%s'><input type='radio' id='1%s' name='%s' value='1'%s><i>On</i></label></td><td>%s</td></tr>", tag ? : "",   //
+                     field, field, field, *value == 'f' ? " checked" : "",      //
+                     field, field, field, *value == 't' ? " checked" : "",      //
+                     suffix ? : "");
+      free (value);
+      return;
+   }
+#endif
+   // Text input
+   int size = 40;
+#ifdef  REVK_SETTINGS_HAS_NUMERIC
+   if (0
+#ifdef  REVK_SETTINGS_HAS_SIGNED
+       || s->type == REVK_SETTINGS_SIGNED
+#endif
+#ifdef  REVK_SETTINGS_HAS_UNSIGNED
+       || s->type == REVK_SETTINGS_UNSIGNED
+#endif
+      )
+      size = 10;
+#endif
+   // Simple text input
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2><input id='%s' name='%s' value='%lld' autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off'></td><td>%s</td></tr>",
-                  tag, field, field, value, suffix ? : "");
-}
-
-void
-revk_web_setting_b (httpd_req_t * req, const char *tag, const char *field, uint8_t value, const char *suffix)
-{
-   revk_web_send (req,
-                  "<tr><td>%s</td><td><label for='0%s'><input type='radio' id='0%s' name='%s' value='0'%s><i>Off</i></label></td><td><label for='1%s'><input type='radio' id='1%s' name='%s' value='1'%s><i>On</i></label></td><td>%s</td></tr>",
-                  tag, field, field, field, !value ? " checked" : "", field, field, field, value ? " checked" : "", suffix);
+                  "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
+                  tag ? : "", field, field, value, size, place ? : "", suffix ? : "");
+   free (value);
 }
 
 esp_err_t
@@ -2793,30 +2810,29 @@ revk_web_settings (httpd_req_t * req)
       {
          revk_web_send (req, "<tr><td colspan=4><hr></td></tr>");
       }
-      char af = 0;
       if (sta_netif)
       {
-         revk_web_setting_s (req, "Hostname", "hostname", hostname == revk_id ? NULL : hostname, revk_id,
+         revk_web_setting (req, "Hostname", "hostname", revk_id,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-                             ".local"
+                           ".local"
 #else
-                             NULL
+                           NULL
 #endif
-                             , !af++);
+            );
          hr ();
-         revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL, !af++);
-         revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL, !af++);
+         revk_web_setting (req, "SSID", "wifissid", "WiFi name", NULL);
+         revk_web_setting (req, "Passphrase", "wifipass", "WiFi pass", NULL);
          hr ();
       }
-      revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL, !af++);
-      revk_web_setting_s (req, "MQTT user", "mqttuser", mqttuser[0], "username", NULL, !af++);
-      revk_web_setting_s (req, "MQTT pass", "mqttpass", mqttpass[0], "password", NULL, !af++);
+      revk_web_setting (req, "MQTT host", "mqtthost", "hostname", NULL);
+      revk_web_setting (req, "MQTT user", "mqttuser", "username", NULL);
+      revk_web_setting (req, "MQTT pass", "mqttpass", "password", NULL);
 #if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
       hr ();
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
-      revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
-                          "See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>", !af++);
+      revk_web_setting (req, "Timezone", "tz", "TZ code",
+                        "See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
 #endif
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
@@ -2824,7 +2840,7 @@ revk_web_settings (httpd_req_t * req)
 #endif
 #ifdef	CONFIG_REVK_WEB_BETA
       hr ();
-      revk_web_setting_b (req, "Beta software", "otabeta", otabeta, "Load early release beta software");
+      revk_web_setting (req, "Beta software", "otabeta", "Load early release beta software", NULL);
 #endif
       revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
