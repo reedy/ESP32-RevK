@@ -85,7 +85,7 @@ main (int argc, const char *argv[])
    int debug = 0;
    const char *cfile = "settings.c";
    const char *hfile = "settings.h";
-   const char *dummysecret = "********";
+   const char *dummysecret = "✶✶✶✶✶✶✶✶";
    const char *extension = "def";
    int maxname = 15;
    poptContext optCon;          // context for parsing command-line options

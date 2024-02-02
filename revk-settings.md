@@ -66,4 +66,4 @@ Secret settings are typically for passwords.
 - Secrets are not normally included in JSON output, a dummy secret is shown if `settings` with `**` and the setting is not empty.
 - Secrets are not shown on web settings, a dummy secret is shown unless the setting is empty.
 - You can set a secret to the dummy password, but only if it is currently am empty string, otherwise it is assumed you are not setting the secret.
-- The dummy password can be set per app, but is normally `********`.
+- The dummy password can be set per app, but is normally `✶✶✶✶✶✶✶✶` (note these are unicode 6 pointed stars).
