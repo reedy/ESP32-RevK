@@ -2840,7 +2840,7 @@ revk_web_settings (httpd_req_t * req)
 #endif
 #ifdef	CONFIG_REVK_WEB_BETA
       hr ();
-      revk_web_setting (req, "Beta software", "otabeta", "Load early release beta software", NULL);
+      revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
 #endif
       revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
@@ -2908,13 +2908,14 @@ revk_web_settings (httpd_req_t * req)
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
    if (otaauto && *otahost)
-      revk_web_send (req, "<p>Note, automatic %supgrade from <i>%s</i> is enabled. See instructions to make changes.</p>",
+      revk_web_send (req,
+                     "<p>Note, automatic %supgrade from <i>%s</i> is enabled. See instructions to make changes.</p>",
                      otabeta ? "beta " : "", otahost);
    {                            // IP info
       revk_web_send (req, "<table>");
       int32_t up = uptime ();
-      revk_web_send (req, "<tr><td>Uptime</td><td>%ld day%s %02ld:%02ld:%02ld</td></tr>", up / 86400, up / 86400 == 1 ? "" : "s",
-                     up / 3600 % 24, up / 60 % 60, up % 60);
+      revk_web_send (req, "<tr><td>Uptime</td><td>%ld day%s %02ld:%02ld:%02ld</td></tr>", up / 86400,
+                     up / 86400 == 1 ? "" : "s", up / 3600 % 24, up / 60 % 60, up % 60);
       {
          uint32_t heapspi = heap_caps_get_free_size (MALLOC_CAP_SPIRAM);
          uint32_t heap = esp_get_free_heap_size () - heapspi;
@@ -3949,8 +3950,8 @@ moontime (int cycle, float phase)
    long double T2 = T * T;
    long double T3 = T2 * T;
    long double JD =
-      2415020.75933L + 29.53058868L * k + 0.0001178L * T2 - 0.000000155L * T3 +
-      0.00033L * sinld (166.56L + 132.87L * T - 0.009173L * T2);
+      2415020.75933L + 29.53058868L * k + 0.0001178L * T2 - 0.000000155L * T3 + 0.00033L * sinld (166.56L + 132.87L * T -
+                                                                                                  0.009173L * T2);
    long double M = 359.2242L + 29.10535608L * k - 0.0000333L * T2 - 0.00000347L * T3;
    long double M1 = 306.0253L + 385.81691806L * k + 0.0107306L * T2 + 0.00001236L * T3;
    long double F = 21.2964L + 390.67050646L * k - 0.0016528L * T2 - 0.00000239L * T3;
@@ -3974,7 +3975,6 @@ moontime (int cycle, float phase)
 static time_t moonlast = 0,
    moonnew = 0,
    moonnext = 0;
-
 static void
 getmoons (time_t t)
 {
