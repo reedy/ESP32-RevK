@@ -661,6 +661,12 @@ text_value (revk_settings_t * s, int index, int *lenp)
       break;
 #endif
    }
+   if (len && s->secret && *revk_settings_secret)
+   {
+      free (data);
+      data = strdup (revk_settings_secret);
+      len = strlen (data);
+   }
    if (lenp)
       *lenp = len;
    return data;
@@ -1028,8 +1034,8 @@ revk_setting_dump (int level)
    }
    int visible (revk_settings_t * s)
    {
-      if (s->secret)
-         return 0;
+      if (s->secret && (!*revk_settings_secret || level <= 2))
+         return 0;              // We don't actually show the secret anyway
       if (level > 2)
          return 1;
       if (level <= 1 && !s->array && s->fix && (!s->def || !*s->def || (s->dq && !strcmp (s->def, "\"\""))) && is_zero (s, 0))
@@ -1345,6 +1351,13 @@ revk_setting (jo_t j)
                else
 #endif
                   ptr += index * (s->malloc ? sizeof (void *) : s->size);
+               if (s->secret && *revk_settings_secret && !strcmp (val, revk_settings_secret)
+                   && (!s->malloc || s->type != REVK_SETTINGS_STRING || !*(char **) ptr || **((char **) ptr)))
+               {                // Secret is dummy, unless current value is empty string in which case dummy value is allowed
+                  free (val);
+                  free (temp);
+                  return NULL;
+               }
                err = load_value (s, val, index, temp);
                if (!err)
                {

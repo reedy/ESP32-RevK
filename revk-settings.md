@@ -57,3 +57,13 @@ Sending an empty array, e.g. `{"blink":[]}` clears/unsets all values. Sending `n
 ## Groups and arrays
 
 In some cases a setting group may have settings that are arrays, e.g. `{"input":{"gpio":[1,2],"timeout":[10,20]}}`. In such cases you can turn this around and specify an array of objects, e.g. `{"input":[{"gpio":1,"timeout":10},{"gpio":2,"timeout":20}]}`.
+
+## Secret
+
+Secret settings are typically for passwords.
+
+- Secrets omitted in an array are not cleared, but left unchanged, set to `""` if you want to clear.
+- Secrets are not normally included in JSON output, a dummy secret is shown if `settings` with `**` and the setting is not empty.
+- Secrets are not shown on web settings, a dummy secret is shown unless the setting is empty.
+- You can set a secret to the dummy password, but only if it is currently am empty string, otherwise it is assumed you are not setting the secret.
+- The dummy password can be set per app, but is normally `********`.

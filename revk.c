@@ -2671,10 +2671,9 @@ void
 revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const char *value, const char *place, const char *suffix,
                     char af)
 {
-   revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=3><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'%s%s></td><td>%s</td></tr>",
-                  tag, field, field, value ? : "", place ? : "", (!value || !*value)
-                  && af ? " autofocus" : "", strstr (field, "pass") ? " type='password'" : "", suffix ? : "");
+   revk_web_send (req, "<tr><td>%s</td><td colspan=3><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'%s></td><td>%s</td></tr>", tag, field, field,     //
+                  value && *value ? strstr (field, "pass") && *revk_settings_secret ? revk_settings_secret : value : "",  //
+                  place ? : "", (!value || !*value) && af ? " autofocus" : "", suffix ? : "");
 }
 
 void

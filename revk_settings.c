@@ -85,6 +85,7 @@ main (int argc, const char *argv[])
    int debug = 0;
    const char *cfile = "settings.c";
    const char *hfile = "settings.h";
+   const char *dummysecret = "********";
    const char *extension = "def";
    int maxname = 15;
    poptContext optCon;          // context for parsing command-line options
@@ -92,6 +93,7 @@ main (int argc, const char *argv[])
       const struct poptOption optionsTable[] = {
          {"c-file", 'c', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &cfile, 0, "C-file", "filename"},
          {"h-file", 'h', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &hfile, 0, "H-file", "filename"},
+         {"dummy-secret", 0, POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &dummysecret, 0, "Dummy secret", "secret"},
          {"extension", 'e', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &extension, 0, "Only handle files ending with this",
           "extension"},
          {"max-name", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &maxname, 0, "Max name len", "N"},
@@ -335,7 +337,7 @@ main (int argc, const char *argv[])
                " const char name[%d];\n"        //
                " const char *def;\n"    //
                " const char *flags;\n"  //
-	       " const char *old;\n"	//
+               " const char *old;\n"    //
                " uint16_t size;\n"      //
                " uint8_t group;\n"      //
                " uint8_t bit;\n"        //
@@ -353,7 +355,7 @@ main (int argc, const char *argv[])
                " uint8_t base64:1;\n"   //
                " uint8_t secret:1;\n"   //
                " uint8_t dq:1;\n"       //
-	       " uint8_t gpio:1;\n"	//
+               " uint8_t gpio:1;\n"     //
                "};\n", maxname + 1);
 
       char hasblob = 0;
@@ -497,7 +499,7 @@ main (int argc, const char *argv[])
                   errx (1, ".flags on no numeric for %s in %s", d->name, d->type);
                if (strstr (d->attributes, ".base64=1"))
                   errx (1, ".base64 on no numeric for %s in %s", d->name, d->type);
-               if (strstr (d->attributes, ".decimal=")&&strstr(d->attributes,".hex=1"))
+               if (strstr (d->attributes, ".decimal=") && strstr (d->attributes, ".hex=1"))
                   errx (1, ".hex and .decimal on no numeric for %s in %s", d->name, d->type);
             }
             if (*d->type == 's' && isdigit (d->type[1]))
@@ -590,6 +592,8 @@ main (int argc, const char *argv[])
          }
       fprintf (H, "typedef uint8_t revk_setting_bits_t[%d];\n", (count + 7) / 8);
       fprintf (H, "typedef uint8_t revk_setting_group_t[%d];\n", (groups + 8) / 8);
+      fprintf (C, "const char revk_settings_secret[]=\"%s\";\n", dummysecret);
+      fprintf (H, "extern const char revk_settings_secret[];\n");
       fclose (H);
       fclose (C);
    }
