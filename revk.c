@@ -2672,7 +2672,7 @@ revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, const
                     char af)
 {
    revk_web_send (req, "<tr><td>%s</td><td colspan=3><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'%s></td><td>%s</td></tr>", tag, field, field,     //
-                  value && *value ? strstr (field, "pass") && *revk_settings_secret ? revk_settings_secret : value : "",  //
+                  value && *value ? strstr (field, "pass") && *revk_settings_secret ? revk_settings_secret : value : "",        //
                   place ? : "", (!value || !*value) && af ? " autofocus" : "", suffix ? : "");
 }
 
@@ -2821,6 +2821,10 @@ revk_web_settings (httpd_req_t * req)
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
       revk_web_extra (req);
+#endif
+#ifdef	CONFIG_REVK_WEB_BETA
+      hr ();
+      revk_web_setting_b (req, "Beta software", "otabeta", otabeta, "Load early release beta software");
 #endif
       revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)

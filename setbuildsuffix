@@ -24,6 +24,12 @@ if(-e settings.def) then
 	set rem=($rem CONFIG_REVK_OLD_SETTINGS);
 endif
 
+if(-e betarelease) then
+	set add=($rem CONFIG_REVK_WEB_BETA);
+else
+	set rem=($rem CONFIG_REVK_WEB_BETA);
+endif
+
 if(-e managed_components/espressif__led_strip) then
 	set add=($add CONFIG_REVK_LED_STRIP);
 else
