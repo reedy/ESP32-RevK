@@ -2484,7 +2484,7 @@ revk_restart (const char *reason, int delay)
 uint16_t
 revk_num_web_handlers (void)
 {
-   return 4;
+   return 5;
 }
 
 esp_err_t
@@ -2494,6 +2494,14 @@ revk_web_settings_add (httpd_handle_t webserver)
    {
       httpd_uri_t uri = {
          .uri = "/hotspot-detect.html",
+         .method = HTTP_GET,
+         .handler = revk_web_settings,
+      };
+      REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
+   }
+   {
+      httpd_uri_t uri = {
+         .uri = "/generate_204",
          .method = HTTP_GET,
          .handler = revk_web_settings,
       };
