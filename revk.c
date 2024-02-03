@@ -166,7 +166,8 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 		b(meshlr,CONFIG_REVK_MESHLR);		\
     		b(meshroot,false);			\
 
-struct gpio_s
+typedef struct revk_settings_gpio_s revk_settings_gpio_t;
+struct revk_settings_gpio_s
 {
    uint8_t num:6;
    uint8_t invert:1;
@@ -185,12 +186,12 @@ struct gpio_s
 #define	u8(n,d)		uint8_t n;
 #define	b(n,d)		uint8_t n;
 #define	s8(n,d)		int8_t n;
-#define	io(n,d)		struct gpio_s n;
-#define	ioa(n,a,d)	struct gpio_s n[a];
+#define	io(n,d)		revk_settings_gpio_t n;
+#define	ioa(n,a,d)	revk_settings_gpio_t n[a];
 #ifndef	CONFIG_REVK_BLINK
-#define	led(n,a,d)	extern struct gpio_s n[a];
+#define	led(n,a,d)	extern revk_settings_gpio_t n[a];
 #else
-#define	led(n,a,d)	struct gpio_s n[a];
+#define	led(n,a,d)	revk_settings_gpio_t n[a];
 #endif
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
