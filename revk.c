@@ -2861,8 +2861,8 @@ revk_web_settings (httpd_req_t * req)
       hr ();
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
-      revk_web_setting_s (req, "Timezone", tz ", " TZ code ",
-                        " See < a href = 'https://gist.github.com/alwynallan/24d96091655391107939' > list < /a > ");
+      revk_web_setting_s (req, "Timezone", tz , "TZ code",
+                        "See <a href ='https://gist.github.com/alwynallan/24d96091655391107939'>list</a> ");
 #endif
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
@@ -2871,12 +2871,12 @@ revk_web_settings (httpd_req_t * req)
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
       hr ();
-      revk_web_setting (req, " Beta software ", " otabeta ", NULL, " Load early release beta software ");
+      revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
 #endif
 #endif
-      revk_web_send (req, " < /table >< p id = set >< input type = submit value = 'Change settings' > ");
+      revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
       if (!revk_link_down () && *otahost)
-         revk_web_send (req, " < input name = \"upgrade\" type=submit value='Upgrade firmware from %s%s'>", otahost, otabeta ? " (beta)" : "");
+         revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s%s'>", otahost, otabeta ? " (beta)" : "");
       revk_web_send (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
