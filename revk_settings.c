@@ -7,7 +7,41 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include <ctype.h>
+
+#ifndef _WIN32
 #include <err.h>
+#else
+#define err(n, fmt, ...) fprintf(stderr, fmt "\n", __VA_ARGS__);
+#define errx(n, ...) fprintf(stderr, __VA_ARGS__)
+
+// Very crude replacement, only enough for us here
+static int
+getline(char **lineptr, size_t *n, FILE *stream)
+{
+    static char line_buffer[1024];
+
+	if (!fgets(line_buffer, sizeof(line_buffer), stream))
+		return -1;
+
+	*lineptr = line_buffer;
+	return 1;
+}
+
+static char *
+strndup(const char *str, size_t len)
+{
+	int l = strlen(str);
+	char *dest;
+	
+	if (len < l)
+		l = len;
+	dest = malloc(l + 1);
+	memcpy(dest, str, len);
+	dest[l] = 0;
+	return dest;
+}
+
+#endif
 
 typedef struct def_s def_t;
 struct def_s
