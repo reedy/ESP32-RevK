@@ -2726,10 +2726,10 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
                   tag ? : "", field, field, value, size, place ? : "", suffix ? : "");
    free (value);
-#define	revk_web_settings_s(req,prefix,field,place,suffix) revk_web_settingsdo(req,prefix,#field,place,suffix)
 }
+#define	revk_web_setting_s(req,prefix,field,place,suffix) revk_web_settingsdo(req,prefix,#field,place,suffix)
 #else
-#define	revk_web_settings_s(req,prefix,field,place,suffix) revk_web_settings_s_do(req,prefix,#field,field,place,suffix)
+#define	revk_web_setting_s(req,prefix,field,place,suffix) revk_web_settings_s_do(req,prefix,#field,field,place,suffix)
 void
 revk_web_settings_s_do (httpd_req_t * req, const char *tag, const char *field, char *value, const char *place, const char *suffix)
 {
