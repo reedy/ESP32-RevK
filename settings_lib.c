@@ -598,7 +598,7 @@ value_cmp (revk_settings_t * s, void *a, void *b)
 }
 
 char *
-revk_settings_text(revk_settings_t * s, int index, int *lenp)
+revk_settings_text (revk_settings_t * s, int index, int *lenp)
 {                               // Malloc'd string for value
    void *ptr = s->ptr;
    if (s->array)
@@ -753,7 +753,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       else
       {
          if (ptr)
-            *(uint8_t *) ptr = ((d < e && (*d == '1' || *d == 't')) ? 1 : 0);
+            *(uint8_t *) ptr = ((d < e && (*d == '1' || *d == 't' || *d == 'o')) ? 1 : 0);
          else
          {
             if (d < e && (*d == '1' || *d == 't'))
@@ -1246,6 +1246,10 @@ revk_setting (jo_t j)
    char tag[16];
    revk_setting_bits_t found = { 0 };
    const char *location = NULL;
+   char *bitused = mallocspi (sizeof (revk_settings_bits));
+   if (!bitused)
+      return "malloc";
+   memset (bitused, 0, sizeof (revk_settings_bits));
    const char *scan (int plen, int pindex)
    {
       while (!err && (t = jo_next (j)) == JO_TAG)
@@ -1280,6 +1284,14 @@ revk_setting (jo_t j)
             }
             if (index < 0)
                index = 0;
+#ifdef	REVK_SETTINGS_HAS_BIT
+            if (s->type == REVK_SETTINGS_BIT)
+            {                   // De-dup bit (to allow for checkbox usage with secondary hidden)
+               if (bitused[s->bit / 8] & (1 << (s->bit & 7)))
+                  return NULL;  // Duplicate bit
+               bitused[s->bit / 8] |= (1 << (s->bit & 7));
+            }
+#endif
             found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
             if ((s->array && (index < 0 || index >= s->array)) || (!s->array && index))
                return "Bad array index";

@@ -113,3 +113,12 @@ The `.set` and `.flags` attributes can apply to a numeric value, and cause top b
 - An array should be set using an array, any missing final elements are cleared to zero value
 - A sub object can be set, or each value can be set directly. If an object, any missing sub values are set to default
 - And array or object can be set to `null` to set to defaults
+
+## Bit fields
+
+- Bit arrays are not supported.
+- Setting a bit using JSON can set *null* as above for default value
+- Setting a bit value to something starting `1`, `t` (for `true`) or `o` (for `on`) is setting it, else unsetting it.
+- Duplicate fields when setting using JSON is not recommended, but is support for bit types, where the first instance is applied and later ones ignored
+
+The reason is to allow use of `type=checkbox` on forms, a checkbox can set `on`, and a second `type=hidden` can unset. When the checkbox is set the `on` is applied, when not the hidden is applied an unset.

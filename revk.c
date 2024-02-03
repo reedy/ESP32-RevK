@@ -2605,6 +2605,16 @@ revk_web_head (httpd_req_t * req, const char *title)
    revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
    if (title && *title)
       revk_web_send (req, "<title>%s</title>", title);
+   revk_web_send (req, "<style>"        //
+                  ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
+                  ".switch input,.box input{opacity:0;width:0;height:0;}"       //
+                  ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
+                  ".slider:before{position:absolute;content:\"\";min-height:26px;min-width:26px;left:4px;bottom:3px;background-color:white;-webkit-transition:.4s;transition:.4s;}"     //
+                  "input:checked+.slider,input:checked+.button{background-color:#12bd20;}"      //
+                  "input:checked+.slider:before{-webkit-transform:translateX(30px);-ms-transform:translateX(30px);transform:translateX(30px);}" //
+                  "span.slider:before{border-radius:50%%;}"     //
+                  "span.slider,span.button{border-radius:34px;padding-top:8px;padding-left:10px;border:1px solid gray;box-shadow:3px 3px 3px #0008;}"   //
+                  "</style>");
    revk_web_send (req,
                   "<html><body style='font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);'"
 #ifndef CONFIG_HTTPD_WS_SUPPORT
@@ -2681,10 +2691,9 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
 #ifdef  REVK_SETTINGS_HAS_BIT
    if (s->type == REVK_SETTINGS_BIT)
    {
-      revk_web_send (req, "<tr><td>%s</td><td><label for='0%s'><input type='radio' id='0%s' name='%s' value='0'%s><i>Off</i></label></td><td><label for='1%s'><input type='radio' id='1%s' name='%s' value='1'%s><i>On</i></label></td><td>%s</td></tr>", tag ? : "",   //
-                     field, field, field, *value == 'f' ? " checked" : "",      //
-                     field, field, field, *value == 't' ? " checked" : "",      //
-                     suffix ? : "");
+      revk_web_send (req,
+                     "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label><input type=hidden name=\"%s\"> %s</td>",
+                     tag ? : "", field, field, *value == 't' ? " checked" : "", field, suffix ? : "");
       free (value);
       return;
    }
