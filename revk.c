@@ -2685,6 +2685,7 @@ get_status_text (void)
 #endif
 }
 
+#ifndef  CONFIG_REVK_OLD_SETTINGS
 void
 revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const char *place, const char *suffix)
 {
@@ -2700,7 +2701,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    if (s->type == REVK_SETTINGS_BIT)
    {
       revk_web_send (req,
-                     "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label><input type=hidden name=\"%s\"> %s</td>",
+                     "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\">%s</td>",
                      tag ? : "", field, field, *value == 't' ? " checked" : "", field, suffix ? : "");
       free (value);
       return;
@@ -2725,6 +2726,9 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
                   tag ? : "", field, field, value, size, place ? : "", suffix ? : "");
    free (value);
 }
+#else
+
+#endif
 
 esp_err_t
 revk_web_settings (httpd_req_t * req)
