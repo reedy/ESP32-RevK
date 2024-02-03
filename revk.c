@@ -2721,7 +2721,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    free (value);
 }
 
-#define	revk_web_setting_s(req,prefix,field,value,place,suffix) revk_web_setting(req,prefix,#field,place,suffix)
+#define	revk_web_setting_s(req,prefix,field,value,place,suffix) revk_web_setting(req,prefix,field,place,suffix)
 #else
 void
 revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, char *value, const char *place, const char *suffix)
