@@ -2726,9 +2726,17 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
                   tag ? : "", field, field, value, size, place ? : "", suffix ? : "");
    free (value);
+#define	revk_web_settings_s(req,prefix,field,place,suffix) revk_web_settingsdo(req,prefix,#field,place,suffix)
 }
 #else
-
+#define	revk_web_settings_s(req,prefix,field,place,suffix) revk_web_settings_s_do(req,prefix,#field,field,place,suffix)
+void
+revk_web_settings_s_do (httpd_req_t * req, const char *tag, const char *field, char *value, const char *place, const char *suffix)
+{
+   revk_web_send (req,
+                  "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
+                  tag ? : "", field, field, value ? : "", place ? : "", suffix ? : "");
+}
 #endif
 
 esp_err_t
@@ -2834,40 +2842,41 @@ revk_web_settings (httpd_req_t * req)
       }
       if (sta_netif)
       {
-         revk_web_setting (req, "Hostname", "hostname", revk_id,
+         revk_web_setting_s (req, "Hostname", hostname, revk_id,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-                           ".local"
+                             ".local"
 #else
-                           NULL
+                             NULL
 #endif
             );
          hr ();
-         revk_web_setting (req, "SSID", "wifissid", "WiFi name", NULL);
-         revk_web_setting (req, "Passphrase", "wifipass", "WiFi pass", NULL);
+         revk_web_setting_s (req, "SSID", wifissid, "WiFi name", NULL);
+         revk_web_setting_s (req, "Passphrase", wifipass, "WiFi pass", NULL);
          hr ();
       }
-      revk_web_setting (req, "MQTT host", "mqtthost", "hostname", NULL);
-      revk_web_setting (req, "MQTT user", "mqttuser", "username", NULL);
-      revk_web_setting (req, "MQTT pass", "mqttpass", "password", NULL);
+      revk_web_setting_s (req, "MQTT host", mqtthost, "hostname", NULL);
+      revk_web_setting_s (req, "MQTT user", mqttuser, "username", NULL);
+      revk_web_setting_s (req, "MQTT pass", mqttpass, "password", NULL);
 #if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
       hr ();
 #endif
 #ifdef	CONFIG_REVK_WEB_TZ
-      revk_web_setting (req, "Timezone", "tz", "TZ code",
-                        "See <a href='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
+      revk_web_setting_s (req, "Timezone", tz ", " TZ code ",
+                        " See < a href = 'https://gist.github.com/alwynallan/24d96091655391107939' > list < /a > ");
 #endif
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
       revk_web_extra (req);
 #endif
+#ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
       hr ();
-      revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
+      revk_web_setting (req, " Beta software ", " otabeta ", NULL, " Load early release beta software ");
 #endif
-      revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
+#endif
+      revk_web_send (req, " < /table >< p id = set >< input type = submit value = 'Change settings' > ");
       if (!revk_link_down () && *otahost)
-         revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s%s'>", otahost,
-                        otabeta ? " (beta)" : "");
+         revk_web_send (req, " < input name = \"upgrade\" type=submit value='Upgrade firmware from %s%s'>", otahost, otabeta ? " (beta)" : "");
       revk_web_send (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
