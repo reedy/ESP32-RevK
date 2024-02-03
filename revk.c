@@ -2724,7 +2724,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
 #define	revk_web_setting_s(req,prefix,field,value,place,suffix) revk_web_setting(req,prefix,#field,place,suffix)
 #else
 void
-revk_web_settings_s (httpd_req_t * req, const char *tag, const char *field, char *value, const char *place, const char *suffix)
+revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, char *value, const char *place, const char *suffix)
 {
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
@@ -4103,6 +4103,7 @@ revk_disable_settings (void)
    b.disablesettings = 1;
 }
 
+#ifdef  REVK_SETTINGS_HAS_GPIO
 void
 revk_gpio_output (revk_settings_gpio_t g)
 {
@@ -4111,7 +4112,7 @@ revk_gpio_output (revk_settings_gpio_t g)
    if (rtc_gpio_is_valid_gpio (g.num))
       rtc_gpio_deinit (g.num);
    gpio_reset_pin (g.num);
-#ifdef	REVK_SETTINGS_HAS_GPIO
+#ifndef  CONFIG_REVK_OLD_SETTINGS
    gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
    gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
    if (rtc_gpio_is_valid_gpio (g.num))
@@ -4140,7 +4141,7 @@ revk_gpio_input (revk_settings_gpio_t g)
       rtc_gpio_deinit (g.num);
    gpio_reset_pin (g.num);
    gpio_set_direction (g.num, GPIO_MODE_INPUT);
-#ifdef	REVK_SETTINGS_HAS_GPIO
+#ifndef  CONFIG_REVK_OLD_SETTINGS
    if (!g.pulldown && !g.nopull)
       gpio_pullup_en (g.num);
    else
@@ -4170,3 +4171,4 @@ revk_gpio_get (revk_settings_gpio_t g)
       return gpio_get_level (g.num) ^ g.invert;
    return 0;
 }
+#endif
