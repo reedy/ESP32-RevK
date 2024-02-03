@@ -166,13 +166,6 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 		b(meshlr,CONFIG_REVK_MESHLR);		\
     		b(meshroot,false);			\
 
-typedef struct revk_settings_gpio_s revk_settings_gpio_t;
-struct revk_settings_gpio_s
-{
-   uint8_t num:6;
-   uint8_t invert:1;
-   uint8_t set:1;
-};
 #define s(n,d)		char *n;
 #define sp(n,d)		char *n;
 #define sa(n,a,d)	char *n[a];
