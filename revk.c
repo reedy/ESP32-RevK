@@ -39,7 +39,6 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include "esp_phy_init.h"
 #include "esp_sleep.h"
 #include <driver/gpio.h>
-#include <driver/rtc_io.h>
 #ifdef	CONFIG_REVK_MESH
 #include <esp_mesh.h>
 #include "freertos/semphr.h"
@@ -54,6 +53,7 @@ static const char __attribute__((unused)) * TAG = "RevK";
 #include <math.h>
 #endif
 
+#include "esp8266_rtc_io_compat.h"
 #include "esp8266_ota_compat.h"
 #include "esp8266_flash_compat.h"
 #include "esp8266_gpio_compat.h"
@@ -1335,22 +1335,29 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          }
          break;
       case IP_EVENT_GOT_IP6:
-         ip_event_got_ip6_t * event = (ip_event_got_ip6_t *) event_data;
-         if (event->ip_index < 7 && !(gotip & (1 << event->ip_index)))
-         {                      // New IPv6
-            ESP_LOGI (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", event->ip_index, IPV62STR (event->ip6_info.ip),
-                      event->ip6_info.ip.zone);
-#ifdef  CONFIG_REVK_WIFI
-            if (app_callback)
-            {
-               jo_t j = jo_object_alloc ();
-               jo_stringf (j, "ipv6", IPV6STR, IPV62STR (event->ip6_info.ip));
-               jo_int (j, "zone", event->ip6_info.ip.zone);
-               app_callback (0, prefixcommand, NULL, "ipv6", j);
-               jo_free (&j);
-            }
+         {
+            ip_event_got_ip6_t * event = (ip_event_got_ip6_t *) event_data;
+#ifdef CONFIG_IDF_TARGET_ESP8266
+            int ip_index = 0; // 8266-IDF only supports a single address
+#else
+            int ip_index = event->ip_index;
 #endif
-            gotip |= (1 << event->ip_index);
+            if (ip_index < 7 && !(gotip & (1 << ip_index)))
+            {                      // New IPv6
+               ESP_LOGI (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", ip_index, IPV62STR (event->ip6_info.ip),
+                         event->ip6_info.ip.zone);
+#ifdef  CONFIG_REVK_WIFI
+               if (app_callback)
+               {
+                  jo_t j = jo_object_alloc ();
+                  jo_stringf (j, "ipv6", IPV6STR, IPV62STR (event->ip6_info.ip));
+                  jo_int (j, "zone", event->ip6_info.ip.zone);
+                  app_callback (0, prefixcommand, NULL, "ipv6", j);
+                  jo_free (&j);
+               }
+#endif
+               gotip |= (1 << ip_index);
+            }
          }
          break;
       default:

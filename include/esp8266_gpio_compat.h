@@ -10,6 +10,8 @@ gpio_reset_pin (gpio_num_t gpio_num)
    return gpio_pullup_en (gpio_num);
 }
 
+#define GPIO_IS_VALID_OUTPUT_GPIO GPIO_IS_VALID_GPIO
+
 #endif
 
 #endif
