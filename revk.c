@@ -3209,6 +3209,7 @@ ap_start (void)
       cfg.ap.ssid_len = sizeof (cfg.ap.ssid);
    if (*appass)
    {
+      int l;
       if ((l = strlen (appass)) > sizeof (cfg.ap.password))
          l = sizeof (cfg.ap.password);
       memcpy (&cfg.ap.password, appass, l);
