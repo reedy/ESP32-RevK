@@ -3207,6 +3207,13 @@ ap_start (void)
 #endif
    if (cfg.ap.ssid_len > sizeof (cfg.ap.ssid))
       cfg.ap.ssid_len = sizeof (cfg.ap.ssid);
+   if (*appass)
+   {
+      if ((l = strlen (appass)) > sizeof (cfg.ap.password))
+         l = sizeof (cfg.ap.password);
+      memcpy (&cfg.ap.password, appass, l);
+      cfg.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+   }
    ESP_LOGI (TAG, "AP%s config mode start %.*s", mode == WIFI_MODE_STA ? "STA" : "", cfg.ap.ssid_len, cfg.ap.ssid);
    cfg.ap.max_connection = 255;
    // DHCP
