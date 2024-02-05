@@ -2761,6 +2761,7 @@ revk_web_settings (httpd_req_t * req)
    {
       if (jo_find (j, "upgrade"))
       {
+         revk_setting (j); // Saved anyway else confusing
          const char *e = revk_command ("upgrade", NULL);
          if (e && *e)
             revk_web_send (req, e);
