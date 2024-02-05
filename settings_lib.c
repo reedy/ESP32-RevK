@@ -754,7 +754,8 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       {
          uint8_t b = ((d < e && (*d == '1' || *d == 't' || *d == 'o')) ? 1 : 0);
          if (ptr)
-            *(uint8_t *) ptr = ((d < e && (*d == '1' || *d == 't' || *d == 'o')) ? 1 : 0);
+            *(uint8_t *) ptr = b;
+         else
          {
             if (b)
                ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
@@ -1240,6 +1241,7 @@ revk_setting (jo_t j)
    if (!j)
       return "";
    jo_rewind (j);
+   ESP_LOGE(TAG,"Setting %s",jo_debug(j));
    jo_type_t t;
    if ((t = jo_here (j)) != JO_OBJECT)
       return "Not an object";

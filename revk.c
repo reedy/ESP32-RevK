@@ -1070,7 +1070,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                   b.setting_dump_requested = 2;
                else if (suffix && !strcmp (suffix, "**"))
                   b.setting_dump_requested = 3;
-               else if (suffix && strcmp (suffix, "+"))
+               else if (!suffix || strcmp (suffix, "+"))
                   err = ((err && *err ? err : revk_setting (j)) ? : "Unknown setting");
             } else
                err = (err ? : "");      // Ignore
@@ -1337,16 +1337,15 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       case IP_EVENT_GOT_IP6:
          {
-            ip_event_got_ip6_t * event = (ip_event_got_ip6_t *) event_data;
+            ip_event_got_ip6_t *event = (ip_event_got_ip6_t *) event_data;
 #ifdef CONFIG_IDF_TARGET_ESP8266
-            int ip_index = 0; // 8266-IDF only supports a single address
+            int ip_index = 0;   // 8266-IDF only supports a single address
 #else
             int ip_index = event->ip_index;
 #endif
             if (ip_index < 7 && !(gotip & (1 << ip_index)))
-            {                      // New IPv6
-               ESP_LOGI (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", ip_index, IPV62STR (event->ip6_info.ip),
-                         event->ip6_info.ip.zone);
+            {                   // New IPv6
+               ESP_LOGI (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", ip_index, IPV62STR (event->ip6_info.ip), event->ip6_info.ip.zone);
 #ifdef  CONFIG_REVK_WIFI
                if (app_callback)
                {
@@ -2710,7 +2709,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    {
       revk_web_send (req,
                      "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
-                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, field,suffix ? :
+                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, field, suffix ? :
 #ifdef	REVK_SETTING_HAS_COMMENT
                      s->comment ? :
 #endif
