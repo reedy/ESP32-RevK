@@ -2717,7 +2717,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    // Simple text input
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
-                  tag ? : field, field, field, value, size, place ? : s->def?:"", suffix ? : "");
+                  tag ? : field, field, field, value, size, place ? : s->def ? : "", suffix ? : "");
    free (value);
 }
 

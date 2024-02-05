@@ -16,29 +16,29 @@
 
 // Very crude replacement, only enough for us here
 static int
-getline(char **lineptr, size_t *n, FILE *stream)
+getline (char **lineptr, size_t *n, FILE * stream)
 {
-    static char line_buffer[1024];
+   static char line_buffer[1024];
 
-	if (!fgets(line_buffer, sizeof(line_buffer), stream))
-		return -1;
+   if (!fgets (line_buffer, sizeof (line_buffer), stream))
+      return -1;
 
-	*lineptr = line_buffer;
-	return 1;
+   *lineptr = line_buffer;
+   return 1;
 }
 
 static char *
-strndup(const char *str, size_t len)
+strndup (const char *str, size_t len)
 {
-	int l = strlen(str);
-	char *dest;
-	
-	if (len < l)
-		l = len;
-	dest = malloc(l + 1);
-	memcpy(dest, str, len);
-	dest[l] = 0;
-	return dest;
+   int l = strlen (str);
+   char *dest;
+
+   if (len < l)
+      l = len;
+   dest = malloc (l + 1);
+   memcpy (dest, str, len);
+   dest[l] = 0;
+   return dest;
 }
 
 #endif
@@ -117,6 +117,7 @@ int
 main (int argc, const char *argv[])
 {
    int debug = 0;
+   int comment = 0;
    const char *cfile = "settings.c";
    const char *hfile = "settings.h";
    const char *dummysecret = "✶✶✶✶✶✶✶✶";
@@ -131,6 +132,7 @@ main (int argc, const char *argv[])
          {"extension", 'e', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &extension, 0, "Only handle files ending with this",
           "extension"},
          {"max-name", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &maxname, 0, "Max name len", "N"},
+         {"comment", 0, POPT_ARG_NONE, &comment, 0, "Add comments"},
          {"debug", 'v', POPT_ARG_NONE, &debug, 0, "Debug"},
          POPT_AUTOHELP {}
       };
@@ -356,42 +358,6 @@ main (int argc, const char *argv[])
 
       def_t *d;
 
-      fprintf (C, "\n");
-      fprintf (C, "#include <stdint.h>\n");
-      fprintf (C, "#include \"sdkconfig.h\"\n");
-      fprintf (C, "#include \"settings.h\"\n");
-
-      fprintf (H, "\n");
-      fprintf (H, "#include <stdint.h>\n");
-      fprintf (H, "#include <stddef.h>\n");
-
-      fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
-               "struct revk_settings_s {\n"     //
-               " void *ptr;\n"  //
-               " const char name[%d];\n"        //
-               " const char *def;\n"    //
-               " const char *flags;\n"  //
-               " const char *old;\n"    //
-               " uint16_t size;\n"      //
-               " uint8_t group;\n"      //
-               " uint8_t bit;\n"        //
-               " uint8_t dot:4;\n"      //
-               " uint8_t len:4;\n"      //
-               " uint8_t type:3;\n"     //
-               " uint8_t decimal:5;\n"  //
-               " uint8_t array:7;\n"    //
-               " uint8_t malloc:1;\n"   //
-               " uint8_t revk:1;\n"     //
-               " uint8_t live:1;\n"     //
-               " uint8_t fix:1;\n"      //
-               " uint8_t set:1;\n"      //
-               " uint8_t hex:1;\n"      //
-               " uint8_t base64:1;\n"   //
-               " uint8_t secret:1;\n"   //
-               " uint8_t dq:1;\n"       //
-               " uint8_t gpio:1;\n"     //
-               "};\n", maxname + 1);
-
       char hasblob = 0;
       char hasbit = 0;
       char hasunsigned = 0;
@@ -399,6 +365,11 @@ main (int argc, const char *argv[])
       char hasoctet = 0;
       char hasstring = 0;
       char hasgpio = 0;
+      char hasold = 0;
+
+      for (d = defs; d && (!d->attributes || !strstr (d->attributes, ".old=")); d = d->next);
+      if (d)
+         hasoctet = 1;
 
       for (d = defs; d && (!d->type || *d->type != 'o' || !isdigit (d->type[1])); d = d->next);
       if (d)
@@ -417,6 +388,45 @@ main (int argc, const char *argv[])
          for (d = defs; d && (!d->type || strcmp (d->type, "s")); d = d->next);
       if (d)
          hasstring = 1;
+
+      fprintf (C, "\n");
+      fprintf (C, "#include <stdint.h>\n");
+      fprintf (C, "#include \"sdkconfig.h\"\n");
+      fprintf (C, "#include \"settings.h\"\n");
+
+      fprintf (H, "\n");
+      fprintf (H, "#include <stdint.h>\n");
+      fprintf (H, "#include <stddef.h>\n");
+
+      fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
+               "struct revk_settings_s {\n"     //
+               " void *ptr;\n"  //
+               " const char name[%d];\n"        //
+               " const char *def;\n"    //
+               " const char *flags;\n", maxname + 1);
+      if (hasold)
+         fprintf (H, " const char *old;\n");
+      if (comment)
+         fprintf (H, " const char *comment;\n");
+      fprintf (H, " uint16_t size;\n"   //
+               " uint8_t group;\n"      //
+               " uint8_t bit;\n"        //
+               " uint8_t dot:4;\n"      //
+               " uint8_t len:4;\n"      //
+               " uint8_t type:3;\n"     //
+               " uint8_t decimal:5;\n"  //
+               " uint8_t array:7;\n"    //
+               " uint8_t malloc:1;\n"   //
+               " uint8_t revk:1;\n"     //
+               " uint8_t live:1;\n"     //
+               " uint8_t fix:1;\n"      //
+               " uint8_t set:1;\n"      //
+               " uint8_t hex:1;\n"      //
+               " uint8_t base64:1;\n"   //
+               " uint8_t secret:1;\n"   //
+               " uint8_t dq:1;\n"       //
+               " uint8_t gpio:1;\n"     //
+               "};\n");
 
       for (d = defs; d && (!d->type || strcmp (d->type, "blob")); d = d->next);
       if (d)
@@ -459,10 +469,17 @@ main (int argc, const char *argv[])
          fprintf (H, "struct revk_settings_bits_s {\n");
          fprintf (C, "revk_settings_bits_t revk_settings_bits={0};\n");
          for (d = defs; d; d = d->next)
+         {
             if (d->define)
                fprintf (H, "%s\n", d->define);
             else if (d->type && !strcmp (d->type, "bit"))
-               fprintf (H, " uint8_t %s:1;\n", d->name);
+            {
+               fprintf (H, " uint8_t %s:1;", d->name);
+               if (d->comment)
+                  fprintf (H, "\t// %s", d->comment);
+               fprintf (H, "\n");
+            }
+         }
          fprintf (H, "};\n");
          for (d = defs; d; d = d->next)
             if (d->define)
@@ -478,7 +495,10 @@ main (int argc, const char *argv[])
                typesuffix (H, d->type);
                if (d->array)
                   fprintf (H, "[%s]", d->array);
-               fprintf (H, ";\n");
+               fprintf (H, ";");
+               if (d->comment)
+                  fprintf (H, "\t// %s", d->comment);
+               fprintf (H, "\n");
             }
          fprintf (H, "extern revk_settings_bits_t revk_settings_bits;\n");
       }
@@ -497,6 +517,8 @@ main (int argc, const char *argv[])
       if (hasoctet)
          fprintf (H, " REVK_SETTINGS_OCTET,\n");
       fprintf (H, "};\n");
+      if (hasold)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_OLD\n");
       if (hasgpio)
          fprintf (H, "#define	REVK_SETTINGS_HAS_GPIO\n");
       if (hassigned || hasunsigned)
@@ -553,6 +575,8 @@ main (int argc, const char *argv[])
             else
                errx (1, "Unknown type %s for %s in %s", d->type, d->name, d->fn);
             fprintf (C, ",.name=\"%s\"", d->name);
+            if (comment && d->comment)
+               fprintf (C, ",.comment=\"%s\"", d->comment);
             if (d->group)
                fprintf (C, ",.group=%d", d->group);
             fprintf (C, ",.len=%d", (int) strlen (d->name));

@@ -932,11 +932,13 @@ revk_settings_load (const char *tag, const char *appname)
                            addzap (NULL, 0);
                      } else
                      {
+#ifdef	CONFIG_REVK_SETTINGS_HAS_OLD
                         for (s = revk_settings;
                              s->len && !(s->revk == revk && s->old && !s->array && !strcmp (s->old, info.key)); s++);
                         if (s->len)
                            err = nvs_get (s, info.key, 0);      // Exact match (old)
                         else
+#endif
                         {
                            addzap (NULL, 0);    // Not doing old array or old style array - can add if needed
                            err = "Not matched";

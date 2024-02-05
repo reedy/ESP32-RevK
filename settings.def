@@ -1,22 +1,22 @@
-s	ota.host	CONFIG_REVK_OTAHOST	.revk=1
-u8	ota.auto	CONFIG_REVK_OTAAUTO	.revk=1
-bit	ota.start	1			.revk=1
-bit	ota.beta				.revk=1	.live=1
-blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1
-s	ntphost		CONFIG_REVK_NTPHOST	.revk=1
-s	tz		CONFIG_REVK_TZ		.revk=1
-u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1
-s	appname		CONFIG_REVK_APPNAME	.revk=1
-s	hostname				.revk=1
-s	prefix.command	command			.revk=1
-s	prefix.setting	setting			.revk=1
-s	prefix.state	state			.revk=1
-s	prefix.event	event			.revk=1
-s	prefix.info	info			.revk=1
-s	prefix.error	error			.revk=1
-bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1
+s	ota.host	CONFIG_REVK_OTAHOST	.revk=1			// OTA hostname
+u8	ota.auto	CONFIG_REVK_OTAAUTO	.revk=1			// OTA auto load (days)
+bit	ota.start	1			.revk=1			// OTA check after startup
+bit	ota.beta				.revk=1	.live=1		// OTA load /beta (and daily check)
+blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1	// OTA cert of otahost
+s	ntphost		CONFIG_REVK_NTPHOST	.revk=1			// NTP host
+s	tz		CONFIG_REVK_TZ		.revk=1			// Timezone
+u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1			// Watchdog (seconds)
+s	appname		CONFIG_REVK_APPNAME	.revk=1			// App name
+s	hostname				.revk=1			// Host name
+s	prefix.command	command			.revk=1			// MQTT Prefix for commands
+s	prefix.setting	setting			.revk=1			// MQTT Prefix for settings
+s	prefix.state	state			.revk=1			// MQTT Prefix for state
+s	prefix.event	event			.revk=1			// MQTT Prefix for event
+s	prefix.info	info			.revk=1			// MQTT Prefix for info
+s	prefix.error	error			.revk=1			// MQTT Prefix for error
+bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1			// MQTT includes appname
 #ifdef	CONFIG_REVK_BLINK_LIB
-gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3
+gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif
 blob	client.key				.revk=1	.base64=1
 blob	client.cert				.revk=1	.base64=1
