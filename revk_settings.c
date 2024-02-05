@@ -369,7 +369,7 @@ main (int argc, const char *argv[])
 
       for (d = defs; d && (!d->attributes || !strstr (d->attributes, ".old=")); d = d->next);
       if (d)
-         hasoctet = 1;
+         hasold = 1;
 
       for (d = defs; d && (!d->type || *d->type != 'o' || !isdigit (d->type[1])); d = d->next);
       if (d)

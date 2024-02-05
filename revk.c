@@ -2843,11 +2843,13 @@ revk_web_settings (httpd_req_t * req)
       }
       if (sta_netif)
       {
-         revk_web_setting_s (req, "Hostname", "hostname", hostname, revk_id,
+         revk_web_send (req,
+                        "<tr><td>Hostname</td><td colspan=3 nowrap><input name='hostname' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'>%s</td></tr>",
+                        hostname == revk_id ? "" : hostname, revk_id,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-                             ".local"
+                        ".local"
 #else
-                             NULL
+                        ""
 #endif
             );
          hr ();
@@ -2858,27 +2860,28 @@ revk_web_settings (httpd_req_t * req)
       revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
       revk_web_setting_s (req, "MQTT user", "mqttuser", mqttuser[0], "username", NULL);
       revk_web_setting_s (req, "MQTT pass", "mqttpass", mqttpass[0], "password", NULL);
-#if defined(CONFIG_REVK_WEB_TZ) || defined(CONFIG_REVK_WEB_EXTRA)
-      hr ();
-#endif
 #ifdef	CONFIG_REVK_WEB_TZ
+      hr ();
       revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
-                          "See <a href ='https://gist.github.com/alwynallan/24d96091655391107939'>list</a> ");
+                          "See <a href ='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
 #endif
-#ifdef	CONFIG_REVK_WEB_EXTRA
-      extern void revk_web_extra (httpd_req_t *);
-      revk_web_extra (req);
-#endif
+      if (!revk_link_down () && *otahost)
+      {
+         hr ();
+         revk_web_send (req, "<tr><td colspan=4><input name=\"upgrade\" type=submit value='Upgrade firmware from %s%s'></td></tr>",
+                        otahost, otabeta ? " (beta)" : "");
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
+         revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
+#endif
+#endif
+      }
+#ifdef	CONFIG_REVK_WEB_EXTRA
+      extern void revk_web_extra (httpd_req_t *);
       hr ();
-      revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
+      revk_web_extra (req);
 #endif
-#endif
-      revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'>");
-      if (!revk_link_down () && *otahost)
-         revk_web_send (req, "<input name=\"upgrade\" type=submit value='Upgrade firmware from %s%s'>", otahost,
-                        otabeta ? " (beta)" : "");
+      revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'></p>");
       revk_web_send (req, "</p></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
