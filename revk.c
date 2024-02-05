@@ -2868,13 +2868,13 @@ revk_web_settings (httpd_req_t * req)
       if (!revk_link_down () && *otahost)
       {
          hr ();
-         revk_web_send (req, "<tr><td colspan=4><input name=\"upgrade\" type=submit value='Upgrade firmware from %s%s'></td></tr>",
-                        otahost, otabeta ? " (beta)" : "");
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
          revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
 #endif
 #endif
+         revk_web_send (req, "<tr><td colspan=4><input name=\"upgrade\" type=submit value='Upgrade firmware from %s%s'></td></tr>",
+                        otahost, otabeta ? " (beta)" : "");
       }
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
