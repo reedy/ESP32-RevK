@@ -2847,6 +2847,7 @@ revk_web_settings (httpd_req_t * req)
       {
          revk_web_send (req, "<tr><td colspan=4><hr></td></tr>");
       }
+      hr ();
       if (sta_netif)
       {
          revk_web_send (req,
