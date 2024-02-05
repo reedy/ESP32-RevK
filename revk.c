@@ -2871,6 +2871,8 @@ revk_web_settings (httpd_req_t * req)
          hr ();
          revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
          revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
+   if (!shutdown)
+      revk_web_send (req, "<tr><td>WiFI:</td><td colspan=3 id=list></td></tr>");
          hr ();
       }
       revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
@@ -2903,8 +2905,6 @@ revk_web_settings (httpd_req_t * req)
    }
    revk_web_send (req, "</table></form>");
 #ifdef CONFIG_HTTPD_WS_SUPPORT
-   if (!shutdown)
-      revk_web_send (req, "<div id=list>WiFi:</div>");
    revk_web_send (req, "<script>"       //
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
