@@ -2875,6 +2875,8 @@ revk_web_settings (httpd_req_t * req)
       if (!revk_link_down () && *otahost)
       {
          hr ();
+         revk_web_send (req, "<tr><td>Upgrade</td><td colspan=3><input name=\"upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
+                        otahost, otabeta ? " (beta)" : "");
          if (otadays)
             revk_web_setting (req, "Auto upgrade", "otaauto", NULL, "Automatically check for updates");
 #ifndef  CONFIG_REVK_OLD_SETTINGS
@@ -2882,8 +2884,6 @@ revk_web_settings (httpd_req_t * req)
          revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
 #endif
 #endif
-         revk_web_send (req, "<tr><td colspan=4><input name=\"upgrade\" type=submit value='Upgrade firmware from %s%s'></td></tr>",
-                        otahost, otabeta ? " (beta)" : "");
       }
 #ifdef	CONFIG_REVK_WEB_EXTRA
       extern void revk_web_extra (httpd_req_t *);
