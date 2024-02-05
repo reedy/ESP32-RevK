@@ -519,6 +519,8 @@ main (int argc, const char *argv[])
       fprintf (H, "};\n");
       if (hasold)
          fprintf (H, "#define	REVK_SETTINGS_HAS_OLD\n");
+      if (comment)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_COMMENT\n");
       if (hasgpio)
          fprintf (H, "#define	REVK_SETTINGS_HAS_GPIO\n");
       if (hassigned || hasunsigned)
