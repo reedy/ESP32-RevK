@@ -30,7 +30,7 @@ It is usually a good idea to ensure software is up to date. The system has a set
 
 You can do an upgrade from the web control pages for most apps with a link from the WiFi settings page. You can also do an `upgrade` command from MQTT (which allows the full URL and file to be specified, if needed).
 
-However, for most apps (based on the `otaauto` settings) upgrades will be checked every few days, and done if needed. If not set negative, then a check is also done around an hour after startup, otherwise done in middle of the night. The server is checked and the update and restart is only done if there is a new version. If the update fails validation then `otaauto` is set to `-30` to avoid more frequent checks, as a failed update also causes a reboot.
+However, for most apps (based on the `otaauto` and `otadays` settings) upgrades will be checked every few days, and done if needed. If `otastart` is set, then a check is also done around an hour after startup, otherwise done in middle of the night. The server is checked and the update and restart is only done if there is a new version. If the update fails validation then `otadays` is set to `30` to avoid more frequent checks, as a failed update also causes a reboot.
 
 ## MQTT 
 

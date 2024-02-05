@@ -101,7 +101,8 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #ifdef  CONFIG_REVK_OLD_SETTINGS
 #define	settings	\
 		s(otahost,CONFIG_REVK_OTAHOST);		\
-		u8(otaauto,CONFIG_REVK_OTAAUTO);	\
+		u8(otadays,CONFIG_REVK_OTADAYS);	\
+		b(otaauto,true);			\
 		b(otastart,true);			\
 		b(otabeta,false);			\
 		bd(otacert,CONFIG_REVK_OTACERT);	\
@@ -1069,7 +1070,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                   b.setting_dump_requested = 2;
                else if (suffix && !strcmp (suffix, "**"))
                   b.setting_dump_requested = 3;
-               else
+               else if (suffix && strcmp (suffix, "+"))
                   err = ((err && *err ? err : revk_setting (j)) ? : "Unknown setting");
             } else
                err = (err ? : "");      // Ignore
@@ -1567,12 +1568,15 @@ task (void *pvParameters)
    /* Log if unexpected restart */
    int64_t tick = 0;
    uint32_t ota_check = 0;
-   if (otabeta)
-      ota_check = 86400 - 1800 + (esp_random () % 3600);        //  A day ish
-   else if (otastart)
-      ota_check = 3600 + (esp_random () % 3600);        // Check at start anyway, but allow an hour anyway
-   else if (otaauto)
-      ota_check = 86400 * otaauto + (esp_random () % 3600);     // Min periodic check
+   if (otaauto)
+   {
+      if (otabeta)
+         ota_check = 86400 - 1800 + (esp_random () % 3600);     //  A day ish
+      else if (otastart)
+         ota_check = 3600 + (esp_random () % 3600);     // Check at start anyway, but allow an hour anyway
+      else if (otadays)
+         ota_check = 86400 * otadays + (esp_random () % 3600);  // Min periodic check
+   }
 #ifdef	CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[0].num == blink[1].num && !revk_strip)
@@ -1637,7 +1641,7 @@ task (void *pvParameters)
       if (now != last)
       {                         // Slow (once a second)
          last = now;
-         if (ota_check && ota_check < now)
+         if (otaauto && ota_check && ota_check < now)
          {                      // Check for s/w update
             time_t t = time (0);
             struct tm tm = { 0 };
@@ -1648,8 +1652,8 @@ task (void *pvParameters)
             {                   // Do a check
                if (otabeta)
                   ota_check = now + 86400 - 1800 + (esp_random () % 3600);      // A day ish
-               else if (otaauto)
-                  ota_check = now + 86400 * otaauto - 43200 + (esp_random () % 86400);  // Next check approx otaauto days later
+               else if (otadays)
+                  ota_check = now + 86400 * otadays - 43200 + (esp_random () % 86400);  // Next check approx otadays days later
                else
                   ota_check = 0;
 #ifdef CONFIG_REVK_MESH
@@ -2686,7 +2690,10 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    int index = 0;
    revk_settings_t *s = revk_settings_find (field, &index);
    if (!s)
+   {
+      ESP_LOGE (TAG, "Missing web setting %s", field);
       return;
+   }
    int len = 0;
    char *value = revk_settings_text (s, index, &len);
    if (!value)
@@ -2868,6 +2875,8 @@ revk_web_settings (httpd_req_t * req)
       if (!revk_link_down () && *otahost)
       {
          hr ();
+         if (otadays)
+            revk_web_setting (req, "Auto upgrade", "otaauto", NULL, "Automatically check for updates");
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
          revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
@@ -2943,10 +2952,6 @@ revk_web_settings (httpd_req_t * req)
 
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
-   if (otaauto && *otahost)
-      revk_web_send (req,
-                     "<p>Note, automatic %supgrade from <i>%s</i> is enabled. See instructions to make changes.</p>",
-                     otabeta ? "beta " : "", otahost);
    {                            // IP info
       revk_web_send (req, "<table>");
       int32_t up = uptime ();
@@ -3456,14 +3461,14 @@ ota_task (void *pvParameters)
             {
                revk_restart ("OTA Download fail", 3);
                ota_percent = -4;
-               if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otaauto < 30 && otastart)
+               if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otadays && otadays < 30)
                {                // Force long recheck delay
                   jo_t j = jo_make (NULL);
                   if (otabeta)
                      jo_bool (j, "otabeta", 0);
                   else
                   {
-                     jo_int (j, "otaauto", 30);
+                     jo_int (j, "otadays", 30);
                      jo_bool (j, "otastart", 0);
                   }
                   revk_setting (j);
