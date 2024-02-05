@@ -1241,7 +1241,6 @@ revk_setting (jo_t j)
    if (!j)
       return "";
    jo_rewind (j);
-   ESP_LOGE(TAG,"Setting %s",jo_debug(j));
    jo_type_t t;
    if ((t = jo_here (j)) != JO_OBJECT)
       return "Not an object";
