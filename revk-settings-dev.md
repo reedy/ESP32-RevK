@@ -26,7 +26,7 @@ This can also be used for `#define` which are then referenced in settings
 Each setting in the file has:-
 
 - The setting type, followed by whitespace. E.g. `gpio` or `u8`.
-- The setting name, followed by whitespace. E.g. `debug`.
+- The setting name, followed by whitespace. E.g. `debug` (cannot start `_` and must fit in NVS, with an extra character to spare for array types).
 - Optional default value for setting.
 - Optional additional attributes.
 - Optional comment (starting `//`).
