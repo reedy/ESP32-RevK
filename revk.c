@@ -2840,7 +2840,7 @@ revk_web_settings (httpd_req_t * req)
       revk_web_send (req, "%s", get_status_text ());
 #endif
    revk_web_send (req,
-                  "</b></p><form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
+                  "</b></p><p id=set><input type=submit value='Change settings'></p><form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
    if (!shutdown)
    {
       revk_web_send (req, "<table>");
@@ -2891,8 +2891,7 @@ revk_web_settings (httpd_req_t * req)
       hr ();
       revk_web_extra (req);
 #endif
-      revk_web_send (req, "</table><p id=set><input type=submit value='Change settings'></p>");
-      revk_web_send (req, "</p></form>");
+      revk_web_send (req, "</table></form>");
    }
 #ifdef CONFIG_HTTPD_WS_SUPPORT
    if (!shutdown)
