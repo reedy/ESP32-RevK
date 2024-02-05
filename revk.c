@@ -2759,10 +2759,11 @@ revk_web_settings (httpd_req_t * req)
    jo_t j = revk_web_query (req);
    if (j)
    {
-      if (jo_find (j, "upgrade"))
+      if (jo_find (j, "_upgrade"))
       {
-         revk_setting (j); // Saved anyway else confusing
-         const char *e = revk_command ("upgrade", NULL);
+         const char *e = revk_setting (j);      // Saved settings
+         if (!e || !*e)
+            e = revk_command ("upgrade", NULL);
          if (e && *e)
             revk_web_send (req, e);
       } else
@@ -2834,7 +2835,8 @@ revk_web_settings (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr><td>%s</td><td colspan=3><b id=msg style='background:white;border: 1px solid red;padding:3px;'>",shutdown?"Wait":"<input id=set type=submit value='Save'>");
+                  "<table><tr><td>%s</td><td colspan=3><b id=msg style='background:white;border: 1px solid red;padding:3px;'>",
+                  shutdown ? "Wait" : "<input id=set type=submit value='Save'>");
    if (shutdown && *shutdown)
       report_shutdown_reason (req, shutdown);
 #ifndef CONFIG_HTTPD_WS_SUPPORT
@@ -2877,7 +2879,7 @@ revk_web_settings (httpd_req_t * req)
       {
          hr ();
          revk_web_send (req,
-                        "<tr><td>Upgrade</td><td colspan=3><input name=\"upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
+                        "<tr><td>Upgrade</td><td colspan=3><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
                         otahost, otabeta ? " (beta)" : "");
          if (otadays)
             revk_web_setting (req, "Auto upgrade", "otaauto", NULL, "Automatically check for updates");

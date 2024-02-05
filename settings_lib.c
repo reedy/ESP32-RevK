@@ -1417,6 +1417,8 @@ revk_setting (jo_t j)
             return err;
          }
          t = jo_next (j);
+         if (*tag == '_')
+            continue;           // Not a real setting
          void zapdef (void)
          {
             if (pindex >= 0)
