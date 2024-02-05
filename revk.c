@@ -2840,7 +2840,7 @@ revk_web_settings (httpd_req_t * req)
       revk_web_send (req, "%s", get_status_text ());
 #endif
    revk_web_send (req,
-                  "</b></p><p id=set><input type=submit value='Change settings'></p><form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">");
+                  "</b></p><form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\"><p id=set><input type=submit value='Change settings'></p>");
    if (!shutdown)
    {
       revk_web_send (req, "<table>");
