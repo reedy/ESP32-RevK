@@ -2696,7 +2696,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    {
       revk_web_send (req,
                      "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\">%s</td>",
-                     tag ? : "", field, field, *value == 't' ? " checked" : "", field, suffix ? : "");
+                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, suffix ? : "");
       free (value);
       return;
    }
@@ -2717,7 +2717,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    // Simple text input
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
-                  tag ? : "", field, field, value, size, place ? : "", suffix ? : "");
+                  tag ? : field, field, field, value, size, place ? : s->def?:"", suffix ? : "");
    free (value);
 }
 

@@ -1552,7 +1552,7 @@ revk_settings_find (const char *tag, int *indexp)
    {
       int l = strlen (tag);
       for (s = revk_settings; s->len && (s->len != l || strcmp (s->name, tag)); s++);
-      if (!s)
+      if (!s->len)
       {
          int e = l;
          while (e && isdigit ((int) tag[e - 1]))
@@ -1560,8 +1560,9 @@ revk_settings_find (const char *tag, int *indexp)
          if (e < l)
          {
             for (s = revk_settings; s->len && (!s->array || s->len != e || strncmp (s->name, tag, e)); s++);
-            if (s)
-               index = atoi (tag + e) - 1;
+            if (!s->len)
+               return NULL;
+            index = atoi (tag + e) - 1;
             if (index < 0 || index >= s->array)
                return NULL;
          }
