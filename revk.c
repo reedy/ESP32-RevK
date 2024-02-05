@@ -2832,18 +2832,17 @@ revk_web_settings (httpd_req_t * req)
 
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   revk_web_send (req, "<p><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
+   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
+                  "<table><tr><td><input id=set type=submit value='Save'></td><td colspan=3><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
    if (shutdown && *shutdown)
       report_shutdown_reason (req, shutdown);
 #ifndef CONFIG_HTTPD_WS_SUPPORT
    else
       revk_web_send (req, "%s", get_status_text ());
 #endif
-   revk_web_send (req,
-                  "</b></p><form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\"><p id=set><input type=submit value='Change settings'></p>");
+   revk_web_send (req, "</b></td></tr>");
    if (!shutdown)
    {
-      revk_web_send (req, "<table>");
       void hr (void)
       {
          revk_web_send (req, "<tr><td colspan=4><hr></td></tr>");
@@ -2891,8 +2890,8 @@ revk_web_settings (httpd_req_t * req)
       hr ();
       revk_web_extra (req);
 #endif
-      revk_web_send (req, "</table></form>");
    }
+   revk_web_send (req, "</table></form>");
 #ifdef CONFIG_HTTPD_WS_SUPPORT
    if (!shutdown)
       revk_web_send (req, "<div id=list>WiFi:</div>");
