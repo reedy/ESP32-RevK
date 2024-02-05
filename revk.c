@@ -2702,8 +2702,8 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    if (s->type == REVK_SETTINGS_BIT)
    {
       revk_web_send (req,
-                     "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><label for=\"%s\"<input type=hidden name=\"%s\">%s</label></td>",
-                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, field, suffix ? :
+                     "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
+                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, field,suffix ? :
 #ifdef	REVK_SETTING_HAS_COMMENT
                      s->comment ? :
 #endif
