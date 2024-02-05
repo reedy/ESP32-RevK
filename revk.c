@@ -2702,8 +2702,8 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    if (s->type == REVK_SETTINGS_BIT)
    {
       revk_web_send (req,
-                     "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\">%s</td>",
-                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, suffix ? :
+                     "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><label for=\"%s\"<input type=hidden name=\"%s\">%s</label></td>",
+                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, field, suffix ? :
 #ifdef	REVK_SETTING_HAS_COMMENT
                      s->comment ? :
 #endif
@@ -2875,7 +2875,8 @@ revk_web_settings (httpd_req_t * req)
       if (!revk_link_down () && *otahost)
       {
          hr ();
-         revk_web_send (req, "<tr><td>Upgrade</td><td colspan=3><input name=\"upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
+         revk_web_send (req,
+                        "<tr><td>Upgrade</td><td colspan=3><input name=\"upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
                         otahost, otabeta ? " (beta)" : "");
          if (otadays)
             revk_web_setting (req, "Auto upgrade", "otaauto", NULL, "Automatically check for updates");
