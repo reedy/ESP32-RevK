@@ -2833,7 +2833,7 @@ revk_web_settings (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr><td><input id=set type=submit value='Save'></td><td colspan=3><b id=msg style='background:white;border: 1px solid red;padding:3px;'>");
+                  "<table><tr><td>%s</td><td colspan=3><b id=msg style='background:white;border: 1px solid red;padding:3px;'>",shutdown?"Wait":"<input id=set type=submit value='Save'>");
    if (shutdown && *shutdown)
       report_shutdown_reason (req, shutdown);
 #ifndef CONFIG_HTTPD_WS_SUPPORT
