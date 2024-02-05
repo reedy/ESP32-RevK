@@ -752,11 +752,11 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
          err = "Malloc bit not supported";
       else
       {
+         uint8_t b = ((d < e && (*d == '1' || *d == 't' || *d == 'o')) ? 1 : 0);
          if (ptr)
             *(uint8_t *) ptr = ((d < e && (*d == '1' || *d == 't' || *d == 'o')) ? 1 : 0);
-         else
          {
-            if (d < e && (*d == '1' || *d == 't'))
+            if (b)
                ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
             else
                ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
