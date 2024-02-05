@@ -1909,7 +1909,11 @@ gpio_ok (uint8_t p)
 #endif
    // ESP8266
 #ifdef CONFIG_IDF_TARGET_ESP8266
-   // 8266 has GPIOs 0...16, allow any use
+   if (p == 1 || p == 3)
+      return 3 + 8;             // Serial
+   if (p >= 6 && p <= 11)
+      return 0;                 // SDIO; attempt to configure causes crash
+   // 8266 has GPIOs 0...16, allow any use except above
    return (p <= 16) ? 3 : 0;
 #endif
 }
@@ -2161,7 +2165,7 @@ revk_boot (app_callback_t * app_callback_cb)
 void
 revk_start (void)
 {                               // Start stuff, init all done
-#ifdef REVK_BLINK_LIB
+#ifdef CONFIG_REVK_BLINK_LIB
 #ifdef  CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[0].num == blink[1].num)
    {
