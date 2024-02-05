@@ -2926,7 +2926,7 @@ revk_web_settings (httpd_req_t * req)
                   "};"          //
                   "b.textContent=s;"    //
                   "document.getElementById('list').appendChild(b);"     //
-		  "document.getElementById('found').visibility='visible';" //
+		  "document.getElementById('found').style.visibility='visible';" //
                   "});"         //
                   "};"          //
                   "</script>");
