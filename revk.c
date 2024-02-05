@@ -2872,7 +2872,7 @@ revk_web_settings (httpd_req_t * req)
          revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
          revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
    if (!shutdown)
-      revk_web_send (req, "<tr id=found style='visibility:none'><td>Found:</td><td colspan=3 id=list></td></tr>");
+      revk_web_send (req, "<tr id=found style='visibility:hidden'><td>Found:</td><td colspan=3 id=list></td></tr>");
          hr ();
       }
       revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
@@ -2926,7 +2926,7 @@ revk_web_settings (httpd_req_t * req)
                   "};"          //
                   "b.textContent=s;"    //
                   "document.getElementById('list').appendChild(b);"     //
-		  "document.getElementById('found').visibility='';" //
+		  "document.getElementById('found').visibility='visible';" //
                   "});"         //
                   "};"          //
                   "</script>");
