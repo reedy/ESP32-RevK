@@ -2674,7 +2674,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "<style>"     //
                   "h1{white-space:nowrap;}"     //
                   "p.error{color:red;font-weight:bold;}"        //
-                  "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}"      //
+                  "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:3px;margin-top:3px;padding:3px;font-size:100%%;}"      //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
@@ -2753,16 +2753,28 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    char *value = revk_settings_text (s, index, &len);
    if (!value)
       return;
+   if (tag)
+      revk_web_send (req, "<tr><td>%s</td>", tag);
+   else
+      revk_web_send (req, "<tr><td><tt><b>%.*s</b>%s</tt></td>", s->dot, field, field + s->dot);
+   const char *comment = "";
+#ifdef	REVK_SETTINGS_HAS_COMMENT
+   if (s->comment)
+      comment = s->comment;
+#endif
+   const char *place = "";
+#ifdef  REVK_SETTINGS_HAS_PLACE
+   if (s->place)
+      place = s->place;
+#endif
+   if (s->ptr == &hostname)
+      place = revk_id;          // Special case
 #ifdef  REVK_SETTINGS_HAS_BIT
    if (s->type == REVK_SETTINGS_BIT)
    {
       revk_web_send (req,
-                     "<tr><td>%s</td><td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
-                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, field,
-#ifdef	REVK_SETTINGS_HAS_COMMENT
-                     s->comment ? :
-#endif
-                     "");
+                     "<td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
+                     field, field, *value == 't' ? " checked" : "", field, field, comment);
       free (value);
       return;
    }
@@ -2779,30 +2791,14 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       )
       // Numeric
       revk_web_send (req,
-                     "<tr><td>%s</td><td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=10 autocorrect='off' placeholder='%s'></td><td>%s</td></tr>",
-                     tag ? : field, field, field, revk_web_safe (&qs, value), s->ptr == &hostname ? revk_id :
-#ifdef	REVK_SETTINGS_HAS_PLACE
-                     s->place ? :
-#endif
-                     "",        //
-#ifdef	REVK_SETTINGS_HAS_COMMENT
-                     s->comment ? :
-#endif
-                     "");
+                     "<td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=10 autocorrect='off' placeholder='%s'></td><td>%s</td></tr>",
+                     field, field, revk_web_safe (&qs, value), place, comment);
    else
 #endif
       // Text
       revk_web_send (req,
-                     "<tr><td>%s</td><td nowrap colspan=2><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
-                     tag ? : field, field, field, revk_web_safe (&qs, value), s->ptr == &hostname ? revk_id :
-#ifdef	REVK_SETTINGS_HAS_PLACE
-                     s->place ? :
-#endif
-                     "",        //
-#ifdef	REVK_SETTINGS_HAS_COMMENT
-                     s->comment ? :
-#endif
-                     "");
+                     "<td nowrap colspan=2><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
+                     field, field, revk_web_safe (&qs, value), place, comment);
    // Simple text input
    free (qs);
    free (value);
@@ -2924,7 +2920,7 @@ revk_web_settings (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr id=set><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
+                  "<table><tr id='set'><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                   loggedin || !*password ?
 #endif
@@ -2997,7 +2993,7 @@ revk_web_settings (httpd_req_t * req)
                            "<tr><td>Upgrade</td><td colspan=2><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
                            otahost, otabeta ? " (beta)" : "");
             if (otadays)
-               revk_web_setting_s (req, "Auto upgrade", "otaauto",otaauto,NULL,"Automatic updates");
+               revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatic updates");
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
             revk_web_setting (req, "Beta software", "otabeta");
@@ -3020,7 +3016,7 @@ revk_web_settings (httpd_req_t * req)
             extern revk_settings_t revk_settings[];
             for (revk_settings_t * s = revk_settings; s->len; s++)
                if (s->comment && !s->array)
-                  revk_web_setting (req, NULL, s->name);    // TODO grouping...
+                  revk_web_setting (req, NULL, s->name);        // TODO grouping...
          }
          break;
 #endif
