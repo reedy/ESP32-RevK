@@ -2927,7 +2927,7 @@ revk_web_settings (httpd_req_t * req)
                   "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').setAttribute('hidden','hidden');document.getElementById('_msg').textContent='Please wait';return true;\"><table>");
    if (!shutdown)
    {
-      revk_web_send (req, "<tr id=_set><td colspan=3 nowrap><input type=submit value='%s'>",
+      revk_web_send (req, "<tr id=_set><td><input type=submit value='%s'></td><td colspan=2 nowrap>",
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                      loggedin || !*password ?
 #endif
