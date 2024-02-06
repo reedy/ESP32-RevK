@@ -2936,7 +2936,7 @@ revk_web_settings (httpd_req_t * req)
    void addlevel (uint8_t l, const char *v)
    {
       revk_web_send (req,
-                     "<label class=box style=\"width:%dex\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
+                     "<label class=box style=\"width:%dem\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
                      strlen (v), l, l == level ? " checked" : "", revk_web_safe (&qs, v));
    }
    addlevel (0, "Basic");
