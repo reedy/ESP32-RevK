@@ -1,3 +1,9 @@
+#ifdef	CONFIG_REVK_SETTINGS_PASSWORD
+s	password				.revk=1	.secret=1	// Settings password (this is not sent securely so use with care on local networks you control)
+#endif
+s	hostname				.revk=1			// Host name
+s	appname		CONFIG_REVK_APPNAME	.revk=1			// App name
+
 s	ota.host	CONFIG_REVK_OTAHOST	.revk=1			// OTA hostname
 u8	ota.days	CONFIG_REVK_OTADAYS	.revk=1			// OTA auto load (days)
 bit	ota.start	1			.revk=1			// OTA check after startup
@@ -7,8 +13,6 @@ blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1	// OTA cert of otahost
 s	ntphost		CONFIG_REVK_NTPHOST	.revk=1			// NTP host
 s	tz		CONFIG_REVK_TZ		.revk=1			// Timezone
 u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1			// Watchdog (seconds)
-s	appname		CONFIG_REVK_APPNAME	.revk=1			// App name
-s	hostname				.revk=1			// Host name
 s	prefix.command	command			.revk=1			// MQTT Prefix for commands
 s	prefix.setting	setting			.revk=1			// MQTT Prefix for settings
 s	prefix.state	state			.revk=1			// MQTT Prefix for state

@@ -453,6 +453,13 @@ menu "RevK"
         help
 		Include lunar tools
 
+	config REVK_SETTINGS_PASSWORD
+	bool "Simple password control on settings"
+	depends on !REVK_OLD_SETTINGS
+	default y
+        help
+		Simple password control on settings
+
 	config REVK_OLD_SETTINGS
 	bool "Use old settings library"
 	default y
