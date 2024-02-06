@@ -2919,7 +2919,7 @@ revk_web_settings (httpd_req_t * req)
 
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').style.visibility='collapse';document.getElementById('_msg').textContent='Please wait';return true;\">"   //
+   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').setAttribute('hidden','hidden');document.getElementById('_msg').textContent='Please wait';return true;\">"   //
                   "<table><tr id=_set><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                   loggedin || !*password ?
@@ -2978,7 +2978,7 @@ revk_web_settings (httpd_req_t * req)
             revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
             revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
             if (!shutdown)
-               revk_web_send (req, "<tr id=found style='visibility:collapse'><td>Found:</td><td colspan=2 id=list></td></tr>");
+               revk_web_send (req, "<tr id=_found hidden><td>Found:</td><td colspan=2 id=_list></td></tr>");
             hr ();
          }
          revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
@@ -3049,8 +3049,8 @@ revk_web_settings (httpd_req_t * req)
                   "return false;"       //
                   "};"          //
                   "b.textContent=s;"    //
-                  "document.getElementById('list').appendChild(b);"     //
-                  "document.getElementById('found').style.visibility='visible';"        //
+                  "document.getElementById('_list').appendChild(b);"     //
+                  "document.getElementById('_found').removeAttribute('hidden');"        //
                   "});"         //
                   "};"          //
                   "</script>", level ? "" : "ws.onopen=function(v){ws.send('scan');};");
