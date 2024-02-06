@@ -2674,7 +2674,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "<style>"     //
                   "h1{white-space:nowrap;}"     //
                   "p.error{color:red;font-weight:bold;}"        //
-		  "small.status{background:white;border: 1px solid red;padding:3px;}"//
+                  "small.status{background:white;border: 1px solid red;padding:3px;}"   //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:3px;margin-top:3px;padding:3px;font-size:100%%;}"      //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
@@ -2775,7 +2775,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    {
       revk_web_send (req,
                      "<td nowrap><label class=switch><input type=checkbox id=\"_%s\" name=\"%s\" onchange=\"this.name='%s';\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
-                     field,field, field, *value == 't' ? " checked" : "", field, field, comment);
+                     field, field, field, *value == 't' ? " checked" : "", field, field, comment);
       free (value);
       return;
    }
@@ -2829,8 +2829,7 @@ revk_web_settings (httpd_req_t * req)
    }
    char *qs = NULL;
    revk_web_head (req, "Settings");
-   revk_web_send (req, "<h1>%s <small id=_msg class=status>%s</small></h1>",
-                  revk_web_safe (&qs, hostname), get_status_text ());
+   revk_web_send (req, "<h1>%s <small id=_msg class=status>%s</small></h1>", revk_web_safe (&qs, hostname), get_status_text ());
    jo_t j = revk_web_query (req);
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
    uint8_t loggedin = 0;
@@ -2920,7 +2919,7 @@ revk_web_settings (httpd_req_t * req)
 
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').style.visibility='collapse';document.getElementById('_msg').textContent='Please wait';return true;\">"       //
+   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').style.visibility='collapse';document.getElementById('_msg').textContent='Please wait';return true;\">"   //
                   "<table><tr id=_set><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                   loggedin || !*password ?
@@ -2930,21 +2929,24 @@ revk_web_settings (httpd_req_t * req)
                   : "<input type=submit value='Login'>"
 #endif
       );
-   void addlevel (uint8_t l, const char *v)
+   if (!shutdown)
    {
-      revk_web_send (req,
-                     "<label class=box style=\"width:%dem\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
-                     strlen (v), l, l == level ? " checked" : "", revk_web_safe (&qs, v));
-   }
-   addlevel (0, "Basic");
+      void addlevel (uint8_t l, const char *v)
+      {
+         revk_web_send (req,
+                        "<label class=box style=\"width:%dem\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
+                        strlen (v), l, l == level ? " checked" : "", revk_web_safe (&qs, v));
+      }
+      addlevel (0, "Basic");
 #ifdef	CONFIG_REVK_WEB_EXTRA
-   addlevel (1, appname);
+      addlevel (1, appname);
 #endif
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	REVK_SETTINGS_HAS_COMMENT
-   addlevel (2, "Advanced");
+      addlevel (2, "Advanced");
 #endif
 #endif
+   }
    revk_web_send (req, "</td></tr>");
    hr ();
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
@@ -3032,12 +3034,12 @@ revk_web_settings (httpd_req_t * req)
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
                   "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');%s"      //
-                  "ws.onclose=function(v){ws=undefined;document.getElementById('_msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"      //
+                  "ws.onclose=function(v){ws=undefined;document.getElementById('_msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"     //
                   "ws.onerror=function(v){ws.close();};"        //
                   "ws.onmessage=function(e){"   //
                   "o=JSON.parse(e.data);"       //
                   "if(typeof o === 'number')reboot=1;"  //
-                  "else if(typeof o === 'string'){document.getElementById('_msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"     //
+                  "else if(typeof o === 'string'){document.getElementById('_msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"    //
                   "else if(typeof o === 'object')o.forEach(function(s){"        //
                   "b=document.createElement('button');" //
                   "b.onclick=function(e){"      //
