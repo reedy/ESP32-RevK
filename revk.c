@@ -2673,7 +2673,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "<title>%s</title>"   //
                   "<style>"     //
 		  "body{font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);}" //
-                  "h1{white-space:nowrap;}"     //
+                  "address,h1{white-space:nowrap;}"     //
                   "p.error{color:red;font-weight:bold;}"        //
                   "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}" //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin:3px;padding:3px 10px;font-size:100%%;}"      //
