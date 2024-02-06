@@ -1,5 +1,6 @@
 // (new) settings library
 #include "revk.h"
+#include "esp8266_nvs_compat.h"
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 static const char __attribute__((unused)) * TAG = "Settings";
 
@@ -623,10 +624,12 @@ revk_settings_text (revk_settings_t * s, int index, int *lenp)
 #endif
 #ifdef	REVK_SETTINGS_HAS_BIT
    case REVK_SETTINGS_BIT:
-      uint8_t bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
-      data = strdup (bit ? "true" : "false");
-      if (data)
-         len = strlen (data);
+      {
+         uint8_t bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
+         data = strdup (bit ? "true" : "false");
+         if (data)
+            len = strlen (data);
+      }
       break;
 #endif
 #ifdef	REVK_SETTINGS_HAS_BLOB
@@ -883,7 +886,7 @@ revk_settings_load (const char *tag, const char *appname)
       if (!nvs_open_from_partition (part, ns, NVS_READWRITE, &nvs[revk]))
       {
          nvs_iterator_t i = NULL;
-         if (!nvs_entry_find (part, ns, NVS_TYPE_ANY, &i))
+         if (!nvs_entry_find_compat (part, ns, NVS_TYPE_ANY, &i))
          {
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
             ESP_LOGE (TAG, "Scan %s/%s", part, ns);
@@ -900,7 +903,7 @@ revk_settings_load (const char *tag, const char *appname)
                   z->index = index;
                   zap = z;
                }
-               if (nvs_entry_info (i, &info))
+               if (nvs_entry_info_compat (i, &info))
                   continue;     // ?;
                const char *err = NULL;
                int l = strlen (info.key);
@@ -953,7 +956,7 @@ revk_settings_load (const char *tag, const char *appname)
                   addzap (s, index);
                }
             }
-            while (!nvs_entry_next (&i));
+            while (!nvs_entry_next_compat (&i));
          }
          nvs_release_iterator (i);
       }

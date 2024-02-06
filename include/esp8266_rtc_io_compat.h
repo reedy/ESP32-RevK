@@ -34,6 +34,30 @@ rtc_gpio_set_drive_capability(gpio_num_t gpio_num, int strength)
     return ESP_ERR_INVALID_ARG;
 }
 
+static inline esp_err_t
+rtc_gpio_pullup_en (gpio_num_t gpio_num)
+{
+    return ESP_ERR_INVALID_ARG;
+}
+
+static inline esp_err_t
+rtc_gpio_pullup_dis (gpio_num_t gpio_num)
+{
+    return ESP_ERR_INVALID_ARG;
+}
+
+static inline esp_err_t
+rtc_gpio_pulldown_en (gpio_num_t gpio_num)
+{
+    return ESP_ERR_INVALID_ARG;
+}
+
+static inline esp_err_t
+rtc_gpio_pulldown_dis (gpio_num_t gpio_num)
+{
+    return ESP_ERR_INVALID_ARG;
+}
+
 #else
 
 #include <driver/rtc_io.h>
