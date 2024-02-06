@@ -2739,7 +2739,7 @@ get_status_text (void)
 
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 void
-revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const char *place, const char *suffix)
+revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
 {
    int index = 0;
    revk_settings_t *s = revk_settings_find (field, &index);
@@ -2758,7 +2758,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    {
       revk_web_send (req,
                      "<tr><td>%s</td><td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
-                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, field, suffix ? :
+                     tag ? : field, field, field, *value == 't' ? " checked" : "", field, field,
 #ifdef	REVK_SETTINGS_HAS_COMMENT
                      s->comment ? :
 #endif
@@ -2780,12 +2780,11 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
       // Numeric
       revk_web_send (req,
                      "<tr><td>%s</td><td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=10 autocorrect='off' placeholder='%s'></td><td>%s</td></tr>",
-                     tag ? : field, field, field, revk_web_safe (&qs, value), s->ptr == &hostname ? revk_id : place ? :
+                     tag ? : field, field, field, revk_web_safe (&qs, value), s->ptr == &hostname ? revk_id :
 #ifdef	REVK_SETTINGS_HAS_PLACE
                      s->place ? :
 #endif
                      "",        //
-                     suffix ? :
 #ifdef	REVK_SETTINGS_HAS_COMMENT
                      s->comment ? :
 #endif
@@ -2795,12 +2794,11 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
       // Text
       revk_web_send (req,
                      "<tr><td>%s</td><td nowrap colspan=2><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
-                     tag ? : field, field, field, revk_web_safe (&qs, value), s->ptr == &hostname ? revk_id : place ? :
+                     tag ? : field, field, field, revk_web_safe (&qs, value), s->ptr == &hostname ? revk_id :
 #ifdef	REVK_SETTINGS_HAS_PLACE
                      s->place ? :
 #endif
                      "",        //
-                     suffix ? :
 #ifdef	REVK_SETTINGS_HAS_COMMENT
                      s->comment ? :
 #endif
@@ -2810,7 +2808,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    free (value);
 }
 
-#define	revk_web_setting_s(req,prefix,field,value,place,suffix) revk_web_setting(req,prefix,field,place,suffix)
+#define	revk_web_setting_s(req,prefix,field,value,place,suffix) revk_web_setting(req,prefix,field)
 #else
 void
 revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, char *value, const char *place, const char *suffix)
