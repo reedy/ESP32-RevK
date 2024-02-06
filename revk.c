@@ -2920,7 +2920,7 @@ revk_web_settings (httpd_req_t * req)
 
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
+   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').style.visibility='hidden';document.getElementById('_msg').textContent='Please wait';return true;\">"       //
                   "<table><tr id=_set><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                   loggedin || !*password ?
