@@ -129,4 +129,6 @@ Note that the `hostname` being *unset* or set to a blank string will internally 
 
 ## Passwords
 
-TODO
+Depending on config, a special field called `password` may exist. If set, and not blank (default), then any further password settings must start with `password` with the correct existing password setting. This means all settings then have to use JSON format.
+
+To change the `password`, a second instance of `password` must be passed, which is not quite valid JSON. If not password is currently set, then just sending a `password` setting will set it.
