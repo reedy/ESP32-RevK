@@ -1249,6 +1249,9 @@ revk_setting (jo_t j)
    jo_type_t t;
    if ((t = jo_here (j)) != JO_OBJECT)
       return "Not an object";
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+   char passok = (!*password);
+#endif
    char change = 0;
    const char *err = NULL;
    char tag[16];
@@ -1428,6 +1431,23 @@ revk_setting (jo_t j)
          t = jo_next (j);
          if (*tag == '_')
             continue;           // Not a real setting
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+         if (!passok && s->ptr == &password)
+         {
+            char *val = jo_strdup (j);
+            if (!val || !*val)
+               err = "Specify password";
+            else if (!strcmp (val, password))
+               passok = 1;
+            else
+               err = "Wrong password";
+            free (val);
+         }
+         if (!err && !passok)
+            err = "Password required to change settings";
+         if (err)
+            return err;
+#endif
          void zapdef (void)
          {
             if (pindex >= 0)

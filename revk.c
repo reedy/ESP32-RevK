@@ -2672,6 +2672,8 @@ revk_web_head (httpd_req_t * req, const char *title)
    revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>"   //
                   "<title>%s</title>"   //
                   "<style>"     //
+                  "h1{white-space:nowrap;}"     //
+                  "p.error{color:red;font-weight:bold;}"        //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}"      //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
@@ -2826,6 +2828,10 @@ revk_web_settings (httpd_req_t * req)
 {
    if (b.disablesettings)
       return ESP_OK;
+   void hr (void)
+   {
+      revk_web_send (req, "<tr><td colspan=3><hr></td></tr>");
+   }
    char *qs = NULL;
    revk_web_head (req, "WiFi Setup");
    revk_web_send (req, "<h1>%s <b id=msg style='background:white;border: 1px solid red;padding:3px;'>%s</b></h1>",
@@ -2907,17 +2913,14 @@ revk_web_settings (httpd_req_t * req)
          {
             const char *e = revk_setting (j);
             if (e && *e)
-            {
-               revk_web_send (req, "%s", e);
-               e = jo_debug (j);
-               if (e && *e)
-                  revk_web_send (req, " @ %s", e);
-            }
-            // else revk_web_send (req, "Settings stored.");
+               revk_web_send (req, "<p class=error>%s</p>", e);
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+            else if (*password && jo_find (j, "password"))
+               loggedin = 1;
+#endif
          }
       }
       jo_free (&j);
-      revk_web_send (req, "</p>");
    }
 
    const char *shutdown = NULL;
@@ -2929,7 +2932,7 @@ revk_web_settings (httpd_req_t * req)
 #endif
                   "<input type=submit value='Save'>"
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-                  : "<input type=submit value='login'>"
+                  : "<input type=submit value='Login'>"
 #endif
       );
    void addlevel (uint8_t l, const char *v)
@@ -2948,21 +2951,16 @@ revk_web_settings (httpd_req_t * req)
 #endif
 #endif
    revk_web_send (req, "</td></tr>");
+   hr ();
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
    if (*password && loggedin)
       revk_web_send (req, "<input name=password type=hidden value=\"%s\">", revk_web_safe (&qs, password));     // Logged in
-   else if (*password)
-   {                            // Ask for password
-      // TODO
-   } else
+   if (*password && !loggedin)
+      revk_web_send (req, "<tr><td>Password</td><td colspan=2 nowrap><input name=password size=40 type=password autofocus> Not sent securely, so use with care on local network you control</td></tr>");        // Ask for password
+   else
 #endif
    if (!shutdown)
    {
-      void hr (void)
-      {
-         revk_web_send (req, "<tr><td colspan=3><hr></td></tr>");
-      }
-      hr ();
       switch (level)
       {
       case 0:                  // Basic
@@ -2975,6 +2973,10 @@ revk_web_settings (httpd_req_t * req)
                                 ""
 #endif
                );
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+            revk_web_setting_s (req, "Password", "password", password, NULL,
+                                "Settings password (not sent securely, so use with care on local network you control)");
+#endif
             hr ();
             revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
             revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
@@ -3026,7 +3028,8 @@ revk_web_settings (httpd_req_t * req)
 #endif
 #endif
       }
-      hr ();
+      if (!level)
+         hr ();
    }
    revk_web_send (req, "</table></form>");
 #ifdef CONFIG_HTTPD_WS_SUPPORT
@@ -3085,7 +3088,7 @@ revk_web_settings (httpd_req_t * req)
    }
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
-   if(!level)
+   if (!level)
    {                            // IP info
       revk_web_send (req, "<table>");
       int32_t up = uptime ();

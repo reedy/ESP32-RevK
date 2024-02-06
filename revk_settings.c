@@ -373,7 +373,7 @@ main (int argc, const char *argv[])
 
       if (!nocomment)
       {
-         for (d = defs; d && (!d->type||!d->comment);d=d->next);
+         for (d = defs; d && (!d->type || !d->comment); d = d->next);
          if (d)
             hascomment = 1;
       }
