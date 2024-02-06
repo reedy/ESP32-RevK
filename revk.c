@@ -2653,20 +2653,6 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
    return ESP_OK;
 }
 
-#if 0
-static void
-report_shutdown_reason (httpd_req_t * req, const char *shutdown)
-{
-   revk_web_send (req, shutdown);
-   if (ota_percent > 0 && ota_percent <= 100)
-   {
-      char buf[10];
-      sprintf (buf, " (%d%%)", ota_percent);
-      revk_web_send (req, buf);
-   }
-}
-#endif
-
 static const char *
 get_status_text (void)
 {
@@ -3080,7 +3066,13 @@ revk_web_status (httpd_req_t * req)
          jo_t j = jo_create_alloc ();
          jo_int (j, NULL, n);
          wsend (&j);
-         msg (r);
+         if (ota_percent > 0 && ota_percent <= 100)
+         {
+            jo_t j = jo_create_alloc ();
+            jo_stringf (j, NULL, "%s %d%%", r, ota_percent);
+            wsend (&j);
+         } else
+            msg (r);
       } else
          msg (get_status_text ());
       return ESP_OK;
