@@ -2926,7 +2926,7 @@ revk_web_settings (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr id=set><td>%s</td><td colspan=2>", shutdown ? "Wait" :
+                  "<table><tr id=set><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                   loggedin || !*password ?
 #endif
@@ -2938,7 +2938,7 @@ revk_web_settings (httpd_req_t * req)
    void addlevel (uint8_t l, const char *v)
    {
       revk_web_send (req,
-                     "<label class=box style=\"width:%dem\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
+                     "<label class=box style=\"width:%dex\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
                      strlen (v), l, l == level ? " checked" : "", revk_web_safe (&qs, v));
    }
    addlevel (0, "Basic");
