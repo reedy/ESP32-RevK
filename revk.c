@@ -2997,10 +2997,10 @@ revk_web_settings (httpd_req_t * req)
                            "<tr><td>Upgrade</td><td colspan=2><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
                            otahost, otabeta ? " (beta)" : "");
             if (otadays)
-               revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatically check for updates");
+               revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto);
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
-            revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
+            revk_web_setting (req, "Beta software", "otabeta");
 #endif
 #endif
          }
