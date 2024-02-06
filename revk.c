@@ -2703,7 +2703,7 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
    if (wifi && !b.disablesettings)
       revk_web_send (req, "<a href=/revk-settings"      //
 #ifdef  CONFIG_REVK_WEB_EXTRA
-                     "?level=1"
+                     "?_level=1"
 #endif
                      ">Settings</a> ");
    revk_web_send (req, appname);
