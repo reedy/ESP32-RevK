@@ -2674,6 +2674,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "<style>"     //
                   "h1{white-space:nowrap;}"     //
                   "p.error{color:red;font-weight:bold;}"        //
+		  "p.status{background:white;border: 1px solid red;padding:3px;font-size:50%;font-weight:bold;}"//
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:3px;margin-top:3px;padding:3px;font-size:100%%;}"      //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
@@ -2828,7 +2829,7 @@ revk_web_settings (httpd_req_t * req)
    }
    char *qs = NULL;
    revk_web_head (req, "Settings");
-   revk_web_send (req, "<h1>%s <b id=msg style='background:white;border: 1px solid red;padding:3px;'>%s</b></h1>",
+   revk_web_send (req, "<h1>%s <p id=_msg class=status>%s</p></h1>",
                   revk_web_safe (&qs, hostname), get_status_text ());
    jo_t j = revk_web_query (req);
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
@@ -2919,8 +2920,8 @@ revk_web_settings (httpd_req_t * req)
 
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr id='set'><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
+   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
+                  "<table><tr id=_set><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                   loggedin || !*password ?
 #endif
@@ -3031,12 +3032,12 @@ revk_web_settings (httpd_req_t * req)
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
                   "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');%s"      //
-                  "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"      //
+                  "ws.onclose=function(v){ws=undefined;document.getElementById('_msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"      //
                   "ws.onerror=function(v){ws.close();};"        //
                   "ws.onmessage=function(e){"   //
                   "o=JSON.parse(e.data);"       //
                   "if(typeof o === 'number')reboot=1;"  //
-                  "else if(typeof o === 'string'){document.getElementById('msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"     //
+                  "else if(typeof o === 'string'){document.getElementById('_msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"     //
                   "else if(typeof o === 'object')o.forEach(function(s){"        //
                   "b=document.createElement('button');" //
                   "b.onclick=function(e){"      //
@@ -3060,7 +3061,7 @@ revk_web_settings (httpd_req_t * req)
                      // Just reload the page in its initial state
                      "window.location.href = '/revk-settings';"
                      "else "
-                     "s('msg',rt);"
+                     "s('_msg',rt);"
                      "}"
                      "function c()"
                      "{"
