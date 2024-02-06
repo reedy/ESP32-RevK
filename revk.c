@@ -2162,7 +2162,7 @@ void
 revk_start (void)
 {                               // Start stuff, init all done
 #ifdef CONFIG_REVK_BLINK_LIB
-#ifd CONFIG_REVK_LED_STRIP
+#ifdef CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[0].num == blink[1].num)
    {
       if (!(gpio_ok (blink[0].num) & 1))
@@ -2873,8 +2873,8 @@ revk_web_settings (httpd_req_t * req)
          hr ();
          revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
          revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
-	    if (!shutdown)
-      revk_web_send (req, "<tr id=found style='visibility:hidden'><td>Found:</td><td colspan=3 id=list></td></tr>");
+         if (!shutdown)
+            revk_web_send (req, "<tr id=found style='visibility:hidden'><td>Found:</td><td colspan=3 id=list></td></tr>");
          hr ();
       }
       revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
@@ -2930,7 +2930,7 @@ revk_web_settings (httpd_req_t * req)
                   "};"          //
                   "b.textContent=s;"    //
                   "document.getElementById('list').appendChild(b);"     //
-                  "document.getElementById('found').style.visibility='visible';"     //
+                  "document.getElementById('found').style.visibility='visible';"        //
                   "});"         //
                   "};"          //
                   "</script>");
