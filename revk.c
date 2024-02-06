@@ -2491,6 +2491,60 @@ revk_num_web_handlers (void)
    return 5;
 }
 
+const char *
+revk_web_safe (char **temp, const char *value)
+{                               // Returns HTML safe version of value, allocated in *temp if needed (frees previous *temp)
+   if (!temp || !value || !*value)
+      return "";
+   if (*temp)
+   {
+      free (*temp);
+      *temp = NULL;
+   }
+   char *data = NULL;
+   {
+      int i = 0,
+         o = 0;
+      while (value[i])
+      {
+         if (value[i] == '\'' || value[i] == '"')
+            o += 6;
+         else if (value[i] == '&')
+            o += 5;
+         else if (value[i] == '<' || value[i] == '>')
+            o += 4;
+         else
+            o++;
+         i++;
+      }
+      if (i == o)
+         return value;          // All OK
+      data = mallocspi (o + 1);
+   }
+   if (!data)
+      return "";
+   char *o = data;
+   while (*value)
+   {
+      if (*value == '&')
+         o += sprintf (o, "&amp;");
+      else if (*value == '\'')
+         o += sprintf (o, "&apos;");
+      else if (*value == '"')
+         o += sprintf (o, "&quot;");
+      else if (*value == '<')
+         o += sprintf (o, "&lt;");
+      else if (*value == '>')
+         o += sprintf (o, "&gt;");
+      else
+         *o++ = *value;
+      value++;
+   }
+   *o = 0;
+   (*temp) = data;
+   return data;
+}
+
 esp_err_t
 revk_web_settings_add (httpd_handle_t webserver)
 {
@@ -2613,6 +2667,7 @@ revk_web_config_remove (httpd_handle_t webserver)
 void
 revk_web_head (httpd_req_t * req, const char *title)
 {                               // Generic HTML heading
+   char *qs = NULL;
    httpd_resp_set_type (req, "text/html;charset=utf-8");
    revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>"   //
                   "<title>%s</title>"   //
@@ -2630,12 +2685,14 @@ revk_web_head (httpd_req_t * req, const char *title)
 #ifndef CONFIG_HTTPD_WS_SUPPORT
                   " onLoad='handleLoad()'"
 #endif
-                  ">", title ? : appname);
+                  ">", revk_web_safe (&qs, title ? : appname));
+   free (qs);
 }
 
 esp_err_t
 revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
 {                               // Generic html footing and return
+   char *qs = NULL;
    revk_web_send (req, "<hr><address>");
    if (home)
       revk_web_send (req, "<a href=/>Home</a> ");
@@ -2647,9 +2704,10 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
    char temp[20];
    revk_web_send (req, ": %s %s", revk_version, revk_build_date (temp) ? : "?");
    if (extra && *extra)
-      revk_web_send (req, " <b>%s</b>", extra);
+      revk_web_send (req, " <b>%s</b>", revk_web_safe (&qs, extra));
    revk_web_send (req, "</address></body></html>");
    httpd_resp_sendstr_chunk (req, NULL);
+   free (qs);
    return ESP_OK;
 }
 
@@ -2688,6 +2746,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
       return;
    }
    int len = 0;
+   char *qs = NULL;
    char *value = revk_settings_text (s, index, &len);
    if (!value)
       return;
@@ -2721,7 +2780,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    // Simple text input
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
-                  tag ? : field, field, field, value, size, s->ptr == &hostname ? revk_id : place ? :
+                  tag ? : field, field, field, revk_web_safe (&qs, value), size, s->ptr == &hostname ? revk_id : place ? :
 #ifdef	REVK_SETTING_HAS_PLACE
                   s->place ? :
 #endif
@@ -2730,6 +2789,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
                   s->comment ? :
 #endif
                   "");
+   free (qs);
    free (value);
 }
 
@@ -2738,9 +2798,11 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
 void
 revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, char *value, const char *place, const char *suffix)
 {
+   char *qs = NULL;
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
-                  tag ? : "", field, field, value ? : "", place ? : "", suffix ? : "");
+                  tag ? : "", field, field, revk_web_safe (&qs, value), place ? : "", suffix ? : "");
+   free (qs);
 }
 #endif
 
@@ -2749,10 +2811,11 @@ revk_web_settings (httpd_req_t * req)
 {
    if (b.disablesettings)
       return ESP_OK;
+   char *temp = NULL;
    revk_web_head (req, "WiFi Setup");
    revk_web_send (req,
                   "<h1>%s <b id=msg style='background:white;border: 1px solid red;padding:3px;'>%s</b></h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
-                  hostname, get_status_text ());
+                  revk_web_safe (&temp, hostname), get_status_text ());
    jo_t j = revk_web_query (req);
    if (j)
    {
@@ -2989,7 +3052,7 @@ revk_web_settings (httpd_req_t * req)
       }
       revk_web_send (req, "</table>");
    }
-
+   free (temp);
    return revk_web_foot (req, 1, 0, NULL);
 }
 

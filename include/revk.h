@@ -201,6 +201,7 @@ void revk_mesh_send_json (const mac_t mac, jo_t * jp);
 void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink rate and colour sequence for on state (for RGB LED)
 
 uint16_t revk_num_web_handlers (void);  // Number of handlers used by revk_web_settings_add()
+const char *revk_web_safe(char **temp,const char *value); // Return safe version of text for HTML (malloced in *temp)
 void revk_web_send (httpd_req_t * req, const char *format, ...);
 jo_t revk_web_query (httpd_req_t * req);        // Get post/get form in JSON form
 esp_err_t revk_web_settings_add (httpd_handle_t webserver);     // Add URLs
