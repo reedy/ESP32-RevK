@@ -3030,7 +3030,6 @@ revk_web_settings (httpd_req_t * req)
 #endif
 #endif
       }
-      if (!level)
          hr ();
    }
    revk_web_send (req, "</table></form>");
@@ -3090,7 +3089,7 @@ revk_web_settings (httpd_req_t * req)
    }
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
-   if (!level)
+   if (shutdown || !level)
    {                            // IP info
       revk_web_send (req, "<table>");
       int32_t up = uptime ();
