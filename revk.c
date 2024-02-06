@@ -2614,10 +2614,9 @@ void
 revk_web_head (httpd_req_t * req, const char *title)
 {                               // Generic HTML heading
    httpd_resp_set_type (req, "text/html;charset=utf-8");
-   revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>");
-   if (title && *title)
-      revk_web_send (req, "<title>%s</title>", title);
-   revk_web_send (req, "<style>"        //
+   revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>"   //
+                  "<title>%s</title>"   //
+                  "<style>"     //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
@@ -2626,13 +2625,12 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "input:checked+.slider:before{-webkit-transform:translateX(30px);-ms-transform:translateX(30px);transform:translateX(30px);}" //
                   "span.slider:before{border-radius:50%%;}"     //
                   "span.slider,span.button{border-radius:34px;padding-top:8px;padding-left:10px;border:1px solid gray;box-shadow:3px 3px 3px #0008;}"   //
-                  "</style>");
-   revk_web_send (req,
+                  "</style>"    //
                   "<html><body style='font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);'"
 #ifndef CONFIG_HTTPD_WS_SUPPORT
                   " onLoad='handleLoad()'"
 #endif
-                  ">");
+                  ">", title ? : appname);
 }
 
 esp_err_t
@@ -2838,7 +2836,7 @@ revk_web_settings (httpd_req_t * req)
                if (e && *e)
                   revk_web_send (req, " @ %s", e);
             }
-	    // else revk_web_send (req, "Settings stored.");
+            // else revk_web_send (req, "Settings stored.");
          }
       }
       jo_free (&j);
