@@ -2919,7 +2919,7 @@ revk_web_settings (httpd_req_t * req)
 
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').setAttribute('hidden','hidden');document.getElementById('_msg').textContent='Please wait';return true;\">"   //
+   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').setAttribute('hidden','hidden');document.getElementById('_msg').textContent='Please wait';return true;\">"       //
                   "<table><tr id=_set><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                   loggedin || !*password ?
@@ -2948,7 +2948,8 @@ revk_web_settings (httpd_req_t * req)
 #endif
    }
    revk_web_send (req, "</td></tr>");
-   hr ();
+   if (*password || !shutdown)
+      hr ();
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
    if (*password && loggedin)
       revk_web_send (req, "<input name=password type=hidden value=\"%s\">", revk_web_safe (&qs, password));     // Logged in
@@ -3049,7 +3050,7 @@ revk_web_settings (httpd_req_t * req)
                   "return false;"       //
                   "};"          //
                   "b.textContent=s;"    //
-                  "document.getElementById('_list').appendChild(b);"     //
+                  "document.getElementById('_list').appendChild(b);"    //
                   "document.getElementById('_found').removeAttribute('hidden');"        //
                   "});"         //
                   "};"          //
