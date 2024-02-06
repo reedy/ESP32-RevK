@@ -2755,7 +2755,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    if (s->type == REVK_SETTINGS_BIT)
    {
       revk_web_send (req,
-                     "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
+                     "<tr><td>%s</td><td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label> <input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
                      tag ? : field, field, field, *value == 't' ? " checked" : "", field, field, suffix ? :
 #ifdef	REVK_SETTINGS_HAS_COMMENT
                      s->comment ? :
@@ -2780,7 +2780,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
 #endif
    // Simple text input
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
+                  "<tr><td>%s</td><td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
                   tag ? : field, field, field, revk_web_safe (&qs, value), size, s->ptr == &hostname ? revk_id : place ? :
 #ifdef	REVK_SETTINGS_HAS_PLACE
                   s->place ? :
@@ -2801,7 +2801,7 @@ revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, char 
 {
    char *qs = NULL;
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
+                  "<tr><td>%s</td><td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
                   tag ? : "", field, field, revk_web_safe (&qs, value), place ? : "", suffix ? : "");
    free (qs);
 }
@@ -2946,7 +2946,7 @@ revk_web_settings (httpd_req_t * req)
    {
       void hr (void)
       {
-         revk_web_send (req, "<tr><td colspan=4><hr></td></tr>");
+         revk_web_send (req, "<tr><td colspan=2><hr></td></tr>");
       }
       hr ();
       switch (level)
@@ -2980,7 +2980,7 @@ revk_web_settings (httpd_req_t * req)
          {
             hr ();
             revk_web_send (req,
-                           "<tr><td>Upgrade</td><td colspan=3><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
+                           "<tr><td>Upgrade</td><td><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
                            otahost, otabeta ? " (beta)" : "");
             if (otadays)
                revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatically check for updates");
