@@ -2674,7 +2674,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "<style>"     //
                   "h1{white-space:nowrap;}"     //
                   "p.error{color:red;font-weight:bold;}"        //
-		  "b.status{background:white;border: 1px solid red;padding:3px;font-size:50%;}"//
+		  "small.status{background:white;border: 1px solid red;padding:3px;}"//
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:3px;margin-top:3px;padding:3px;font-size:100%%;}"      //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
@@ -2829,7 +2829,7 @@ revk_web_settings (httpd_req_t * req)
    }
    char *qs = NULL;
    revk_web_head (req, "Settings");
-   revk_web_send (req, "<h1>%s <b id=_msg class=status>%s</b></h1>",
+   revk_web_send (req, "<h1>%s <small id=_msg class=status>%s</small></h1>",
                   revk_web_safe (&qs, hostname), get_status_text ());
    jo_t j = revk_web_query (req);
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
