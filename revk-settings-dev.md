@@ -122,3 +122,11 @@ The `.set` and `.flags` attributes can apply to a numeric value, and cause top b
 - Duplicate fields when setting using JSON is not recommended, but is support for bit types, where the first instance is applied and later ones ignored
 
 The reason is to allow use of `type=checkbox` on forms, a checkbox can set `on`, and a second `type=hidden` can unset. When the checkbox is set the `on` is applied, when not the hidden is applied an unset.
+
+## Special cases
+
+Note that the `hostname` being *unset* or set to a blank string will internally use the hex MAC address. This should generally be invisible to the settings logic, but setting to the MAC address will be seen as *no change* and so leave it blank.
+
+## Passwords
+
+TODO
