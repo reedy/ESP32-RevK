@@ -2672,6 +2672,7 @@ revk_web_head (httpd_req_t * req, const char *title)
    revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>"   //
                   "<title>%s</title>"   //
                   "<style>"     //
+                  "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}"    //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
@@ -2756,7 +2757,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
       revk_web_send (req,
                      "<tr><td>%s</td><td><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
                      tag ? : field, field, field, *value == 't' ? " checked" : "", field, field, suffix ? :
-#ifdef	REVK_SETTING_HAS_COMMENT
+#ifdef	REVK_SETTINGS_HAS_COMMENT
                      s->comment ? :
 #endif
                      "");
@@ -2781,11 +2782,11 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
                   tag ? : field, field, field, revk_web_safe (&qs, value), size, s->ptr == &hostname ? revk_id : place ? :
-#ifdef	REVK_SETTING_HAS_PLACE
+#ifdef	REVK_SETTINGS_HAS_PLACE
                   s->place ? :
 #endif
                   s->def ? : "", suffix ? :
-#ifdef	REVK_SETTING_HAS_COMMENT
+#ifdef	REVK_SETTINGS_HAS_COMMENT
                   s->comment ? :
 #endif
                   "");
@@ -2811,14 +2812,23 @@ revk_web_settings (httpd_req_t * req)
 {
    if (b.disablesettings)
       return ESP_OK;
-   char *temp = NULL;
+   char *qs = NULL;
    revk_web_head (req, "WiFi Setup");
-   revk_web_send (req,
-                  "<h1>%s <b id=msg style='background:white;border: 1px solid red;padding:3px;'>%s</b></h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
-                  revk_web_safe (&temp, hostname), get_status_text ());
+   revk_web_send (req, "<h1>%s <b id=msg style='background:white;border: 1px solid red;padding:3px;'>%s</b></h1>",
+                  revk_web_safe (&qs, hostname), get_status_text ());
    jo_t j = revk_web_query (req);
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+   uint8_t loggedin = 0;
+#endif
+   uint8_t level = 0;
    if (j)
    {
+      if (j && jo_find (j, "_level"))
+      {
+         char t[2] = "";
+         jo_strncpy (j, t, sizeof (t));
+         level = atoi (t);
+      }
       if (jo_find (j, "_upgrade"))
       {
          const char *e = revk_setting (j);      // Saved settings
@@ -2826,6 +2836,10 @@ revk_web_settings (httpd_req_t * req)
             e = revk_command ("upgrade", NULL);
          if (e && *e)
             revk_web_send (req, e);
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+         else if (*password && jo_find (j, "password"))
+            loggedin = 1;
+#endif
       } else
       {
          wifi_mode_t mode = 0;
@@ -2895,9 +2909,39 @@ revk_web_settings (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr><td>%s</td><td colspan=3>", shutdown ? "Wait" : "<input id=set type=submit value='Save'>");
-   // TODO settings groupings
+                  "<table><tr id=set><td>%s</td><td colspan=3>", shutdown ? "Wait" :
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+                  loggedin || !*password ?
+#endif
+                  "<input type=submit value='Save'>"
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+                  : "<input type=submit value='login'>"
+#endif
+      );
+   void addlevel (uint8_t l, const char *v)
+   {
+      revk_web_send (req,
+                     "<label class=box style=\"width:%dem\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
+                     strlen (v), l, l == level ? " checked" : "", revk_web_safe (&qs, v));
+   }
+   addlevel (0, "Basic");
+#ifdef	CONFIG_REVK_WEB_EXTRA
+   addlevel (1, appname);
+#endif
+#ifndef  CONFIG_REVK_OLD_SETTINGS
+#ifdef	REVK_SETTINGS_HAS_COMMENT
+   addlevel (2, "Advanced");
+#endif
+#endif
    revk_web_send (req, "</td></tr>");
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+   if (*password && loggedin)
+      revk_web_send (req, "<input name=password type=hidden value=\"%s\">", revk_web_safe (&qs, password));     // Logged in
+   else if (*password)
+   {                            // Ask for password
+      // TODO
+   } else
+#endif
    if (!shutdown)
    {
       void hr (void)
@@ -2905,49 +2949,70 @@ revk_web_settings (httpd_req_t * req)
          revk_web_send (req, "<tr><td colspan=4><hr></td></tr>");
       }
       hr ();
-      if (sta_netif)
+      switch (level)
       {
-         revk_web_setting_s (req, "Hostname", "hostname", hostname, NULL,
+      case 0:                  // Basic
+         if (sta_netif)
+         {
+            revk_web_setting_s (req, "Hostname", "hostname", hostname, NULL,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-                             ".local"
+                                ".local"
 #else
-                             ""
+                                ""
 #endif
-            );
-         hr ();
-         revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
-         revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
-         if (!shutdown)
-            revk_web_send (req, "<tr id=found style='visibility:hidden'><td>Found:</td><td colspan=3 id=list></td></tr>");
-         hr ();
-      }
-      revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
-      revk_web_setting_s (req, "MQTT user", "mqttuser", mqttuser[0], "username", NULL);
-      revk_web_setting_s (req, "MQTT pass", "mqttpass", mqttpass[0], "password", NULL);
+               );
+            hr ();
+            revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
+            revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
+            if (!shutdown)
+               revk_web_send (req, "<tr id=found style='visibility:hidden'><td>Found:</td><td colspan=3 id=list></td></tr>");
+            hr ();
+         }
+         revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
+         revk_web_setting_s (req, "MQTT user", "mqttuser", mqttuser[0], "username", NULL);
+         revk_web_setting_s (req, "MQTT pass", "mqttpass", mqttpass[0], "password", NULL);
 #ifdef	CONFIG_REVK_WEB_TZ
-      hr ();
-      revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
-                          "See <a href ='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
-#endif
-      if (!revk_link_down () && *otahost)
-      {
          hr ();
-         revk_web_send (req,
-                        "<tr><td>Upgrade</td><td colspan=3><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
-                        otahost, otabeta ? " (beta)" : "");
-         if (otadays)
-            revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatically check for updates");
+         revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
+                             "See <a href ='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
+#endif
+         if (!revk_link_down () && *otahost)
+         {
+            hr ();
+            revk_web_send (req,
+                           "<tr><td>Upgrade</td><td colspan=3><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
+                           otahost, otabeta ? " (beta)" : "");
+            if (otadays)
+               revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatically check for updates");
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
-         revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
+            revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
+#endif
+#endif
+         }
+         break;
+#ifdef	CONFIG_REVK_WEB_EXTRA
+      case 1:                  // App
+         {
+            extern void revk_web_extra (httpd_req_t *);
+            revk_web_extra (req);
+         }
+         break;
+#endif
+#ifdef	REVK_SETTINGS_HAS_COMMENT
+#ifndef	CONFIG_REVK_OLD_SETTINGS
+      case 2:                  // Advanced
+         {
+            extern revk_settings_t revk_settings[];
+            for (revk_settings_t * s = revk_settings; s->len; s++)
+               if (s->comment && !s->array)
+                  revk_web_setting (req, NULL, s->name, NULL, NULL);    // TODO grouping...
+         }
+         break;
 #endif
 #endif
       }
-#ifdef	CONFIG_REVK_WEB_EXTRA
-      extern void revk_web_extra (httpd_req_t *);
       hr ();
-      revk_web_extra (req);
-#endif
    }
    revk_web_send (req, "</table></form>");
 #ifdef CONFIG_HTTPD_WS_SUPPORT
@@ -3052,7 +3117,7 @@ revk_web_settings (httpd_req_t * req)
       }
       revk_web_send (req, "</table>");
    }
-   free (temp);
+   free (qs);
    return revk_web_foot (req, 1, 0, NULL);
 }
 
@@ -3998,10 +4063,10 @@ revk_build_date (char d[20])
 
 #ifdef	CONFIG_REVK_SEASON
 const char *
-revk_season (time_t now,char temp[8])
+revk_season (time_t now, char temp[8])
 {                               // Return a characters for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween, V=Valentines, F=Full Moon, N=New moon
    static char temp[8];
-   char *p=temp;
+   char *p = temp;
    struct tm t;
    localtime_r (&now, &t);
    if (t.tm_year >= 100)
