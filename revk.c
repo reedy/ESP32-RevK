@@ -2844,7 +2844,7 @@ revk_web_settings (httpd_req_t * req)
       hr ();
       if (sta_netif)
       {
-         revk_web_setting_s (req, "hostname", "hostname", hostname, NULL,
+         revk_web_setting_s (req, "Hostname", "hostname", hostname, NULL,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
                              ".local"
 #else
