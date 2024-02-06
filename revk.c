@@ -3021,8 +3021,7 @@ revk_web_settings (httpd_req_t * req)
    revk_web_send (req, "<script>"       //
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
-                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');"        //
-                  "ws.onopen=function(v){ws.send('scan');};"    //
+                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');%s"        //
                   "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"      //
                   "ws.onerror=function(v){ws.close();};"        //
                   "ws.onmessage=function(e){"   //
@@ -3042,7 +3041,7 @@ revk_web_settings (httpd_req_t * req)
                   "document.getElementById('found').style.visibility='visible';"        //
                   "});"         //
                   "};"          //
-                  "</script>");
+                  "</script>",level?"":"ws.onopen=function(v){ws.send('scan');};");
 #else
    revk_web_send (req, "<script>");
    if (shutdown && *shutdown)
