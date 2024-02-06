@@ -2827,7 +2827,7 @@ revk_web_settings (httpd_req_t * req)
       revk_web_send (req, "<tr><td colspan=3><hr></td></tr>");
    }
    char *qs = NULL;
-   revk_web_head (req, "WiFi Setup");
+   revk_web_head (req, "Settings");
    revk_web_send (req, "<h1>%s <b id=msg style='background:white;border: 1px solid red;padding:3px;'>%s</b></h1>",
                   revk_web_safe (&qs, hostname), get_status_text ());
    jo_t j = revk_web_query (req);

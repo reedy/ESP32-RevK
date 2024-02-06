@@ -57,7 +57,8 @@ nvs_erase (revk_settings_t * s, const char *tag)
       }
       ESP_LOGE (TAG, "Erase %s", taga);
 #endif
-   }
+   } else
+      ESP_LOGE (TAG, "Erase fail %s", tag);
    return NULL;
 }
 
