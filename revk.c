@@ -3998,10 +3998,10 @@ revk_build_date (char d[20])
 
 #ifdef	CONFIG_REVK_SEASON
 const char *
-revk_season (time_t now)
+revk_season (time_t now,char temp[8])
 {                               // Return a characters for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween, V=Valentines, F=Full Moon, N=New moon
-   static char temp[8],
-    *p = temp;
+   static char temp[8];
+   char *p=temp;
    struct tm t;
    localtime_r (&now, &t);
    if (t.tm_year >= 100)
