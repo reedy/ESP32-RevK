@@ -2672,7 +2672,7 @@ revk_web_head (httpd_req_t * req, const char *title)
    revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>"   //
                   "<title>%s</title>"   //
                   "<style>"     //
-                  "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}"    //
+                  "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}"      //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
@@ -2755,7 +2755,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    if (s->type == REVK_SETTINGS_BIT)
    {
       revk_web_send (req,
-                     "<tr><td>%s</td><td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label> <input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
+                     "<tr><td>%s</td><td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"%s\"%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
                      tag ? : field, field, field, *value == 't' ? " checked" : "", field, field, suffix ? :
 #ifdef	REVK_SETTINGS_HAS_COMMENT
                      s->comment ? :
@@ -2766,7 +2766,6 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    }
 #endif
    // Text input
-   int size = 40;
 #ifdef  REVK_SETTINGS_HAS_NUMERIC
    if (0
 #ifdef  REVK_SETTINGS_HAS_SIGNED
@@ -2776,20 +2775,33 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
        || s->type == REVK_SETTINGS_UNSIGNED
 #endif
       )
-      size = 10;
-#endif
-   // Simple text input
-   revk_web_send (req,
-                  "<tr><td>%s</td><td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
-                  tag ? : field, field, field, revk_web_safe (&qs, value), size, s->ptr == &hostname ? revk_id : place ? :
+      // Numeric
+      revk_web_send (req,
+                     "<tr><td>%s</td><td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=10 autocorrect='off' placeholder='%s'></td><td>%s</td></tr>",
+                     tag ? : field, field, field, revk_web_safe (&qs, value), s->ptr == &hostname ? revk_id : place ? :
 #ifdef	REVK_SETTINGS_HAS_PLACE
-                  s->place ? :
+                     s->place ? :
 #endif
-                  s->def ? : "", suffix ? :
+                     s->def ? : "", suffix ? :
 #ifdef	REVK_SETTINGS_HAS_COMMENT
-                  s->comment ? :
+                     s->comment ? :
 #endif
-                  "");
+                     "");
+   else
+#endif
+      // Text
+      revk_web_send (req,
+                     "<tr><td>%s</td><td nowrap colspan=2><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
+                     tag ? : field, field, field, revk_web_safe (&qs, value), s->ptr == &hostname ? revk_id : place ? :
+#ifdef	REVK_SETTINGS_HAS_PLACE
+                     s->place ? :
+#endif
+                     s->def ? : "", suffix ? :
+#ifdef	REVK_SETTINGS_HAS_COMMENT
+                     s->comment ? :
+#endif
+                     "");
+   // Simple text input
    free (qs);
    free (value);
 }
@@ -2801,7 +2813,7 @@ revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, char 
 {
    char *qs = NULL;
    revk_web_send (req,
-                  "<tr><td>%s</td><td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
+                  "<tr><td>%s</td><td colspan=2 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
                   tag ? : "", field, field, revk_web_safe (&qs, value), place ? : "", suffix ? : "");
    free (qs);
 }
@@ -2909,7 +2921,7 @@ revk_web_settings (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr id=set><td>%s</td><td colspan=3>", shutdown ? "Wait" :
+                  "<table><tr id=set><td>%s</td><td colspan=2>", shutdown ? "Wait" :
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                   loggedin || !*password ?
 #endif
@@ -2946,7 +2958,7 @@ revk_web_settings (httpd_req_t * req)
    {
       void hr (void)
       {
-         revk_web_send (req, "<tr><td colspan=2><hr></td></tr>");
+         revk_web_send (req, "<tr><td colspan=3><hr></td></tr>");
       }
       hr ();
       switch (level)
@@ -2965,7 +2977,7 @@ revk_web_settings (httpd_req_t * req)
             revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
             revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
             if (!shutdown)
-               revk_web_send (req, "<tr id=found style='visibility:hidden'><td>Found:</td><td colspan=3 id=list></td></tr>");
+               revk_web_send (req, "<tr id=found style='visibility:hidden'><td>Found:</td><td colspan=2 id=list></td></tr>");
             hr ();
          }
          revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
@@ -2980,7 +2992,7 @@ revk_web_settings (httpd_req_t * req)
          {
             hr ();
             revk_web_send (req,
-                           "<tr><td>Upgrade</td><td><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
+                           "<tr><td>Upgrade</td><td colspan=2><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
                            otahost, otabeta ? " (beta)" : "");
             if (otadays)
                revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatically check for updates");
@@ -3021,7 +3033,7 @@ revk_web_settings (httpd_req_t * req)
    revk_web_send (req, "<script>"       //
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
-                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');%s"        //
+                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');%s"      //
                   "ws.onclose=function(v){ws=undefined;document.getElementById('msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"      //
                   "ws.onerror=function(v){ws.close();};"        //
                   "ws.onmessage=function(e){"   //
@@ -3041,7 +3053,7 @@ revk_web_settings (httpd_req_t * req)
                   "document.getElementById('found').style.visibility='visible';"        //
                   "});"         //
                   "};"          //
-                  "</script>",level?"":"ws.onopen=function(v){ws.send('scan');};");
+                  "</script>", level ? "" : "ws.onopen=function(v){ws.send('scan');};");
 #else
    revk_web_send (req, "<script>");
    if (shutdown && *shutdown)
@@ -3071,7 +3083,6 @@ revk_web_settings (httpd_req_t * req)
       // to avoid adding more conditionals. Just emit a no-op.
       revk_web_send (req, "function handleLoad(){}");
    }
-
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
    {                            // IP info
@@ -4064,7 +4075,7 @@ revk_build_date (char d[20])
 const char *
 revk_season (time_t now)
 {                               // Return a characters for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween, V=Valentines, F=Full Moon, N=New moon
-   static char temp[8];	// Non re-entrant
+   static char temp[8];         // Non re-entrant
    char *p = temp;
    struct tm t;
    localtime_r (&now, &t);
