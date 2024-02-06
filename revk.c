@@ -2672,10 +2672,11 @@ revk_web_head (httpd_req_t * req, const char *title)
    revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=1'>"   //
                   "<title>%s</title>"   //
                   "<style>"     //
+		  "body{font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);}" //
                   "h1{white-space:nowrap;}"     //
                   "p.error{color:red;font-weight:bold;}"        //
                   "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}" //
-                  "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:3px;margin-top:3px;padding:3px;font-size:100%%;}"      //
+                  "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin:3px;padding:3px 10px;font-size:100%%;}"      //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
@@ -2685,7 +2686,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "span.slider:before{border-radius:50%%;}"     //
                   "span.slider,span.button{border-radius:34px;padding-top:8px;padding-left:10px;border:1px solid gray;box-shadow:3px 3px 3px #0008;}"   //
                   "</style>"    //
-                  "<html><body style='font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);'"
+                  "<html><body" //
 #ifndef CONFIG_HTTPD_WS_SUPPORT
                   " onLoad='handleLoad()'"
 #endif
