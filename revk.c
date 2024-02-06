@@ -2837,8 +2837,8 @@ revk_web_settings (httpd_req_t * req)
                e = jo_debug (j);
                if (e && *e)
                   revk_web_send (req, " @ %s", e);
-            } else
-               revk_web_send (req, "Settings stored.");
+            }
+	    // else revk_web_send (req, "Settings stored.");
          }
       }
       jo_free (&j);
