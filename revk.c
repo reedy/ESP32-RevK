@@ -2669,7 +2669,7 @@ revk_web_head (httpd_req_t * req, const char *title)
 {                               // Generic HTML heading
    char *qs = NULL;
    httpd_resp_set_type (req, "text/html;charset=utf-8");
-   revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=.8'>"   //
+   revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=.7'>"   //
                   "<title>%s</title>"   //
                   "<style>"     //
 		  "body{font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);}" //
