@@ -2734,7 +2734,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    // Simple text input
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
-                  tag ? : field, field, field, value == revk_id ? "" : value, size, value == revk_id ? revk_id : place ? :
+                  tag ? : field, field, field, value, size, s->ptr == &hostname ? revk_id : place ? :
 #ifdef	REVK_SETTING_HAS_PLACE
                   s->place ? :
 #endif

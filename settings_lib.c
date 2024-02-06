@@ -648,6 +648,8 @@ revk_settings_text (revk_settings_t * s, int index, int *lenp)
 #ifdef	REVK_SETTINGS_HAS_STRING
    case REVK_SETTINGS_STRING:
       {
+         if (ptr == revk_id)
+            ptr = "";           // Special case, used for hostname, see as a blank hostname
          data = strdup (ptr);
          if (data)
             len = strlen (data);
