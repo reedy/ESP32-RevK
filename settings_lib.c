@@ -527,17 +527,15 @@ text_numeric (revk_settings_t * s, void *p)
       }
       {
          uint64_t val = v;
-         if (bits < 64)
-            val &= ((1ULL << bits) - 1);
 #ifdef	REVK_SETTINGS_HAS_SIGNED
          if (s->type == REVK_SETTINGS_SIGNED && (v & (1ULL << (bits - 1))))
          {
             *t++ = '-';
             val = -val;
-            if (bits < 64)
-               val |= ~((1ULL << bits) - 1);
          }
 #endif
+         if (bits < 64)
+            val &= ((1ULL << bits) - 1);
          if (bits)
          {
             if (s->decimal)
