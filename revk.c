@@ -2782,7 +2782,8 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
 #ifdef	REVK_SETTINGS_HAS_PLACE
                      s->place ? :
 #endif
-                     s->def ? : "", suffix ? :
+                     "",        //
+                     suffix ? :
 #ifdef	REVK_SETTINGS_HAS_COMMENT
                      s->comment ? :
 #endif
@@ -2796,7 +2797,8 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
 #ifdef	REVK_SETTINGS_HAS_PLACE
                      s->place ? :
 #endif
-                     s->def ? : "", suffix ? :
+                     "",        //
+                     suffix ? :
 #ifdef	REVK_SETTINGS_HAS_COMMENT
                      s->comment ? :
 #endif
