@@ -48,25 +48,25 @@ blob	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.bas
 
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 u16	wifi.reset	CONFIG_REVK_WIFIRESET	.revk=1
-s	wifi.ssid	CONFIG_REVK_WIFISSID	.revk=1
-s	wifi.ip		CONFIG_REVK_WIFIIP	.revk=1
-s	wifi.gw		CONFIG_REVK_WIFIGW	.revk=1
-s	wifi.dns	CONFIG_REVK_WIFIDNS	.revk=1	.array=3
-o6	wifi.bssid	CONFIG_REVK_WIFIBSSID	.revk=1	.hex=1
-u8	wifi.chan	CONFIG_REVK_WIFICHAN	.revk=1
-s	wifi.pass	CONFIG_REVK_WIFIPASS	.revk=1	.secret=1
-bit	wifi.ps		CONFIG_REVK_WIFIPS	.revk=1
-bit	wifi.maxps	CONFIG_REVK_WIFIMAXPS	.revk=1
+s	wifi.ssid	CONFIG_REVK_WIFISSID	.revk=1			// WiFI SSID (name)
+s	wifi.pass	CONFIG_REVK_WIFIPASS	.revk=1	.secret=1	// WiFi password
+s	wifi.ip		CONFIG_REVK_WIFIIP	.revk=1			// WiFi Fixed IP
+s	wifi.gw		CONFIG_REVK_WIFIGW	.revk=1			// WiFi Fixed gateway
+s	wifi.dns	CONFIG_REVK_WIFIDNS	.revk=1	.array=3	// WiFi fixed DNS
+o6	wifi.bssid	CONFIG_REVK_WIFIBSSID	.revk=1	.hex=1		// WiFI BSSID
+u8	wifi.chan	CONFIG_REVK_WIFICHAN	.revk=1			// WiFI channel
+bit	wifi.ps		CONFIG_REVK_WIFIPS	.revk=1			// WiFi power save
+bit	wifi.maxps	CONFIG_REVK_WIFIMAXPS	.revk=1			// WiFi power save (max)
 #endif
 
 
 #ifndef	CONFIG_REVK_MESH
-s	ap.ssid		CONFIG_REVK_APSSID	.revk=1
-s	ap.pass		CONFIG_REVK_APPASS	.revk=1	.secret=1
-u8	ap.max		CONFIG_REVK_APMAX	.revk=1
-s	ap.ip		CONFIG_REVK_APIP	.revk=1
-bit	ap.lr		CONFIG_REVK_APLR	.revk=1
-bit	ap.hide		CONFIG_REVK_APHIDE	.revk=1
+s	ap.ssid		CONFIG_REVK_APSSID	.revk=1			// AP mode SSID (name)
+s	ap.pass		CONFIG_REVK_APPASS	.revk=1	.secret=1	// AP mode password
+u8	ap.max		CONFIG_REVK_APMAX	.revk=1	
+s	ap.ip		CONFIG_REVK_APIP	.revk=1			// AP mode block
+bit	ap.lr		CONFIG_REVK_APLR	.revk=1			// AP LR mode
+bit	ap.hide		CONFIG_REVK_APHIDE	.revk=1			// AP hide SSID
 #endif
 
 
