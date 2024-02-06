@@ -2674,7 +2674,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "<style>"     //
                   "h1{white-space:nowrap;}"     //
                   "p.error{color:red;font-weight:bold;}"        //
-                  "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}"   //
+                  "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}" //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:3px;margin-top:3px;padding:3px;font-size:100%%;}"      //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;}"     //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
@@ -2923,18 +2923,19 @@ revk_web_settings (httpd_req_t * req)
 
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
-   revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').setAttribute('hidden','hidden');document.getElementById('_msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr id=_set><td>%s</td><td colspan=2 nowrap>", shutdown ? "Wait" :
-#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-                  loggedin || !*password ?
-#endif
-                  "<input type=submit value='Save'>"
-#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-                  : "<input type=submit value='Login'>"
-#endif
-      );
+   revk_web_send (req,
+                  "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').setAttribute('hidden','hidden');document.getElementById('_msg').textContent='Please wait';return true;\">");
    if (!shutdown)
    {
+      revk_web_send (req, "<table><tr id=_set><td colspan=3 nowrap><input type=submit value='%s'>",
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+                     loggedin || !*password ?
+#endif
+                     "Save"
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+                     : "Login"
+#endif
+         );
       void addlevel (uint8_t l, const char *v)
       {
          revk_web_send (req,
@@ -2950,8 +2951,8 @@ revk_web_settings (httpd_req_t * req)
       addlevel (2, "Advanced");
 #endif
 #endif
+      revk_web_send (req, "</td></tr>");
    }
-   revk_web_send (req, "</td></tr>");
    if (*password || !shutdown)
       hr ();
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
@@ -3030,7 +3031,7 @@ revk_web_settings (httpd_req_t * req)
 #endif
 #endif
       }
-         hr ();
+      hr ();
    }
    revk_web_send (req, "</table></form>");
 #ifdef CONFIG_HTTPD_WS_SUPPORT
