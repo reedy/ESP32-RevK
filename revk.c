@@ -2655,6 +2655,7 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
    return ESP_OK;
 }
 
+#if 0
 static void
 report_shutdown_reason (httpd_req_t * req, const char *shutdown)
 {
@@ -2666,26 +2667,28 @@ report_shutdown_reason (httpd_req_t * req, const char *shutdown)
       revk_web_send (req, buf);
    }
 }
+#endif
 
 static const char *
 get_status_text (void)
 {
+   if (restart_reason)
+      return restart_reason;
    if (revk_link_down ())
       return *wifissid ? "WiFi not connected" : "WiFi not configured";
 #ifdef  CONFIG_REVK_MQTT
-   else if (!revk_mqtt (0))
+   if (!revk_mqtt (0))
       return "WiFi connected, no MQTT";
-   else if (lwmqtt_failed (revk_mqtt (0)) < 0)
+   if (lwmqtt_failed (revk_mqtt (0)) < 0)
       return "MQTT failed";
-   else if (lwmqtt_failed (revk_mqtt (0)) > 5)
+   if (lwmqtt_failed (revk_mqtt (0)) > 5)
       return "MQTT not connecting";
-   else if (!lwmqtt_connected (revk_mqtt (0)))
+   if (!lwmqtt_connected (revk_mqtt (0)))
       return "MQTT connecting";
-   else
-      return "MQTT connected";
+
+   return "MQTT connected";
 #else
-   else
-      return "WiFI online";
+   return "WiFI online";
 #endif
 }
 
@@ -2764,8 +2767,8 @@ revk_web_settings (httpd_req_t * req)
       return ESP_OK;
    revk_web_head (req, "WiFi Setup");
    revk_web_send (req,
-                  "<h1>%s</h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
-                  hostname);
+                  "<h1>%s <b id=msg style='background:white;border: 1px solid red;padding:3px;'>%s</b></h1><style>input[type=submit],button{min-height:30px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin-right:4px;margin-top:4px;padding:4px;font-size:100%%;}</style>",
+                  hostname, get_status_text ());
    jo_t j = revk_web_query (req);
    if (j)
    {
@@ -2845,15 +2848,9 @@ revk_web_settings (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    revk_web_send (req, "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('set').style.visibility='hidden';document.getElementById('msg').textContent='Please wait';return true;\">"       //
-                  "<table><tr><td>%s</td><td colspan=3><b id=msg style='background:white;border: 1px solid red;padding:3px;'>",
-                  shutdown ? "Wait" : "<input id=set type=submit value='Save'>");
-   if (shutdown && *shutdown)
-      report_shutdown_reason (req, shutdown);
-#ifndef CONFIG_HTTPD_WS_SUPPORT
-   else
-      revk_web_send (req, "%s", get_status_text ());
-#endif
-   revk_web_send (req, "</b></td></tr>");
+                  "<table><tr><td>%s</td><td colspan=3>", shutdown ? "Wait" : "<input id=set type=submit value='Save'>");
+   // TODO settings groupings
+   revk_web_send (req, "</td></tr>");
    if (!shutdown)
    {
       void hr (void)
