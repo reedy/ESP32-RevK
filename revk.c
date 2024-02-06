@@ -3020,7 +3020,7 @@ revk_web_settings (httpd_req_t * req)
             extern revk_settings_t revk_settings[];
             for (revk_settings_t * s = revk_settings; s->len; s++)
                if (s->comment && !s->array)
-                  revk_web_setting (req, NULL, s->name, NULL, NULL);    // TODO grouping...
+                  revk_web_setting (req, NULL, s->name);    // TODO grouping...
          }
          break;
 #endif
