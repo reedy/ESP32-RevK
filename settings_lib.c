@@ -679,7 +679,7 @@ revk_settings_text (revk_settings_t * s, int index, int *lenp)
 
 static const char *
 load_value (revk_settings_t * s, const char *d, int index, void *ptr)
-{
+{                               // Puts value in memory (or at ptr if set)
    if (!ptr)
       ptr = s->ptr;
    else
@@ -1337,7 +1337,7 @@ revk_setting (jo_t j)
 #endif
                   val = strdup (val);
 #ifdef	REVK_SETTINGS_HAS_NUMERIC
-                  if (s->array && (1
+                  if (s->array && (0
 #ifdef	REVK_SETTINGS_HAS_SIGNED
                                    || s->type == REVK_SETTINGS_SIGNED
 #endif
@@ -1381,8 +1381,17 @@ revk_setting (jo_t j)
                err = load_value (s, val, index, temp);
                if (!err)
                {
+                  if (t == JO_NULL && !s->fix)
+                  {             // Set to default, so erase - could still be a change of value (to default) so continue to compare
+                     if (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
+                     {
+                        err = nvs_erase (s, s->name);
+                        if (!err && !s->live)
+                           change = 1;
+                     }
+                  }
                   if (value_cmp (s, ptr, temp))
-                  {             // Change
+                  {             // Changed value, so store
                      if (s->live)
                      {          // Apply live
 #ifdef	REVK_SETTINGS_HAS_BIT
@@ -1401,19 +1410,13 @@ revk_setting (jo_t j)
                            dofree = 0;
                         }
                      }
-                     if (t == JO_NULL && !s->fix)
-                        err = nvs_erase (s, s->name);
-                     else
+                     if (t != JO_NULL || s->fix)
+                     {          // Put in NVS
                         err = nvs_put (s, index, temp);
-                     if (!err && !s->live)
-                     {
-#ifdef  CONFIG_REVK_SETTINGS_DEBUG
-                        ESP_LOGE (TAG, "Changed %s[%d]", s->name, index);
-#endif
-                        change = 1;
+                        if (!err && !s->live)
+                           change = 1;
                      }
-                  } else if (t == JO_NULL && !s->fix)
-                     err = nvs_erase (s, s->name);
+                  }
                }
                if (dofree)
                   free (*(void **) temp);
