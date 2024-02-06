@@ -3030,8 +3030,6 @@ revk_web_settings (httpd_req_t * req)
    }
    revk_web_send (req, "</table></form>");
 #ifdef CONFIG_HTTPD_WS_SUPPORT
-   if (!shutdown)
-      revk_web_send (req, "<div id=list>WiFi:</div>");
    revk_web_send (req, "<script>"       //
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
@@ -3087,6 +3085,7 @@ revk_web_settings (httpd_req_t * req)
    }
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
+   if(!level)
    {                            // IP info
       revk_web_send (req, "<table>");
       int32_t up = uptime ();
