@@ -1909,11 +1909,7 @@ gpio_ok (uint8_t p)
 #endif
    // ESP8266
 #ifdef CONFIG_IDF_TARGET_ESP8266
-   if (p == 1 || p == 3)
-      return 3 + 8;             // Serial
-   if (p >= 6 && p <= 11)
-      return 0;                 // SDIO; attempt to configure causes crash
-   // 8266 has GPIOs 0...16, allow any use except above
+   // 8266 has GPIOs 0...16, allow any use
    return (p <= 16) ? 3 : 0;
 #endif
 }
@@ -2151,7 +2147,7 @@ revk_boot (app_callback_t * app_callback_cb)
       snprintf (revk_id, sizeof (revk_id), "%012llX", revk_binid);
 #endif
       if (!hostname || !*hostname)
-         hostname = revk_id;    // default hostname
+         hostname = revk_id;    // default hostname (special case in settings)
    }
    revk_version = app->version;
    revk_app = appname;
@@ -2166,7 +2162,7 @@ void
 revk_start (void)
 {                               // Start stuff, init all done
 #ifdef CONFIG_REVK_BLINK_LIB
-#ifdef  CONFIG_REVK_LED_STRIP
+#ifd CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[0].num == blink[1].num)
    {
       if (!(gpio_ok (blink[0].num) & 1))
@@ -2738,7 +2734,11 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field, const c
    // Simple text input
    revk_web_send (req,
                   "<tr><td>%s</td><td colspan=3 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=%d autocorrect='off' placeholder='%s'> %s</td></tr>",
-                  tag ? : field, field, field, value, size, place ? : s->def ? : "", suffix ? :
+                  tag ? : field, field, field, value == revk_id ? "" : value, size, value == revk_id ? revk_id : place ? :
+#ifdef	REVK_SETTING_HAS_PLACE
+                  s->place ? :
+#endif
+                  s->def ? : "", suffix ? :
 #ifdef	REVK_SETTING_HAS_COMMENT
                   s->comment ? :
 #endif
@@ -2863,19 +2863,17 @@ revk_web_settings (httpd_req_t * req)
       hr ();
       if (sta_netif)
       {
-         revk_web_send (req,
-                        "<tr><td>Hostname</td><td colspan=3 nowrap><input name='hostname' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'>%s</td></tr>",
-                        hostname == revk_id ? "" : hostname, revk_id,
+         revk_web_setting_s (req, "hostname", "hostname", hostname, NULL,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
-                        ".local"
+                             ".local"
 #else
-                        ""
+                             ""
 #endif
             );
          hr ();
          revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
          revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
-   if (!shutdown)
+	    if (!shutdown)
       revk_web_send (req, "<tr id=found style='visibility:hidden'><td>Found:</td><td colspan=3 id=list></td></tr>");
          hr ();
       }
@@ -2894,7 +2892,7 @@ revk_web_settings (httpd_req_t * req)
                         "<tr><td>Upgrade</td><td colspan=3><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
                         otahost, otabeta ? " (beta)" : "");
          if (otadays)
-            revk_web_setting_s (req, "Auto upgrade", "otaauto", NULL, NULL, "Automatically check for updates");
+            revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatically check for updates");
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	CONFIG_REVK_WEB_BETA
          revk_web_setting (req, "Beta software", "otabeta", NULL, "Load early release beta software");
@@ -2909,6 +2907,8 @@ revk_web_settings (httpd_req_t * req)
    }
    revk_web_send (req, "</table></form>");
 #ifdef CONFIG_HTTPD_WS_SUPPORT
+   if (!shutdown)
+      revk_web_send (req, "<div id=list>WiFi:</div>");
    revk_web_send (req, "<script>"       //
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
@@ -2930,7 +2930,7 @@ revk_web_settings (httpd_req_t * req)
                   "};"          //
                   "b.textContent=s;"    //
                   "document.getElementById('list').appendChild(b);"     //
-		  "document.getElementById('found').style.visibility='visible';" //
+                  "document.getElementById('found').style.visibility='visible';"     //
                   "});"         //
                   "};"          //
                   "</script>");

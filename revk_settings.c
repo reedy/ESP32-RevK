@@ -117,7 +117,8 @@ int
 main (int argc, const char *argv[])
 {
    int debug = 0;
-   int comment = 0;
+   int nocomment = 0;
+   int noplace = 0;
    const char *cfile = "settings.c";
    const char *hfile = "settings.h";
    const char *dummysecret = "✶✶✶✶✶✶✶✶";
@@ -132,7 +133,8 @@ main (int argc, const char *argv[])
          {"extension", 'e', POPT_ARG_STRING | POPT_ARGFLAG_SHOW_DEFAULT, &extension, 0, "Only handle files ending with this",
           "extension"},
          {"max-name", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &maxname, 0, "Max name len", "N"},
-         {"comment", 0, POPT_ARG_NONE, &comment, 0, "Add comments"},
+         {"no-comment", 0, POPT_ARG_NONE, &nocomment, 0, "No .comment"},
+         {"no-place", 0, POPT_ARG_NONE, &noplace, 0, "No .place"},
          {"debug", 'v', POPT_ARG_NONE, &debug, 0, "Debug"},
          POPT_AUTOHELP {}
       };
@@ -366,6 +368,22 @@ main (int argc, const char *argv[])
       char hasstring = 0;
       char hasgpio = 0;
       char hasold = 0;
+      char hascomment = 0;
+      char hasplace = 0;
+
+      if (!nocomment)
+      {
+         for (d = defs; d && (!d->type||!d->comment);d=d->next);
+         if (d)
+            hascomment = 1;
+      }
+
+      if (!noplace)
+      {
+         for (d = defs; d && (!d->attributes || !strstr (d->attributes, ".place=")); d = d->next);
+         if (d)
+            hasplace = 1;
+      }
 
       for (d = defs; d && (!d->attributes || !strstr (d->attributes, ".old=")); d = d->next);
       if (d)
@@ -406,8 +424,10 @@ main (int argc, const char *argv[])
                " const char *flags;\n", maxname + 1);
       if (hasold)
          fprintf (H, " const char *old;\n");
-      if (comment)
+      if (hascomment)
          fprintf (H, " const char *comment;\n");
+      if (hasplace)
+         fprintf (H, " const char *place;\n");
       fprintf (H, " uint16_t size;\n"   //
                " uint8_t group;\n"      //
                " uint8_t bit;\n"        //
@@ -519,8 +539,10 @@ main (int argc, const char *argv[])
       fprintf (H, "};\n");
       if (hasold)
          fprintf (H, "#define	REVK_SETTINGS_HAS_OLD\n");
-      if (comment)
+      if (hascomment)
          fprintf (H, "#define	REVK_SETTINGS_HAS_COMMENT\n");
+      if (hasplace)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_PLACE\n");
       if (hasgpio)
          fprintf (H, "#define	REVK_SETTINGS_HAS_GPIO\n");
       if (hassigned || hasunsigned)
@@ -577,7 +599,7 @@ main (int argc, const char *argv[])
             else
                errx (1, "Unknown type %s for %s in %s", d->type, d->name, d->fn);
             fprintf (C, ",.name=\"%s\"", d->name);
-            if (comment && d->comment)
+            if (hascomment && d->comment)
                fprintf (C, ",.comment=\"%s\"", d->comment);
             if (d->group)
                fprintf (C, ",.group=%d", d->group);
