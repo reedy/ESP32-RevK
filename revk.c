@@ -3062,8 +3062,8 @@ revk_web_settings (httpd_req_t * req)
                            add (g);
                   } else
                   {
-                     if (line)
-                        >0 hr ();
+                     if (line > 0)
+                        hr ();
                      line = 0;
                      add (s);
                   }
