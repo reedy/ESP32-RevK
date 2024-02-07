@@ -39,7 +39,8 @@ strndup (const char *s, size_t l)
 static const char *
 nvs_erase (revk_settings_t * s, const char *tag)
 {
-   nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7));
+   if (!s->array)
+      nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7));
    esp_err_t e = nvs_erase_key (nvs[s->revk], tag);
    if (e && e != ESP_ERR_NVS_NOT_FOUND)
       return "Failed to erase";
@@ -1452,9 +1453,11 @@ revk_setting (jo_t j)
             if (pindex >= 0)
                err = store (pindex);
             else if (s->array)
+            {
+               nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7)); // Done here for whole array rather than nvs_erase, as this covers whole array
                for (int i = 0; !err && i < s->array; i++)
                   err = store (i);
-            else
+            } else
                err = store (-1);
          }
          if (t == JO_NULL)
