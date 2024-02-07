@@ -2669,15 +2669,15 @@ revk_web_head (httpd_req_t * req, const char *title)
 {                               // Generic HTML heading
    char *qs = NULL;
    httpd_resp_set_type (req, "text/html;charset=utf-8");
-   revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=.75'>"   //
+   revk_web_send (req, "<meta name='viewport' content='width=device-width, initial-scale=.75'>" //
                   "<title>%s</title>"   //
                   "<style>"     //
-		  "body{font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);}" //
+                  "body{font-family:sans-serif;background:#8cf;background-image:linear-gradient(to right,#8cf,#48f);}"  //
                   "address,h1{white-space:nowrap;}"     //
                   "p.error{color:red;font-weight:bold;}"        //
                   "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}" //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin:3px;padding:3px 10px;font-size:100%%;}"      //
-                  ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;padding:2px 0 0 0px;}"     //
+                  ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;padding:2px 0 0 0px;}" //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
                   ".slider:before{position:absolute;content:\"\";min-height:26px;min-width:26px;left:4px;bottom:3px;background-color:white;-webkit-transition:.4s;transition:.4s;}"     //
@@ -2762,7 +2762,8 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    if (tag)
       revk_web_send (req, "<tr><td>%s</td>", tag);
    else
-      revk_web_send (req, "<tr><td><tt><b>%.*s</b>%s</tt></td>", s->dot, field, field + s->dot);
+      revk_web_send (req, "<tr><td><tt><b>%.*s</b>%.*s<i>%s</i></tt></td>", s->dot, field, s->len - s->dot, field + s->dot,
+                     field + s->len);
    const char *comment = "";
 #ifdef	REVK_SETTINGS_HAS_COMMENT
    if (s->comment)
@@ -3024,9 +3025,33 @@ revk_web_settings (httpd_req_t * req)
       case 2:                  // Advanced
          {
             extern revk_settings_t revk_settings[];
+            revk_setting_group_t found = { 0 };
             for (revk_settings_t * s = revk_settings; s->len; s++)
-               if (s->comment && !s->array)
-                  revk_web_setting (req, NULL, s->name);        // TODO grouping... TODO arrays
+               if (s->comment)
+               {
+                  void add (revk_settings_t * s)
+                  {
+                     if (s->array)
+                     {
+                        for (int i = 0; i < s->array; i++)
+                        {       // Array
+                           char tag[20];
+                           snprintf (tag, sizeof (tag), "%s%d", s->name, i + 1);
+                           revk_web_setting (req, NULL, tag);
+                        }
+                     } else
+                        revk_web_setting (req, NULL, s->name);  // TODO grouping... TODO arrays
+                  }
+                  if (s->group)
+                  {
+                     if (found[s->group / 8] & (1 << (s->group & 7)))
+                        continue;
+                     for (revk_settings_t * g = revk_settings; g->len; g++)
+                        if (g->comment && g->group == s->group)
+                           add (g);
+                  } else
+                     add ();
+               }
          }
          break;
 #endif
