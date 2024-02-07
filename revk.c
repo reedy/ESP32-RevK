@@ -3026,7 +3026,7 @@ revk_web_settings (httpd_req_t * req)
          {
             extern revk_settings_t revk_settings[];
             revk_setting_group_t found = { 0 };
-            char line = -1;
+            int8_t line = -1;
             for (revk_settings_t * s = revk_settings; s->len; s++)
                if (s->comment)
                {
@@ -3034,9 +3034,12 @@ revk_web_settings (httpd_req_t * req)
                   {
                      if (s->array)
                      {
-                        if (line >= 0)
-                           hr ();
-                        line = 1;
+                        if (!s->group)
+                        {
+                           if (line >= 0)
+                              hr ();
+                           line = 1;
+                        }
                         for (int i = 0; i < s->array; i++)
                         {       // Array
                            char tag[20];
