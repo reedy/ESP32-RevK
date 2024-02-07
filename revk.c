@@ -3050,7 +3050,7 @@ revk_web_settings (httpd_req_t * req)
                         if (g->comment && g->group == s->group)
                            add (g);
                   } else
-                     add ();
+                     add (s);
                }
          }
          break;
