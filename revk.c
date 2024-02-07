@@ -3026,7 +3026,7 @@ revk_web_settings (httpd_req_t * req)
          {
             extern revk_settings_t revk_settings[];
             revk_setting_group_t found = { 0 };
-            char line = 0;
+            char line = -1;
             for (revk_settings_t * s = revk_settings; s->len; s++)
                if (s->comment)
                {
@@ -3034,14 +3034,15 @@ revk_web_settings (httpd_req_t * req)
                   {
                      if (s->array)
                      {
-                        hr ();
+                        if (line >= 0)
+                           hr ();
+                        line = 1;
                         for (int i = 0; i < s->array; i++)
                         {       // Array
                            char tag[20];
                            snprintf (tag, sizeof (tag), "%s%d", s->name, i + 1);
                            revk_web_setting (req, NULL, tag);
                         }
-                        line = 1;
                      } else
                         revk_web_setting (req, NULL, s->name);  // TODO grouping... TODO arrays
                   }
@@ -3049,16 +3050,17 @@ revk_web_settings (httpd_req_t * req)
                   {
                      if (found[s->group / 8] & (1 << (s->group & 7)))
                         continue;
+                     if (line >= 0)
+                        line = 1;
                      hr ();
                      found[s->group / 8] |= (1 << (s->group & 7));
                      for (revk_settings_t * g = revk_settings; g->len; g++)
                         if (g->comment && g->group == s->group)
                            add (g);
-                     line = 1;
                   } else
                   {
                      if (line)
-                        hr ();
+                        >0 hr ();
                      line = 0;
                      add (s);
                   }
