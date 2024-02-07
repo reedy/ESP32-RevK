@@ -3047,7 +3047,15 @@ revk_web_settings (httpd_req_t * req)
                            revk_web_setting (req, NULL, tag);
                         }
                      } else
+                     {
+                        if (!s->group)
+                        {
+                           if (line > 0)
+                              hr ();
+                           line = 0;
+                        }
                         revk_web_setting (req, NULL, s->name);  // TODO grouping... TODO arrays
+                     }
                   }
                   if (s->group)
                   {
@@ -3061,12 +3069,7 @@ revk_web_settings (httpd_req_t * req)
                            add (g);
                      line = 1;
                   } else
-                  {
-                     if (line > 0)
-                        hr ();
-                     line = 0;
                      add (s);
-                  }
                }
          }
          break;
