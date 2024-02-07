@@ -3046,6 +3046,7 @@ revk_web_settings (httpd_req_t * req)
                   {
                      if (found[s->group / 8] & (1 << (s->group & 7)))
                         continue;
+                     found[s->group / 8] |= (1 << (s->group & 7));
                      for (revk_settings_t * g = revk_settings; g->len; g++)
                         if (g->comment && g->group == s->group)
                            add (g);
