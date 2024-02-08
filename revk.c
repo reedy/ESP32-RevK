@@ -2900,7 +2900,10 @@ revk_web_settings (httpd_req_t * req)
                      esp_netif_ip_info_t ip;
                      if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
                      {
-                        revk_web_send (req, "WiFi connected <b id=ip>" IPSTR "</b>. <button onclick=\"var ip=document.getElementById('ip');ip.select();ip.setSelectionRange(0,15);navigator.clipboard.writeText(ip.value).this.style.visibility='none';\">Copy</button>", IP2STR (&ip.ip));
+                        revk_web_send (req,
+                                       "WiFi connected <input id=ip>http://" IPSTR "</b>. "//
+				       "<button onclick=\"var ip=document.getElementById('ip');ip.select();ip.setSelectionRange(0,99);navigator.clipboard.writeText(ip.value).this.style.visibility='none';\">Copy</button>",
+                                       IP2STR (&ip.ip));
                         ok = 2;
                         break;
                      }
@@ -2920,8 +2923,8 @@ revk_web_settings (httpd_req_t * req)
             else if (*password && jo_find (j, "password"))
                loggedin = 1;
 #endif
-	    if(!e&&ok==2&&revk_shutting_down(NULL))
-		    revk_restart("Note IP",20);
+            if (!e && ok == 2 && revk_shutting_down (NULL))
+               revk_restart ("Note IP", 20);
          }
       }
       jo_free (&j);
@@ -2999,8 +3002,8 @@ revk_web_settings (httpd_req_t * req)
 #ifdef	CONFIG_REVK_WEB_TZ
          hr ();
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-            revk_web_setting_s (req, "Password", "password", password, NULL,
-                                "Settings password (not sent securely, so use with care on local network you control)");
+         revk_web_setting_s (req, "Password", "password", password, NULL,
+                             "Settings password (not sent securely, so use with care on local network you control)");
          hr ();
 #endif
          revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
