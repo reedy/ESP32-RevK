@@ -2878,6 +2878,8 @@ revk_web_settings (httpd_req_t * req)
             {
                if (jo_find (j, "wifipass") == JO_STRING)
                   jo_strncpy (j, pass, sizeof (pass));
+               if (!strcmp (pass, revk_settings_secret))
+                  strcpy (pass, wifipass);
                if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
                   ok = 1;
                else if (sta_netif)
@@ -3099,8 +3101,8 @@ revk_web_settings (httpd_req_t * req)
                   "else if(typeof o === 'object')o.forEach(function(s){"        //
                   "b=document.createElement('button');" //
                   "b.onclick=function(e){"      //
-                  "f.wifissid.value=s;" //
-                  "f.wifipass.value='';"        //
+                  "f._wifissid.name='wifissid';f.wifissid.value=s;"     //
+                  "f._wifipass.name='wifipass';f.wifipass.value='';"    //
                   "f.wifipass.focus();" //
                   "return false;"       //
                   "};"          //
