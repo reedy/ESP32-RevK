@@ -2900,7 +2900,7 @@ revk_web_settings (httpd_req_t * req)
                      esp_netif_ip_info_t ip;
                      if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
                      {
-                        revk_web_send (req, "WiFi connected <a href='" IPSTR "' target=_blank>" IPSTR "</a>.", IP2STR (&ip.ip),
+                        revk_web_send (req, "WiFi connected <a href='http://" IPSTR "' target=_blank>" IPSTR "</a>.", IP2STR (&ip.ip),
                                        IP2STR (&ip.ip));
                         ok = 1;
                         break;
