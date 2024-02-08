@@ -2938,21 +2938,26 @@ revk_web_settings (httpd_req_t * req)
                      : "Login"
 #endif
          );
-      void addlevel (uint8_t l, const char *v)
+      if (revk_link_down ())
+         level = 0;             // Basic settings to get on line
+      else
       {
-         revk_web_send (req,
-                        "<label class=box style=\"width:%dem\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
-                        strlen (v), l, l == level ? " checked" : "", revk_web_safe (&qs, v));
-      }
-      addlevel (0, "Basic");
+         void addlevel (uint8_t l, const char *v)
+         {
+            revk_web_send (req,
+                           "<label class=box style=\"width:%dem\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
+                           strlen (v), l, l == level ? " checked" : "", revk_web_safe (&qs, v));
+         }
+         addlevel (0, "Basic");
 #ifdef	CONFIG_REVK_WEB_EXTRA
-      addlevel (1, appname);
+         addlevel (1, appname);
 #endif
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	REVK_SETTINGS_HAS_COMMENT
-      addlevel (2, "Advanced");
+         addlevel (2, "Advanced");
 #endif
 #endif
+      }
       revk_web_send (req, "</td></tr>");
       if (*password || !shutdown)
          hr ();
