@@ -2900,10 +2900,7 @@ revk_web_settings (httpd_req_t * req)
                      esp_netif_ip_info_t ip;
                      if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
                      {
-                        revk_web_send (req,
-                                       "WiFi connected <input id=ip size=30 value='http://" IPSTR "/' style='border:none;background:inherit;'>. "//
-				       "<button onclick=\"navigator.clipboard.writeText(document.getElementById('ip').value);this.style.visibility='hidden';\">Copy</button>",
-                                       IP2STR (&ip.ip));
+                        revk_web_send (req, "WiFi connected <b>" IPSTR "</b>.", IP2STR (&ip.ip)); // Attempts to allow copy to clipboard fail...
                         ok = 2;
                         break;
                      }
