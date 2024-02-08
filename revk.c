@@ -2920,8 +2920,6 @@ revk_web_settings (httpd_req_t * req)
             else if (*password && jo_find (j, "password"))
                loggedin = 1;
 #endif
-            if (!e && ok == 2 && revk_shutting_down (NULL))
-               revk_restart ("Note IP", 20);
          }
       }
       jo_free (&j);
