@@ -2900,8 +2900,8 @@ revk_web_settings (httpd_req_t * req)
                      esp_netif_ip_info_t ip;
                      if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
                      {
-                        revk_web_send (req, "WiFi connected <b>" IPSTR "</b>.", IP2STR (&ip.ip));
-                        ok = 1;
+                        revk_web_send (req, "WiFi connected <b id=ip>" IPSTR "</b>. <button onclick=\"var ip=document.getElementById('ip');ip.select();ip.setSelectionRange(0,15);navigator.clipboard.writeText(ip.value).this.style.visibility='none';\">Copy</button>", IP2STR (&ip.ip));
+                        ok = 2;
                         break;
                      }
                   }
@@ -2920,6 +2920,8 @@ revk_web_settings (httpd_req_t * req)
             else if (*password && jo_find (j, "password"))
                loggedin = 1;
 #endif
+	    if(!e&&ok==2&&revk_shutting_down(NULL))
+		    revk_restart("Note IP",20);
          }
       }
       jo_free (&j);
