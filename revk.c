@@ -2902,7 +2902,7 @@ revk_web_settings (httpd_req_t * req)
                      {
                         revk_web_send (req,
                                        "WiFi connected <input id=ip size=30 value='http://" IPSTR "/'>. "//
-				       "<button onclick=\"var ip=document.getElementById('ip');ip.select();ip.setSelectionRange(0,99);navigator.clipboard.writeText(ip.value);this.style.visibility='none';\">Copy</button>",
+				       "<button onclick=\"var ip=document.getElementById('ip');ip.select();ip.setSelectionRange(0,99);navigator.clipboard.writeText(ip.value);this.style.visibility='hidden';ip.blur();\">Copy</button>",
                                        IP2STR (&ip.ip));
                         ok = 2;
                         break;
