@@ -1,6 +1,9 @@
 // (old) settings library
 #include "revk.h"
 #ifdef  CONFIG_REVK_OLD_SETTINGS
+#ifdef  CONFIG_REVK_MESH
+#include <esp_mesh.h>
+#endif
 static const char __attribute__((unused)) * TAG = "Settings";
 
 typedef struct setting_s setting_t;
