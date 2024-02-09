@@ -2965,7 +2965,11 @@ revk_web_settings (httpd_req_t * req)
 #endif
       }
       revk_web_send (req, "</td></tr>");
-      if (*password || !shutdown)
+      if (
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+            *password ||
+#endif
+            !shutdown)
          hr ();
    }
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
