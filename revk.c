@@ -2900,7 +2900,7 @@ revk_web_settings (httpd_req_t * req)
                      esp_netif_ip_info_t ip;
                      if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
                      {
-                        revk_web_send (req, "WiFi connected <b>" IPSTR "</b>.", IP2STR (&ip.ip)); // Attempts to allow copy to clipboard fail...
+                        revk_web_send (req, "WiFi connected <b>" IPSTR "</b>.", IP2STR (&ip.ip));       // Attempts to allow copy to clipboard fail...
                         ok = 2;
                         break;
                      }
@@ -2931,7 +2931,7 @@ revk_web_settings (httpd_req_t * req)
                   "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').setAttribute('hidden','hidden');document.getElementById('_msg').textContent='Please wait';return true;\"><table>");
    if (!shutdown)
    {
-      revk_web_send (req, "<tr id=_set><td><input type=submit value='%s'></td><td colspan=2 nowrap>",
+      revk_web_send (req, "<tr id=_set><td><input name=_save type=submit value='%s'></td><td colspan=2 nowrap>",
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
                      loggedin || !*password ?
 #endif
