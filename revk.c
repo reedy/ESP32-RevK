@@ -2774,6 +2774,8 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    if (s->place)
       place = s->place;
 #endif
+   if (s->gpio && !*place)
+      place = "Unused";
    if (s->ptr == &hostname)
       place = revk_id;          // Special case
 #ifdef  REVK_SETTINGS_HAS_BIT
