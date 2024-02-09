@@ -11,7 +11,7 @@ bit	ota.auto	1			.revk=1	.live=1		// OTA auto update (if otadays set)
 bit	ota.beta				.revk=1	.live=1		// OTA from beta release
 blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1	// OTA cert of otahost
 s	ntphost		CONFIG_REVK_NTPHOST	.revk=1			// NTP host
-s	tz		CONFIG_REVK_TZ		.revk=1			// Timezone
+s	tz		CONFIG_REVK_TZ		.revk=1			// Timezone (<a href='https://gist.github.com/alwynallan/24d96091655391107939'>info</a>)
 u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1			// Watchdog (seconds)
 s	prefix.command	command			.revk=1			// MQTT Prefix for commands
 s	prefix.setting	setting			.revk=1			// MQTT Prefix for settings

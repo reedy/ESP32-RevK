@@ -2980,8 +2980,6 @@ revk_web_settings (httpd_req_t * req)
          {
             revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
             revk_web_setting_s (req, "Passphrase", "wifipass", wifipass, "WiFi pass", NULL);
-            if (!shutdown)
-               revk_web_send (req, "<tr id=_found hidden><td>Found:</td><td colspan=2 id=_list></td></tr>");
             revk_web_setting_s (req, "Hostname", "hostname", hostname, NULL,
 #ifdef  CONFIG_MDNS_MAX_INTERFACES
                                 ".local"
@@ -2989,6 +2987,8 @@ revk_web_settings (httpd_req_t * req)
                                 ""
 #endif
                );
+            if (!shutdown)
+               revk_web_send (req, "<tr id=_found hidden><td>Found:</td><td colspan=2 id=_list></td></tr>");
             hr ();
          }
          revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
