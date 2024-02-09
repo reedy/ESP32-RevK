@@ -2880,8 +2880,10 @@ revk_web_settings (httpd_req_t * req)
             {
                if (jo_find (j, "wifipass") == JO_STRING)
                   jo_strncpy (j, pass, sizeof (pass));
+#ifndef  CONFIG_REVK_OLD_SETTINGS
                if (!strcmp (pass, revk_settings_secret))
                   strcpy (pass, wifipass);
+#endif
                if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
                   ok = 1;
                else if (sta_netif)
