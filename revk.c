@@ -3319,7 +3319,7 @@ revk_web_status (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    if (shutdown && *shutdown)
-      revk_web_send (req, "<p>%s</p>", shutdown);
+      revk_web_send (req, shutdown);
    httpd_resp_sendstr_chunk (req, NULL);
    return ESP_OK;
 }
