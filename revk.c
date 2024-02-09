@@ -2976,6 +2976,20 @@ revk_web_settings (httpd_req_t * req)
       switch (level)
       {
       case 0:                  // Basic
+         if (!revk_link_down () && *otahost)
+         {
+            revk_web_send (req,
+                           "<tr><td>Upgrade</td><td colspan=2><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
+                           otahost, otabeta ? " (beta)" : "");
+            if (otadays)
+               revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatic updates");
+#ifndef  CONFIG_REVK_OLD_SETTINGS
+#ifdef	CONFIG_REVK_WEB_BETA
+            revk_web_setting (req, "Beta software", "otabeta");
+#endif
+#endif
+            hr ();
+         }
          if (sta_netif)
          {
             revk_web_setting_s (req, "SSID", "wifissid", wifissid, "WiFi name", NULL);
@@ -3004,20 +3018,6 @@ revk_web_settings (httpd_req_t * req)
          revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
                              "See <a href ='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
 #endif
-         if (!revk_link_down () && *otahost)
-         {
-            hr ();
-            revk_web_send (req,
-                           "<tr><td>Upgrade</td><td colspan=2><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
-                           otahost, otabeta ? " (beta)" : "");
-            if (otadays)
-               revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatic updates");
-#ifndef  CONFIG_REVK_OLD_SETTINGS
-#ifdef	CONFIG_REVK_WEB_BETA
-            revk_web_setting (req, "Beta software", "otabeta");
-#endif
-#endif
-         }
          break;
 #ifdef	CONFIG_REVK_WEB_EXTRA
       case 1:                  // App
