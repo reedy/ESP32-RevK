@@ -3063,7 +3063,7 @@ revk_web_settings (httpd_req_t * req)
                         }
                         for (int i = 0; i < s->array; i++)
                         {       // Array
-                           char tag[20];
+                           char tag[32];
                            snprintf (tag, sizeof (tag), "%s%d", s->name, i + 1);
                            revk_web_setting (req, NULL, tag);
                         }
