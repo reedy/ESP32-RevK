@@ -2979,7 +2979,7 @@ revk_web_settings (httpd_req_t * req)
          if (!revk_link_down () && *otahost)
          {
             revk_web_send (req,
-                           "<tr><td>Upgrade</td><td colspan=2><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
+                           "<tr><td>OTA Upgrade</td><td colspan=2><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'></td></tr>",
                            otahost, otabeta ? " (beta)" : "");
             if (otadays)
                revk_web_setting_s (req, "Auto upgrade", "otaauto", otaauto, NULL, "Automatic updates");
