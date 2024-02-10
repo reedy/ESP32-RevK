@@ -29,7 +29,7 @@ Each setting in the file has:-
 - The setting name, followed by whitespace. E.g. `debug` (cannot start `_` and must fit in NVS, with an extra character to spare for array types).
 - Optional default value for setting.
 - Optional additional attributes.
-- Optional comment (starting `//`).
+- Optional comment (starting `//`) which is used as description for web settings.
 
 The setting types are defined below.
 
