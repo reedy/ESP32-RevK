@@ -1264,303 +1264,298 @@ revk_setting (jo_t j)
    if (!bitused)
       return "malloc";
    memset (bitused, 0, sizeof (revk_settings_bits));
-   const char *loadtag (int plen, int pindex)
-   {
-      location = jo_debug (j);
-      int l = jo_strlen (j);
-      if (l + plen > sizeof (tag) - 1)
-         return "Too long";
-      jo_strncpy (j, tag + plen, l + 1);
-      revk_settings_t *s;
-      for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
-      const char *store (int index)
-      {
-         if (!s->len)
-         {
-            if (index < 0)
-            {
-               int e = l;
-               while (e && isdigit ((int) tag[plen + e - 1]))
-                  e--;
-               if (e < l)
-               {
-                  for (s = revk_settings;
-                       s->len && (!s->array || s->len != plen + e || (plen && s->dot != plen)
-                                  || strncmp (s->name, tag, plen + e)); s++);
-                  if (s)
-                     index = atoi (tag + plen + e) - 1;
-               }
-            }
-            if (!s->len)
-               return "Not found index";
-         }
-         if (index < 0)
-            index = 0;
-#ifdef	REVK_SETTINGS_HAS_BIT
-         if (s->type == REVK_SETTINGS_BIT)
-         {                      // De-dup bit (to allow for checkbox usage with secondary hidden)
-            if (bitused[s->bit / 8] & (1 << (s->bit & 7)))
-               return NULL;     // Duplicate bit
-            bitused[s->bit / 8] |= (1 << (s->bit & 7));
-         }
-#endif
-         found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
-         if ((s->array && (index < 0 || index >= s->array)) || (!s->array && index))
-            return "Bad array index";
-         char *val = NULL;
-         if (t == JO_NULL)
-         {                      // Default
-            if (s->def)
-            {
-               val = (char *) s->def;
-#ifdef	REVK_SETTINGS_HAS_NUMERIC
-               if (s->array && (0
-#ifdef	REVK_SETTINGS_HAS_SIGNED
-                                || s->type == REVK_SETTINGS_SIGNED
-#endif
-#ifdef	REVK_SETTINGS_HAS_UNSIGNED
-                                || s->type == REVK_SETTINGS_UNSIGNED
-#endif
-                   ))
-               {                // Skip to the entry
-                  if (s->dq && *val == '"')
-                     val++;
-                  int i = index;
-                  while (i--)
-                  {
-                     while (*val && *val != ',' && *val != ' ' && *val != '\t')
-                        val++;
-                     while (*val && *val == ' ')
-                        val++;
-                     if (*val && (*val == ',' || *val == '\t'))
-                        val++;
-                     while (*val && *val == ' ')
-                        val++;
-                  }
-               }
-#endif
-               val = strdup (val);
-#ifdef	REVK_SETTINGS_HAS_NUMERIC
-               if (s->array && (0
-#ifdef	REVK_SETTINGS_HAS_SIGNED
-                                || s->type == REVK_SETTINGS_SIGNED
-#endif
-#ifdef	REVK_SETTINGS_HAS_UNSIGNED
-                                || s->type == REVK_SETTINGS_UNSIGNED
-#endif
-                   ))
-               {
-                  char *v = val;
-                  while (*v && *v != ' ' && *v != ',' && *v != '\t' && (s->dq && *v != '"'))
-                     v++;
-                  *v = 0;
-               }
-#endif
-            }
-         } else if (t != JO_CLOSE)
-            val = jo_strdup (j);
-         int len = s->malloc ? sizeof (void *) : s->size ? : 1;
-         uint8_t *temp = mallocspi (len);
-         if (!temp)
-            err = "malloc";
-         else
-         {
-            memset (temp, 0, len);
-            uint8_t dofree = s->malloc;
-            uint8_t bit = 0;
-            void *ptr = s->ptr ? : &bit;
-#ifdef	REVK_SETTINGS_HAS_BIT
-            if (s->type == REVK_SETTINGS_BIT)
-               bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
-            else
-#endif
-               ptr += index * (s->malloc ? sizeof (void *) : s->size);
-            if (s->secret && *revk_settings_secret && !strcmp (val, revk_settings_secret)
-                && (!s->malloc || s->type != REVK_SETTINGS_STRING || !*(char **) ptr || **((char **) ptr)))
-            {                   // Secret is dummy, unless current value is empty string in which case dummy value is allowed
-               free (val);
-               free (temp);
-               return NULL;
-            }
-            err = load_value (s, val, index, temp);
-            if (!err)
-            {
-               if (t == JO_NULL && !s->fix)
-               {                // Set to default, so erase - could still be a change of value (to default) so continue to compare
-                  if (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
-                  {
-                     err = nvs_erase (s, s->name);
-                     if (!err && !s->live)
-                        change = 1;
-                  }
-               }
-               if (value_cmp (s, ptr, temp))
-               {                // Changed value, so store
-                  if (s->live)
-                  {             // Apply live
-#ifdef	REVK_SETTINGS_HAS_BIT
-                     if (s->type == REVK_SETTINGS_BIT)
-                     {
-                        if (*temp)
-                           ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
-                        else
-                           ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
-                     } else
-#endif
-                     {
-                        if (s->malloc)
-                           free (*(void **) ptr);
-                        memcpy (ptr, temp, len);
-                        dofree = 0;
-                     }
-                  }
-                  if (t != JO_NULL || s->fix)
-                  {             // Put in NVS
-                     err = nvs_put (s, index, temp);
-                     if (!err && !s->live)
-                        change = 1;
-                  }
-               }
-            }
-            if (dofree)
-               free (*(void **) temp);
-            free (temp);
-         }
-         free (val);
-         return err;
-      }
-      t = jo_next (j);
-      if (*tag == '_')
-         return NULL;              // Not a real setting
-#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-      if (!passok && s->ptr == &password)
-      {
-         char *val = jo_strdup (j);
-         if (!val || !*val)
-            err = "Specify password";
-         else if (!strcmp (val, password))
-            passok = 1;
-         else
-            err = "Wrong password";
-         free (val);
-      }
-      if (!err && !passok)
-         err = "Password required to change settings";
-      if (err)
-         return err;
-#endif
-      void zapdef (void)
-      {
-         if (pindex >= 0)
-            err = store (pindex);
-         else if (s->array)
-         {
-            nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7));    // Done here for whole array rather than nvs_erase, as this covers whole array
-            for (int i = 0; !err && i < s->array; i++)
-               err = store (i);
-         } else
-            err = store (-1);
-      }
-      if (t == JO_NULL)
-      {
-         if (s->len)
-            zapdef ();
-         else if (!plen)
-         {
-            for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-            if (s->len)
-            {                   // object reset
-               int group = s->group;
-               for (s = revk_settings; s->len; s++)
-                  if (s->group == group)
-                     zapdef (); // Including secrets
-            }
-         } else
-            return "Invalid null";
-      } else if (t == JO_OBJECT)
-      {                         // Object
-         if (plen)
-            return "Nested too far";
-         if (s->len)
-            return "Not an object";
-         for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-         if (!s->len)
-            err = "Unknown object";
-         else
-         {
-            int group = s->group;
-            err = scan (l, -1);
-            if (err)
-               return err;
-            t = JO_NULL;        // Set to default
-            for (s = revk_settings; s->len; s++)
-               if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
-                  zapdef ();    // Not secrets, D'Oh
-         }
-      } else if (t == JO_ARRAY)
-      {                         // Array
-         if (pindex >= 0)
-            return "Unexpected array";
-         if (!s->len)
-         {                      // Array of sub objects
-            int index = 0;
-            while ((t = jo_next (j)) != JO_CLOSE)
-            {
-               if (t == JO_TAG)
-                  loadtag (l, index);
-               else if (t == JO_OBJECT)
-               {                // Sub object
-                  t = jo_next (j);
-                  if ((err = scan (l, index)))
-                     return err;
-               } else
-                  return "Bad array";
-               index++;
-            }
-            // Find group for clean up
-            for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-            if (!s->len)
-               return "Not found object array";
-            int group = s->group;
-            while (1)
-            {                   // Clean up
-               for (s = revk_settings; s->len; s++)
-                  if (s->group == group && s->array >= index)
-                     if ((err = store (index)))
-                        return err;
-               index++;
-            }
-            t = JO_NULL;        // Set to default
-            for (s = revk_settings; s->len; s++)
-               if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
-                  zapdef ();    // Not secrets, D'Oh
-         } else if (!s->array)
-            return "Unexpected array";
-         else
-         {
-            int index = 0;
-            while (!err && (t = jo_next (j)) != JO_CLOSE && index < s->array)
-            {
-               if ((err = store (index)))
-                  return err;
-               index++;
-            }
-            if (t != JO_CLOSE)
-               return "Too many array entries";
-            while (!err && index < s->array)
-            {                   // NULLs
-               if ((err = store (index)))
-                  return err;
-               index++;
-            }
-         }
-      } else if ((err = store (pindex)))
-         return err;
-   }
    const char *scan (int plen, int pindex)
    {
       while (!err && (t = jo_next (j)) == JO_TAG)
-         err = loadtag (plen, pindex);
+      {
+         location = jo_debug (j);
+         int l = jo_strlen (j);
+         if (l + plen > sizeof (tag) - 1)
+            return "Too long";
+         jo_strncpy (j, tag + plen, l + 1);
+         revk_settings_t *s;
+         for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
+         const char *store (int index)
+         {
+            if (!s->len)
+            {
+               if (index < 0)
+               {
+                  int e = l;
+                  while (e && isdigit ((int) tag[plen + e - 1]))
+                     e--;
+                  if (e < l)
+                  {
+                     for (s = revk_settings;
+                          s->len && (!s->array || s->len != plen + e || (plen && s->dot != plen)
+                                     || strncmp (s->name, tag, plen + e)); s++);
+                     if (s)
+                        index = atoi (tag + plen + e) - 1;
+                  }
+               }
+               if (!s->len)
+                  return "Not found index";
+            }
+            if (index < 0)
+               index = 0;
+#ifdef	REVK_SETTINGS_HAS_BIT
+            if (s->type == REVK_SETTINGS_BIT)
+            {                   // De-dup bit (to allow for checkbox usage with secondary hidden)
+               if (bitused[s->bit / 8] & (1 << (s->bit & 7)))
+                  return NULL;  // Duplicate bit
+               bitused[s->bit / 8] |= (1 << (s->bit & 7));
+            }
+#endif
+            found[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));
+            if ((s->array && (index < 0 || index >= s->array)) || (!s->array && index))
+               return "Bad array index";
+            char *val = NULL;
+            if (t == JO_NULL)
+            {                   // Default
+               if (s->def)
+               {
+                  val = (char *) s->def;
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
+                  if (s->array && (0
+#ifdef	REVK_SETTINGS_HAS_SIGNED
+                                   || s->type == REVK_SETTINGS_SIGNED
+#endif
+#ifdef	REVK_SETTINGS_HAS_UNSIGNED
+                                   || s->type == REVK_SETTINGS_UNSIGNED
+#endif
+                      ))
+                  {             // Skip to the entry
+                     if (s->dq && *val == '"')
+                        val++;
+                     int i = index;
+                     while (i--)
+                     {
+                        while (*val && *val != ',' && *val != ' ' && *val != '\t')
+                           val++;
+                        while (*val && *val == ' ')
+                           val++;
+                        if (*val && (*val == ',' || *val == '\t'))
+                           val++;
+                        while (*val && *val == ' ')
+                           val++;
+                     }
+                  }
+#endif
+                  val = strdup (val);
+#ifdef	REVK_SETTINGS_HAS_NUMERIC
+                  if (s->array && (0
+#ifdef	REVK_SETTINGS_HAS_SIGNED
+                                   || s->type == REVK_SETTINGS_SIGNED
+#endif
+#ifdef	REVK_SETTINGS_HAS_UNSIGNED
+                                   || s->type == REVK_SETTINGS_UNSIGNED
+#endif
+                      ))
+                  {
+                     char *v = val;
+                     while (*v && *v != ' ' && *v != ',' && *v != '\t' && (s->dq && *v != '"'))
+                        v++;
+                     *v = 0;
+                  }
+#endif
+               }
+            } else if (t != JO_CLOSE)
+               val = jo_strdup (j);
+            int len = s->malloc ? sizeof (void *) : s->size ? : 1;
+            uint8_t *temp = mallocspi (len);
+            if (!temp)
+               err = "malloc";
+            else
+            {
+               memset (temp, 0, len);
+               uint8_t dofree = s->malloc;
+               uint8_t bit = 0;
+               void *ptr = s->ptr ? : &bit;
+#ifdef	REVK_SETTINGS_HAS_BIT
+               if (s->type == REVK_SETTINGS_BIT)
+                  bit = ((((uint8_t *) & revk_settings_bits)[s->bit / 8] & (1 << (s->bit & 7))) ? 1 : 0);
+               else
+#endif
+                  ptr += index * (s->malloc ? sizeof (void *) : s->size);
+               if (s->secret && *revk_settings_secret && !strcmp (val, revk_settings_secret)
+                   && (!s->malloc || s->type != REVK_SETTINGS_STRING || !*(char **) ptr || **((char **) ptr)))
+               {                // Secret is dummy, unless current value is empty string in which case dummy value is allowed
+                  free (val);
+                  free (temp);
+                  return NULL;
+               }
+               err = load_value (s, val, index, temp);
+               if (!err)
+               {
+                  if (t == JO_NULL && !s->fix)
+                  {             // Set to default, so erase - could still be a change of value (to default) so continue to compare
+                     if (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
+                     {
+                        err = nvs_erase (s, s->name);
+                        if (!err && !s->live)
+                           change = 1;
+                     }
+                  }
+                  if (value_cmp (s, ptr, temp))
+                  {             // Changed value, so store
+                     if (s->live)
+                     {          // Apply live
+#ifdef	REVK_SETTINGS_HAS_BIT
+                        if (s->type == REVK_SETTINGS_BIT)
+                        {
+                           if (*temp)
+                              ((uint8_t *) & revk_settings_bits)[s->bit / 8] |= (1 << (s->bit & 7));
+                           else
+                              ((uint8_t *) & revk_settings_bits)[s->bit / 8] &= ~(1 << (s->bit & 7));
+                        } else
+#endif
+                        {
+                           if (s->malloc)
+                              free (*(void **) ptr);
+                           memcpy (ptr, temp, len);
+                           dofree = 0;
+                        }
+                     }
+                     if (t != JO_NULL || s->fix)
+                     {          // Put in NVS
+                        err = nvs_put (s, index, temp);
+                        if (!err && !s->live)
+                           change = 1;
+                     }
+                  }
+               }
+               if (dofree)
+                  free (*(void **) temp);
+               free (temp);
+            }
+            free (val);
+            return err;
+         }
+         t = jo_next (j);
+         if (*tag == '_')
+            return NULL;        // Not a real setting
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+         if (!passok && s->ptr == &password)
+         {
+            char *val = jo_strdup (j);
+            if (!val || !*val)
+               err = "Specify password";
+            else if (!strcmp (val, password))
+               passok = 1;
+            else
+               err = "Wrong password";
+            free (val);
+         }
+         if (!err && !passok)
+            err = "Password required to change settings";
+         if (err)
+            return err;
+#endif
+         void zapdef (void)
+         {
+            if (pindex >= 0)
+               err = store (pindex);
+            else if (s->array)
+            {
+               nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7)); // Done here for whole array rather than nvs_erase, as this covers whole array
+               for (int i = 0; !err && i < s->array; i++)
+                  err = store (i);
+            } else
+               err = store (-1);
+         }
+         if (t == JO_NULL)
+         {
+            if (s->len)
+               zapdef ();
+            else if (!plen)
+            {
+               for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+               if (s->len)
+               {                // object reset
+                  int group = s->group;
+                  for (s = revk_settings; s->len; s++)
+                     if (s->group == group)
+                        zapdef ();      // Including secrets
+               }
+            } else
+               return "Invalid null";
+         } else if (t == JO_OBJECT)
+         {                      // Object
+            if (plen)
+               return "Nested too far";
+            if (s->len)
+               return "Not an object";
+            for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+            if (!s->len)
+               err = "Unknown object";
+            else
+            {
+               int group = s->group;
+               err = scan (l, -1);
+               if (err)
+                  return err;
+               t = JO_NULL;     // Set to default
+               for (s = revk_settings; s->len; s++)
+                  if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
+                     zapdef (); // Not secrets, D'Oh
+            }
+         } else if (t == JO_ARRAY)
+         {                      // Array
+            if (pindex >= 0)
+               return "Unexpected array";
+            if (!s->len)
+            {                   // Array of sub objects
+               int index = 0;
+               while ((t = jo_next (j)) != JO_CLOSE)
+               {
+                  if (t == JO_OBJECT)
+                  {             // Sub object
+                     if ((err = scan (l, index)))
+                        return err;
+                  } else
+                     return "Bad array of objects";
+                  index++;
+               }
+               // Find group for clean up
+               for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+               if (!s->len)
+                  return "Not found object array";
+               int group = s->group;
+               while (1)
+               {                // Clean up
+                  for (s = revk_settings; s->len; s++)
+                     if (s->group == group && s->array >= index)
+                        if ((err = store (index)))
+                           return err;
+                  index++;
+               }
+               t = JO_NULL;     // Set to default
+               for (s = revk_settings; s->len; s++)
+                  if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
+                     zapdef (); // Not secrets, D'Oh
+            } else if (!s->array)
+               return "Unexpected array";
+            else
+            {
+               int index = 0;
+               while (!err && (t = jo_next (j)) != JO_CLOSE && index < s->array)
+               {
+                  if ((err = store (index)))
+                     return err;
+                  index++;
+               }
+               if (t != JO_CLOSE)
+                  return "Too many array entries";
+               while (!err && index < s->array)
+               {                // NULLs
+                  if ((err = store (index)))
+                     return err;
+                  index++;
+               }
+            }
+         } else if ((err = store (pindex)))
+            return err;
+      }
       return err;
    }
    err = scan (0, -1);
