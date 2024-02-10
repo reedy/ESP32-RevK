@@ -1521,9 +1521,6 @@ revk_setting (jo_t j)
                int group = s->group;
                while (1)
                {                // Clean up
-                  for (s = revk_settings; s->len && (s->group != group || s->array <= index); s++);
-                  if (!s->len)
-                     break;
                   for (s = revk_settings; s->len; s++)
                      if (s->group == group && s->array >= index)
                         if ((err = store (index)))
