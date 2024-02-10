@@ -1506,7 +1506,7 @@ revk_setting (jo_t j)
             if (!s->len)
             {                   // Array of sub objects
                int index = 0;
-               while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
+               while ((t = jo_next (j)) != JO_CLOSE)
                {
                   if (t == JO_TAG)
                      store (index);
@@ -1519,8 +1519,6 @@ revk_setting (jo_t j)
                      return "Bad array";
                   index++;
                }
-               if (t != JO_CLOSE)
-                  return "Too many array group entries";
                // Find group for clean up
                for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
                if (!s->len)
