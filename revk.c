@@ -1464,7 +1464,7 @@ blink_default (const char *user)
 
 uint32_t
 revk_rgb (char c)
-{                               // Map colour character to RGB - maybe expand to handle more colours later.
+{                               // Map colour character to RGB - maybe expand to handle more colours later. Returns RGB in low bytes, then 2 bits per RGB in bits 24 to 29. bits 30/31 clear
    char u = toupper (c);
 #ifdef	CONFIG_REVK_RGB_MAX_R
    uint8_t r = (u == 'R' || u == 'O' ? CONFIG_REVK_RGB_MAX_R : u == 'Y'
@@ -1525,7 +1525,7 @@ revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb)
 
 uint32_t
 revk_blinker (void)
-{                               // LED blinking controls
+{                               // LED blinking controls, in style of revk_rgb() but bit 30 is set if not black, and bit 31 is set for blink cycle
    static uint32_t rgb = 0;     // Current colour (2 bits per)
    static uint8_t tick = 255;   // Blink cycle counter
    uint8_t on = blink_on,       // Current on/off times
@@ -1549,14 +1549,14 @@ revk_blinker (void)
       char col = *c++;          // Next colour
       rgb = revk_rgb (col);
       if (col != 'K')
-         rgb |= 0xC0000000;
+         rgb |= 0x40000000;
    }
    // Updated LED every 10th second
    if (tick < on)
    {
       uint8_t scale = 255 * (tick + 1) / on;
       return ((scale * ((rgb >> 16) & 0xFF) / 255) << 16) + ((scale * ((rgb >> 8) & 0xFF) / 255) << 8) +
-         (scale * (rgb & 0xFF) / 255) + (rgb & 0xFF000000);
+         (scale * (rgb & 0xFF) / 255) + (rgb & 0x7F000000)+0x80000000;;
    } else
    {
       uint8_t scale = 255 * (on + off - tick - 1) / off;
