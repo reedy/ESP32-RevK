@@ -1504,8 +1504,7 @@ revk_setting (jo_t j)
             if (pindex >= 0)
                return "Unexpected array";
             if (!s->len)
-            {
-		    // Find group
+            {                   // See if array of subobjects
                for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
                if (!s->len)
                   return "Not found object array";
@@ -1517,6 +1516,8 @@ revk_setting (jo_t j)
                      return err;
                   index++;
                }
+               if (t != JO_CLOSE)
+                  return "Too many entries";
                while (1)
                {                // Clean up
                   for (s = revk_settings; s->len && (s->group != group || s->array <= index); s++);
@@ -1543,6 +1544,8 @@ revk_setting (jo_t j)
                      return err;
                   index++;
                }
+               if (t != JO_CLOSE)
+                  return "Too many entries";
                while (!err && index < s->array)
                {                // NULLs
                   if ((err = store (index)))
