@@ -1909,7 +1909,13 @@ gpio_ok (uint8_t p)
 #endif
    // ESP8266
 #ifdef CONFIG_IDF_TARGET_ESP8266
-   // 8266 has GPIOs 0...16, allow any use
+   // PLEASE do not remove this!!! Hitting any of these GPIOs in revk_boot()
+   // causes the whole system to lock up.
+   if (p == 1 || p == 3)
+      return 3 + 8;             // Serial
+   if (p >= 6 && p <= 11)
+      return 0;                 // SDIO; attempt to configure causes crash
+   // 8266 has GPIOs 0...16, allow any use except above
    return (p <= 16) ? 3 : 0;
 #endif
 }
@@ -3057,7 +3063,7 @@ revk_web_settings (httpd_req_t * req)
                         }
                         for (int i = 0; i < s->array; i++)
                         {       // Array
-                           char tag[20];
+                           char tag[32];
                            snprintf (tag, sizeof (tag), "%s%d", s->name, i + 1);
                            revk_web_setting (req, NULL, tag);
                         }
@@ -3313,7 +3319,7 @@ revk_web_status (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    if (shutdown && *shutdown)
-      revk_web_send (req, "<p>%s</p>", shutdown);
+      revk_web_send (req, shutdown);
    httpd_resp_sendstr_chunk (req, NULL);
    return ESP_OK;
 }
