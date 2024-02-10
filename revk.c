@@ -3561,7 +3561,7 @@ ota_task (void *pvParameters)
    {
       int status = 0;
       int ota_size = 0;
-      esp_err_t err = REVK_ERR_CHECK (esp_http_client_open (client, 0));
+      esp_err_t err = esp_http_client_open (client, 0);
       if (!err)
          ota_size = esp_http_client_fetch_headers (client);
       if (!err && ota_size && (status = esp_http_client_get_status_code (client)) / 100 == 2)
