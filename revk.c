@@ -1883,6 +1883,10 @@ gpio_ok (uint8_t p)
    if (p >= 16 && p <= 17)
       return 0;
 #endif
+#ifdef	CONFIG_FREERTOS_UNICORE
+   if (p >= 16 && p <= 17)	// Shelly, seem to run in to issues with these
+      return 0;
+#endif
 #endif
 #endif
    if (p >= 34)
