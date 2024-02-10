@@ -2,6 +2,9 @@
 #include "revk.h"
 #include "esp8266_nvs_compat.h"
 #ifndef  CONFIG_REVK_OLD_SETTINGS
+#ifdef  CONFIG_REVK_MESH
+#include <esp_mesh.h>
+#endif
 static const char __attribute__((unused)) * TAG = "Settings";
 
 extern revk_settings_t revk_settings[];
