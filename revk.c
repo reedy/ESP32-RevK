@@ -1464,7 +1464,7 @@ blink_default (const char *user)
 
 uint32_t
 revk_rgb (char c)
-{                               // Map colour character to RGB - maybe expand to handle more colours later. Returns RGB in low bytes, then 2 bits per RGB in bits 24 to 29. bits 30/31 clear
+{                               // Map colour character to RGB - maybe expand to handle more colours later. Returns RGB in low bytes, then 2 bits per RGB in bits 24 to 29. Bit 30 if not black. Bit 31 clear.
    char u = toupper (c);
 #ifdef	CONFIG_REVK_RGB_MAX_R
    uint8_t r = (u == 'R' || u == 'O' ? CONFIG_REVK_RGB_MAX_R : u == 'Y'
@@ -1489,6 +1489,8 @@ revk_rgb (char c)
    rgb |= ((u == 'R' || u == 'Y' || u == 'M' || u == 'W' || u == 'O' ? 3 : 0) << 28);
    rgb |= ((u == 'G' || u == 'Y' || u == 'C' || u == 'W' ? 3 : u == 'O' ? 1 : 0) << 26);
    rgb |= ((u == 'B' || u == 'M' || u == 'C' || u == 'W' ? 3 : 0) << 24);
+   if (u && u != 'K')
+      rgb |= 0x40000000;
    return rgb;
 }
 
@@ -1548,15 +1550,13 @@ revk_blinker (void)
          c = base;              // End of sequence to loop
       char col = *c++;          // Next colour
       rgb = revk_rgb (col);
-      if (col != 'K')
-         rgb |= 0x40000000;
    }
    // Updated LED every 10th second
    if (tick < on)
    {
       uint8_t scale = 255 * (tick + 1) / on;
       return ((scale * ((rgb >> 16) & 0xFF) / 255) << 16) + ((scale * ((rgb >> 8) & 0xFF) / 255) << 8) +
-         (scale * (rgb & 0xFF) / 255) + (rgb & 0x7F000000)+0x80000000;;
+         (scale * (rgb & 0xFF) / 255) + (rgb & 0x7F000000) + 0x80000000;;
    } else
    {
       uint8_t scale = 255 * (on + off - tick - 1) / off;
@@ -1884,7 +1884,7 @@ gpio_ok (uint8_t p)
       return 0;
 #endif
 #ifdef	CONFIG_FREERTOS_UNICORE
-   if (p >= 16 && p <= 17)	// Shelly, seem to run in to issues with these
+   if (p >= 16 && p <= 17)      // Shelly, seem to run in to issues with these
       return 0;
 #endif
 #endif
