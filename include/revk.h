@@ -43,6 +43,9 @@
 #include "../../settings.h"
 #endif
 
+#include <ctype.h>
+#define	isdigit(x)	isdigit((unsigned char)(x))
+
 #ifndef CONFIG_MQTT_BUFFER_SIZE
 #define CONFIG_MQTT_BUFFER_SIZE 2048
 #endif
