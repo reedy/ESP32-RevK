@@ -1502,7 +1502,7 @@ revk_setting (jo_t j)
          } else if (t == JO_ARRAY)
          {                      // Array
             if (pindex >= 0)
-               return "Unexpected array";
+               return "Unexpected nested array";
             if (!s->len)
             {                   // Array of sub objects
                int index = 0;
@@ -1524,9 +1524,17 @@ revk_setting (jo_t j)
                while (1)
                {                // Clean up
                   for (s = revk_settings; s->len; s++)
-                     if (s->group == group && s->array >= index)
+                  {
+                     int found = 0;
+                     if (s->group == group && s->array > index)
+                     {
+                        found++;
                         if ((err = store (index)))
                            return err;
+                     }
+                     if (!found)
+                        break;  // Got to end
+                  }
                   index++;
                }
                t = JO_NULL;     // Set to default
