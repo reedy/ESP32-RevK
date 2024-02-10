@@ -2,6 +2,8 @@
 
 Settings are simple named values that are stored in non volatile storage and cane be read or changed. Some settings have default values.
 
+([details for developers](revk-settings-dev.md))
+
 ## Changing settings
 
 Settings are normally represented as a JSON value (i.e. string, number, boolean), and you can change the value with the `setting` command, e.g. sending `setting/myapp` with payload `{"timeout":30}` would change the `timeout` setting to `30`. You can include any number of settings at once.
