@@ -1377,7 +1377,7 @@ revk_setting (jo_t j)
                else
 #endif
                   ptr += index * (s->malloc ? sizeof (void *) : s->size);
-               if (s->secret && *revk_settings_secret && !strcmp (val, revk_settings_secret)
+               if (s->secret && *revk_settings_secret && val && !strcmp (val, revk_settings_secret)
                    && (!s->malloc || s->type != REVK_SETTINGS_STRING || !*(char **) ptr || **((char **) ptr)))
                {                // Secret is dummy, unless current value is empty string in which case dummy value is allowed
                   free (val);
