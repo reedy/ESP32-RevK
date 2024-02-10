@@ -1271,7 +1271,7 @@ revk_setting (jo_t j)
          location = jo_debug (j);
          int l = jo_strlen (j);
          if (l + plen > sizeof (tag) - 1)
-            return plen ? "Not found sub object" : "Not found";
+            return "Too long";
          jo_strncpy (j, tag + plen, l + 1);
          revk_settings_t *s;
          for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
