@@ -1585,7 +1585,7 @@ task (void *pvParameters)
    }
 #ifdef	CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
-   if (blink[0].set && blink[0].num == blink[1].num && !revk_strip)
+   if (blink[0].set && blink[1].set && blink[0].num == blink[1].num && !revk_strip)
    {                            // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
       led_strip_config_t strip_config = {
          .strip_gpio_num = (blink[0].num),
@@ -2173,7 +2173,7 @@ revk_start (void)
 {                               // Start stuff, init all done
 #ifdef CONFIG_REVK_BLINK_LIB
 #ifdef CONFIG_REVK_LED_STRIP
-   if (blink[0].set && blink[0].num == blink[1].num)
+   if (blink[0].set && blink[1].set && blink[0].num == blink[1].num)
    {
       if (!(gpio_ok (blink[0].num) & 1))
       {
@@ -3642,33 +3642,32 @@ ota_task (void *pvParameters)
             if (!(err = REVK_ERR_CHECK (esp_ota_begin (ota_partition, ota_size, &ota_handle))))
                next = now + 5;
             char *buf = mallocspi (1024);
-            if (!buf)
-               err = "malloc";
-            while (!err && ota_data < ota_size)
-            {
-               int len = esp_http_client_read_response (client, (void *) buf, 1024);
-               if (len <= 0)
-                  break;
-               if ((err = REVK_ERR_CHECK (esp_ota_write (ota_handle, buf, len))))
-                  break;
-               if (!ota_data)
-                  revk_restart ("OTA Download started", 10);
-               else if (ota_data < ota_size / 2 && (ota_data + len) >= ota_size / 2)
-                  revk_restart ("OTA Download progress", 10);
-               ota_data += len;
-               now = uptime ();
-               ota_percent = ota_data * 100 / ota_size;
-               if (ota_percent != ota_progress && (ota_percent == 100 || next < now || ota_percent / 10 != ota_progress / 10))
+            if (buf)
+               while (!err && ota_data < ota_size)
                {
-                  ESP_LOGI (TAG, "Flash %d%%", ota_percent);
-                  jo_t j = jo_make (NULL);
-                  jo_int (j, "size", ota_size);
-                  jo_int (j, "loaded", ota_data);
-                  jo_int (j, "progress", ota_progress = ota_percent);
-                  revk_info_clients ("upgrade", &j, -1);
-                  next = now + 5;
+                  int len = esp_http_client_read_response (client, (void *) buf, 1024);
+                  if (len <= 0)
+                     break;
+                  if ((err = REVK_ERR_CHECK (esp_ota_write (ota_handle, buf, len))))
+                     break;
+                  if (!ota_data)
+                     revk_restart ("OTA Download started", 10);
+                  else if (ota_data < ota_size / 2 && (ota_data + len) >= ota_size / 2)
+                     revk_restart ("OTA Download progress", 10);
+                  ota_data += len;
+                  now = uptime ();
+                  ota_percent = ota_data * 100 / ota_size;
+                  if (ota_percent != ota_progress && (ota_percent == 100 || next < now || ota_percent / 10 != ota_progress / 10))
+                  {
+                     ESP_LOGI (TAG, "Flash %d%%", ota_percent);
+                     jo_t j = jo_make (NULL);
+                     jo_int (j, "size", ota_size);
+                     jo_int (j, "loaded", ota_data);
+                     jo_int (j, "progress", ota_progress = ota_percent);
+                     revk_info_clients ("upgrade", &j, -1);
+                     next = now + 5;
+                  }
                }
-            }
             free (buf);
             // End
             if (!err && !(err = REVK_ERR_CHECK (esp_ota_end (ota_handle))))
