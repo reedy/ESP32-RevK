@@ -3569,48 +3569,53 @@ ota_task (void *pvParameters)
          ESP_LOGI (TAG, "OTA %s", url);
 #ifdef  CONFIG_REVK_MESH
          int ota_data = 0;
-         uint8_t block = mallocspi (MESH_MPS);
          int blockp = 0;
-         void send_ota (void)
+         uint8_t block = mallocspi (MESH_MPS);
+         if (!block)
+            err = "malloc";
+         else
          {
-            mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
-            mesh_ota_ack = 0xA0 + (*block & 0x0F);      // The ACK we want
-            mesh_safe_send (&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
-            int try = 10;
-            while (!xSemaphoreTake (mesh_ota_sem, 500 / portTICK_PERIOD_MS) && --try)
-               mesh_safe_send (&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);  // Resend
-            if (!try)
+            void send_ota (void)
             {
-               ESP_LOGE (TAG, "Send timeout %02X", *data.data);
-               ota_size = 0;
+               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
+               mesh_ota_ack = 0xA0 + (*block & 0x0F);   // The ACK we want
+               mesh_safe_send (&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
+               int try = 10;
+               while (!xSemaphoreTake (mesh_ota_sem, 500 / portTICK_PERIOD_MS) && --try)
+                  mesh_safe_send (&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);       // Resend
+               if (!try)
+               {
+                  ESP_LOGE (TAG, "Send timeout %02X", *data.data);
+                  ota_size = 0;
+               }
+               blockp = 1;
+               *block = 0xD0 + ((*block + 1) & 0xF);    // Next data block
             }
-            blockp = 1;
-            *block = 0xD0 + ((*block + 1) & 0xF);       // Next data block
-         }
-         blockp = 0;
-         block[blockp++] = 0x50;        // Start[0]
-         block[blockp++] = (ota_size >> 16);
-         block[blockp++] = (ota_size >> 8);
-         block[blockp++] = ota_size;
-         send_ota ();
-         sleep (5);             // Erase
-         while (!err && ota_data < ota_size)
-         {
-            int len = esp_http_client_read_response (client, (char *) block + blockp, MESH_MPS - blockp);
-            if (len <= 0)
-               break;
-            blockp += len;
-            send_ota ();
-         }
-         if (!err && ota_size)
-         {                      // End
-            if (blockp > 1)
-               send_ota ();     // Last data block
             blockp = 0;
-            block[blockp++] = 0xE0 + (*block & 0xF);    // End
+            block[blockp++] = 0x50;     // Start[0]
+            block[blockp++] = (ota_size >> 16);
+            block[blockp++] = (ota_size >> 8);
+            block[blockp++] = ota_size;
             send_ota ();
+            sleep (5);          // Erase
+            while (!err && ota_data < ota_size)
+            {
+               int len = esp_http_client_read_response (client, (char *) block + blockp, MESH_MPS - blockp);
+               if (len <= 0)
+                  break;
+               blockp += len;
+               send_ota ();
+            }
+            if (!err && ota_size)
+            {                   // End
+               if (blockp > 1)
+                  send_ota ();  // Last data block
+               blockp = 0;
+               block[blockp++] = 0xE0 + (*block & 0xF); // End
+               send_ota ();
+            }
+            free (block);
          }
-         free (block);
 #else
          esp_ota_handle_t ota_handle;
          const esp_partition_t *ota_partition = NULL;
