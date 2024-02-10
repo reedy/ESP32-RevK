@@ -3571,9 +3571,7 @@ ota_task (void *pvParameters)
          int ota_data = 0;
          int blockp = 0;
          uint8_t *block = mallocspi (MESH_MPS);
-         if (!block)
-            err = "malloc";
-         else
+         if (block)
          {
             void send_ota (void)
             {
