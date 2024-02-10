@@ -3570,7 +3570,7 @@ ota_task (void *pvParameters)
 #ifdef  CONFIG_REVK_MESH
          int ota_data = 0;
          int blockp = 0;
-         uint8_t block = mallocspi (MESH_MPS);
+         uint8_t *block = mallocspi (MESH_MPS);
          if (!block)
             err = "malloc";
          else
