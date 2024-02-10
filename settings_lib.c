@@ -1508,7 +1508,7 @@ revk_setting (jo_t j)
                int index = 0;
                while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
                {
-                  if (t == jO_TAG)
+                  if (t == JO_TAG)
                      store (index);
                   else if (t == JO_OBJECT)
                   {             // Sub object
