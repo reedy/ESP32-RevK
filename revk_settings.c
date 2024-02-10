@@ -512,9 +512,9 @@ main (int argc, const char *argv[])
                if (typename (H, d->type))
                   errx (1, "Unknown type %s in %s", d->type, d->fn);
                fprintf (H, " %s", d->name);
-               typesuffix (H, d->type);
                if (d->array)
                   fprintf (H, "[%s]", d->array);
+               typesuffix (H, d->type);
                fprintf (H, ";");
                if (d->comment)
                   fprintf (H, "\t// %s", d->comment);
