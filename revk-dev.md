@@ -58,7 +58,7 @@ The `app_callback` is also called for a number of internal functions.
 
 ### Settings
 
-**This is the OLD settings code, enabled with `CONFIG_OLD_SETTINGS`, see [revk-settings.md](New settings system)**
+**This is the OLD settings code, enabled with `CONFIG_OLD_SETTINGS`, see [New settings system](revk-settings.md)**
 
 Between `revk_boot` and `revk_start` you should add necessary calls to `revk_register(...)` to add any settings you need.
 ```
