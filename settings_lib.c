@@ -1271,7 +1271,7 @@ revk_setting (jo_t j)
          location = jo_debug (j);
          int l = jo_strlen (j);
          if (l + plen > sizeof (tag) - 1)
-            return "Not found";
+            return plen ? "Not found sub object" : "Not found";
          jo_strncpy (j, tag + plen, l + 1);
          revk_settings_t *s;
          for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
@@ -1294,7 +1294,7 @@ revk_setting (jo_t j)
                   }
                }
                if (!s->len)
-                  return "Not found";
+                  return "Not found index";
             }
             if (index < 0)
                index = 0;
@@ -1507,7 +1507,7 @@ revk_setting (jo_t j)
             {
                for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
                if (!s->len)
-                  return "Not found";
+                  return "Not found object array";
                int group = s->group;
                int index = 0;
                while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
