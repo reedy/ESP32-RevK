@@ -1505,6 +1505,7 @@ revk_setting (jo_t j)
                return "Unexpected array";
             if (!s->len)
             {
+		    // Find group
                for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
                if (!s->len)
                   return "Not found object array";
@@ -1512,9 +1513,6 @@ revk_setting (jo_t j)
                int index = 0;
                while ((t = jo_next (j)) != JO_CLOSE && index < s->array)
                {
-                  for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-                  if (!s->len)
-                     return "Unknown object";
                   if ((err = scan (l, index)))
                      return err;
                   index++;
