@@ -44,7 +44,10 @@
 #endif
 
 #include <ctype.h>
-#define	isdigit(x)	isdigit((unsigned char)(x))
+#define	is_digit(x)	isdigit((unsigned char)(x))
+#define	is_xdigit(x)	isxdigit((unsigned char)(x))
+#define	is_alpha(x)	isalpha((unsigned char)(x))
+#define	is_alnum(x)	isalnum((unsigned char)(x))
 
 #ifndef CONFIG_MQTT_BUFFER_SIZE
 #define CONFIG_MQTT_BUFFER_SIZE 2048

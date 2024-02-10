@@ -77,13 +77,13 @@ typename (FILE * O, const char *type)
       fprintf (O, "revk_settings_blob_t*");
    else if (!strcmp (type, "s"))
       fprintf (O, "char*");
-   else if (*type == 'c' && isdigit ((int) type[1]))
+   else if (*type == 'c' && isdigit (type[1]))
       fprintf (O, "char");
-   else if (*type == 'o' && isdigit ((int) type[1]))
+   else if (*type == 'o' && isdigit (type[1]))
       fprintf (O, "uint8_t");
-   else if (*type == 'u' && isdigit ((int) type[1]))
+   else if (*type == 'u' && isdigit (type[1]))
       fprintf (O, "uint%s_t", type + 1);
-   else if (*type == 's' && isdigit ((int) type[1]))
+   else if (*type == 's' && isdigit (type[1]))
       fprintf (O, "int%s_t", type + 1);
    else
       return 1;
