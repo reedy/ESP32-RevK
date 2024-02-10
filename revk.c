@@ -3569,7 +3569,7 @@ ota_task (void *pvParameters)
          ESP_LOGI (TAG, "OTA %s", url);
 #ifdef  CONFIG_REVK_MESH
          int ota_data = 0;
-         uint8_t block[MESH_MPS];
+	 uint8_t block=mallocspi(MESH_MPS);
          int blockp = 0;
          void send_ota (void)
          {
@@ -3596,7 +3596,7 @@ ota_task (void *pvParameters)
          sleep (5);             // Erase
          while (!err && ota_data < ota_size)
          {
-            int len = esp_http_client_read_response (client, (char *) block + blockp, sizeof (block) - blockp);
+            int len = esp_http_client_read_response (client, (char *) block + blockp, MESH_MPS - blockp);
             if (len <= 0)
                break;
             blockp += len;
@@ -3610,6 +3610,7 @@ ota_task (void *pvParameters)
             block[blockp++] = 0xE0 + (*block & 0xF);    // End
             send_ota ();
          }
+	 free(block);
 #else
          esp_ota_handle_t ota_handle;
          const esp_partition_t *ota_partition = NULL;
@@ -3637,10 +3638,11 @@ ota_task (void *pvParameters)
             revk_info ("upgrade", &j);
             if (!(err = REVK_ERR_CHECK (esp_ota_begin (ota_partition, ota_size, &ota_handle))))
                next = now + 5;
+	    char *buf=mallocspi(1024);
+	    if(!buf)err="malloc";
             while (!err && ota_data < ota_size)
             {
-               uint8_t buf[1024];
-               int len = esp_http_client_read_response (client, (void *) buf, sizeof (buf));
+               int len = esp_http_client_read_response (client, (void *) buf, 1024);
                if (len <= 0)
                   break;
                if ((err = REVK_ERR_CHECK (esp_ota_write (ota_handle, buf, len))))
@@ -3663,6 +3665,7 @@ ota_task (void *pvParameters)
                   next = now + 5;
                }
             }
+	    free(buf);
             // End
             if (!err && !(err = REVK_ERR_CHECK (esp_ota_end (ota_handle))))
             {
