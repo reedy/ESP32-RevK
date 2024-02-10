@@ -1523,18 +1523,16 @@ revk_setting (jo_t j)
                int group = s->group;
                while (1)
                {                // Clean up
+                  int found = 0;
                   for (s = revk_settings; s->len; s++)
-                  {
-                     int found = 0;
                      if (s->group == group && s->array > index)
                      {
                         found++;
                         if ((err = store (index)))
                            return err;
                      }
-                     if (!found)
-                        break;  // Got to end
-                  }
+                  if (!found)
+                     break;     // Got to end
                   index++;
                }
                t = JO_NULL;     // Set to default
