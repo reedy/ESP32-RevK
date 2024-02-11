@@ -297,7 +297,7 @@ static mesh_addr_t mesh_ota_addr = { };
 
 /* Local functions */
 static int revk_upgrade_check (const char *url);
-#ifdef  CONFIG_REVK_APCONFIG
+#if  defined(CONFIG_REVK_APCONFIG) || defined(CONFIG_REVK_WEB_DEFAULT)
 static httpd_handle_t webserver = NULL;
 #endif
 #ifdef  CONFIG_REVK_APMODE
@@ -2504,6 +2504,25 @@ revk_num_web_handlers (void)
    return 5;
 }
 
+#if  defined(CONFIG_REVK_APCONFIG) || defined(CONFIG_REVK_WEB_DEFAULT)
+void
+revk_web_dummy (httpd_handle_t ** webp)
+{                               // Just settings
+   if (!httpd_start (webp, &config))
+   {
+      {
+         httpd_uri_t uri = {
+            .uri = "/",
+            .method = HTTP_GET,
+            .handler = revk_web_settings,
+         };
+         REVK_ERR_CHECK (httpd_register_uri_handler (*webp, &uri));
+      }
+      revk_web_settings_add (*webp);
+   }
+}
+#endif
+
 const char *
 revk_web_safe (char **temp, const char *value)
 {                               // Returns HTML safe version of value, allocated in *temp if needed (frees previous *temp)
@@ -3463,24 +3482,14 @@ ap_start (void)
    REVK_ERR_CHECK (esp_netif_set_ip_info (ap_netif, &info));
    REVK_ERR_CHECK (esp_netif_dhcps_start (ap_netif));
 #ifdef	CONFIG_REVK_APCONFIG
+#ifndef	CONFIG_REVK_WEB_DEFAULT
    // Web server
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
    config.stack_size = 6 * 1024;        // Larger than default, just in case
    if (apport)
       config.server_port = apport;
-   /* Empty handle to esp_http_server */
-   if (!httpd_start (&webserver, &config))
-   {
-      {
-         httpd_uri_t uri = {
-            .uri = "/",
-            .method = HTTP_GET,
-            .handler = revk_web_settings,
-         };
-         REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
-      }
-      revk_web_settings_add (webserver);
-   }
+   revk_web_dummy (&webserver);
+#endif
 #endif
 #ifdef	CONFIG_REVK_APDNS
    dummy_dns_task_end = 0;
@@ -3509,9 +3518,11 @@ ap_stop (void)
    ESP_LOGI (TAG, "AP config mode stop");
    REVK_ERR_CHECK (esp_netif_dhcps_stop (ap_netif));
 #ifdef  CONFIG_REVK_APCONFIG
+#ifndef	CONFIG_REVK_WEB_DEFAULT
    if (webserver)
       httpd_stop (webserver);
    webserver = NULL;
+#endif
 #endif
 #ifdef  CONFIG_WIFI_APDNS
    dummy_dns_task_end = 1;
@@ -3862,6 +3873,9 @@ revk_upgrade (const char *target, jo_t j)
       esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
 #endif
    }
+#ifdef	CONFIG_REVK_WEB_DEFAULT
+   revk_web_dummy (&webserver);
+#endif
    ota_task_id = revk_task ("OTA", ota_task, url, 5);
    return "";
 }

@@ -429,6 +429,12 @@ menu "RevK"
         help
 		Include extra settings in web config (call to revk_web_extra(httpd_req_t*))
 
+	config REVK_WEB_DEFAULT
+	bool "Default web page for settings only"
+	default n
+        help
+		Start web server by default
+
 	config REVK_STATE_EXTRA
 	bool "Include extra data in state message"
 	default n
