@@ -2506,9 +2506,11 @@ revk_num_web_handlers (void)
 
 #if  defined(CONFIG_REVK_APCONFIG) || defined(CONFIG_REVK_WEB_DEFAULT)
 void
-revk_web_dummy (httpd_handle_t * webp)
+revk_web_dummy (httpd_handle_t * webp, uiint16_t port)
 {                               // Just settings
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   if (port)
+      config.server_port = port;
    config.stack_size = 6 * 1024;        // Larger than default, just in case
    if (!httpd_start (webp, &config))
    {
@@ -3486,9 +3488,7 @@ ap_start (void)
 #ifdef	CONFIG_REVK_APCONFIG
 #ifndef	CONFIG_REVK_WEB_DEFAULT
    // Web server
-   if (apport)
-      config.server_port = apport;
-   revk_web_dummy (&webserver);
+   revk_web_dummy (&webserver, apport);
 #endif
 #endif
 #ifdef	CONFIG_REVK_APDNS
@@ -3874,7 +3874,7 @@ revk_upgrade (const char *target, jo_t j)
 #endif
    }
 #ifdef	CONFIG_REVK_WEB_DEFAULT
-   revk_web_dummy (&webserver);
+   revk_web_dummy (&webserver, 0);
 #endif
    ota_task_id = revk_task ("OTA", ota_task, url, 5);
    return "";
