@@ -299,6 +299,7 @@ static mesh_addr_t mesh_ota_addr = { };
 static int revk_upgrade_check (const char *url);
 #if  defined(CONFIG_REVK_APCONFIG) || defined(CONFIG_REVK_WEB_DEFAULT)
 static httpd_handle_t webserver = NULL;
+void revk_web_dummy (httpd_handle_t * webp, uint16_t port);
 #endif
 #ifdef  CONFIG_REVK_APMODE
 static volatile uint8_t dummy_dns_task_end = 0;
