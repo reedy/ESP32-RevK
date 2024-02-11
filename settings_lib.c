@@ -1432,8 +1432,6 @@ revk_setting (jo_t j)
             return err;
          }
          t = jo_next (j);
-         if (*tag == '_')
-            continue;
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
          if (!passok && s->ptr == &password)
          {
@@ -1451,6 +1449,8 @@ revk_setting (jo_t j)
          if (err)
             return err;
 #endif
+         if (*tag == '_')
+            continue;
          void zapdef (void)
          {
             if (pindex >= 0)
