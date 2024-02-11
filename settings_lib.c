@@ -1433,7 +1433,7 @@ revk_setting (jo_t j)
          }
          t = jo_next (j);
          if (*tag == '_')
-            return NULL;        // Not a real setting
+            continue;
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
          if (!passok && s->ptr == &password)
          {
