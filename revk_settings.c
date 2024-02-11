@@ -72,7 +72,7 @@ int
 typename (FILE * O, const char *type)
 {
    if (!strcmp (type, "gpio"))
-      fprintf (O, "revk_settings_gpio_t");
+      fprintf (O, "revk_gpio_t");
    else if (!strcmp (type, "blob"))
       fprintf (O, "revk_settings_blob_t*");
    else if (!strcmp (type, "s"))
@@ -463,8 +463,8 @@ main (int argc, const char *argv[])
       {
          hasgpio = 1;
          hasunsigned = 1;       // GPIO is treated as a u16
-         fprintf (H, "typedef struct revk_settings_gpio_s revk_settings_gpio_t;\n"      //
-                  "struct revk_settings_gpio_s {\n"     //
+         fprintf (H, "typedef struct revk_gpio_s revk_gpio_t;\n"      //
+                  "struct revk_gpio_s {\n"     //
                   " uint16_t num:10;\n" //
                   " uint16_t strong:1;\n"       //
                   " uint16_t weak:1;\n" //

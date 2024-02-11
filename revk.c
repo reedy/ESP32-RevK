@@ -180,12 +180,12 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #define	u8(n,d)		uint8_t n;
 #define	b(n,d)		uint8_t n;
 #define	s8(n,d)		int8_t n;
-#define	io(n,d)		revk_settings_gpio_t n;
-#define	ioa(n,a,d)	revk_settings_gpio_t n[a];
+#define	io(n,d)		revk_gpio_t n;
+#define	ioa(n,a,d)	revk_gpio_t n[a];
 #ifndef	CONFIG_REVK_BLINK
-#define	led(n,a,d)	extern revk_settings_gpio_t n[a];
+#define	led(n,a,d)	extern revk_gpio_t n[a];
 #else
-#define	led(n,a,d)	revk_settings_gpio_t n[a];
+#define	led(n,a,d)	revk_gpio_t n[a];
 #endif
 #define p(n)		char *prefix##n;
 #define h(n,l,d)	char n[l];
@@ -4351,7 +4351,7 @@ revk_disable_settings (void)
 
 #ifdef  REVK_SETTINGS_HAS_GPIO
 void
-revk_gpio_output (revk_settings_gpio_t g)
+revk_gpio_output (revk_gpio_t g)
 {
    if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       return;
@@ -4372,14 +4372,14 @@ revk_gpio_output (revk_settings_gpio_t g)
 }
 
 void
-revk_gpio_set (revk_settings_gpio_t g, uint8_t o)
+revk_gpio_set (revk_gpio_t g, uint8_t o)
 {
    if (g.set)
       gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
 }
 
 void
-revk_gpio_input (revk_settings_gpio_t g)
+revk_gpio_input (revk_gpio_t g)
 {
    if (!g.set || !GPIO_IS_VALID_GPIO (g.num))
       return;
@@ -4411,7 +4411,7 @@ revk_gpio_input (revk_settings_gpio_t g)
 }
 
 uint8_t
-revk_gpio_get (revk_settings_gpio_t g)
+revk_gpio_get (revk_gpio_t g)
 {
    if (g.set)
       return gpio_get_level (g.num) ^ g.invert;
