@@ -2238,6 +2238,9 @@ revk_start (void)
 #endif
 #endif
 #endif
+#ifdef	CONFIG_REVK_WEB_DEFAULT
+   revk_web_dummy (&webserver, 0);
+#endif
    revk_task (TAG, task, NULL, 4);
 }
 
@@ -3873,9 +3876,6 @@ revk_upgrade (const char *target, jo_t j)
       esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
 #endif
    }
-#ifdef	CONFIG_REVK_WEB_DEFAULT
-   revk_web_dummy (&webserver, 0);
-#endif
    ota_task_id = revk_task ("OTA", ota_task, url, 5);
    return "";
 }
