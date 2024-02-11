@@ -320,8 +320,11 @@ static SemaphoreHandle_t mesh_mutex = NULL;
 void *
 mallocspi (size_t size)
 {
-   void *mem = heap_caps_malloc (size, MALLOC_CAP_SPIRAM);
+   void *mem = NULL;
+#if defined(CONFIG_ESP32_SPIRAM_SUPPORT) || defined(CONFIG_ESP32S3_SPIRAM_SUPPORT)
+   mem = heap_caps_malloc (size, MALLOC_CAP_SPIRAM);
    if (!mem)
+#endif
       mem = malloc (size);
    return mem;
 }
