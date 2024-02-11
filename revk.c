@@ -2506,7 +2506,7 @@ revk_num_web_handlers (void)
 
 #if  defined(CONFIG_REVK_APCONFIG) || defined(CONFIG_REVK_WEB_DEFAULT)
 void
-revk_web_dummy (httpd_handle_t * webp, uiint16_t port)
+revk_web_dummy (httpd_handle_t * webp, uint16_t port)
 {                               // Just settings
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
    if (port)
