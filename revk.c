@@ -534,14 +534,14 @@ mesh_task (void *pvParameters)
                   ESP_LOGE (TAG, "Flash failed at %d", ota_data);
                }
                ota_data += data.size - 1;
-               int percent = ota_data * 100 / ota_size;
-               if (percent != ota_progress && (percent == 100 || next < now || percent / 10 != ota_progress / 10))
+               ota_percent = ota_data * 100 / ota_size;
+               if (ota_percent != ota_progress && (ota_percent == 100 || next < now || ota_percent / 10 != ota_progress / 10))
                {
-                  ESP_LOGI (TAG, "Flash %d%%", percent);
+                  ESP_LOGI (TAG, "Flash %d%%", ota_percent);
                   jo_t j = jo_make (NULL);
                   jo_int (j, "size", ota_size);
                   jo_int (j, "loaded", ota_data);
-                  jo_int (j, "progress", ota_progress = percent);
+                  jo_int (j, "progress", ota_progress = ota_percent);
                   revk_info_clients ("upgrade", &j, -1);
                   next = now + 5;
                }
