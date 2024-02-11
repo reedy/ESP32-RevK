@@ -2509,6 +2509,7 @@ void
 revk_web_dummy (httpd_handle_t * webp)
 {                               // Just settings
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   config.stack_size = 6 * 1024;        // Larger than default, just in case
    if (!httpd_start (webp, &config))
    {
       {
@@ -3485,7 +3486,6 @@ ap_start (void)
 #ifdef	CONFIG_REVK_APCONFIG
 #ifndef	CONFIG_REVK_WEB_DEFAULT
    // Web server
-   config.stack_size = 6 * 1024;        // Larger than default, just in case
    if (apport)
       config.server_port = apport;
    revk_web_dummy (&webserver);
