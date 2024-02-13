@@ -1241,7 +1241,7 @@ revk_setting_dump (int level)
 }
 
 const char *
-revk_settings (jo_t j, const char **locationp)
+revk_settings_store (jo_t j, const char **locationp)
 {
    if (!j)
       return "";
