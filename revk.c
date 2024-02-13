@@ -1055,6 +1055,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          }
          jo_rewind (j);
       }
+      const char *location = NULL;
       if (!err)
       {
          if (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id) || (*hostname && !strcmp (target, hostname)))
@@ -1075,7 +1076,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                else if (suffix && !strcmp (suffix, "**"))
                   b.setting_dump_requested = 3;
                else if (!suffix || strcmp (suffix, "+"))
-                  err = ((err && *err ? err : revk_setting (j)) ? : "Unknown setting");
+                  err = ((err && *err ? err : revk_settings_store (j, &location)) ? : "Unknown setting");
             } else
                err = (err ? : "");      // Ignore
          }
@@ -1099,7 +1100,9 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
             jo_string (e, "target", target);
          if (suffix)
             jo_string (e, "suffix", suffix);
-         if (plen)
+         if (location)
+            jo_string (e, "location", location);
+         else if (plen)
             jo_string (e, "payload", (char *) payload);
          revk_error (suffix ? : prefix, &e);
       }

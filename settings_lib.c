@@ -1568,7 +1568,7 @@ revk_settings_store (jo_t j, const char **locationp)
    if (change)
       revk_restart ("Settings changed", 5);
    if (locationp)
-      *locationp = location;
+      *locationp = err ? location : NULL;
    return err ? : "";
 }
 
