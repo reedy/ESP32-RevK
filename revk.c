@@ -2965,7 +2965,7 @@ revk_web_settings (httpd_req_t * req)
             if (e && *e)
 	    {
 		    if(location)
-               revk_web_send (req, "<p class=error>%s at <tt>%s</tt></p>", e,location);
+               revk_web_send (req, "<p class=error>%s at <tt>%.40s</tt>%s</p>", e,location,strlen(location)>40?"…":"");
 		    else
                revk_web_send (req, "<p class=error>%s</p>", e);
 	    }
