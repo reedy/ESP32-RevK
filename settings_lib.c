@@ -48,21 +48,18 @@ nvs_erase (revk_settings_t * s, const char *tag)
    if (e && e != ESP_ERR_NVS_NOT_FOUND)
       return "Failed to erase";
    if (!e)
-   {
       revk_nvs_time = uptime () + 60;
 #ifdef  CONFIG_REVK_SETTINGS_DEBUG
-      char taga[20];
-      {
-         int l = strlen (tag);
-         if (tag[l - 1] & 0x80)
-            sprintf (taga, "%.*s[%d]", l - 1, tag, tag[l - 1] - 0x80);
-         else
-            strcpy (taga, tag);
-      }
-      ESP_LOGE (TAG, "Erase %s", taga);
+   char taga[20];
+   {
+      int l = strlen (tag);
+      if (tag[l - 1] & 0x80)
+         sprintf (taga, "%.*s[%d]", l - 1, tag, tag[l - 1] - 0x80);
+      else
+         strcpy (taga, tag);
+   }
+   ESP_LOGE (TAG, "Erase %s%s", e ? "fail " : "", taga);
 #endif
-   } else
-      ESP_LOGE (TAG, "Erase fail %s", tag);
    return NULL;
 }
 
