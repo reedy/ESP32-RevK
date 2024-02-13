@@ -2964,6 +2964,8 @@ revk_web_settings (httpd_req_t * req)
             else if (*password && jo_find (j, "password"))
                loggedin = 1;
 #endif
+            else if (jo_find (j, "_save"))
+               revk_web_send (req, "<script>document.location='/'</script>");
          }
       }
       jo_free (&j);
