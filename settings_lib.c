@@ -1387,11 +1387,7 @@ revk_setting (jo_t j)
                   if (t == JO_NULL && !s->fix)
                   {             // Set to default, so erase - could still be a change of value (to default) so continue to compare
                      if (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
-                     {
                         err = nvs_erase (s, s->name);
-                        if (!err && !s->live)
-                           change = 1;
-                     }
                   }
                   if (value_cmp (s, ptr, temp))
                   {             // Changed value, so store
@@ -1414,11 +1410,9 @@ revk_setting (jo_t j)
                         }
                      }
                      if (t != JO_NULL || s->fix)
-                     {          // Put in NVS
-                        err = nvs_put (s, index, temp);
-                        if (!err && !s->live)
-                           change = 1;
-                     }
+                        err = nvs_put (s, index, temp); // Put in NVS
+                     if (!err && !s->live)
+                        change = 1;
                   }
                }
                if (dofree)
