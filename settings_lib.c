@@ -1241,7 +1241,7 @@ revk_setting_dump (int level)
 }
 
 const char *
-revk_setting (jo_t j)
+revk_settings (jo_t j, const char **locationp)
 {
    if (!j)
       return "";
@@ -1565,16 +1565,10 @@ revk_setting (jo_t j)
       return err;
    }
    err = scan (0, -1);
-   if (err)
-   {
-      ESP_LOGE (TAG, "Failed %s at [%s]", err, location ? : "?");
-      jo_t e = jo_make (NULL);
-      jo_string (e, "error", err);
-      jo_string (e, "location", location);
-      revk_error (prefixsetting, &e);
-   }
    if (change)
       revk_restart ("Settings changed", 5);
+   if (locationp)
+      *locationp = location;
    return err ? : "";
 }
 

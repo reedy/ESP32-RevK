@@ -930,8 +930,9 @@ revk_setting_dump (int level)
 }
 
 const char *
-revk_setting (jo_t j)
+revk_settings (jo_t j, const char **locationp)
 {
+   const char *location = NULL;
    jo_rewind (j);
    if (jo_here (j) != JO_OBJECT)
       return "Not an object";
@@ -969,6 +970,7 @@ revk_setting (jo_t j)
    jo_type_t t = jo_next (j);   // Start object
    while (t == JO_TAG)
    {
+      location = jo_debug (j);
 #ifdef SETTING_DEBUG
       ESP_LOGI (TAG, "Setting: %.10s", jo_debug (j));
 #endif
@@ -1124,6 +1126,8 @@ revk_setting (jo_t j)
       }
    }
 #endif
+   if (locationp)
+      *locationp = location;
    return er ? : "";
 }
 
