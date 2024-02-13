@@ -1387,7 +1387,15 @@ revk_setting (jo_t j)
                   if (t == JO_NULL && !s->fix)
                   {             // Set to default, so erase - could still be a change of value (to default) so continue to compare
                      if (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
-                        err = nvs_erase (s, s->name);
+                     {
+                        if (s->array)
+                        {
+                           char tag[20];
+                           sprintf (tag, "%s%c", s->name, index + 0x80);
+                           err = nvs_erase (s, tag);
+                        } else
+                           err = nvs_erase (s, s->name);
+                     }
                   }
                   if (value_cmp (s, ptr, temp))
                   {             // Changed value, so store
