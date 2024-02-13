@@ -2886,9 +2886,9 @@ revk_web_settings (httpd_req_t * req)
    uint8_t loggedin = 0;
 #endif
    uint8_t level = 0;
-   const char*location=NULL;
    if (j)
    {
+   const char*location=NULL;
       if (j && jo_find (j, "_level"))
       {
          char t[2] = "";
