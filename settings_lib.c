@@ -1505,6 +1505,11 @@ revk_setting (jo_t j)
                return "Unexpected nested array";
             if (!s->len)
             {                   // Array of sub objects
+               // Find group matching this prefix
+               for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
+               if (!s->len)
+                  return "Not found object array";
+               int group = s->group;
                int index = 0;
                while ((t = jo_next (j)) != JO_CLOSE)
                {
@@ -1516,11 +1521,6 @@ revk_setting (jo_t j)
                      return "Bad array of objects";
                   index++;
                }
-               // Find group for clean up
-               for (s = revk_settings; s->len && (!s->group || s->dot != l || strncmp (s->name, tag, l)); s++);
-               if (!s->len)
-                  return "Not found object array";
-               int group = s->group;
                while (1)
                {                // Clean up
                   int found = 0;
