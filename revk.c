@@ -2886,6 +2886,7 @@ revk_web_settings (httpd_req_t * req)
    uint8_t loggedin = 0;
 #endif
    uint8_t level = 0;
+   const char*location=NULL;
    if (j)
    {
       if (j && jo_find (j, "_level"))
@@ -2896,7 +2897,7 @@ revk_web_settings (httpd_req_t * req)
       }
       if (jo_find (j, "_upgrade"))
       {
-         const char *e = revk_setting (j);      // Saved settings
+         const char *e = revk_settings_store (j,&location);      // Saved settings
          if (!e || !*e)
             e = revk_command ("upgrade", NULL);
          if (e && *e)
@@ -2960,9 +2961,14 @@ revk_web_settings (httpd_req_t * req)
             ok = 1;
          if (ok)
          {
-            const char *e = revk_setting (j);
+            const char *e = revk_settings_store (j,&location);
             if (e && *e)
+	    {
+		    if(location)
+               revk_web_send (req, "<p class=error>%s at <tt>%s</tt></p>", e,location);
+		    else
                revk_web_send (req, "<p class=error>%s</p>", e);
+	    }
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
             else if (*password && jo_find (j, "password"))
                loggedin = 1;
