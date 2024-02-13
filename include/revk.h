@@ -178,7 +178,7 @@ const char *revk_mqtt_send_clients (const char *prefix, int retain, const char *
 #define revk_mqtt_send(p,r,t,j) revk_mqtt_send_clients(p,r,t,j,1)
 
 const char *revk_settings_store (jo_t,const char**);        // Store settings, return error (set location in j of error, valid while j valid)
-#define	revk_setting(j) revk_settings_store(j,NULL);
+#define	revk_setting(j) revk_settings_store(j,NULL)
 const char *revk_command (const char *tag, jo_t);       // Do an internal command
 const char *revk_restart (const char *reason, int delay);       // Restart cleanly
 const char *revk_ota (const char *host, const char *target);    // OTA and restart cleanly (target NULL for self as root node)
