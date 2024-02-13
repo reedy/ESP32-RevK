@@ -1515,8 +1515,13 @@ revk_setting (jo_t j)
                {
                   if (t == JO_OBJECT)
                   {             // Sub object
+                     memset (found, 0, sizeof (found));
                      if ((err = scan (l, index)))
                         return err;
+                     t = JO_NULL;       // Set unreferenced to default
+                     for (s = revk_settings; s->len; s++)
+                        if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+                           store (index);
                   } else
                      return "Bad array of objects";
                   index++;
@@ -1535,10 +1540,6 @@ revk_setting (jo_t j)
                      break;     // Got to end
                   index++;
                }
-               t = JO_NULL;     // Set to default
-               for (s = revk_settings; s->len; s++)
-                  if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
-                     zapdef (); // Not secrets, D'Oh
             } else if (!s->array)
                return "Unexpected array";
             else
