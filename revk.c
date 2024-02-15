@@ -2823,10 +2823,10 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       place = revk_id;          // Special case
 #ifdef  REVK_SETTINGS_HAS_BIT
    if (s->type == REVK_SETTINGS_BIT)
-   {                            // This cannot use the _ logic on name as it has hidden as fallback
+   {
       revk_web_send (req,
-                     "<td nowrap><label class=switch><input type=checkbox id='%s' name='%s'%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
-                     field, field, *value == 't' ? " checked" : "", field, field, comment);
+                     "<td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';settings.__%s.name='%s';\"%s><span class=slider></span></label></td><td><input type=hidden name=\"__%s\"><label for=\"%s\"%s</label></td></tr>",
+                     field,field,field,field, field, *value == 't' ? " checked" : "", field, field, comment);
       free (value);
       return;
    }
@@ -2843,13 +2843,13 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       )
       // Numeric
       revk_web_send (req,
-                     "<td nowrap><input id='%s' name='_%s' onchange=\"this.name='%s';\" value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=10 autocorrect='off' placeholder='%s'>%s</td><td>%s</td></tr>",
+                     "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=10 autocorrect='off' placeholder=\"%s\">%s</td><td>%s</td></tr>",
                      field, field, field, revk_web_safe (&qs, value), place, s->gpio ? " (GPIO)" : "", comment);
    else
 #endif
       // Text
       revk_web_send (req,
-                     "<td nowrap colspan=2><input id='%s' name='_%s' onchange=\"this.name='%s';\" value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
+                     "<td nowrap colspan=2><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"> %s</td></tr>",
                      field, field, field, revk_web_safe (&qs, value), place, comment);
    // Simple text input
    free (qs);
