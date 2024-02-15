@@ -3068,13 +3068,13 @@ revk_web_settings (httpd_req_t * req)
          revk_web_setting_s (req, "MQTT host", "mqtthost", mqtthost[0], "hostname", NULL);
          revk_web_setting_s (req, "MQTT user", "mqttuser", mqttuser[0], "username", NULL);
          revk_web_setting_s (req, "MQTT pass", "mqttpass", mqttpass[0], "password", NULL);
-#ifdef	CONFIG_REVK_WEB_TZ
-         hr ();
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+         hr ();
          revk_web_setting_s (req, "Password", "password", password, NULL,
                              "Settings password (not sent securely, so use with care on local network you control)");
-         hr ();
 #endif
+#ifdef	CONFIG_REVK_WEB_TZ
+         hr ();
          revk_web_setting_s (req, "Timezone", "tz", tz, "TZ code",
                              "See <a href ='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
 #endif
