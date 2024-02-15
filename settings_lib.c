@@ -1452,7 +1452,10 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
          if (!err && !passok)
             err = "Password required to change settings";
          if (err)
+         {
+            location = NULL;
             return err;
+         }
 #endif
          if (*tag == '_')
             continue;
