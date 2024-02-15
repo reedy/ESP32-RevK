@@ -1244,7 +1244,7 @@ const char *
 revk_settings_store (jo_t j, const char **locationp)
 {
    if (!j)
-      return NULL
+      return NULL;
    jo_rewind (j);
    jo_type_t t;
    if ((t = jo_here (j)) != JO_OBJECT)
