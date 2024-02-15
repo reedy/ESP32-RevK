@@ -2825,7 +2825,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    if (s->type == REVK_SETTINGS_BIT)
    {
       revk_web_send (req,
-                     "<td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';settings.__%s.name='%s';\"%s><span class=slider></span></label></td><td><input type=hidden name=\"__%s\"><label for=\"%s\"%s</label></td></tr>",
+                     "<td nowrap><label class=switch><input type=checkbox id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';settings.__%s.name='%s';\"%s><span class=slider></span></label></td><td><input type=hidden name=\"__%s\"><label for=\"%s\">%s</label></td></tr>",
                      field, field, field, field, field, *value == 't' ? " checked" : "", field, field, comment);
       free (value);
       return;
