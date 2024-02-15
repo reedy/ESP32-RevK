@@ -2805,9 +2805,9 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       return;
    revk_web_send (req, "<tr%s>", revk_settings_set (s) ? "" : " class=settingsdefault");
    if (tag)
-      revk_web_send (req, "<tr><td>%s</td>", tag);
+      revk_web_send (req, "<td>%s</td>", tag);
    else
-      revk_web_send (req, "<tr><td><tt><b>%.*s</b>%.*s<i>%s</i></tt></td>", s->dot, field, s->len - s->dot, field + s->dot,
+      revk_web_send (req, "<td><tt><b>%.*s</b>%.*s<i>%s</i></tt></td>", s->dot, field, s->len - s->dot, field + s->dot,
                      field + s->len);
    const char *comment = "";
 #ifdef	REVK_SETTINGS_HAS_COMMENT
