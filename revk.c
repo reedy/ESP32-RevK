@@ -2720,7 +2720,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "p.error{color:red;font-weight:bold;}"        //
                   "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}" //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin:3px;padding:3px 10px;font-size:100%%;}"      //
-		  "tr.settingsdefault input{background:#ccc;}" //
+                  "tr.settingsdefault input{background:#ccc;}"  //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;padding:2px 0 0 0px;}" //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //

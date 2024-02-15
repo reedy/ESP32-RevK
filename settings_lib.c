@@ -1397,6 +1397,12 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                            err = nvs_erase (s, tag);
                         } else
                            err = nvs_erase (s, s->name);
+                     if (!err)
+                     {// Looks like it was set, even if not different
+                        change = 1;
+                        if (!s->live)
+                           reload = 1;
+                     }
                      }
                   }
                   if (value_cmp (s, ptr, temp))
@@ -1422,7 +1428,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                      if (t != JO_NULL || s->fix)
                         err = nvs_put (s, index, temp); // Put in NVS
                      if (!err)
-                     {
+                     { // Different
                         change = 1;
                         if (!s->live)
                            reload = 1;
