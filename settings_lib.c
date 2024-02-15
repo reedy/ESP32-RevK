@@ -1465,9 +1465,9 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                err = store (pindex);
             else if (s->array)
             {
-               nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7)); // Done here for whole array rather than nvs_erase, as this covers whole array
                for (int i = 0; !err && i < s->array; i++)
                   err = store (i);
+               nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7)); // Done here for whole array rather than nvs_erase, as this covers whole array
             } else
                err = store (-1);
          }
