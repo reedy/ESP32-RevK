@@ -1076,7 +1076,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                else if (suffix && !strcmp (suffix, "**"))
                   b.setting_dump_requested = 3;
                else if (!suffix || strcmp (suffix, "+"))
-                  err = ((err && *err ? err : revk_settings_store (j, &locationk, 0)) ? : "");
+                  err = ((err && *err ? err : revk_settings_store (j, &location, 0)) ? : "");
             } else
                err = (err ? : "");      // Ignore
          }
