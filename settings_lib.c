@@ -1241,7 +1241,7 @@ revk_setting_dump (int level)
 }
 
 const char *
-revk_settings_store (jo_t j, const char **locationp)
+revk_settings_store (jo_t j, const char **locationp, char passok)
 {
    if (!j)
       return NULL;
@@ -1250,7 +1250,8 @@ revk_settings_store (jo_t j, const char **locationp)
    if ((t = jo_here (j)) != JO_OBJECT)
       return "Not an object";
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-   char passok = (!*password);
+   if (!*password)
+      passok = 1;
 #endif
    char change = 0;
    char reload = 0;
