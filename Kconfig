@@ -247,7 +247,7 @@ menu "RevK"
 
 	config REVK_MQTT_CLIENTS
 	int "Number of MQTT clients"
-	default 2
+	default 1
         help
 		Number of MQTT clients
 
