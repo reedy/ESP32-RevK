@@ -1628,7 +1628,7 @@ revk_settings_set (revk_settings_t * s)
       return -1;
    if (s->fix)
       return 2;
-   if (nvs_found[(s - revk_settings) / 8] &= ~(1 << ((s - revk_settings) & 7)))
+   if (nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7)))
       return 1;
    return 0;
 }
