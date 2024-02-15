@@ -1253,6 +1253,7 @@ revk_settings_store (jo_t j, const char **locationp)
    char passok = (!*password);
 #endif
    char change = 0;
+   char reload = 0;
    const char *err = NULL;
    char tag[16];
    revk_setting_bits_t found = { 0 };
@@ -1419,8 +1420,12 @@ revk_settings_store (jo_t j, const char **locationp)
                      }
                      if (t != JO_NULL || s->fix)
                         err = nvs_put (s, index, temp); // Put in NVS
-                     if (!err && !s->live)
+                     if (!err)
+                     {
                         change = 1;
+                        if (!s->live)
+                           reload = 1;
+                     }
                   }
                }
                if (dofree)
@@ -1565,11 +1570,11 @@ revk_settings_store (jo_t j, const char **locationp)
       return err;
    }
    err = scan (0, -1);
-   if (change)
+   if (reload)
       revk_restart ("Settings changed", 5);
    if (locationp)
       *locationp = err ? location : NULL;
-   return err ? : "";
+   return err ? : change ? "" : NULL;
 }
 
 void

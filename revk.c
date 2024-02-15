@@ -2823,7 +2823,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       place = revk_id;          // Special case
 #ifdef  REVK_SETTINGS_HAS_BIT
    if (s->type == REVK_SETTINGS_BIT)
-   { // This cannot use the _ logic on name as it has hidden as fallback
+   {                            // This cannot use the _ logic on name as it has hidden as fallback
       revk_web_send (req,
                      "<td nowrap><label class=switch><input type=checkbox id='%s' name='%s'%s><span class=slider></span></label></td><td><input type=hidden name=\"%s\"><label for=\"%s\">%s</label></td></tr>",
                      field, field, *value == 't' ? " checked" : "", field, field, comment);
@@ -2888,7 +2888,7 @@ revk_web_settings (httpd_req_t * req)
    uint8_t level = 0;
    if (j)
    {
-   const char*location=NULL;
+      const char *location = NULL;
       if (j && jo_find (j, "_level"))
       {
          char t[2] = "";
@@ -2897,7 +2897,7 @@ revk_web_settings (httpd_req_t * req)
       }
       if (jo_find (j, "_upgrade"))
       {
-         const char *e = revk_settings_store (j,&location);      // Saved settings
+         const char *e = revk_settings_store (j, &location);    // Saved settings
          if (!e || !*e)
             e = revk_command ("upgrade", NULL);
          if (e && *e)
@@ -2961,19 +2961,20 @@ revk_web_settings (httpd_req_t * req)
             ok = 1;
          if (ok)
          {
-            const char *e = revk_settings_store (j,&location);
+            const char *e = revk_settings_store (j, &location);
             if (e && *e)
-	    {
-		    if(location)
-               revk_web_send (req, "<p class=error>%s at <tt>%.40s</tt>%s</p>", e,location,strlen(location)>40?"…":"");
-		    else
-               revk_web_send (req, "<p class=error>%s</p>", e);
-	    }
+            {
+               if (location)
+                  revk_web_send (req, "<p class=error>%s at <tt>%.40s</tt>%s</p>", e, location,
+                                 strlen (location) > 40 ? "…" : "");
+               else
+                  revk_web_send (req, "<p class=error>%s</p>", e);
+            }
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
             else if (*password && jo_find (j, "password"))
                loggedin = 1;
 #endif
-            else if (jo_find (j, "_save"))
+            if (!e && jo_find (j, "_save"))
                revk_web_send (req, "<script>document.location='/'</script>");
          }
       }
