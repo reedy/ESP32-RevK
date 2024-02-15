@@ -2985,17 +2985,13 @@ revk_web_settings (httpd_req_t * req)
    revk_shutting_down (&shutdown);
    revk_web_send (req,
                   "<form action='/revk-settings' name='settings' method='post' onsubmit=\"document.getElementById('_set').setAttribute('hidden','hidden');document.getElementById('_msg').textContent='Please wait';return true;\"><table>");
-   if (!shutdown)
+   if (!shutdown
+#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
+		   && loggedin
+#endif
+		   )
    {
-      revk_web_send (req, "<tr id=_set><td><input name=_save type=submit value='%s'></td><td colspan=2 nowrap>",
-#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-                     loggedin || !*password ?
-#endif
-                     "Save"
-#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-                     : "Login"
-#endif
-         );
+      revk_web_send (req, "<tr id=_set><td><input name=_save type=submit value='Save'></td><td colspan=2 nowrap>");
       if (revk_link_down ())
          level = 0;             // Basic settings to get on line
       else
@@ -3028,7 +3024,9 @@ revk_web_settings (httpd_req_t * req)
    if (*password && loggedin)
       revk_web_send (req, "<input name=password type=hidden value=\"%s\">", revk_web_safe (&qs, password));     // Logged in
    if (*password && !loggedin)
-      revk_web_send (req, "<tr><td>Password</td><td colspan=2 nowrap><input name=password size=40 type=password autofocus> Not sent securely, so use with care on local network you control</td></tr>");        // Ask for password
+      revk_web_send (req, "<tr><td>Password</td><td colspan=2 nowrap><input name=password size=40 type=password autofocus> Not sent securely, so use with care on local network you control</td></tr>" //
+		      "<tr id=_set><td><input type=submit value='Login'></td></tr>"
+		      );        // Ask for password
    else
 #endif
    if (!shutdown)
