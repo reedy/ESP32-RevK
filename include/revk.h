@@ -177,7 +177,7 @@ const char *revk_info_clients (const char *suffix, jo_t *, uint8_t clients);
 const char *revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients);
 #define revk_mqtt_send(p,r,t,j) revk_mqtt_send_clients(p,r,t,j,1)
 
-const char *revk_settings_store (jo_t,const char**);        // Store settings, return error (set location in j of error, valid while j valid)
+const char *revk_settings_store (jo_t,const char**);        // Store settings, return error (set location in j of error, valid while j valid), and error of "" is a non error but means some settings were changed, NULL is no change
 #define	revk_setting(j) revk_settings_store(j,NULL)
 const char *revk_command (const char *tag, jo_t);       // Do an internal command
 const char *revk_restart (const char *reason, int delay);       // Restart cleanly
