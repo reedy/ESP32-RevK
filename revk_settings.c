@@ -6,7 +6,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdlib.h>
-#include <ctype.h>
+
+#include "include/revk_ctype.h"
 
 #ifndef _WIN32
 #include <err.h>
@@ -77,13 +78,13 @@ typename (FILE * O, const char *type)
       fprintf (O, "revk_settings_blob_t*");
    else if (!strcmp (type, "s"))
       fprintf (O, "char*");
-   else if (*type == 'c' && isdigit (type[1]))
+   else if (*type == 'c' && is_digit (type[1]))
       fprintf (O, "char");
-   else if (*type == 'o' && isdigit (type[1]))
+   else if (*type == 'o' && is_digit (type[1]))
       fprintf (O, "uint8_t");
-   else if (*type == 'u' && isdigit (type[1]))
+   else if (*type == 'u' && is_digit (type[1]))
       fprintf (O, "uint%s_t", type + 1);
-   else if (*type == 's' && isdigit (type[1]))
+   else if (*type == 's' && is_digit (type[1]))
       fprintf (O, "int%s_t", type + 1);
    else
       return 1;
@@ -93,9 +94,9 @@ typename (FILE * O, const char *type)
 void
 typesuffix (FILE * O, const char *type)
 {
-   if (*type == 'o' && isdigit (type[1]))
+   if (*type == 'o' && is_digit (type[1]))
       fprintf (O, "[%s]", type + 1);
-   else if (*type == 'c' && isdigit (type[1]))
+   else if (*type == 'c' && is_digit (type[1]))
       fprintf (O, "[%d]", atoi (type + 1) + 1);
 }
 
@@ -103,9 +104,9 @@ void
 typeinit (FILE * O, const char *type)
 {
    fprintf (O, "=");
-   if (*type == 'c' && isdigit (type[1]))
+   if (*type == 'c' && is_digit (type[1]))
       fprintf (O, "\"\"");
-   else if (!strcmp (type, "gpio") || (*type == 'o' && isdigit (type[1])))
+   else if (!strcmp (type, "gpio") || (*type == 'o' && is_digit (type[1])))
       fprintf (O, "{0}");
    else if (!strcmp (type, "blob") || !strcmp (type, "s"))
       fprintf (O, "NULL");
@@ -181,10 +182,10 @@ main (int argc, const char *argv[])
          while (getline (&line, &len, I) >= 0)
          {
             char *p;
-            for (p = line + strlen (line); p > line && isspace (p[-1]); p--);
+            for (p = line + strlen (line); p > line && is_space (p[-1]); p--);
             *p = 0;
             p = line;
-            while (*p && isspace (*p))
+            while (*p && is_space (*p))
                p++;
             if (!*p)
                continue;
@@ -197,27 +198,27 @@ main (int argc, const char *argv[])
             } else if (*p == '/' && p[1] == '/')
             {
                p += 2;
-               while (*p && isspace (*p))
+               while (*p && is_space (*p))
                   p++;
                d->comment = p;
             } else
             {
                d->type = p;
-               while (*p && !isspace (*p))
+               while (*p && !is_space (*p))
                   p++;
-               while (*p && isspace (*p))
+               while (*p && is_space (*p))
                   *p++ = 0;
                d->name1 = p;
-               while (*p && !isspace (*p) && *p != '.')
+               while (*p && !is_space (*p) && *p != '.')
                   p++;
                if (*p == '.')
                {
                   *p++ = 0;
                   d->name2 = p;
-                  while (*p && !isspace (*p))
+                  while (*p && !is_space (*p))
                      p++;
                }
-               while (*p && isspace (*p))
+               while (*p && is_space (*p))
                   *p++ = 0;
                if (*p)
                {
@@ -233,11 +234,11 @@ main (int argc, const char *argv[])
                   } else if (*p != '.' && *p != '/' && p[1] != '/')
                   {             // Unquoted default
                      d->def = p;
-                     while (*p && !isspace (*p))
+                     while (*p && !is_space (*p))
                         p++;
                   }
                }
-               while (*p && isspace (*p))
+               while (*p && is_space (*p))
                   *p++ = 0;
                if (*p == '.')
                {
@@ -266,7 +267,7 @@ main (int argc, const char *argv[])
                {
                   *p++ = 0;
                   p++;
-                  while (*p && isspace (*p))
+                  while (*p && is_space (*p))
                      p++;
                   d->comment = p;
                }
@@ -287,7 +288,7 @@ main (int argc, const char *argv[])
                if (!d->quoted && !strncmp (d->def, "CONFIG_", 7))
                {
                   char *p = d->def + 7;
-                  while (*p && (isalnum (*p) || *p == '_'))
+                  while (*p && (is_alnum (*p) || *p == '_'))
                      p++;
                   if (!*p)
                      d->config = 1;
@@ -309,9 +310,9 @@ main (int argc, const char *argv[])
                            *o++ = *i++;
                         *o++ = *i++;
                      }
-                  } else if (isspace (*i))
+                  } else if (is_space (*i))
                   {
-                     while (*i && isspace (*i))
+                     while (*i && is_space (*i))
                         i++;
                      if (*i)
                         *o++ = ',';
@@ -401,19 +402,19 @@ main (int argc, const char *argv[])
       if (d)
          hasold = 1;
 
-      for (d = defs; d && (!d->type || *d->type != 'o' || !isdigit (d->type[1])); d = d->next);
+      for (d = defs; d && (!d->type || *d->type != 'o' || !is_digit (d->type[1])); d = d->next);
       if (d)
          hasoctet = 1;
 
-      for (d = defs; d && (!d->type || *d->type != 's' || !isdigit (d->type[1])); d = d->next);
+      for (d = defs; d && (!d->type || *d->type != 's' || !is_digit (d->type[1])); d = d->next);
       if (d)
          hassigned = 1;
 
-      for (d = defs; d && (!d->type || *d->type != 'u' || !isdigit (d->type[1])); d = d->next);
+      for (d = defs; d && (!d->type || *d->type != 'u' || !is_digit (d->type[1])); d = d->next);
       if (d)
          hasunsigned = 1;
 
-      for (d = defs; d && (!d->type || *d->type != 'c' || !isdigit (d->type[1])); d = d->next);
+      for (d = defs; d && (!d->type || *d->type != 'c' || !is_digit (d->type[1])); d = d->next);
       if (!d)
          for (d = defs; d && (!d->type || strcmp (d->type, "s")); d = d->next);
       if (d)
@@ -583,7 +584,7 @@ main (int argc, const char *argv[])
          {
             count++;
             fprintf (C, " {");
-            if (d->attributes && !(*d->type == 's' || *d->type == 'u') && isdigit (d->type[1]))
+            if (d->attributes && !(*d->type == 's' || *d->type == 'u') && is_digit (d->type[1]))
             {                   // non numeric
                if (strstr (d->attributes, ".set=1"))
                   errx (1, ".set on no numeric for %s in %s", d->name, d->type);
@@ -594,9 +595,9 @@ main (int argc, const char *argv[])
                if (strstr (d->attributes, ".decimal=") && strstr (d->attributes, ".hex=1"))
                   errx (1, ".hex and .decimal on no numeric for %s in %s", d->name, d->type);
             }
-            if (*d->type == 's' && isdigit (d->type[1]))
+            if (*d->type == 's' && is_digit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_SIGNED");
-            else if (*d->type == 'u' && isdigit (d->type[1]))
+            else if (*d->type == 'u' && is_digit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_UNSIGNED");
             else if (!strcmp (d->type, "gpio"))
                fprintf (C, ".type=REVK_SETTINGS_UNSIGNED,.gpio=1");
@@ -604,9 +605,9 @@ main (int argc, const char *argv[])
                fprintf (C, ".type=REVK_SETTINGS_BIT");
             else if (!strcmp (d->type, "blob"))
                fprintf (C, ".type=REVK_SETTINGS_BLOB");
-            else if (!strcmp (d->type, "s") || (*d->type == 'c' && isdigit (d->type[1])))
+            else if (!strcmp (d->type, "s") || (*d->type == 'c' && is_digit (d->type[1])))
                fprintf (C, ".type=REVK_SETTINGS_STRING");
-            else if (*d->type == 'o' && isdigit (d->type[1]))
+            else if (*d->type == 'o' && is_digit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_OCTET");
             else
                errx (1, "Unknown type %s for %s in %s", d->type, d->name, d->fn);
