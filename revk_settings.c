@@ -245,7 +245,19 @@ main (int argc, const char *argv[])
                   while (*p == '.')
                   {
                      while (*p && !isspace (*p))
+                     {
+                        if (*p == '"' || *p == '\'')
+                        {
+                           char c = *p++;
+                           while (*p && *p != c)
+                           {
+                              if (*p == '\\' && p[1])
+                                 p++;
+                              p++;
+                           }
+                        }
                         p++;
+                     }
                      while (*p && isspace (*p))
                         p++;
                   }
@@ -463,8 +475,8 @@ main (int argc, const char *argv[])
       {
          hasgpio = 1;
          hasunsigned = 1;       // GPIO is treated as a u16
-         fprintf (H, "typedef struct revk_gpio_s revk_gpio_t;\n"      //
-                  "struct revk_gpio_s {\n"     //
+         fprintf (H, "typedef struct revk_gpio_s revk_gpio_t;\n"        //
+                  "struct revk_gpio_s {\n"      //
                   " uint16_t num:10;\n" //
                   " uint16_t strong:1;\n"       //
                   " uint16_t weak:1;\n" //
