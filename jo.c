@@ -444,7 +444,7 @@ jo_write_char (jo_t j, uint32_t c)
 #define esc(a,b) if(c==b){jo_write(j,'\\');jo_write(j,a);return;}
    escapes
 #undef esc
-      if (c == '/' && j.lt)
+      if (c == '/' && j->lt)
       jo_write (j, '\\');       // escape / is optional, but we always do after < to avoid </script>
    if (c < ' ' || c >= 0xFF)
    {
