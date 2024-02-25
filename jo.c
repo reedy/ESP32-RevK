@@ -25,7 +25,8 @@ struct jo_s
    uint8_t alloc:1;             // buf is malloced space
    uint8_t comma:1;             // Set if comma needed / expected
    uint8_t tagok:1;             // We have skipped an expected tag already in parsing
-   uint8_t null:1;              // We have a null termination
+   uint8_t null:1;              // We have a null termination (last character stored was 0)
+   uint8_t lt:1;                // Last character stored was <
    uint8_t level;               // Current level
    uint8_t o[(JO_MAX + 7) / 8]; // Bit set at each level if level is object, else it is array
 };
@@ -38,7 +39,6 @@ const char JO_BASE16[] = "0123456789ABCDEF";
 #define escapes \
         esc ('"', '"') \
         esc ('\\', '\\') \
-        esc ('/', '/') \
         esc ('b', '\b') \
         esc ('f', '\f') \
         esc ('n', '\n') \
@@ -81,6 +81,7 @@ jo_store (jo_t j, uint8_t c)
    }
    j->buf[j->ptr] = c;
    j->null = (c ? 0 : 1);
+   j->lt = (c == '<' ? 1 : 0);
 }
 
 static inline void
@@ -179,7 +180,8 @@ jo_read_str (jo_t j)
             }
          }
 #define esc(a,b) else if(c==a)c=b;
-         escapes
+         escapes                //
+            esc ('/', '/')
 #undef esc
             else
             return bad ("Bad escape");
@@ -300,6 +302,8 @@ jo_copy (jo_t j)
          j->null = 1;
       }
       memcpy (n->buf, j->buf, j->parse ? j->len : j->ptr);
+      if (!j->parse && j->ptr && j->buf[j->ptr - 1] == '<')
+         j->lt = 1;
    }
    return n;
 }
@@ -440,7 +444,9 @@ jo_write_char (jo_t j, uint32_t c)
 #define esc(a,b) if(c==b){jo_write(j,'\\');jo_write(j,a);return;}
    escapes
 #undef esc
-      if (c < ' ' || c >= 0xFF)
+      if (c == '/' && j.lt)
+      jo_write (j, '\\');       // escape / is optional, but we always do after < to avoid </script>
+   if (c < ' ' || c >= 0xFF)
    {
       jo_write (j, '\\');
       jo_write (j, 'u');
