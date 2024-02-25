@@ -2919,17 +2919,20 @@ revk_web_settings (httpd_req_t * req)
          {                      // Test WiFi
             char ssid[33] = "";
             char pass[33] = "";
+            strcpy (pass, wifipass);
             jo_strncpy (j, ssid, sizeof (ssid));
             if (!*ssid)
                revk_web_send (req, "No WiFi SSID. ");
             else
             {
                if (jo_find (j, "wifipass") == JO_STRING)
+               {
                   jo_strncpy (j, pass, sizeof (pass));
 #ifndef  CONFIG_REVK_OLD_SETTINGS
-               if (!strcmp (pass, revk_settings_secret))
-                  strcpy (pass, wifipass);
+                  if (!strcmp (pass, revk_settings_secret))
+                     strcpy (pass, wifipass);
 #endif
+               }
                if (!strcmp (ssid, wifissid) && !strcmp (pass, wifipass))
                   ok = 1;
                else if (sta_netif)
