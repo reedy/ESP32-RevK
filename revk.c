@@ -2851,7 +2851,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
 #endif
       // Text
       revk_web_send (req,
-                     "<td nowrap colspan=2><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"> %s</td></tr>",
+                     "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
                      field, field, field, revk_web_safe (&qs, value), place, comment);
    // Simple text input
    free (qs);
@@ -2865,7 +2865,7 @@ revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, char 
 {
    char *qs = NULL;
    revk_web_send (req,
-                  "<tr><td>%s</td><td colspan=2 nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'> %s</td></tr>",
+                  "<tr><td>%s</td><td nowrap><input id='%s' name='%s' value='%s' autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder='%s'></td><td>%s</td></tr>",
                   tag ? : "", field, field, revk_web_safe (&qs, value), place ? : "", suffix ? : "");
    free (qs);
 }
