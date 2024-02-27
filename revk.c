@@ -3000,7 +3000,7 @@ revk_web_settings (httpd_req_t * req)
 #endif
    if (!shutdown)
    {
-      revk_web_send (req, "<tr id=_set><td><input name=_save type=submit value='Save'></td><td colspan=2 nowrap>");
+      revk_web_send (req, "<tr id=_set><td><input name=_save type=submit value='Save'></td><td nowrap>");
       if (revk_link_down ())
          level = 0;             // Basic settings to get on line
       else
