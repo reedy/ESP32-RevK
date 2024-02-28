@@ -3361,7 +3361,7 @@ revk_web_status (httpd_req_t * req)
       if (check > 0)
       {
          jo_t j = jo_object_alloc ();
-         jo_bool (j, "upgrade", "true");
+         jo_bool (j, "upgrade", 1);
          wsend (&j);
       }
    }
