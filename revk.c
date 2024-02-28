@@ -3353,8 +3353,6 @@ revk_web_status (httpd_req_t * req)
       return ESP_ERR_NO_MEM;
    ws_pkt.payload = buf;
    ret = httpd_ws_recv_frame (req, &ws_pkt, ws_pkt.len);
-   if (!revk_shutting_down (NULL) && ws_pkt.len == 4 && !memcmp (buf, "scan", 4))
-      scan ();
    if (!revk_link_down ())
    {
       char *url = revk_upgrade_url ("");
@@ -3367,6 +3365,8 @@ revk_web_status (httpd_req_t * req)
          free (url);
       }
    }
+   if (!revk_shutting_down (NULL) && ws_pkt.len == 4 && !memcmp (buf, "scan", 4))
+      scan ();
    free (buf);
    return ESP_OK;
 }
