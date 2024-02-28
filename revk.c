@@ -3170,9 +3170,9 @@ revk_web_settings (httpd_req_t * req)
                   "b.textContent=s;"    //
                   "document.getElementById('_list').appendChild(b);"    //
                   "document.getElementById('_found').removeAttribute('hidden');"        //
-                  "} else if(typeof o == 'object'){"    //
+                  "}); else if(typeof o == 'object'){"  //
                   "document.getElementById('_upgrade').style.visibility='';"    //
-                  "});"         //
+                  "};"          //
                   "};"          //
                   "</script>", level ? "check" : "scan");
 #else
