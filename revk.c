@@ -3159,7 +3159,7 @@ revk_web_settings (httpd_req_t * req)
                   "o=JSON.parse(e.data);"       //
                   "if(typeof o === 'number')reboot=1;"  //
                   "else if(typeof o === 'string'){document.getElementById('_msg').textContent=o;setTimeout(function(){ws.send('');},1000);}"    //
-                  "else if(typeof o === 'object')o.forEach(function(s){"        //
+                  "else if(Array.isArray(o))o.forEach(function(s){"     //
                   "b=document.createElement('button');" //
                   "b.onclick=function(e){"      //
                   "f._wifissid.name='wifissid';f.wifissid.value=s;"     //
@@ -3170,6 +3170,8 @@ revk_web_settings (httpd_req_t * req)
                   "b.textContent=s;"    //
                   "document.getElementById('_list').appendChild(b);"    //
                   "document.getElementById('_found').removeAttribute('hidden');"        //
+                  "} else if(typeof o == 'object'){"    //
+                  "document.getElementById('_upgrade').style.visibility='';"    //
                   "});"         //
                   "};"          //
                   "</script>", level ? "check" : "scan");
@@ -3359,7 +3361,7 @@ revk_web_status (httpd_req_t * req)
       char *url = revk_upgrade_url (val);
       int8_t check = revk_upgrade_check (url);
       jo_t j = jo_object_alloc ();
-      jo_bool (j, "upgrade", check);
+      jo_int (j, "upgrade", check);
       wsend (&j);
    }
    free (buf);
