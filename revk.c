@@ -296,6 +296,7 @@ static mesh_addr_t mesh_ota_addr = { };
 #endif
 
 /* Local functions */
+static char * revk_upgrade_url (const char *val);
 static int revk_upgrade_check (const char *url);
 #if  defined(CONFIG_REVK_APCONFIG) || defined(CONFIG_REVK_WEB_DEFAULT)
 static httpd_handle_t webserver = NULL;
