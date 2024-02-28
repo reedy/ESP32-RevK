@@ -3352,18 +3352,15 @@ revk_web_status (httpd_req_t * req)
    ws_pkt.payload = buf;
    ret = httpd_ws_recv_frame (req, &ws_pkt, ws_pkt.len);
    if (!revk_shutting_down (NULL) && ws_pkt.len == 4 && !memcmp (buf, "scan", 4))
-      return scan ();
+      scan ();
    if (!revk_link_down ())
    {
       char val[256] = { 0 };
       char *url = revk_upgrade_url (val);
       int8_t check = revk_upgrade_check (url);
-      if (check > 0)
-      {
-         jo_t j = jo_object_alloc ();
-         jo_bool (j, "upgrade", 1);
-         wsend (&j);
-      }
+      jo_t j = jo_object_alloc ();
+      jo_bool (j, "upgrade", check);
+      wsend (&j);
    }
    free (buf);
    return ESP_OK;
