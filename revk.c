@@ -3360,7 +3360,7 @@ revk_web_status (httpd_req_t * req)
       {
          int8_t check = revk_upgrade_check (url);
          jo_t j = jo_object_alloc ();
-         jo_int (j, "upgrade", check > 0);
+         jo_bool (j, "upgrade", check > 0);
          wsend (&j);
          free (url);
       }
