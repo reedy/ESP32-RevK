@@ -3149,6 +3149,7 @@ revk_web_settings (httpd_req_t * req)
    }
    revk_web_send (req, "</table></form>");
 #ifdef CONFIG_HTTPD_WS_SUPPORT
+   // A tad clunky, could be improved.
    revk_web_send (req, "<script>"       //
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
