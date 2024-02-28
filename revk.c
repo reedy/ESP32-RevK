@@ -3807,6 +3807,7 @@ revk_upgrade_check (const char *url)
    int ret = 0;
    esp_http_client_config_t config = {
       .url = url,
+      .timeout_ms = 30000,
    };
    esp_http_client_handle_t client = esp_http_client_init (&config);
    if (!client)
