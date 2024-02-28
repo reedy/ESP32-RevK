@@ -3784,13 +3784,13 @@ revk_upgrade_url (const char *val)
 #endif
                 otahost, val);  // Leaf provided (ignore beta)
    else
-      asprintf (&url, "%s://%s/%s%s%s.bin",
+      asprintf (&url, "%s://%s/%s%s%s.bin?%s",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                 otacert->len ? "https" : "http",
 #else
                 "http",         /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-                *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix);      // Hostname provided
+                *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix, revk_id);     // Hostname provided
    return url;
 }
 
