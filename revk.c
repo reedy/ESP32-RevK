@@ -3171,7 +3171,7 @@ revk_web_settings (httpd_req_t * req)
                   "document.getElementById('_list').appendChild(b);"    //
                   "document.getElementById('_found').removeAttribute('hidden');"        //
                   "}); else if(typeof o == 'object'){"  //
-                  "document.getElementById('_upgrade').style.visibility='';"    //
+                  "if(o.upgrade)document.getElementById('_upgrade').style.visibility='';"       //
                   "};"          //
                   "};"          //
                   "</script>", level ? "check" : "scan");
@@ -3357,7 +3357,7 @@ revk_web_status (httpd_req_t * req)
       scan ();
    if (!revk_link_down ())
    {
-      char *url = revk_upgrade_url (NULL);
+      char *url = revk_upgrade_url ("");
       if (url)
       {
          int8_t check = revk_upgrade_check (url);
@@ -3773,9 +3773,9 @@ static char *
 revk_upgrade_url (const char *val)
 {                               // OTA URL (malloc'd)
    char *url;                   // Passed to task
-   if (val && (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7)))
+   if (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7))
       url = strdup (val);       // Whole URL provided (ignore beta)
-   else if (val && *val == '/')
+   else if (*val == '/')
       asprintf (&url, "%s://%s%s",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                 otacert->len ? "https" : "http",
