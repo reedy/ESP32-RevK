@@ -3174,7 +3174,7 @@ revk_web_settings (httpd_req_t * req)
                   "if(o.upgrade)document.getElementById('_upgrade').style.visibility='';"       //
                   "};"          //
                   "};"          //
-                  "</script>", level ? "check" : "scan");
+                  "</script>", level ? "" : "scan");
 #else
    revk_web_send (req, "<script>");
    if (shutdown && *shutdown)
@@ -3353,20 +3353,23 @@ revk_web_status (httpd_req_t * req)
       return ESP_ERR_NO_MEM;
    ws_pkt.payload = buf;
    ret = httpd_ws_recv_frame (req, &ws_pkt, ws_pkt.len);
-   if (!revk_link_down ())
-   {
-      char *url = revk_upgrade_url ("");
-      if (url)
+   if (ws_pkt.len == 4 && !memcmp (buf, "scan", 4))
+   {                            // Basic settings
+      if (!revk_link_down ())
       {
-         int8_t check = revk_upgrade_check (url);
-         jo_t j = jo_object_alloc ();
-         jo_bool (j, "upgrade", check > 0);
-         wsend (&j);
-         free (url);
+         char *url = revk_upgrade_url ("");
+         if (url)
+         {
+            int8_t check = revk_upgrade_check (url);
+            jo_t j = jo_object_alloc ();
+            jo_bool (j, "upgrade", check > 0);
+            wsend (&j);
+            free (url);
+         }
       }
+      if (!revk_shutting_down (NULL))
+         scan ();
    }
-   if (!revk_shutting_down (NULL) && ws_pkt.len == 4 && !memcmp (buf, "scan", 4))
-      scan ();
    free (buf);
    return ESP_OK;
 }
