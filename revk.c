@@ -3022,7 +3022,11 @@ revk_web_settings (httpd_req_t * req)
 #endif
          if (!revk_link_down () && *otahost)
             revk_web_send (req,
-                           "</td><td><input name=\"_upgrade\" type=submit value='Upgrade now from %s%s'>",
+#ifdef CONFIG_HTTPD_WS_SUPPORT
+                           "</td><td id=_upgrade style=\"visibility:hidden\"><input name=_upgrade type=submit value='Upgrade now from %s%s'>",
+#else
+                           "</td><td><input name=_upgrade type=submit value='Upgrade now from %s%s'>",
+#endif
                            otahost, otabeta ? " (beta)" : "");
       }
       revk_web_send (req, "</td></tr>");
@@ -3147,7 +3151,7 @@ revk_web_settings (httpd_req_t * req)
    revk_web_send (req, "<script>"       //
                   "var f=document.settings;"    //
                   "var reboot=0;"       //
-                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');%s"      //
+                  "var ws = new WebSocket('ws://'+window.location.host+'/revk-status');ws.onopen=function(v){ws.send('%s');};"  //
                   "ws.onclose=function(v){ws=undefined;document.getElementById('_msg').textContent=(reboot?'Rebooting':'…');if(reboot)setTimeout(function(){location.reload();},3000);};"     //
                   "ws.onerror=function(v){ws.close();};"        //
                   "ws.onmessage=function(e){"   //
@@ -3167,7 +3171,7 @@ revk_web_settings (httpd_req_t * req)
                   "document.getElementById('_found').removeAttribute('hidden');"        //
                   "});"         //
                   "};"          //
-                  "</script>", level ? "" : "ws.onopen=function(v){ws.send('scan');};");
+                  "</script>", level ? "check" : "scan");
 #else
    revk_web_send (req, "<script>");
    if (shutdown && *shutdown)
@@ -3346,9 +3350,20 @@ revk_web_status (httpd_req_t * req)
       return ESP_ERR_NO_MEM;
    ws_pkt.payload = buf;
    ret = httpd_ws_recv_frame (req, &ws_pkt, ws_pkt.len);
-   free (buf);
-   if (!revk_shutting_down (NULL))
+   if (!revk_shutting_down (NULL) && ws_pkt.len == 4 && !memcmp (buf, "scan", 4))
       return scan ();
+   if (!revk_link_down ())
+   {
+      char *url = revk_upgrade_url (val);
+      int8_t check = revk_upgrade_check (url);
+      if (check > 0)
+      {
+         jo_t j = jo_object_alloc ();
+         jo_bool (j, "upgrade", "true");
+         wsend (&j);
+      }
+   }
+   free (buf);
    return ESP_OK;
 }
 #else
