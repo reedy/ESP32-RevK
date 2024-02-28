@@ -3577,7 +3577,8 @@ ota_task (void *pvParameters)
 {
    char *url = pvParameters;
    esp_http_client_config_t config = {
-      .url = url.timeout_ms = 20000,
+      .url = url,
+      .timeout_ms = 30000,
    };
 #ifndef	ESP_IDF_431             // Old version does not have
    /* Set the TLS in case redirect to TLS even if http */
