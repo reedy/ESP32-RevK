@@ -3357,12 +3357,15 @@ revk_web_status (httpd_req_t * req)
       scan ();
    if (!revk_link_down ())
    {
-      char val[256] = { 0 };
-      char *url = revk_upgrade_url (val);
-      int8_t check = revk_upgrade_check (url);
-      jo_t j = jo_object_alloc ();
-      jo_bool (j, "upgrade", check > 0);
-      wsend (&j);
+      char *url = revk_upgrade_url (NULL);
+      if (url)
+      {
+         int8_t check = revk_upgrade_check (url);
+         jo_t j = jo_object_alloc ();
+         jo_int (j, "upgrade", check);
+         wsend (&j);
+         free (url);
+      }
    }
    free (buf);
    return ESP_OK;
@@ -3770,9 +3773,9 @@ static char *
 revk_upgrade_url (const char *val)
 {                               // OTA URL (malloc'd)
    char *url;                   // Passed to task
-   if (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7))
+   if (val && (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7)))
       url = strdup (val);       // Whole URL provided (ignore beta)
-   else if (*val == '/')
+   else if (val && *val == '/')
       asprintf (&url, "%s://%s%s",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                 otacert->len ? "https" : "http",
