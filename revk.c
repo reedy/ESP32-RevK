@@ -3174,7 +3174,7 @@ revk_web_settings (httpd_req_t * req)
                   "if(o.upgrade)document.getElementById('_upgrade').style.visibility='';"       //
                   "};"          //
                   "};"          //
-                  "</script>", level ? "" : "scan");
+                  "</script>", level ? "check" : "scan");
 #else
    revk_web_send (req, "<script>");
    if (shutdown && *shutdown)
