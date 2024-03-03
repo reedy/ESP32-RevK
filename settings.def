@@ -2,7 +2,8 @@
 s	password				.revk=1	.secret=1	// Settings password (this is not sent securely so use with care on local networks you control)
 #endif
 s	hostname				.revk=1			// Host name
-s	appname		CONFIG_REVK_APPNAME	.revk=1			// App name
+// Appname is not something you should changing usually so leave as MQTT only
+s	appname		CONFIG_REVK_APPNAME	.revk=1
 
 s	ota.host	CONFIG_REVK_OTAHOST	.revk=1			// OTA hostname
 u8	ota.days	CONFIG_REVK_OTADAYS	.revk=1			// OTA auto load (days)
@@ -71,6 +72,7 @@ bit	ap.hide		CONFIG_REVK_APHIDE	.revk=1			// AP hide SSID
 
 
 #ifdef	CONFIG_REVK_MESH
+//  Not something you should changing usually so leave as MQTT only
 s	nodename				.revk=1
 u16	mesh.reset	CONFIG_REVK_MESHRESET	.revk=1
 o6	mesh.id		CONFIG_REVK_MESHID	.revk=1	.hex=1
