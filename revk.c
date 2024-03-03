@@ -3143,7 +3143,7 @@ revk_web_settings (httpd_req_t * req)
 #ifdef  CONFIG_REVK_WEB_TZ
                              && strcmp (s->name, "tz")
 #endif
-                     )          // not covered by Basic main settings, the mqtt may be an array so included
+                     )          // not covered by Basic main settings, other stuff is hidden anyway or may as well repeat
                      add (s);
                }
          }
