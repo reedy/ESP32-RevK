@@ -3175,7 +3175,7 @@ revk_web_settings (httpd_req_t * req)
                   "document.getElementById('_list').appendChild(b);"    //
                   "document.getElementById('_found').removeAttribute('hidden');"        //
                   "}); else if(typeof o == 'object'){"  //
-                  "if(o.uptodate)document.getElementById('_upgrade').style.opacity=0.5;"       //
+                  "if(o.uptodate)document.getElementById('_upgrade').style.opacity=0.5;"        //
                   "};"          //
                   "};"          //
                   "</script>", level ? "check" : "scan");
@@ -3359,7 +3359,7 @@ revk_web_status (httpd_req_t * req)
    ret = httpd_ws_recv_frame (req, &ws_pkt, ws_pkt.len);
    if (ws_pkt.len == 4 && !memcmp (buf, "scan", 4))
    {                            // Basic settings
-      if (!revk_link_down ())
+      if (!revk_link_down ()k && otaautk && otaautoo)
       {
          char *url = revk_upgrade_url ("");
          if (url)
