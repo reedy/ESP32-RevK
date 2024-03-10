@@ -3021,7 +3021,7 @@ revk_web_settings (httpd_req_t * req)
          addlevel (2, "Advanced");
 #endif
 #endif
-         if (!revk_link_down () && *otahost)
+         if (!revk_link_down () && *otahost && !level)
             revk_web_send (req,
                            "</td><td id=_upgrade><input name=_upgrade type=submit value='Upgrade now from %s%s'>",
                            otahost, otabeta ? " (beta)" : "");
