@@ -3359,7 +3359,7 @@ revk_web_status (httpd_req_t * req)
    ret = httpd_ws_recv_frame (req, &ws_pkt, ws_pkt.len);
    if (ws_pkt.len == 4 && !memcmp (buf, "scan", 4))
    {                            // Basic settings
-      if (!revk_link_down ()k && otaautk && otaautoo)
+      if (!revk_link_down () && otaauto)
       {
          char *url = revk_upgrade_url ("");
          if (url)
