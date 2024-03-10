@@ -3023,11 +3023,7 @@ revk_web_settings (httpd_req_t * req)
 #endif
          if (!revk_link_down () && *otahost)
             revk_web_send (req,
-#ifdef CONFIG_HTTPD_WS_SUPPORT
-                           "</td><td id=_upgrade style=\"visibility:hidden\"><input name=_upgrade type=submit value='Upgrade now from %s%s'>",
-#else
-                           "</td><td><input name=_upgrade type=submit value='Upgrade now from %s%s'>",
-#endif
+                           "</td><td id=_upgrade><input name=_upgrade type=submit value='Upgrade now from %s%s'>",
                            otahost, otabeta ? " (beta)" : "");
       }
       revk_web_send (req, "</td></tr>");
@@ -3179,7 +3175,7 @@ revk_web_settings (httpd_req_t * req)
                   "document.getElementById('_list').appendChild(b);"    //
                   "document.getElementById('_found').removeAttribute('hidden');"        //
                   "}); else if(typeof o == 'object'){"  //
-                  "if(o.upgrade)document.getElementById('_upgrade').style.visibility='';"       //
+                  "if(o.uptodate)document.getElementById('_upgrade').style.opacity=0.5;"       //
                   "};"          //
                   "};"          //
                   "</script>", level ? "check" : "scan");
@@ -3370,7 +3366,7 @@ revk_web_status (httpd_req_t * req)
          {
             int8_t check = revk_upgrade_check (url);
             jo_t j = jo_object_alloc ();
-            jo_bool (j, "upgrade", check > 0);
+            jo_bool (j, "uptodate", !check);
             wsend (&j);
             free (url);
          }
