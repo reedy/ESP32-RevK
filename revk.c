@@ -3472,9 +3472,11 @@ dummy_dns_task (void *pvParameters)
             ESP_LOGI (TAG, "Dummy DNS reply (stack free %d)", uxTaskGetStackHighWaterMark (NULL));
          }
          ESP_LOGI (TAG, "Dummy DNS stop");
-      }
+      } else
+         ESP_LOGE (TAG, "Dummy DNS could not bind");
       close (sock);
-   }
+   } else
+      ESP_LOGE (TAG, "Dummy DNS no socket");
    vTaskDelete (NULL);
 }
 #endif
