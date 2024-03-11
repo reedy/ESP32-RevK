@@ -4405,7 +4405,7 @@ revk_disable_settings (void)
 
 #ifdef  REVK_SETTINGS_HAS_GPIO
 void
-evk_gpio_output (revk_gpio_t g, uint8_t o)
+revk_gpio_output (revk_gpio_t g, uint8_t o)
 {
    if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       return;
