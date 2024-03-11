@@ -1250,8 +1250,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "STA Disconnect");
          xEventGroupClearBits (revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits (revk_group, GROUP_OFFLINE);
-         if (sta_netif)
-            esp_wifi_connect ();
+         if (sta_netif && *wifissid)
+            esp_wifi_connect ();        // TODO back off
          break;
       case WIFI_EVENT_AP_STOP:
          ESP_LOGI (TAG, "AP Stop");
@@ -3496,6 +3496,7 @@ ap_start (void)
       return;
    // WiFi
    wifi_config_t cfg = { 0, };
+   cfg.ap.max_connection = 2;   // We expect only one really, this is for config
 #ifdef	CONFIG_REVK_APDNS
    cfg.ap.ssid_len = snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-%012llX", appname, revk_binid);
 #else
@@ -3513,7 +3514,6 @@ ap_start (void)
       memcpy (&cfg.ap.password, appass, l);
       cfg.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
    }
-   cfg.ap.max_connection = 2;
    ESP_LOGI (TAG, "AP%s config mode start %.*s", mode == WIFI_MODE_STA ? "STA" : "", cfg.ap.ssid_len, cfg.ap.ssid);
    // Make it go
    esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_APSTA : WIFI_MODE_AP);
