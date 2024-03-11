@@ -3512,7 +3512,11 @@ ap_start (void)
       cfg.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
    }
    ESP_LOGI (TAG, "AP%s config mode start %.*s", mode == WIFI_MODE_STA ? "STA" : "", cfg.ap.ssid_len, cfg.ap.ssid);
-   cfg.ap.max_connection = 255;
+   // Make it go
+   esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_APSTA : WIFI_MODE_AP);
+   REVK_ERR_CHECK (esp_wifi_set_protocol (ESP_IF_WIFI_AP, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
+   REVK_ERR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_AP, &cfg));
+   cfg.ap.max_connection = 2;
    // DHCP
    esp_netif_ip_info_t info = {
       0,
@@ -3533,10 +3537,6 @@ ap_start (void)
    dummy_dns_task_end = 0;
    revk_task ("DNS", dummy_dns_task, NULL, 5);
 #endif
-   // Make it go
-   esp_wifi_set_mode (mode == WIFI_MODE_STA ? WIFI_MODE_APSTA : WIFI_MODE_AP);
-   REVK_ERR_CHECK (esp_wifi_set_protocol (ESP_IF_WIFI_AP, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));
-   REVK_ERR_CHECK (esp_wifi_set_config (ESP_IF_WIFI_AP, &cfg));
 }
 #endif
 
