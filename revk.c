@@ -2201,7 +2201,7 @@ revk_start (void)
                blink[b].set = 0;
                continue;
             }
-            revk_gpio_output (blink[b]);
+            revk_gpio_output (blink[b], 0);
          }
       }
 #endif
