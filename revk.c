@@ -4405,13 +4405,14 @@ revk_disable_settings (void)
 
 #ifdef  REVK_SETTINGS_HAS_GPIO
 void
-revk_gpio_output (revk_gpio_t g)
+revk_gpio_output (revk_gpio_t g, uint8_t o)
 {
    if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       return;
    if (rtc_gpio_is_valid_gpio (g.num))
       rtc_gpio_deinit (g.num);
    gpio_reset_pin (g.num);
+   gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
 #ifndef  CONFIG_REVK_OLD_SETTINGS
    gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
    gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
