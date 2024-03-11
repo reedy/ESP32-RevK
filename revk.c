@@ -1076,7 +1076,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                   b.setting_dump_requested = 2;
                else if (suffix && !strcmp (suffix, "**"))
                   b.setting_dump_requested = 3;
-               else if (!suffix || strcmp (suffix, "+"))
+               else if (!suffix || strcmp (suffix, "-"))
                   err = ((err && *err ? err : revk_settings_store (j, &location, 0)) ? : "");
             } else
                err = (err ? : "");      // Ignore
@@ -4405,7 +4405,7 @@ revk_disable_settings (void)
 
 #ifdef  REVK_SETTINGS_HAS_GPIO
 void
-revk_gpio_output (revk_gpio_t g, uint8_t o)
+evk_gpio_output (revk_gpio_t g, uint8_t o)
 {
    if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       return;

@@ -1065,7 +1065,7 @@ revk_setting_dump (int level)
       if (!prefixapp)
          an = sl = "";
       char *topic = NULL;
-      asprintf (&topic, "%s%s%s/%s%s", prefixsetting, sl, an, revk_id, level <= 1 ? "" : "/+");
+      asprintf (&topic, "%s%s%s/%s%s", prefixsetting, sl, an, revk_id, level <= 1 ? "" : "/-");
       revk_mqtt_send (NULL, 0, topic, &j);
       free (topic);
    }

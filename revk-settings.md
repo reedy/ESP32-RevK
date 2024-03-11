@@ -14,7 +14,7 @@ There is also a short cut for a single setting, e.g. sending `setting/myapp/time
 
 You can see settings by sending the `setting` command with no payload, e.g. `setting/myapp` might return `{"timeout":30,"a":1,"b":2,"c":3}`. If the settings would be too long they are split over more than one message, each a JSON object.
 
-This only includes settings stored in non volatile memory. There will be other settings, and some will have default values. Send the `setting` command with `*`, e.g. `setting/myapp/*` to see all settings that are stored in non volatile storage or that have a default value. This does not include any that are not stored and have no default value. Using `**` gives even more.
+This only includes settings stored in non volatile memory. There will be other settings, and some will have default values. Send the `setting` command with `*`, e.g. `setting/myapp/*` to see all settings that are stored in non volatile storage or that have a default value. This does not include any that are not stored and have no default value. Using `**` gives even more. The response has a `/-` on the end so it does not itself cause settings to be set.
 
 ## Secrets
 
