@@ -1679,7 +1679,7 @@ task (void *pvParameters)
             {                   // Link down, do regular connect attempts
                wifi_mode_t mode = 0;
                esp_wifi_get_mode (&mode);
-               if ((!now % 10 && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA)
+               if ((!(now % 10) && mode == WIFI_MODE_APSTA) || (!(now % 3) && mode == WIFI_MODE_STA))
                   esp_wifi_connect ();  // Slowed in APSTA to allow AP mode to work
             }
 #endif
