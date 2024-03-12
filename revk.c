@@ -2526,7 +2526,7 @@ void
 revk_web_dummy (httpd_handle_t * webp, uint16_t port)
 {                               // Just settings
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
-   config.lru_pruge_enable = true;
+   config.lru_purge_enable = true;
    if (port)
       config.server_port = port;
    config.stack_size = 6 * 1024;        // Larger than default, just in case
