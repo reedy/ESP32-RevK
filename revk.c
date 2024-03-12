@@ -1684,12 +1684,12 @@ task (void *pvParameters)
             }
 #endif
 #ifdef CONFIG_REVK_MESH
-            ESP_LOGI (TAG, "Up %lu, Link down %lu, Mesh nodes %lu%s", (unsigned long) now, (unsigned long)down,
+            ESP_LOGI (TAG, "Up %lu, Link down %lu, Mesh nodes %lu%s", (unsigned long) now, (unsigned long) down,
                       esp_mesh_get_total_node_num (),
                       esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
-            ESP_LOGI (TAG, "Up %lu, Link down %lu", (unsigned long) now, (unsigned long)down);
+            ESP_LOGI (TAG, "Up %lu, Link down %lu", (unsigned long) now, (unsigned long) down);
 #else
             ESP_LOGI (TAG, "Up %lu", (unsigned long) now);
 #endif
@@ -2526,6 +2526,7 @@ void
 revk_web_dummy (httpd_handle_t * webp, uint16_t port)
 {                               // Just settings
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   config.lru_pruge_enable = true;
    if (port)
       config.server_port = port;
    config.stack_size = 6 * 1024;        // Larger than default, just in case
@@ -3306,7 +3307,7 @@ revk_web_status (httpd_req_t * req)
          if (esp_wifi_scan_start (NULL, true) == ESP_ERR_WIFI_STATE)
          {
             esp_wifi_disconnect ();
-            esp_wifi_scan_start (NULL, true);
+            REVK_ERR_CHECK (esp_wifi_scan_start (NULL, true));
          }
          uint16_t ap_count = 0;
          static wifi_ap_record_t ap_info[32];   // Messy being static - should really have mutex
