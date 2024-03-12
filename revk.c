@@ -800,8 +800,6 @@ wifi_init (void)
    }
    setup_ip ();
    REVK_ERR_CHECK (esp_wifi_start ());
-   if (*wifissid)
-      REVK_ERR_CHECK (esp_wifi_connect ());
 }
 #endif
 
@@ -1250,8 +1248,6 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "STA Disconnect");
          xEventGroupClearBits (revk_group, GROUP_WIFI | GROUP_IP);
          xEventGroupSetBits (revk_group, GROUP_OFFLINE);
-         if (sta_netif && *wifissid)
-            esp_wifi_connect ();        // TODO back off
          break;
       case WIFI_EVENT_AP_STOP:
          ESP_LOGI (TAG, "AP Stop");
@@ -1676,16 +1672,29 @@ task (void *pvParameters)
                   revk_upgrade (NULL, NULL);    // Checks for upgrade
             }
          }
+         {
+#if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
+            uint32_t down = revk_link_down ();
+            if (*wifissid && down)
+            {                   // Link down, do regular connect attempts
+               wifi_mode_t mode = 0;
+               esp_wifi_get_mode (&mode);
+               if ((!now % 10 && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA)
+                  esp_wifi_connect ();  // Slowed in APSTA to allow AP mode to work
+            }
+#endif
 #ifdef CONFIG_REVK_MESH
-         ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long) now, revk_link_down (),
-                   esp_mesh_get_total_node_num (), esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)");
+            ESP_LOGI (TAG, "Up %ld, Link down %ld, Mesh nodes %d%s", (long) now, down,
+                      esp_mesh_get_total_node_num (),
+                      esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
-         ESP_LOGI (TAG, "Up %ld, Link down %ld", (long) now, (long) revk_link_down ());
+            ESP_LOGI (TAG, "Up %ld, Link down %d", (long) now, down);
 #else
-         ESP_LOGI (TAG, "Up %ld", (long) now);
+            ESP_LOGI (TAG, "Up %ld", (long) now);
 #endif
 #endif
+         }
 #ifdef	CONFIG_REVK_MQTT
          {                      // Report even if not on-line as mesh works anyway
             static uint8_t lastch = 0;
