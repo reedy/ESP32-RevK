@@ -800,8 +800,6 @@ wifi_init (void)
    }
    setup_ip ();
    REVK_ERR_CHECK (esp_wifi_start ());
-   if (*wifissid)
-      esp_wifi_connect ();
 }
 #endif
 
@@ -1240,7 +1238,6 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
       case WIFI_EVENT_STA_CONNECTED:
          ESP_LOGI (TAG, "STA Connected");
          xEventGroupSetBits (revk_group, GROUP_WIFI);
-         xEventGroupClearBits (revk_group, GROUP_OFFLINE);
 #ifdef	CONFIG_LWIP_IPV6
          if (sta_netif)
             esp_netif_create_ip6_linklocal (sta_netif);
@@ -1683,6 +1680,7 @@ task (void *pvParameters)
                if ((!(now % 10) && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA)
                {
                   ESP_LOGE (TAG, "Connect %s", wifissid);
+                  xEventGroupClearBits (revk_group, GROUP_OFFLINE);
                   esp_wifi_connect ();  // Slowed in APSTA to allow AP mode to work
                }
             }
@@ -2958,6 +2956,7 @@ revk_web_settings (httpd_req_t * req)
                   strncpy ((char *) cfg.sta.ssid, ssid, sizeof (cfg.sta.ssid));
                   strncpy ((char *) cfg.sta.password, pass, sizeof (cfg.sta.password));
                   esp_wifi_set_config (ESP_IF_WIFI_STA, &cfg);
+                  xEventGroupClearBits (revk_group, GROUP_OFFLINE);
                   esp_wifi_connect ();
                   esp_netif_dhcpc_stop (sta_netif);
                   esp_netif_dhcpc_start (sta_netif);
