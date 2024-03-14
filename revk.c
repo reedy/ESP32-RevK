@@ -1680,7 +1680,10 @@ task (void *pvParameters)
                wifi_mode_t mode = 0;
                esp_wifi_get_mode (&mode);
                if ((!(now % 10) && mode == WIFI_MODE_APSTA) || (!(now % 3) && mode == WIFI_MODE_STA))
+	       {
+		       ESP_LOGE(TAG,"Connect %s",wifissid);
                   esp_wifi_connect ();  // Slowed in APSTA to allow AP mode to work
+	       }
             }
 #endif
 #ifdef CONFIG_REVK_MESH
