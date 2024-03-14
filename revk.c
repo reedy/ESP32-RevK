@@ -800,6 +800,8 @@ wifi_init (void)
    }
    setup_ip ();
    REVK_ERR_CHECK (esp_wifi_start ());
+   if (*wifissid)
+      esp_wifi_connect ();
 }
 #endif
 
@@ -1674,25 +1676,24 @@ task (void *pvParameters)
          }
          {
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-            uint32_t down = revk_link_down ();
-            if (*wifissid && down)
+            if (*wifissid && (xEventGroupGetBits (revk_group) & (GROUP_OFFLINE)))
             {                   // Link down, do regular connect attempts
                wifi_mode_t mode = 0;
                esp_wifi_get_mode (&mode);
-               if ((!(now % 10) && mode == WIFI_MODE_APSTA) || (!(now % 3) && mode == WIFI_MODE_STA))
-	       {
-		       ESP_LOGE(TAG,"Connect %s",wifissid);
+               if ((!(now % 10) && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA)
+               {
+                  ESP_LOGE (TAG, "Connect %s", wifissid);
                   esp_wifi_connect ();  // Slowed in APSTA to allow AP mode to work
-	       }
+               }
             }
 #endif
 #ifdef CONFIG_REVK_MESH
-            ESP_LOGI (TAG, "Up %lu, Link down %lu, Mesh nodes %lu%s", (unsigned long) now, (unsigned long) down,
+            ESP_LOGI (TAG, "Up %lu, Link down %lu, Mesh nodes %lu%s", (unsigned long) now, (unsigned long) revk_link_down (),
                       esp_mesh_get_total_node_num (),
                       esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
-            ESP_LOGI (TAG, "Up %lu, Link down %lu", (unsigned long) now, (unsigned long) down);
+            ESP_LOGI (TAG, "Up %lu, Link down %lu", (unsigned long) now, (unsigned long) revk_link_down ());
 #else
             ESP_LOGI (TAG, "Up %lu", (unsigned long) now);
 #endif
