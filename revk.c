@@ -1673,7 +1673,7 @@ task (void *pvParameters)
          }
          {
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-            if (*wifissid && (xEventGroupGetBits (revk_group) & (GROUP_OFFLINE)))
+            if (!b.disablewifi && *wifissid && (xEventGroupGetBits (revk_group) & (GROUP_OFFLINE)))
             {                   // Link down, do regular connect attempts
                wifi_mode_t mode = 0;
                esp_wifi_get_mode (&mode);
