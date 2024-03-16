@@ -1400,11 +1400,8 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                         if (!err)
                         {       // Looks like it was set, even if not different
                            change = 1;
-                           if (!s->live)
-                           {
-                              free (reload);
+                           if (!s->live && !reload)
                               asprintf (&reload, "Erase %s", s->name);
-                           }
                         }
                      }
                   }
@@ -1433,11 +1430,8 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                      if (!err)
                      {          // Different
                         change = 1;
-                        if (!s->live)
-                        {
-                           free (reload);
+                        if (!s->live && !reload)
                            asprintf (&reload, "Change %s(%d)", s->name, index);
-                        }
                      }
                   }
                }
