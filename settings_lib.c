@@ -1401,7 +1401,10 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                         {       // Looks like it was set, even if not different
                            change = 1;
                            if (!s->live)
-                              reload = s->name;
+                           {
+                              free (reload);
+                              asprintf (&reload, "Erase %s", s->name);
+                           }
                         }
                      }
                   }
@@ -1431,7 +1434,10 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                      {          // Different
                         change = 1;
                         if (!s->live)
-                           reload = s->name;
+                        {
+                           free (reload);
+                           asprintf (&reload, "Change %s", s->name);
+                        }
                      }
                   }
                }
@@ -1581,7 +1587,10 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
    }
    err = scan (0, -1);
    if (reload)
+   {
       revk_restart (3, "Settings changed (%s)", reload);
+      free (reload);
+   }
    if (locationp)
       *locationp = err ? location : NULL;
    return err ? : change ? "" : NULL;
