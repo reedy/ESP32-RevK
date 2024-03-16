@@ -1396,12 +1396,14 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                            sprintf (tag, "%s%c", s->name, index + 0x80);
                            err = nvs_erase (s, tag);
                         } else
+                        {
                            err = nvs_erase (s, s->name);
-                        if (!err)
-                        {       // Looks like it was set, even if not different
-                           change = 1;
-                           if (!s->live && !reload)
-                              asprintf (&reload, "Erase %s(%d)", s->name, index);
+                           if (!err)
+                           {    // Looks like it was set, even if not different
+                              change = 1;
+                              if (!s->live && !reload)
+                                 asprintf (&reload, "Erase %s(%d)", s->name, index);
+                           }
                         }
                      }
                   }
