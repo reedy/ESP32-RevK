@@ -1436,7 +1436,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                         if (!s->live)
                         {
                            free (reload);
-                           asprintf (&reload, "Change %s", s->name);
+                           asprintf (&reload, "Change %s(%d)", s->name, index);
                         }
                      }
                   }
