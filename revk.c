@@ -274,7 +274,7 @@ lwmqtt_t mqtt_client[CONFIG_REVK_MQTT_CLIENTS] = { };
 
 static uint32_t restart_time = 0;
 uint32_t revk_nvs_time = 0;
-static const char *restart_reason = NULL;
+static char *restart_reason = NULL;
 #ifdef	CONFIG_REVK_OLD_SETTINGS
 nvs_handle revk_nvs = -1;
 #endif
