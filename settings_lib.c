@@ -1254,7 +1254,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
       passok = 1;
 #endif
    char change = 0;
-   char reload = 0;
+   const char *reload = NULL;
    const char *err = NULL;
    char tag[16];
    revk_setting_bits_t found = { 0 };
@@ -1397,12 +1397,12 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                            err = nvs_erase (s, tag);
                         } else
                            err = nvs_erase (s, s->name);
-                     if (!err)
-                     {// Looks like it was set, even if not different
-                        change = 1;
-                        if (!s->live)
-                           reload = 1;
-                     }
+                        if (!err)
+                        {       // Looks like it was set, even if not different
+                           change = 1;
+                           if (!s->live)
+                              reload = s->name;
+                        }
                      }
                   }
                   if (value_cmp (s, ptr, temp))
@@ -1428,10 +1428,10 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                      if (t != JO_NULL || s->fix)
                         err = nvs_put (s, index, temp); // Put in NVS
                      if (!err)
-                     { // Different
+                     {          // Different
                         change = 1;
                         if (!s->live)
-                           reload = 1;
+                           reload = s->name;
                      }
                   }
                }
@@ -1581,7 +1581,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
    }
    err = scan (0, -1);
    if (reload)
-      revk_restart ("Settings changed", 5);
+      revk_restart (3, "Settings changed (%s)", reload);
    if (locationp)
       *locationp = err ? location : NULL;
    return err ? : change ? "" : NULL;

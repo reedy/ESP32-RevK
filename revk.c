@@ -379,7 +379,7 @@ mesh_safe_send (const mesh_addr_t * to, const mesh_data_t * data, int flag, cons
       if (e == ESP_ERR_MESH_NO_MEMORY)
       {
          if (++fails > 100)
-            revk_restart ("ESP_ERR_MESH_NO_MEMORY", 1); // Messy, catch memory leak
+            revk_restart (1, "ESP_ERR_MESH_NO_MEMORY"); // Messy, catch memory leak
       }
    } else
       fails = 0;
@@ -565,7 +565,7 @@ mesh_task (void *pvParameters)
                   jo_string (j, "complete", ota_partition->label);
                   revk_info_clients ("upgrade", &j, -1);        // Send from target device so cloud knows target is upgraded
                   esp_ota_set_boot_partition (ota_partition);
-                  revk_restart ("OTA", 3);
+                  revk_restart (3, "OTA");
                }
                ota_partition = NULL;
                ota_size = 0;
@@ -1135,7 +1135,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       {
          ESP_LOGI (TAG, "MQTT%d failed", client);
          if (esp_get_free_heap_size () < 60000 && mqttcert[client]->len)        // Messy - pick up TLS memory leak
-            revk_restart ("Memory issue (TLS)", 10);
+            revk_restart (10, "Memory issue (TLS)");
       }
    }
 }
@@ -1812,16 +1812,16 @@ task (void *pvParameters)
          {                      // Root reset is if wifireset and alone, or mesh reset even if not alone
             if ((wifireset && revk_link_down () > wifireset && esp_mesh_get_total_node_num () <= 1)
                 || (meshreset && revk_link_down () > meshreset))
-               revk_restart ("Mesh sucks", 0);
+               revk_restart (0, "Mesh sucks");
          } else
          {                      // Leaf reset if only if link down (meaning alone)
             if (wifireset && revk_link_down () > wifireset)
-               revk_restart ("Mesh sucks", 0);
+               revk_restart (0, "Mesh sucks");
          }
 #endif
 #ifdef	CONFIG_REVK_WIFI
          if (wifireset && revk_link_down () > wifireset)
-            revk_restart ("Offline too long", 0);
+            revk_restart (0, "Offline too long");
 #endif
 #ifdef	CONFIG_REVK_APMODE
          if (!b.disableap && apgpio.set && (gpio_get_level (apgpio.num) ^ apgpio.invert))
@@ -2481,15 +2481,25 @@ revk_info_clients (const char *suffix, jo_t * jp, uint8_t clients)
 }
 
 const char *
-revk_restart (const char *reason, int delay)
-{                               /* Restart cleanly */
+revk_restart (int delay, const char *fmt, ...)
+{
+   char *reason = NULL;
+   va_list ap;
+   va_start (ap, format);
+   ssize_t len = vasprintf (&reason, format, ap);
+   va_end (ap);
 #ifdef	CONFIG_REVK_MESH
    if (delay >= 2 && !esp_mesh_is_root ())
       delay -= 2;               // For when lots of devices done at once, do root later
 #endif
-   if (restart_reason != reason)
+   if (restart_reason && !strcmp (restart_reason, reason))
+      free (reason);
+   else
+   {
+      free (restart_reason);
+      restart_reason = reason;
       ESP_LOGE (TAG, "Restart %d %s", delay, reason);
-   restart_reason = reason;
+   }
    if (delay < 0)
       restart_time = 0;         /* Cancelled */
    else
@@ -3719,9 +3729,9 @@ ota_task (void *pvParameters)
                   if ((err = REVK_ERR_CHECK (esp_ota_write (ota_handle, buf, len))))
                      break;
                   if (!ota_data)
-                     revk_restart ("OTA Download started", 10);
+                     revk_restart (10, "OTA Download started" 0);
                   else if (ota_data < ota_size / 2 && (ota_data + len) >= ota_size / 2)
-                     revk_restart ("OTA Download progress", 10);
+                     revk_restart (10, "OTA Download progress");
                   ota_data += len;
                   now = uptime ();
                   ota_percent = ota_data * 100 / ota_size;
@@ -3746,535 +3756,376 @@ ota_task (void *pvParameters)
                jo_string (j, "complete", ota_partition->label);
                revk_info_clients ("upgrade", &j, -1);
                esp_ota_set_boot_partition (ota_partition);
-               revk_restart ("OTA Download complete", 3);
-            } else
-            {
-               revk_restart ("OTA Download fail", 3);
-               ota_percent = -4;
-               if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otadays && otadays < 30)
-               {                // Force long recheck delay
-                  jo_t j = jo_make (NULL);
-                  if (otabeta)
-                     jo_bool (j, "otabeta", 0);
-                  else
-                  {
-                     jo_int (j, "otadays", 30);
-                     jo_bool (j, "otastart", 0);
-                  }
-                  revk_setting (j);
-                  jo_free (&j);
-               }
-            }
-         }
+            revk_restart (3, "OTA Download complete";} else
+                          {
+                          revk_restart (3, "OTA Download fail");
+                          ota_percent = -4; if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otadays && otadays < 30)
+                          {     // Force long recheck delay
+                          jo_t j = jo_make (NULL); if (otabeta) jo_bool (j, "otabeta", 0);
+                          else
+                          {
+                          jo_int (j, "otadays", 30); jo_bool (j, "otastart", 0);}
+                          revk_setting (j); jo_free (&j);}
+                          }
+                          }
 #endif
-      }
-      REVK_ERR_CHECK (esp_http_client_cleanup (client));
-      if (err || status / 100 != 2 || ota_size < 0)
-         if (!err && status / 100 != 2)
-         {
-            jo_t j = jo_make (NULL);
-            if (ota_size >= 0)
-               jo_int (j, "size", ota_size);
-            jo_string (j, "url", url);
-            if (err)
-            {
-               jo_int (j, "code", err);
-               jo_string (j, "description", esp_err_to_name (err));
-            }
-            if (status)
-               jo_int (j, "status", status);
-            revk_error ("upgrade", &j);
-         }
-   }
-   freez (url);
-   ota_task_id = NULL;
-   ESP_LOGI (TAG, "OTA: Stack spare %d", uxTaskGetStackHighWaterMark (NULL));
-   vTaskDelete (NULL);
-}
+                          }
+                          REVK_ERR_CHECK (esp_http_client_cleanup (client));
+                          if (err || status / 100 != 2 || ota_size < 0) if (!err && status / 100 != 2)
+                          {
+                          jo_t j = jo_make (NULL);
+                          if (ota_size >= 0) jo_int (j, "size", ota_size); jo_string (j, "url", url); if (err)
+                          {
+                          jo_int (j, "code", err); jo_string (j, "description", esp_err_to_name (err));}
+                          if (status) jo_int (j, "status", status); revk_error ("upgrade", &j);}
+                          }
+                          freez (url);
+                          ota_task_id = NULL;
+                          ESP_LOGI (TAG, "OTA: Stack spare %d", uxTaskGetStackHighWaterMark (NULL)); vTaskDelete (NULL);}
 
-static char *
-revk_upgrade_url (const char *val)
-{                               // OTA URL (malloc'd)
-   char *url;                   // Passed to task
-   if (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7))
-      url = strdup (val);       // Whole URL provided (ignore beta)
-   else if (*val == '/')
-      asprintf (&url, "%s://%s%s",
+                          static char *revk_upgrade_url (const char *val)
+                          {     // OTA URL (malloc'd)
+                          char *url;    // Passed to task
+                          if (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7)) url = strdup (val);      // Whole URL provided (ignore beta)
+                          else
+                          if (*val == '/') asprintf (&url, "%s://%s%s",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
-                otacert->len ? "https" : "http",
+                                                     otacert->len ? "https" : "http",
 #else
-                "http",         /* If not signed, use http as code should be signed and this uses way less memory  */
+                                                     "http",    /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-                otahost, val);  // Leaf provided (ignore beta)
-   else
-      asprintf (&url, "%s://%s/%s%s%s.bin?%s",
+                                                     otahost, val);     // Leaf provided (ignore beta)
+                          else
+                          asprintf (&url, "%s://%s/%s%s%s.bin?%s",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
-                otacert->len ? "https" : "http",
+                                    otacert->len ? "https" : "http",
 #else
-                "http",         /* If not signed, use http as code should be signed and this uses way less memory  */
+                                    "http",     /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-                *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix, revk_id);     // Hostname provided
-   return url;
-}
+                                    *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix, revk_id); // Hostname provided
+                          return url;}
 
-static int
-revk_upgrade_check (const char *url)
-{                               // Check if upgrade needed, -ve for error, 0 for no, +ve for yes
-   jo_t j = jo_make (NULL);
-   jo_string (j, "url", url);
-   int ret = 0;
-   esp_http_client_config_t config = {
-      .url = url,
-      .timeout_ms = 30000,
-   };
-   esp_http_client_handle_t client = esp_http_client_init (&config);
-   if (!client)
-      ret = -1;
-   char data[96] = { 0 };
-   size_t size = 0;
-   int status = 0;
-   if (!ret && esp_http_client_set_header (client, "Range", "bytes=48-143"))
-      ret = -2;
-   if (!ret && esp_http_client_open (client, 0))
-      ret = -3;
-   if (!ret && (size = esp_http_client_fetch_headers (client)) != sizeof (data))
-   {
-      ret = -4;
-      jo_int (j, "size", size);
-   }
-   if (!ret && (status = esp_http_client_get_status_code (client) / 100 != 2))
-   {
-      ret = -5;
-      jo_int (j, "status", status);
-   }
-   if (!ret && esp_http_client_read (client, data, sizeof (data)) != sizeof (data))
-      ret = -6;
-   REVK_ERR_CHECK (esp_http_client_cleanup (client));
-   if (!ret)
-   {                            // Check version
-      jo_stringf (j, "version", "%.32s", data + 0);
-      jo_stringf (j, "project", "%.32s", data + 32);
-      jo_stringf (j, "time", "%.16s", data + 64);
-      jo_stringf (j, "date", "%.16s", data + 80);
-      const esp_app_desc_t *app = esp_app_get_description ();
-      if (strncmp (app->version, data + 0, 32))
-      {
-         ret = 1;               // Different version
-         jo_string (j, "was-version", app->version);
-      } else if (strncmp (app->project_name, data + 32, 32))
-      {
-         ret = 2;               // Different project name
-         jo_string (j, "was-project", app->project_name);
-      } else if (strncmp (app->date, data + 80, 16))
-      {
-         ret = 4;               // Different date
-         jo_string (j, "was-date", app->date);
-      } else if (strncmp (app->time, data + 64, 16))
-      {
-         ret = 4;               // Different time
-         jo_string (j, "was-time", app->time);
-      }
-      if (!ret)
-         jo_bool (j, "up-to-date", 1);
-   } else
-      jo_int (j, "fail", ret);
-   revk_info ("upgrade", &j);
-   return ret;
-}
+                          static int revk_upgrade_check (const char *url)
+                          {     // Check if upgrade needed, -ve for error, 0 for no, +ve for yes
+                          jo_t j = jo_make (NULL); jo_string (j, "url", url); int ret = 0; esp_http_client_config_t config = {
+                          .url = url,
+                          .timeout_ms = 30000,
+                          };
+                          esp_http_client_handle_t client = esp_http_client_init (&config);
+                          if (!client)
+                          ret = -1;
+                          char data[96] = { 0 };
+                          size_t size = 0;
+                          int status = 0;
+                          if (!ret && esp_http_client_set_header (client, "Range", "bytes=48-143"))
+                          ret = -2;
+                          if (!ret && esp_http_client_open (client, 0))
+                          ret = -3; if (!ret && (size = esp_http_client_fetch_headers (client)) != sizeof (data))
+                          {
+                          ret = -4; jo_int (j, "size", size);}
+                          if (!ret && (status = esp_http_client_get_status_code (client) / 100 != 2))
+                          {
+                          ret = -5; jo_int (j, "status", status);}
+                          if (!ret && esp_http_client_read (client, data, sizeof (data)) != sizeof (data))
+                          ret = -6; REVK_ERR_CHECK (esp_http_client_cleanup (client)); if (!ret)
+                          {     // Check version
+                          jo_stringf (j, "version", "%.32s", data + 0);
+                          jo_stringf (j, "project", "%.32s", data + 32);
+                          jo_stringf (j, "time", "%.16s", data + 64);
+                          jo_stringf (j, "date", "%.16s", data + 80);
+                          const esp_app_desc_t * app = esp_app_get_description (); if (strncmp (app->version, data + 0, 32))
+                          {
+                          ret = 1;      // Different version
+                          jo_string (j, "was-version", app->version);}
+                          else
+                          if (strncmp (app->project_name, data + 32, 32))
+                          {
+                          ret = 2;      // Different project name
+                          jo_string (j, "was-project", app->project_name);}
+                          else
+                          if (strncmp (app->date, data + 80, 16))
+                          {
+                          ret = 4;      // Different date
+                          jo_string (j, "was-date", app->date);}
+                          else
+                          if (strncmp (app->time, data + 64, 16))
+                          {
+                          ret = 4;      // Different time
+                          jo_string (j, "was-time", app->time);}
+                          if (!ret) jo_bool (j, "up-to-date", 1);}
+                          else
+                          jo_int (j, "fail", ret); revk_info ("upgrade", &j); return ret;}
 
-static const char *
-revk_upgrade (const char *target, jo_t j)
-{                               // Upgrade command
-   if (ota_task_id)
-      return "OTA running";
+                          static const char *revk_upgrade (const char *target, jo_t j)
+                          {     // Upgrade command
+                          if (ota_task_id) return "OTA running";
 #ifdef CONFIG_REVK_MESH
-   if (!esp_mesh_is_root ())
-      return "";                // OK will be done by root and sent via MESH
+                          if (!esp_mesh_is_root ())return "";   // OK will be done by root and sent via MESH
 #endif
-   char val[256] = { 0 };
-   if (j && jo_strncpy (j, val, sizeof (val)) < 0)
-      *val = 0;
+                          char val[256] = { 0 }; if (j && jo_strncpy (j, val, sizeof (val)) < 0) * val = 0;
 #ifdef CONFIG_REVK_MESH
-   if (target && strlen (target) == 12)
-   {
-      ESP_LOGI (TAG, "Mesh relay upgrade %s %s", target, val);
-      for (int n = 0; n < sizeof (mesh_ota_addr.addr); n++)
-         mesh_ota_addr.addr[n] =
-            (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) +
-                                                                              (target[1 + n * 2] > '9' ? 9 : 0));
-   } else if (target)
-      return "Odd target";
-   else
-      memcpy (mesh_ota_addr.addr, revk_mac, 6); // Us
+                          if (target && strlen (target) == 12)
+                          {
+                          ESP_LOGI (TAG, "Mesh relay upgrade %s %s", target, val);
+                          for (int n = 0; n < sizeof (mesh_ota_addr.addr); n++)
+                          mesh_ota_addr.addr[n] =
+                          (((target[n * 2] & 0xF) + (target[n * 2] > '9' ? 9 : 0)) << 4) + ((target[1 + n * 2] & 0xF) +
+                                                                                            (target[1 + n * 2] > '9' ? 9 : 0));}
+                          else
+                          if (target) return "Odd target";
+                          else
+                          memcpy (mesh_ota_addr.addr, revk_mac, 6);     // Us
 #endif
-   char *url = revk_upgrade_url (val);
+                          char *url = revk_upgrade_url (val);
 #ifdef CONFIG_REVK_MESH
-   if (!target)                 // Us
+                          if (!target)  // Us
 #endif
-   {                            // Upgrading this device (upgrade check only works for this device as comparing this device details)
-      int8_t check = revk_upgrade_check (url);
-      if (check <= 0)
-      {
-         free (url);
-         ota_percent = check ? -3 : -2;
-         return check ? "Upgrade check failed" : "Up to date";
-      }
-      ESP_LOGI (TAG, "Resetting watchdog");
-      REVK_ERR_CHECK (compat_task_wdt_reconfigure (false, 120 * 1000, true));
-      revk_restart ("OTA Download", 30);        // Restart if download does not happen properly
+                          {     // Upgrading this device (upgrade check only works for this device as comparing this device details)
+                          int8_t check = revk_upgrade_check (url); if (check <= 0)
+                          {
+                          free (url); ota_percent = check ? -3 : -2; return check ? "Upgrade check failed" : "Up to date";}
+                          ESP_LOGI (TAG, "Resetting watchdog"); REVK_ERR_CHECK (compat_task_wdt_reconfigure (false, 120 * 1000, true)); revk_restart (30, "OTA Download");      // Restart if download does not happen properly
 #ifdef	CONFIG_NIMBLE_ENABLED
-      ESP_LOGI (TAG, "Stopping any BLE");
-      esp_bt_controller_disable ();     // Kill bluetooth during download
-      esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
+                          ESP_LOGI (TAG, "Stopping any BLE"); esp_bt_controller_disable ();     // Kill bluetooth during download
+                          esp_wifi_set_ps (WIFI_PS_NONE);       // Full wifi
 #endif
-   }
-   ota_task_id = revk_task ("OTA", ota_task, url, 5);
-   return "";
-}
+                          }
+                          ota_task_id = revk_task ("OTA", ota_task, url, 5); return "";}
 
-const char *
-revk_command (const char *tag, jo_t j)
-{
-   if (!tag || !*tag)
-      return NULL;
-   ESP_LOGD (TAG, "MQTT command [%s]", tag);
-   const char *e = NULL;
-   /* My commands */
-   if (!e && !strcmp (tag, "upgrade"))
-      e = revk_upgrade (NULL, j);       // Called internally maybe
-   if (!e && !strcmp (tag, "status"))
-   {
-      up_next = 0;
-      e = "";
-   }
-   if (!e && watchdogtime && !strcmp (tag, "watchdog"))
-   {                            /* Test watchdog */
-      b.wdt_test = 1;
-      return "";
-   }
-   if (!e && !strcmp (tag, "restart"))
-      e = revk_restart ("Restart command", 3);
-   if (!e && !strcmp (tag, "factory"))
-   {
-      char val[256];
-      if (jo_strncpy (j, val, sizeof (val)) < 0)
-         *val = 0;
-      if (strncmp (val, revk_id, strlen (revk_id)))
-         return "Bad ID";
-      if (strcmp (val + strlen (revk_id), appname))
-         return "Bad appname";
-      esp_err_t e = nvs_flash_erase ();
-      if (!e)
-         e = nvs_flash_erase_partition (TAG);
-      if (!e)
-         revk_restart ("Factory reset", 3);
-      return "";
-   }
+                          const char *revk_command (const char *tag, jo_t j)
+                          {
+                          if (!tag || !*tag) return NULL; ESP_LOGD (TAG, "MQTT command [%s]", tag); const char *e = NULL;
+                          /* My commands */
+                          if (!e && !strcmp (tag, "upgrade")) e = revk_upgrade (NULL, j);       // Called internally maybe
+                          if (!e && !strcmp (tag, "status"))
+                          {
+                          up_next = 0; e = "";}
+                          if (!e && watchdogtime && !strcmp (tag, "watchdog"))
+                          {     /* Test watchdog */
+                          b.wdt_test = 1; return "";}
+                          if (!e && !strcmp (tag, "restart"))
+                          e = revk_restart (3, "Restart command"); if (!e && !strcmp (tag, "factory"))
+                          {
+                          char val[256];
+                          if (jo_strncpy (j, val, sizeof (val)) < 0)
+                          * val = 0;
+                          if (strncmp (val, revk_id, strlen (revk_id)))
+                          return "Bad ID";
+                          if (strcmp (val + strlen (revk_id), appname))
+                          return "Bad appname";
+                          esp_err_t e = nvs_flash_erase ();
+                          if (!e) e = nvs_flash_erase_partition (TAG); if (!e) revk_restart (3, "Factory reset"); return "";}
 #ifdef	CONFIG_REVK_MESH
-   if (!e && !strcmp (tag, "mesh"))
-   {                            // Update mesh if we are root
-      // esp_mesh_switch_channel(const uint8_t *new_bssid, int csa_newchan, int csa_count)
-   }
+                          if (!e && !strcmp (tag, "mesh"))
+                          {     // Update mesh if we are root
+                          // esp_mesh_switch_channel(const uint8_t *new_bssid, int csa_newchan, int csa_count)
+                          }
 #endif
 #ifdef	CONFIG_REVK_APMODE
-   if (!e && !strcmp (tag, "apconfig"))
-   {
-      ap_start ();
-      return "";
-   }
-   if (!e && !strcmp (tag, "apstop"))
-   {
-      ap_stop ();
-      return "";
-   }
+                          if (!e && !strcmp (tag, "apconfig"))
+                          {
+                          ap_start (); return "";}
+                          if (!e && !strcmp (tag, "apstop"))
+                          {
+                          ap_stop (); return "";}
 #endif
 #ifdef  CONFIG_FREERTOS_USE_TRACE_FACILITY
-   if (!e && !strcmp (tag, "ps"))
-   {                            // Process list
-      TaskStatus_t *pxTaskStatusArray;
-      volatile UBaseType_t uxArraySize,
-        x;
-      uint32_t ulTotalRunTime;
-      // Take a snapshot of the number of tasks in case it changes while this
-      // function is executing.
-      uxArraySize = uxTaskGetNumberOfTasks ();
-      // Allocate a TaskStatus_t structure for each task.  An array could be
-      // allocated statically at compile time.
-      pxTaskStatusArray = pvPortMalloc (uxArraySize * sizeof (TaskStatus_t));
-      if (!pxTaskStatusArray)
-         return "alloc fail";
-      // Generate raw status information about each task.
-      uxArraySize = uxTaskGetSystemState (pxTaskStatusArray, uxArraySize, &ulTotalRunTime);
-      // For each populated position in the pxTaskStatusArray array,
-      // format the raw data as human readable ASCII data
-      for (x = 0; x < uxArraySize; x++)
-      {
-         jo_t j = jo_object_alloc ();
+                          if (!e && !strcmp (tag, "ps"))
+                          {     // Process list
+                          TaskStatus_t * pxTaskStatusArray; volatile UBaseType_t uxArraySize, x; uint32_t ulTotalRunTime;
+                          // Take a snapshot of the number of tasks in case it changes while this
+                          // function is executing.
+                          uxArraySize = uxTaskGetNumberOfTasks ();
+                          // Allocate a TaskStatus_t structure for each task.  An array could be
+                          // allocated statically at compile time.
+                          pxTaskStatusArray = pvPortMalloc (uxArraySize * sizeof (TaskStatus_t));
+                          if (!pxTaskStatusArray) return "alloc fail";
+                          // Generate raw status information about each task.
+                          uxArraySize = uxTaskGetSystemState (pxTaskStatusArray, uxArraySize, &ulTotalRunTime);
+                          // For each populated position in the pxTaskStatusArray array,
+                          // format the raw data as human readable ASCII data
+                          for (x = 0; x < uxArraySize; x++)
+                          {
+                          jo_t j = jo_object_alloc ();
 #ifdef	CONFIG_REVK_MESH
-         jo_string (j, "node", nodename);
+                          jo_string (j, "node", nodename);
 #endif
-         jo_string (j, "task", pxTaskStatusArray[x].pcTaskName);
-         jo_int (j, "priority", pxTaskStatusArray[x].uxCurrentPriority);
-         jo_int (j, "free-stack", pxTaskStatusArray[x].usStackHighWaterMark);
-         if (ulTotalRunTime)
-            jo_int (j, "load", pxTaskStatusArray[x].ulRunTimeCounter * 100 / ulTotalRunTime);
-         revk_info_clients ("ps", &j, -1);
-      }
-      vPortFree (pxTaskStatusArray);
-      return "";
-   }
+                          jo_string (j, "task", pxTaskStatusArray[x].pcTaskName);
+                          jo_int (j, "priority", pxTaskStatusArray[x].uxCurrentPriority);
+                          jo_int (j, "free-stack", pxTaskStatusArray[x].usStackHighWaterMark);
+                          if (ulTotalRunTime)
+                          jo_int (j, "load", pxTaskStatusArray[x].ulRunTimeCounter * 100 / ulTotalRunTime);
+                          revk_info_clients ("ps", &j, -1);}
+                          vPortFree (pxTaskStatusArray); return "";}
 #endif
-   return e;
-}
+                          return e;}
 
 #if CONFIG_LOG_DEFAULT_LEVEL > 2
-esp_err_t
-revk_err_check (esp_err_t e, const char *file, int line, const char *func, const char *cmd)
-{
-   if (e != ERR_OK)
-   {
-      const char *fn = strrchr (file, '/');
-      if (fn)
-         fn++;
-      else
-         fn = file;
-      ESP_LOGE (TAG, "Error %s at line %d in %s (%s)", esp_err_to_name (e), line, fn, cmd);
-      jo_t j = jo_make (NULL);
-      jo_int (j, "code", e);
-      jo_string (j, "description", esp_err_to_name (e));
-      jo_string (j, "file", fn);
-      jo_int (j, "line", line);
-      jo_string (j, "function", func);
-      jo_string (j, "command", cmd);
-      revk_error (NULL, &j);
-   }
-   return e;
-}
+                          esp_err_t revk_err_check (esp_err_t e, const char *file, int line, const char *func, const char *cmd)
+                          {
+                          if (e != ERR_OK)
+                          {
+                          const char *fn = strrchr (file, '/'); if (fn) fn++;
+                          else
+                          fn = file;
+                          ESP_LOGE (TAG, "Error %s at line %d in %s (%s)", esp_err_to_name (e), line, fn, cmd);
+                          jo_t j = jo_make (NULL);
+                          jo_int (j, "code", e);
+                          jo_string (j, "description", esp_err_to_name (e));
+                          jo_string (j, "file", fn);
+                          jo_int (j, "line", line);
+                          jo_string (j, "function", func); jo_string (j, "command", cmd); revk_error (NULL, &j);}
+                          return e;}
 #else
-esp_err_t
-revk_err_check (esp_err_t e)
-{
-   if (e != ERR_OK)
-   {
-      ESP_LOGE (TAG, "Error %s", esp_err_to_name (e));
-      jo_t j = jo_make (NULL);
-      jo_int (j, "code", e);
-      jo_string (j, "description", esp_err_to_name (e));
-      revk_error (NULL, &j);
-   }
-   return e;
-}
+                          esp_err_t revk_err_check (esp_err_t e)
+                          {
+                          if (e != ERR_OK)
+                          {
+                          ESP_LOGE (TAG, "Error %s", esp_err_to_name (e));
+                          jo_t j = jo_make (NULL);
+                          jo_int (j, "code", e); jo_string (j, "description", esp_err_to_name (e)); revk_error (NULL, &j);}
+                          return e;}
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-lwmqtt_t
-revk_mqtt (int client)
-{
-   if (client >= CONFIG_REVK_MQTT_CLIENTS)
-      return NULL;
-   return mqtt_client[client];
-}
+                          lwmqtt_t revk_mqtt (int client)
+                          {
+                          if (client >= CONFIG_REVK_MQTT_CLIENTS) return NULL; return mqtt_client[client];}
 #endif
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-const char *
-revk_wifi (void)
-{
-   return wifissid;
-}
+                          const char *revk_wifi (void)
+                          {
+                          return wifissid;}
 #endif
 
-void
-revk_blink (uint8_t on, uint8_t off, const char *colours)
-{
-   blink_on = on;
-   blink_off = off;
-   blink_colours = colours;
-}
+                          void revk_blink (uint8_t on, uint8_t off, const char *colours)
+                          {
+                          blink_on = on; blink_off = off; blink_colours = colours;}
 
 #ifdef	CONFIG_REVK_MQTT
-void
-revk_mqtt_close (const char *reason)
-{
-   for (int client = 0; client < CONFIG_REVK_MQTT_CLIENTS; client++)
-      if (mqtt_client[client])
-      {
-         lwmqtt_end (&mqtt_client[client]);
-         ESP_LOGI (TAG, "MQTT%d Closed", client);
-         xEventGroupWaitBits (revk_group, GROUP_MQTT_DOWN << client, false, true, 2 * 1000 / portTICK_PERIOD_MS);
-      }
-   ESP_LOGI (TAG, "MQTT Closed");
-}
+                          void revk_mqtt_close (const char *reason)
+                          {
+                          for (int client = 0; client < CONFIG_REVK_MQTT_CLIENTS; client++) if (mqtt_client[client])
+                          {
+                          lwmqtt_end (&mqtt_client[client]);
+                          ESP_LOGI (TAG, "MQTT%d Closed", client);
+                          xEventGroupWaitBits (revk_group, GROUP_MQTT_DOWN << client, false, true, 2 * 1000 / portTICK_PERIOD_MS);}
+                          ESP_LOGI (TAG, "MQTT Closed");}
 #endif
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-void
-revk_wifi_close (void)
-{
-   if (!sta_netif)
-      return;
-   wifi_mode_t mode = 0;
-   esp_wifi_get_mode (&mode);
-   if (mode == WIFI_MODE_NULL)
-      return;
-   ESP_LOGI (TAG, "WIFi Close");
-   esp_wifi_deauth_sta (0);
+                          void revk_wifi_close (void)
+                          {
+                          if (!sta_netif)
+                          return;
+                          wifi_mode_t mode = 0;
+                          esp_wifi_get_mode (&mode);
+                          if (mode == WIFI_MODE_NULL) return; ESP_LOGI (TAG, "WIFi Close"); esp_wifi_deauth_sta (0);
 #ifdef	CONFIG_REVK_MESH
-   esp_mesh_stop ();
-   esp_mesh_deinit ();
+                          esp_mesh_stop (); esp_mesh_deinit ();
 #endif
-   dhcpc_stop ();
-   esp_wifi_disconnect ();
-   esp_wifi_set_mode (WIFI_MODE_NULL);
-   esp_wifi_deinit ();
-   esp_wifi_clear_fast_connect ();
-   esp_wifi_stop ();
-   ESP_LOGI (TAG, "WIFi Closed");
-}
+                          dhcpc_stop ();
+                          esp_wifi_disconnect ();
+                          esp_wifi_set_mode (WIFI_MODE_NULL);
+                          esp_wifi_deinit (); esp_wifi_clear_fast_connect (); esp_wifi_stop (); ESP_LOGI (TAG, "WIFi Closed");}
 #endif
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-int
-revk_wait_wifi (int seconds)
-{
-   ESP_LOGD (TAG, "Wait WiFi %d", seconds);
-   if (!*wifissid)
-      return -1;
-   return xEventGroupWaitBits (revk_group, GROUP_IP, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_IP;
-}
+                          int revk_wait_wifi (int seconds)
+                          {
+                          ESP_LOGD (TAG, "Wait WiFi %d", seconds);
+                          if (!*wifissid)
+                          return -1;
+                          return xEventGroupWaitBits (revk_group, GROUP_IP, false, true,
+                                                      seconds * 1000 / portTICK_PERIOD_MS) & GROUP_IP;}
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-int
-revk_wait_mqtt (int seconds)
-{
-   ESP_LOGD (TAG, "Wait MQTT %d", seconds);
-   if (!*mqtthost[0])
-      return -1;
-   return xEventGroupWaitBits (revk_group, GROUP_MQTT, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_MQTT;
-}
+                          int revk_wait_mqtt (int seconds)
+                          {
+                          ESP_LOGD (TAG, "Wait MQTT %d", seconds);
+                          if (!*mqtthost[0])
+                          return -1;
+                          return xEventGroupWaitBits (revk_group, GROUP_MQTT, false, true,
+                                                      seconds * 1000 / portTICK_PERIOD_MS) & GROUP_MQTT;}
 #endif
 
 #if	defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-uint32_t
-revk_link_down (void)
-{
-   if (!link_down)
-      return 0;
-   return (uptime () - link_down) ? : 1;        // How long down;
-}
+                          uint32_t revk_link_down (void)
+                          {
+                          if (!link_down) return 0; return (uptime () - link_down) ? : 1;       // How long down;
+                          }
 #endif
 
-uint32_t
-revk_shutting_down (const char **reason)
-{
-   if (!restart_time)
-   {
-      if (reason)
-         *reason = NULL;
-      return 0;
-   }
-   int left = restart_time - uptime ();
-   if (left <= 0)
-      left = 1;
-   if (reason)
-      *reason = restart_reason;
-   return left;
-}
+                          uint32_t revk_shutting_down (const char **reason)
+                          {
+                          if (!restart_time)
+                          {
+                          if (reason) * reason = NULL; return 0;}
+                          int left = restart_time - uptime ();
+                          if (left <= 0) left = 1; if (reason) * reason = restart_reason; return left;}
 
-jo_t
-jo_make (const char *node)
-{
-   jo_t j = jo_object_alloc ();
-   time_t now = time (0);
-   if (now > 1000000000)
-      jo_datetime (j, "ts", now);
+                          jo_t jo_make (const char *node)
+                          {
+                          jo_t j = jo_object_alloc (); time_t now = time (0); if (now > 1000000000) jo_datetime (j, "ts", now);
 #ifdef	CONFIG_REVK_MESH
-   if (node && *node)
-      jo_string (j, "node", node);
-   else if (!node && *nodename)
-      jo_string (j, "node", nodename);
+                          if (node && *node) jo_string (j, "node", node);
+                          else
+                          if (!node && *nodename) jo_string (j, "node", nodename);
 #endif
-   return j;
-}
+                          return j;}
 
-const char *
-revk_build_date (char d[20])
-{
-   if (!d)
-      return NULL;
-   const esp_app_desc_t *app = esp_app_get_description ();
-   if (!app)
-      return NULL;
-   const char *v = app->date;
-   if (!v || strlen (v) != 11)
-      return NULL;
-   snprintf (d, 20, "%.4s-xx-%.2sT%.8s", v + 7, v + 4, app->time);
-   const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
-   for (int m = 0; m < 12; m++)
-      if (!strncmp (mname + m * 3, v, 3))
-      {
-         d[5] = '0' + (m + 1) / 10;
-         d[6] = '0' + (m + 1) % 10;
-         break;
-      }
-   if (d[8] == ' ')
-      d[8] = '0';
-   return d;
-}
+                          const char *revk_build_date (char d[20])
+                          {
+                          if (!d)
+                          return NULL;
+                          const esp_app_desc_t * app = esp_app_get_description ();
+                          if (!app)
+                          return NULL;
+                          const char *v = app->date;
+                          if (!v || strlen (v) != 11)
+                          return NULL;
+                          snprintf (d, 20, "%.4s-xx-%.2sT%.8s", v + 7, v + 4, app->time);
+                          const char mname[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+                          for (int m = 0; m < 12; m++) if (!strncmp (mname + m * 3, v, 3))
+                          {
+                          d[5] = '0' + (m + 1) / 10; d[6] = '0' + (m + 1) % 10; break;}
+                          if (d[8] == ' ') d[8] = '0'; return d;}
 
 #ifdef	CONFIG_REVK_SEASON
-const char *
-revk_season (time_t now)
-{                               // Return a characters for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween, V=Valentines, F=Full Moon, N=New moon
-   static char temp[8];         // Non re-entrant
-   char *p = temp;
-   struct tm t;
-   localtime_r (&now, &t);
-   if (t.tm_year >= 100)
-   {
+                          const char *revk_season (time_t now)
+                          {     // Return a characters for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween, V=Valentines, F=Full Moon, N=New moon
+                          static char temp[8];  // Non re-entrant
+                          char *p = temp; struct tm t; localtime_r (&now, &t); if (t.tm_year >= 100)
+                          {
 #ifdef	CONFIG_REVK_LUNAR
-      if (now < revk_moon_full_last (now) + 12 * 3600 || now > revk_moon_full_next (now) - 12 * 3600)
-         *p++ = 'M';
-      if (now < revk_moon_new (now) + 12 * 3600 && now > revk_moon_new (now) - 12 * 3600)
-         *p++ = 'N';
+                          if (now < revk_moon_full_last (now) + 12 * 3600 || now > revk_moon_full_next (now) - 12 * 3600)
+                          * p++ = 'M';
+                          if (now < revk_moon_new (now) + 12 * 3600 && now > revk_moon_new (now) - 12 * 3600) * p++ = 'N';
 #endif
-      if (t.tm_mon == 1 && t.tm_mday == 14)
-         *p++ = 'V';
-      if (t.tm_mon == 11 && t.tm_mday <= 25)
-         *p++ = 'X';
-      if (t.tm_mon == 0 && t.tm_mday <= 7)
-         *p++ = 'Y';
-      if (t.tm_mon == 9 && t.tm_mday == 31 && t.tm_hour >= 16)
-         *p++ = 'H';
-      const uint8_t ed[] = { 114, 103, 23, 111, 31, 118, 108, 28, 116, 105, 25, 113, 102, 22, 110, 30,
-         117, 107, 27
-      };
-      {
-         struct tm e;
-         int m = ed[(t.tm_year + 1900) % 19];
-         e.tm_year = t.tm_year;
-         e.tm_mon = 2 + m / 100;
-         e.tm_mday = m % 100;
-         mktime (&e);
-         int gf = e.tm_yday + (7 - e.tm_wday) - 2;      // good Friday;
-         if (t.tm_yday >= gf && t.tm_yday <= gf + 3)
-            *p++ = 'E';
-      }
-   }
-   *p = 0;
-   if (p > temp + 1)
-   {                            // Swap first in list based on hour
-      int l = t.tm_hour % (p - temp);
-      if (l)
-      {
-         char c = *temp;
-         *temp = temp[l];
-         temp[l] = c;
-      }
-   }
-   return temp;
-}
+                          if (t.tm_mon == 1 && t.tm_mday == 14)
+                          * p++ = 'V';
+                          if (t.tm_mon == 11 && t.tm_mday <= 25)
+                          * p++ = 'X';
+                          if (t.tm_mon == 0 && t.tm_mday <= 7)
+                          * p++ = 'Y';
+                          if (t.tm_mon == 9 && t.tm_mday == 31 && t.tm_hour >= 16)
+                          * p++ = 'H';
+                          const uint8_t ed[] = { 114, 103, 23, 111, 31, 118, 108, 28, 116, 105, 25, 113, 102, 22, 110, 30,
+                          117, 107, 27
+                          };
+                          {
+                          struct tm e; int m = ed[(t.tm_year + 1900) % 19]; e.tm_year = t.tm_year; e.tm_mon = 2 + m / 100; e.tm_mday = m % 100; mktime (&e); int gf = e.tm_yday + (7 - e.tm_wday) - 2;  // good Friday;
+                          if (t.tm_yday >= gf && t.tm_yday <= gf + 3) * p++ = 'E';}
+                          }
+                          *p = 0; if (p > temp + 1)
+                          {     // Swap first in list based on hour
+                          int l = t.tm_hour % (p - temp); if (l)
+                          {
+                          char c = *temp; *temp = temp[l]; temp[l] = c;}
+                          }
+                          return temp;}
 #endif
 
 #ifdef	CONFIG_REVK_LUNAR
@@ -4282,209 +4133,134 @@ revk_season (time_t now)
 #define PI      3.1415926535897932384626433832795029L
 #define sinld(a)        sinl(PI*(a)/180.0L)
 
-static time_t
-moontime (int cycle, float phase)
-{                               // report moon time for specific lunar cycle and phase
-   long double k = phase + cycle;
-   long double T = k / 1236.85L;
-   long double T2 = T * T;
-   long double T3 = T2 * T;
-   long double JD =
-      2415020.75933L + 29.53058868L * k + 0.0001178L * T2 - 0.000000155L * T3 + 0.00033L * sinld (166.56L + 132.87L * T -
-                                                                                                  0.009173L * T2);
-   long double M = 359.2242L + 29.10535608L * k - 0.0000333L * T2 - 0.00000347L * T3;
-   long double M1 = 306.0253L + 385.81691806L * k + 0.0107306L * T2 + 0.00001236L * T3;
-   long double F = 21.2964L + 390.67050646L * k - 0.0016528L * T2 - 0.00000239L * T3;
-   long double A = (0.1734 - 0.000393 * T) * sinld (M)  //
-      + 0.0021 * sinld (2 * M)  //
-      - 0.4068 * sinld (M1)     //
-      + 0.0161 * sinld (2 * M1) //
-      - 0.0004 * sinld (3 * M1) //
-      + 0.0104 * sinld (2 * F)  //
-      - 0.0051 * sinld (M + M1) //
-      - 0.0074 * sinld (M - M1) //
-      + 0.0004 * sinld (2 * F + M)      //
-      - 0.0004 * sinld (2 * F - M)      //
-      - 0.0006 * sinld (2 * F + M1)     //
-      + 0.0010 * sinld (2 * F - M1)     //
-      + 0.0005 * sinld (M + 2 * M1);    //
-   JD += A;
-   return (JD - 2440587.5L) * 86400LL;
-}
+                          static time_t moontime (int cycle, float phase)
+                          {     // report moon time for specific lunar cycle and phase
+                          long double k = phase + cycle; long double T = k / 1236.85L; long double T2 = T * T; long double T3 = T2 * T; long double JD = 2415020.75933L + 29.53058868L * k + 0.0001178L * T2 - 0.000000155L * T3 + 0.00033L * sinld (166.56L + 132.87L * T - 0.009173L * T2); long double M = 359.2242L + 29.10535608L * k - 0.0000333L * T2 - 0.00000347L * T3; long double M1 = 306.0253L + 385.81691806L * k + 0.0107306L * T2 + 0.00001236L * T3; long double F = 21.2964L + 390.67050646L * k - 0.0016528L * T2 - 0.00000239L * T3; long double A = (0.1734 - 0.000393 * T) * sinld (M)    //
+                          + 0.0021 * sinld (2 * M)      //
+                          - 0.4068 * sinld (M1) //
+                          + 0.0161 * sinld (2 * M1)     //
+                          - 0.0004 * sinld (3 * M1)     //
+                          + 0.0104 * sinld (2 * F)      //
+                          - 0.0051 * sinld (M + M1)     //
+                          - 0.0074 * sinld (M - M1)     //
+                          + 0.0004 * sinld (2 * F + M)  //
+                          - 0.0004 * sinld (2 * F - M)  //
+                          - 0.0006 * sinld (2 * F + M1) //
+                          + 0.0010 * sinld (2 * F - M1) //
+                          + 0.0005 * sinld (M + 2 * M1);        //
+                          JD += A; return (JD - 2440587.5L) * 86400LL;}
 
-static time_t moonlast = 0,
-   moonnew = 0,
-   moonnext = 0;
-static void
-getmoons (time_t t)
-{
-   if (t >= moonlast && t < moonnext)
-      return;
-   int cycle = ((long double) t + 2207726238UL) / 2551442.86195200L;    // Guess
-   time_t f1 = moontime (cycle, 0.5);
-   if (t < f1)
-   {
-      moonlast = moontime (cycle - 1, 0.5);
-      moonnew = moontime (cycle, 0);
-      moonnext = f1;
-      return;
-   }
-   time_t f2 = moontime (cycle + 1, 0.5);
-   if (t >= f2)
-   {
-      moonlast = f2;
-      moonnew = moontime (cycle + 2, 0);
-      moonnext = moontime (cycle + 2, 0.5);
-   }
-   moonlast = f1;
-   moonnew = moontime (cycle + 1, 0);
-   moonnext = f2;
-}
+                          static time_t moonlast = 0, moonnew = 0, moonnext = 0; static void getmoons (time_t t)
+                          {
+                          if (t >= moonlast && t < moonnext) return; int cycle = ((long double) t + 2207726238UL) / 2551442.86195200L;  // Guess
+                          time_t f1 = moontime (cycle, 0.5); if (t < f1)
+                          {
+                          moonlast = moontime (cycle - 1, 0.5); moonnew = moontime (cycle, 0); moonnext = f1; return;}
+                          time_t f2 = moontime (cycle + 1, 0.5); if (t >= f2)
+                          {
+                          moonlast = f2; moonnew = moontime (cycle + 2, 0); moonnext = moontime (cycle + 2, 0.5);}
+                          moonlast = f1; moonnew = moontime (cycle + 1, 0); moonnext = f2;}
 
-time_t
-revk_moon_full_last (time_t t)
-{                               // Last full moon (<=t)
-   getmoons (t);
-   return moonlast;
-}
+                          time_t revk_moon_full_last (time_t t)
+                          {     // Last full moon (<=t)
+                          getmoons (t); return moonlast;}
 
-time_t
-revk_moon_new (time_t t)
-{                               // Current new moon (may be >t or <=t)
-   getmoons (t);
-   return moonnew;
-}
+                          time_t revk_moon_new (time_t t)
+                          {     // Current new moon (may be >t or <=t)
+                          getmoons (t); return moonnew;}
 
-time_t
-revk_moon_full_next (time_t t)
-{                               // Next full moon (<t)
-   getmoons (t);
-   return moonnext;
-}
+                          time_t revk_moon_full_next (time_t t)
+                          {     // Next full moon (<t)
+                          getmoons (t); return moonnext;}
 
 #endif
 
-void
-revk_enable_wifi (void)
-{
-   if (b.disablewifi)
-   {
+                          void revk_enable_wifi (void)
+                          {
+                          if (b.disablewifi)
+                          {
 #ifdef	CONFIG_REVK_WIFI
-      wifi_init ();
+                          wifi_init ();
 #endif
 #ifdef	CONFIG_REVK_MQTT
-      revk_mqtt_init ();
+                          revk_mqtt_init ();
 #endif
-      b.disablewifi = 0;
-   }
-}
+                          b.disablewifi = 0;}
+                          }
 
-void
-revk_disable_wifi (void)
-{
-   if (!b.disablewifi)
-   {
+                          void revk_disable_wifi (void)
+                          {
+                          if (!b.disablewifi)
+                          {
 #ifdef	CONFIG_REVK_MQTT
-      revk_mqtt_close ("disabled");
+                          revk_mqtt_close ("disabled");
 #endif
 #ifdef	CONFIG_REVK_WIFI
-      revk_wifi_close ();
+                          revk_wifi_close ();
 #endif
-      b.disablewifi = 1;
-   }
-}
+                          b.disablewifi = 1;}
+                          }
 
-void
-revk_enable_ap (void)
-{
-   b.disableap = 0;
-}
+                          void revk_enable_ap (void)
+                          {
+                          b.disableap = 0;}
 
-void
-revk_disable_ap (void)
-{
-   b.disableap = 1;
-}
+                          void revk_disable_ap (void)
+                          {
+                          b.disableap = 1;}
 
-void
-revk_enable_settings (void)
-{
-   b.disablesettings = 0;
-}
+                          void revk_enable_settings (void)
+                          {
+                          b.disablesettings = 0;}
 
-void
-revk_disable_settings (void)
-{
-   b.disablesettings = 1;
-}
+                          void revk_disable_settings (void)
+                          {
+                          b.disablesettings = 1;}
 
 #ifdef  REVK_SETTINGS_HAS_GPIO
-void
-revk_gpio_output (revk_gpio_t g, uint8_t o)
-{
-   if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
-      return;
-   if (rtc_gpio_is_valid_gpio (g.num))
-      rtc_gpio_deinit (g.num);
-   gpio_reset_pin (g.num);
-   gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
+                          void revk_gpio_output (revk_gpio_t g, uint8_t o)
+                          {
+                          if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
+                          return;
+                          if (rtc_gpio_is_valid_gpio (g.num))
+                          rtc_gpio_deinit (g.num); gpio_reset_pin (g.num); gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
 #ifndef  CONFIG_REVK_OLD_SETTINGS
-   gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
-   gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
-   if (rtc_gpio_is_valid_gpio (g.num))
-   {
-      rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
-      rtc_gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
-   }
+                          gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
+                          gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2); if (rtc_gpio_is_valid_gpio (g.num))
+                          {
+                          rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
+                          rtc_gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);}
 #else
-   gpio_set_direction (g.num, GPIO_MODE_OUTPUT);
+                          gpio_set_direction (g.num, GPIO_MODE_OUTPUT);
 #endif
-}
+                          }
 
-void
-revk_gpio_set (revk_gpio_t g, uint8_t o)
-{
-   if (g.set)
-      gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
-}
+                          void revk_gpio_set (revk_gpio_t g, uint8_t o)
+                          {
+                          if (g.set) gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);}
 
-void
-revk_gpio_input (revk_gpio_t g)
-{
-   if (!g.set || !GPIO_IS_VALID_GPIO (g.num))
-      return;
-   if (rtc_gpio_is_valid_gpio (g.num))
-      rtc_gpio_deinit (g.num);
-   gpio_reset_pin (g.num);
-   gpio_set_direction (g.num, GPIO_MODE_INPUT);
+                          void revk_gpio_input (revk_gpio_t g)
+                          {
+                          if (!g.set || !GPIO_IS_VALID_GPIO (g.num))
+                          return;
+                          if (rtc_gpio_is_valid_gpio (g.num))
+                          rtc_gpio_deinit (g.num); gpio_reset_pin (g.num); gpio_set_direction (g.num, GPIO_MODE_INPUT);
 #ifndef  CONFIG_REVK_OLD_SETTINGS
-   if (!g.pulldown && !g.nopull)
-      gpio_pullup_en (g.num);
-   else
-      gpio_pullup_dis (g.num);
-   if (g.pulldown && !g.nopull)
-      gpio_pulldown_en (g.num);
-   else
-      gpio_pulldown_dis (g.num);
-   if (rtc_gpio_is_valid_gpio (g.num))
-   {
-      if (!g.pulldown && !g.nopull)
-         rtc_gpio_pullup_en (g.num);
-      else
-         rtc_gpio_pullup_dis (g.num);
-      if (g.pulldown && !g.nopull)
-         rtc_gpio_pulldown_en (g.num);
-      else
-         rtc_gpio_pulldown_dis (g.num);
-   }
+                          if (!g.pulldown && !g.nopull) gpio_pullup_en (g.num);
+                          else
+                          gpio_pullup_dis (g.num); if (g.pulldown && !g.nopull) gpio_pulldown_en (g.num);
+                          else
+                          gpio_pulldown_dis (g.num); if (rtc_gpio_is_valid_gpio (g.num))
+                          {
+                          if (!g.pulldown && !g.nopull) rtc_gpio_pullup_en (g.num);
+                          else
+                          rtc_gpio_pullup_dis (g.num); if (g.pulldown && !g.nopull) rtc_gpio_pulldown_en (g.num);
+                          else
+                          rtc_gpio_pulldown_dis (g.num);}
 #endif
-}
+                          }
 
-uint8_t
-revk_gpio_get (revk_gpio_t g)
-{
-   if (g.set)
-      return gpio_get_level (g.num) ^ g.invert;
-   return 0;
-}
+                          uint8_t revk_gpio_get (revk_gpio_t g)
+                          {
+                          if (g.set) return gpio_get_level (g.num) ^ g.invert; return 0;}
 #endif
