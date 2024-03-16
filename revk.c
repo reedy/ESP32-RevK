@@ -3729,7 +3729,7 @@ ota_task (void *pvParameters)
                   if ((err = REVK_ERR_CHECK (esp_ota_write (ota_handle, buf, len))))
                      break;
                   if (!ota_data)
-                     revk_restart (10, "OTA Download started" 0);
+                     revk_restart (10, "OTA Download started");
                   else if (ota_data < ota_size / 2 && (ota_data + len) >= ota_size / 2)
                      revk_restart (10, "OTA Download progress");
                   ota_data += len;
