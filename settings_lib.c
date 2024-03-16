@@ -1401,7 +1401,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                         {       // Looks like it was set, even if not different
                            change = 1;
                            if (!s->live && !reload)
-                              asprintf (&reload, "Erase %s", s->name);
+                              asprintf (&reload, "Erase %s(%d)", s->name, index);
                         }
                      }
                   }
