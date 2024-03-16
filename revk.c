@@ -2486,7 +2486,7 @@ revk_restart (int delay, const char *fmt, ...)
    char *reason = NULL;
    va_list ap;
    va_start (ap, fmt);
-   len = vasprintf (&reason, fmt, ap);
+   vasprintf (&reason, fmt, ap);
    va_end (ap);
 #ifdef	CONFIG_REVK_MESH
    if (delay >= 2 && !esp_mesh_is_root ())
