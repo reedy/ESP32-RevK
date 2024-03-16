@@ -1254,7 +1254,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
       passok = 1;
 #endif
    char change = 0;
-   const char *reload = NULL;
+   char *reload = NULL;
    const char *err = NULL;
    char tag[16];
    revk_setting_bits_t found = { 0 };
