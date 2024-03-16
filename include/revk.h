@@ -176,7 +176,7 @@ const char *revk_mqtt_send_clients (const char *prefix, int retain, const char *
 const char *revk_settings_store (jo_t,const char**,char passoverride);        // Store settings, return error (set location in j of error, valid while j valid), and error of "" is a non error but means some settings were changed, NULL is no change
 #define	revk_setting(j) revk_settings_store(j,NULL,0)
 const char *revk_command (const char *tag, jo_t);       // Do an internal command
-const char *revk_restart (int delay,const char *fmt);       // Restart cleanly
+const char *revk_restart (int delay,const char *fmt,...);       // Restart cleanly
 const char *revk_ota (const char *host, const char *target);    // OTA and restart cleanly (target NULL for self as root node)
 uint32_t revk_shutting_down (const char **);    // If we are shutting down (how many seconds to go) - sets reason if not null
 const char *revk_build_date (char d[20]);       // Get build date ISO formatted
