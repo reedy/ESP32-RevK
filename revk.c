@@ -1687,7 +1687,7 @@ task (void *pvParameters)
 #endif
 #ifdef CONFIG_REVK_MESH
             ESP_LOGI (TAG, "Up %lu, Link down %lu, Mesh nodes %lu%s", (unsigned long) now, (unsigned long) revk_link_down (),
-                      (unsigned long0esp_mesh_get_total_node_num (),
+                      (unsigned long) esp_mesh_get_total_node_num (),
                       esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
