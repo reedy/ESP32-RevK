@@ -225,6 +225,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                   return "Cannot load number (signed)";
                if (((uint8_t *) data)[s->size - 1] & 0x80)
                   return "Cannot convert to signed";
+               return "*Converted to signed";
             }
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
             int64_t v = (int64_t) (s->size == 1 ? *((int8_t *) data) : s->size == 2 ? *((int16_t *) data) : s->size ==
@@ -467,7 +468,11 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
       if (!err && bits < 64 && v >= (1ULL << bits))
          err = "Number too big";
       if (sign)
+      {
+         if (v > (1ULL << (bits - 1)))
+            err = "Negative number too big";
          v = -v;
+      }
       if (bits < 64)
          v = ((v & ((1ULL << bits) - 1)) | f);
       if (!err)
