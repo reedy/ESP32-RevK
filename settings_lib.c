@@ -459,19 +459,29 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
       }
       if (b)
          scan ();
-      if (!err && sign
-#ifdef	REVK_SETTINGS_HAS_UNSIGNED
-          && s->type == REVK_SETTINGS_UNSIGNED
-#endif
-         )
-         err = "Negative not allowed";
-      if (!err && bits < 64 && v >= (1ULL << bits))
-         err = "Number too big";
-      if (sign)
+      if (!err)
       {
-         if (v > (1ULL << (bits - 1)))
-            err = "Negative number too big";
-         v = -v;
+         if (sign)
+         {
+#ifdef	REVK_SETTINGS_HAS_SIGNED
+            if (s->type != REVK_SETTINGS_SIGNED)
+#endif
+               err = "Negative not allowed";
+            if (v > (1ULL << (bits - 1)))
+               err = "Negative number too big";
+            v = -v;
+         } else
+         {
+#ifdef	REVK_SETTINGS_HAS_SIGNED
+            if (s->type == REVK_SETTINGS_SIGNED)
+            {
+               if (v >= (1ULL << (bits - 1)))
+                  err = "Number too big";
+            } else
+#endif
+            if (bits < 64 && v >= (1ULL << bits))
+               err = "Number too big";
+         }
       }
       if (bits < 64)
          v = ((v & ((1ULL << bits) - 1)) | f);
