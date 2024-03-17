@@ -217,7 +217,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                 (s->size == 4 && nvs_get_i32 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 2 && nvs_get_i16 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 1 && nvs_get_i8 (nvs[s->revk], tag, data)))
-            {
+            {                   // maybe change from unsigned
                if ((s->size == 8 && nvs_get_u64 (nvs[s->revk], tag, data)) ||   //
                    (s->size == 4 && nvs_get_u32 (nvs[s->revk], tag, data)) ||   //
                    (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, data)) ||   //
@@ -247,12 +247,21 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                 (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, data)))
             {
                if (s->gpio && s->size == 2 && !nvs_get_u8 (nvs[s->revk], tag, data))
-               {                // Legacy... Old GPIO to new
+               {                // Change from old GPIO
                   ((uint8_t *) data)[1] = (*((uint8_t *) data) & 0xC0);
                   ((uint8_t *) data)[0] = (*((uint8_t *) data) & 0x3F);
                   return "*Migrated GPIO";
-               } else
+               } else if ((s->size == 8 && nvs_get_i64 (nvs[s->revk], tag, data)) ||    //
+                          (s->size == 4 && nvs_get_i32 (nvs[s->revk], tag, data)) ||    //
+                          (s->size == 2 && nvs_get_i16 (nvs[s->revk], tag, data)) ||    //
+                          (s->size == 1 && nvs_get_i8 (nvs[s->revk], tag, data)))
                   return "Cannot load number (unsigned)";
+               else
+               {                // maybe change from signed
+                  if (((uint8_t *) data)[s->size - 1] & 0x80)
+                     return "Cannot convert to unsigned";
+                  return "*Converted to unsigned";
+               }
             }
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
             uint64_t v = (uint64_t) (s->size == 1 ? *((uint8_t *) data) : s->size == 2 ? *((uint16_t *) data) : s->size ==
