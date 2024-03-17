@@ -218,6 +218,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                 (s->size == 2 && nvs_get_i16 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 1 && nvs_get_i8 (nvs[s->revk], tag, data)))
             {                   // maybe change from unsigned
+               // TODO This logic may be better in the original scan picking up existing type and converting any size and sign to any size and sign if within range.
                if ((s->size == 8 && nvs_get_u64 (nvs[s->revk], tag, data)) ||   //
                    (s->size == 4 && nvs_get_u32 (nvs[s->revk], tag, data)) ||   //
                    (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, data)) ||   //
@@ -246,6 +247,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                 (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, data)))
             {
+               // TODO This logic may be better in the original scan picking up existing type and converting any size and sign to any size and sign if within range.
                if (s->gpio && s->size == 2 && !nvs_get_u8 (nvs[s->revk], tag, data))
                {                // Change from old GPIO
                   ((uint8_t *) data)[1] = (*((uint8_t *) data) & 0xC0);
