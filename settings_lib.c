@@ -223,7 +223,7 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                    (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, data)) ||   //
                    (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, data)))
                   return "Cannot load number (signed)";
-               if (((uint8_t *) data)[size - 1] & 0x80)
+               if (((uint8_t *) data)[s->size - 1] & 0x80)
                   return "Cannot convert to signed";
             }
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
