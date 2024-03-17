@@ -217,7 +217,15 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
                 (s->size == 4 && nvs_get_i32 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 2 && nvs_get_i16 (nvs[s->revk], tag, data)) ||      //
                 (s->size == 1 && nvs_get_i8 (nvs[s->revk], tag, data)))
-               return "Cannot load number (signed)";
+            {
+               if ((s->size == 8 && nvs_get_u64 (nvs[s->revk], tag, data)) ||   //
+                   (s->size == 4 && nvs_get_u32 (nvs[s->revk], tag, data)) ||   //
+                   (s->size == 2 && nvs_get_u16 (nvs[s->revk], tag, data)) ||   //
+                   (s->size == 1 && nvs_get_u8 (nvs[s->revk], tag, data)))
+                  return "Cannot load number (signed)";
+               if (((uint8_t *) data)[size - 1] & 0x80)
+                  return "Cannot convert to signed";
+            }
 #ifdef	CONFIG_REVK_SETTINGS_DEBUG
             int64_t v = (int64_t) (s->size == 1 ? *((int8_t *) data) : s->size == 2 ? *((int16_t *) data) : s->size ==
                                    +4 ? *((int32_t *) data) : *((int64_t *) data));
