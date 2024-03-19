@@ -430,7 +430,7 @@ main (int argc, const char *argv[])
       fprintf (H, "#include <stddef.h>\n");
       for (d = defs; d && (!d->attributes || !strstr (d->attributes, ".rtc=")); d = d->next);
       if (d)
-         fprintf (H, "#include <driver/rtc_io.h>\n");
+         fprintf (H, "#include <driver/esp_attr.h>\n");
 
       fprintf (H, "typedef struct revk_settings_s revk_settings_t;\n"   //
                "struct revk_settings_s {\n"     //
