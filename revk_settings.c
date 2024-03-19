@@ -659,7 +659,7 @@ main (int argc, const char *argv[])
             {
                if (d->array)
                   errx (1, "Cannot do bit array %s in %s", d->name, d->fn);
-               if (strstr (d->attributes, ".rtc="))
+               if (d->attributes && strstr (d->attributes, ".rtc="))
                   errx (1, "Cannot do bit in RTC %s in %s", d->name, d->fn);
             }
          }
@@ -671,7 +671,7 @@ main (int argc, const char *argv[])
             fprintf (C, "%s\n", d->define);
          else if (d->type && strcmp (d->type, "bit"))
          {
-            if (strstr (d->attributes, ".rtc="))
+            if (d->attributes && strstr (d->attributes, ".rtc="))
                fprintf (C, "RTC_NOINIT_ATTR ");
             typename (C, d->type);
             fprintf (C, " %s", d->name);
