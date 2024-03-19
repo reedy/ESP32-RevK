@@ -94,7 +94,7 @@ Additional attributes relate to each setting as follows:-
 |---------|-------|
 |`.array`|A number defining how many entries this has, it creates an array in JSON.|
 |`.live`|This setting can be updated `live` without a reboot. If the setting is changed then it is changed in memory (as well as being stored to NVS).|
-|`.fix`|The setting is to be fixed, i.e. the default value is only used if not defined in NVS, and the value, even if default, is stored to NVS. This assumed for `gpio` type.|
+|`.fix=1`|The setting is to be fixed, i.e. the default value is only used if not defined in NVS, and the value, even if default, is stored to NVS. This assumed for `gpio` type so could be set `.fix=0` for `gpio` if needed.|
 |`.set`|The top bit of the value is set if the value is defined.|
 |`.flags`|This is a string that are characters which can be prefixed (and/or suffixed) on a numeric value and set in the top bits of the value (see below).|
 |`.hex`|The value should be hex encoded in JSON. Typically used with `o`, `blob` or even numeric values.|
@@ -103,6 +103,7 @@ Additional attributes relate to each setting as follows:-
 |`.secret`|Set if this is a secret and not output in settings JSON (or output as a dummy secret)|
 |`.old`|Old name to be replaced|
 |`.place`|Placeholder for settings editing|
+|`.rtc=1`|Place in `RTC_NOINIT_ATTR`|
 
 The `.set` and `.flags` attributes can apply to a numeric value, and cause top bits in the integer value to be set. `.set` is always the top bit if present, so if you have a `u16` with `.set=1` and a value of `123` is set, it will be `32891`. The `.flags` defines a string of one or more utf-8 characters that represent bits starting from the top bit (or next bit if `.set` is used as well). When parsing, any of the flags characters can be before or after the number. When output, they are normally before rhe number, unless there is a space in the flags and those characters after the space come after the number (the space is not assigned a bit). Don't use `,` in flags, and use `-` with caution.
 

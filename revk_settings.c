@@ -459,6 +459,7 @@ main (int argc, const char *argv[])
                " uint8_t secret:1;\n"   //
                " uint8_t dq:1;\n"       //
                " uint8_t gpio:1;\n"     //
+               " uint8_t rtc:1;\n"      //
                "};\n");
 
       for (d = defs; d && (!d->type || strcmp (d->type, "blob")); d = d->next);
@@ -654,8 +655,13 @@ main (int argc, const char *argv[])
             if (d->attributes)
                fprintf (C, ",%s", d->attributes);
             fprintf (C, "},\n");
-            if (d->array && !strcmp (d->type, "bit"))
-               errx (1, "Cannot do bit array %s in %s", d->name, d->fn);
+            if (!strcmp (d->type, "bit"))
+            {
+               if (d->array)
+                  errx (1, "Cannot do bit array %s in %s", d->name, d->fn);
+               if (strstr (d->attributes, ".rtc="))
+                  errx (1, "Cannot do bit in RTC %s in %s", d->name, d->fn);
+            }
          }
       fprintf (C, "{0}};\n");
       fprintf (C, "#undef quote\n");
@@ -665,6 +671,8 @@ main (int argc, const char *argv[])
             fprintf (C, "%s\n", d->define);
          else if (d->type && strcmp (d->type, "bit"))
          {
+            if (strstr (d->attributes, ".rtc="))
+               fprintf (C, "RTC_NOINIT_ATTR ");
             typename (C, d->type);
             fprintf (C, " %s", d->name);
             if (d->array)
