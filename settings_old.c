@@ -604,7 +604,7 @@ revk_setting_internal (setting_t * s, unsigned int len, const unsigned char *val
             freez (n);
          }
       } else if (o < 0)
-         revk_restart ("Settings changed", 5);
+         revk_restart (5, "Settings changed");
       return NULL;
    }
    const char *fail = parse ();
