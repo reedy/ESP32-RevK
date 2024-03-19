@@ -1889,7 +1889,7 @@ gpio_ok (uint8_t p)
    if (p > 39)
       return 0;
 #ifdef	CONFIG_REVK_D4
-   if (p == 6 || (p >= 9 && p <= 11) || (p >= 16 && p <= 18) || p == 20 || (p >= 23 && p <= 24) || (p >= 28 && p <= 31))
+   if (p == 6 || (p >= 8 && p <= 11) || (p >= 16 && p <= 18) || p == 20 || (p >= 23 && p <= 24) || (p >= 28 && p <= 31))
       return 0;
 #else
 #ifdef	CONFIG_REVK_PICO
@@ -1952,7 +1952,7 @@ revk_boot (app_callback_t * app_callback_cb)
       for (uint8_t p = 0; p <= 48; p++)
          if (gpio_ok (p) == 3)  // Input and output, not serial
             i.pin_bit_mask |= (1LL << p);
-      //ESP_LOGE (TAG, "Disable %016llX", i.pin_bit_mask);
+      //ESP_LOGE (TAG, "Input to read level %016llX", i.pin_bit_mask);
       gpio_config (&i);
       gpio_config_t u = {.pull_up_en = 1,.mode = GPIO_MODE_DISABLE };
       gpio_config_t d = {.pull_down_en = 1,.mode = GPIO_MODE_DISABLE };
