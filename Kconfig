@@ -472,6 +472,12 @@ menu "RevK"
         help
 		Use old settings librarey
 
+	config REVK_GPIO_INIT
+	bool "Reset GPIO on startup"
+	default y
+        help
+		Reset most GPIO with pull up/down to current state
+
 	config REVK_SETTINGS_DEBUG
 	bool "Log NVS access for settings"
 	default n

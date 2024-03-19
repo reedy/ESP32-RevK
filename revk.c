@@ -1947,6 +1947,7 @@ gpio_ok (uint8_t p)
 void
 revk_boot (app_callback_t * app_callback_cb)
 {                               /* Start the revk task, use __FILE__ and __DATE__ and __TIME__ to set task name and version ID */
+#ifdef	CONFIG_REVK_GPIO_INIT
    {                            // Safe GPIO
       gpio_config_t i = {.mode = GPIO_MODE_INPUT };
       for (uint8_t p = 0; p <= 48; p++)
@@ -1975,7 +1976,7 @@ revk_boot (app_callback_t * app_callback_cb)
          gpio_config (&d);
       }
    }
-
+#endif
 #ifdef	CONFIG_REVK_MESH
    esp_wifi_disconnect ();      // Just in case
    mesh_mutex = xSemaphoreCreateBinary ();
