@@ -665,6 +665,8 @@ main (int argc, const char *argv[])
                if (d->attributes && strstr (d->attributes, ".rtc="))
                   errx (1, "Cannot do bit in RTC %s in %s", d->name, d->fn);
             }
+            if (!strcmp (d->type, "s") && d->attributes && strstr (d->attributes, ".rtc="))
+               errx (1, "Cannot do char* in RTC %s in %s", d->name, d->fn);
          }
       fprintf (C, "{0}};\n");
       fprintf (C, "#undef quote\n");
