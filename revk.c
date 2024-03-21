@@ -1414,6 +1414,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             b.mesh_root_known = 0;
          }
          stop_ip ();
+         xEventGroupSetBits (revk_group, GROUP_OFFLINE);
          revk_mqtt_close ("Mesh gone");
          break;
       case MESH_EVENT_ROOT_ADDRESS:    // We know the root
