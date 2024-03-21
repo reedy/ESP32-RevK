@@ -1681,7 +1681,7 @@ task (void *pvParameters)
                esp_wifi_get_mode (&mode);
                if ((!(now % 10) && mode == WIFI_MODE_APSTA
 #ifdef	CONFIG_REVK_MESH
-                    && esp_mesh_is_root ()
+                    && (esp_mesh_is_root () || !(now % 60))
 #endif
                    ) || mode == WIFI_MODE_STA)
                {
