@@ -1679,11 +1679,11 @@ task (void *pvParameters)
             {                   // Link down, do regular connect attempts
                wifi_mode_t mode = 0;
                esp_wifi_get_mode (&mode);
-               if (((!(now % 10) && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA)
+               if ((!(now % 10) && mode == WIFI_MODE_APSTA
 #ifdef	CONFIG_REVK_MESH
-                   && esp_mesh_is_root ()
+                    && esp_mesh_is_root ()
 #endif
-                  )
+                   ) || mode == WIFI_MODE_STA)
                {
                   ESP_LOGE (TAG, "Connect %s", wifissid);
                   xEventGroupClearBits (revk_group, GROUP_OFFLINE);
