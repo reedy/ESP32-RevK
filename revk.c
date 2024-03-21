@@ -1399,6 +1399,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                }
                up_next = 0;
             }
+            xEventGroupClearBits (revk_group, GROUP_OFFLINE);
          }
          break;
       case MESH_EVENT_PARENT_DISCONNECTED:
@@ -1682,7 +1683,10 @@ task (void *pvParameters)
                {
                   ESP_LOGE (TAG, "Connect %s", wifissid);
                   xEventGroupClearBits (revk_group, GROUP_OFFLINE);
-                  esp_wifi_connect ();  // Slowed in APSTA to allow AP mode to work
+#ifdef	CONFIG_REVK_MESH
+                  if (esp_mesh_is_root ())
+#endif
+                     esp_wifi_connect ();       // Slowed in APSTA to allow AP mode to work
                }
             }
 #endif
