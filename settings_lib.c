@@ -1630,8 +1630,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
    {
       revk_restart (3, "Settings changed (%s)", reload);
       free (reload);
-   } else if (app_callback)
-      app_callback (0, prefixcommand, NULL, "setting", NULL);
+   }
    if (locationp)
       *locationp = err ? location : NULL;
    return err ? : change ? "" : NULL;

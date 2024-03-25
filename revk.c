@@ -1078,6 +1078,8 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                   err = ((err && *err ? err : revk_settings_store (j, &location, 0)) ? : "");
             } else
                err = (err ? : "");      // Ignore
+            if (err && !*err && app_callback)
+               app_callback (0, prefixcommand, NULL, "setting", NULL);
          }
       }
       if ((!err || !*err) && app_callback)
@@ -1851,8 +1853,6 @@ task (void *pvParameters)
          {
             revk_settings_commit ();
             revk_nvs_time = 0;
-            if (app_callback)
-               app_callback (0, prefixcommand, NULL, "setting", NULL);
          }
          if (restart_time && restart_time < now)
          {
