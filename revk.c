@@ -1078,8 +1078,6 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                   err = ((err && *err ? err : revk_settings_store (j, &location, 0)) ? : "");
             } else
                err = (err ? : "");      // Ignore
-            if (err && !*err && app_callback)
-               app_callback (0, prefixcommand, NULL, "setting", NULL);
          }
       }
       if ((!err || !*err) && app_callback)
@@ -2930,6 +2928,8 @@ revk_web_settings (httpd_req_t * req)
       if (jo_find (j, "_upgrade"))
       {
          const char *e = revk_settings_store (j, &location, 0); // Saved settings
+         if (e && !*e && app_callback)
+            app_callback (0, prefixcommand, NULL, "setting", NULL);
          if (!e || !*e)
             e = revk_command ("upgrade", NULL);
          if (e && *e)
