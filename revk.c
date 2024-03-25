@@ -1075,9 +1075,13 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                else if (suffix && !strcmp (suffix, "**"))
                   b.setting_dump_requested = 3;
                else if (!suffix || strcmp (suffix, "-"))
-                  err = ((err && *err ? err : revk_settings_store (j, &location, 0)) ? : "");
-            } else
-               err = (err ? : "");      // Ignore
+               {
+                  err = revk_settings_store (j, &location, 0);
+                  if (err && !*err && app_callback)
+                     app_callback (0, prefixcommand, NULL, "setting", NULL);
+               }
+            }
+            err = (err ? : ""); // Ignore
          }
       }
       if ((!err || !*err) && app_callback)
@@ -2998,6 +3002,8 @@ revk_web_settings (httpd_req_t * req)
          if (ok)
          {
             const char *e = revk_settings_store (j, &location, 0);
+            if (e && !*e && app_callback)
+               app_callback (0, prefixcommand, NULL, "setting", NULL);
             if (e && *e)
             {
                if (location)
