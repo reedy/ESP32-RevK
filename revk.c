@@ -1588,7 +1588,7 @@ task (void *pvParameters)
       if (otabeta)
          ota_check = 86400 - 1800 + (esp_random () % 3600);     //  A day ish
       else if (otastart)
-         ota_check = 3600 + (esp_random () % 3600);     // Check at start anyway, but allow an hour anyway
+         ota_check = otastart + (esp_random () % otastart);     // Check at start anyway
       else if (otadays)
          ota_check = 86400 * otadays + (esp_random () % 3600);  // Min periodic check
    }

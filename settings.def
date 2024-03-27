@@ -7,7 +7,7 @@ s	appname		CONFIG_REVK_APPNAME	.revk=1
 
 s	ota.host	CONFIG_REVK_OTAHOST	.revk=1			// OTA hostname
 u8	ota.days	CONFIG_REVK_OTADAYS	.revk=1			// OTA auto load (days)
-bit	ota.start	1			.revk=1			// OTA check after startup
+u16	ota.start	600			.revk=1			// OTA check after startup (min seconds)
 bit	ota.auto	1			.revk=1	.live=1		// OTA auto upgrade
 bit	ota.beta				.revk=1	.live=1		// OTA from beta release
 blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1	// OTA cert of otahost
