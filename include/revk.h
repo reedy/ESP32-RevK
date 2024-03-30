@@ -173,10 +173,10 @@ const char *revk_info_clients (const char *suffix, jo_t *, uint8_t clients);
 const char *revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients);
 #define revk_mqtt_send(p,r,t,j) revk_mqtt_send_clients(p,r,t,j,1)
 
-const char *revk_settings_store (jo_t,const char**,char passoverride);        // Store settings, return error (set location in j of error, valid while j valid), and error of "" is a non error but means some settings were changed, NULL is no change
+const char *revk_settings_store (jo_t, const char **, char passoverride);       // Store settings, return error (set location in j of error, valid while j valid), and error of "" is a non error but means some settings were changed, NULL is no change
 #define	revk_setting(j) revk_settings_store(j,NULL,0)
 const char *revk_command (const char *tag, jo_t);       // Do an internal command
-const char *revk_restart (int delay,const char *fmt,...);       // Restart cleanly
+const char *revk_restart (int delay, const char *fmt, ...);     // Restart cleanly
 const char *revk_ota (const char *host, const char *target);    // OTA and restart cleanly (target NULL for self as root node)
 uint32_t revk_shutting_down (const char **);    // If we are shutting down (how many seconds to go) - sets reason if not null
 const char *revk_build_date (char d[20]);       // Get build date ISO formatted
@@ -204,7 +204,7 @@ void revk_mesh_send_json (const mac_t mac, jo_t * jp);
 void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink rate and colour sequence for on state (for RGB LED)
 
 uint16_t revk_num_web_handlers (void);  // Number of handlers used by revk_web_settings_add()
-const char *revk_web_safe(char **temp,const char *value); // Return safe version of text for HTML (malloced in *temp)
+const char *revk_web_safe (char **temp, const char *value);     // Return safe version of text for HTML (malloced in *temp)
 void revk_web_send (httpd_req_t * req, const char *format, ...);
 jo_t revk_web_query (httpd_req_t * req);        // Get post/get form in JSON form
 esp_err_t revk_web_settings_add (httpd_handle_t webserver);     // Add URLs
@@ -231,6 +231,17 @@ const char *revk_season (time_t now);   // Return a character for seasonal varia
 time_t revk_moon_full_last (time_t t);  // last full moon (so <=t)
 time_t revk_moon_new (time_t t);        // Current new moon - may be >t or <=t
 time_t revk_moon_full_next (time_t t);  // next full moon (so >t)
+#endif
+
+#ifdef	CONFIG_REVK_SOLAR
+time_t sun_find_crossing (time_t start_time, double latitude, double longitude, double wanted_altitude);
+void sun_position (double t, double latitude, double longitude, double *altitude, double *azimuth);
+time_t sun_rise (int y, int m, int d, double latitude, double longitude, double sun_altitude);
+time_t sun_set (int y, int m, int d, double latitude, double longitude, double sun_altitude);
+#define SUN_SIZE                        (50.0/60.0)
+#define SUN_CIVIL_TWILIGHT              (-6.0)
+#define SUN_NAUTICAL_TWILIGHT           (-12.0)
+#define SUN_ASTRONOMICAL_TWILIGHT       (-18.0)
 #endif
 
 void revk_enable_wifi (void);

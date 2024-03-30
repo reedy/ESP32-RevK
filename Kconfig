@@ -453,6 +453,12 @@ menu "RevK"
         help
 		Include seasonal tools
 
+	config REVK_SOLAR
+	bool "Include solar tools"
+	default n
+        help
+		Include solar tools
+
 	config REVK_LUNAR
 	bool "Include lunar tools"
 	default n
