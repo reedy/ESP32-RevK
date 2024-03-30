@@ -239,6 +239,7 @@ void sun_position (double t, double latitude, double longitude, double *altitude
 time_t sun_rise (int y, int m, int d, double latitude, double longitude, double sun_altitude);
 time_t sun_set (int y, int m, int d, double latitude, double longitude, double sun_altitude);
 #define SUN_SIZE                        (50.0/60.0)
+#define SUN_DEFAULT	                (-SUN_SIZE)
 #define SUN_CIVIL_TWILIGHT              (-6.0)
 #define SUN_NAUTICAL_TWILIGHT           (-12.0)
 #define SUN_ASTRONOMICAL_TWILIGHT       (-18.0)
