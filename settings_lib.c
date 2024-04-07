@@ -906,7 +906,8 @@ void
 revk_settings_load (const char *tag, const char *appname)
 {                               // Scan NVS to load values to settings
    for (revk_settings_t * s = revk_settings; s->len; s++)
-      load_value (s, s->def, -1, NULL);
+      if (!s->rtc || esp_reset_reason () == ESP_RST_POWERON)
+         load_value (s, s->def, -1, NULL);
    // Scan
    for (int revk = 0; revk < 2; revk++)
    {
@@ -1391,8 +1392,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                      *v = 0;
                   }
 #endif
-               } else if (s->rtc)
-                  return NULL;  // Not init as RTC
+               }
             } else if (t != JO_CLOSE)
                val = jo_strdup (j);
             int len = s->malloc ? sizeof (void *) : s->size ? : 1;
