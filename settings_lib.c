@@ -1391,7 +1391,8 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                      *v = 0;
                   }
 #endif
-               }
+               } else if (s->rtc)
+                  return NULL;  // Not init as RTC
             } else if (t != JO_CLOSE)
                val = jo_strdup (j);
             int len = s->malloc ? sizeof (void *) : s->size ? : 1;
