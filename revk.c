@@ -1871,9 +1871,9 @@ revk_pre_shutdown (void)
    if (!restart_reason)
       restart_reason = "Unknown";
    ESP_LOGI (TAG, "Restart %s", restart_reason);
+   revk_settings_commit ();
    if (app_callback)
    {
-      revk_settings_commit ();
       jo_t j = jo_create_alloc ();
       jo_string (j, NULL, restart_reason);
       jo_rewind (j);
@@ -1885,7 +1885,6 @@ revk_pre_shutdown (void)
    if (sta_netif)
       revk_wifi_close ();
 #endif
-   revk_settings_commit ();
    restart_time = 0;
 }
 
