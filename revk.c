@@ -926,8 +926,7 @@ revk_send_subunsub (int client, const mac_t mac, uint8_t sub)
          freez (topic);
       }
       send (id);
-      if (prefixapp)
-         send ("*");            // Allow for all of app using *
+      send (prefixapp ? "*" : appname); // All apps
       if (*hostname && strcmp (hostname, id))
          send (hostname);       // Hostname as well as MAC
    }
