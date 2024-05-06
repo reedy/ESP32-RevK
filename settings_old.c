@@ -622,14 +622,12 @@ revk_setting_dump (int level)
    {                            // Sends the settings - this deliberately uses the revk_id not the hostname as it is "seen" by any device listening
       if (!j)
          return;
-      const char *an = appname,
-         *sl = "/";
-      if (!prefixapp)
-         an = sl = "";
       char *topic = NULL;
-      asprintf (&topic, "%s%s%s/%s", prefixsetting, sl, an, revk_id);
-      revk_mqtt_send (NULL, 0, topic, &j);
-      free (topic);
+      if (maketopic (&topic, prefixsetting, revk_id, NULL) > 0)
+      {
+         revk_mqtt_send (NULL, 0, topic, &j);
+         free (topic);
+      }
    }
    int maxpacket = MQTT_MAX;
    maxpacket -= 50;             // for headers

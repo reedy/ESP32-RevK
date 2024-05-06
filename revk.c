@@ -996,7 +996,8 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
             getapp ();
          gettarget ();
       }
-      suffix = p;
+      if (*p)
+         suffix = p;
 
 #ifdef	CONFIG_REVK_MESH
       if (esp_mesh_is_root () && target && ((prefixapp && *target == '*') || strncmp (target, revk_id, strlen (revk_id))))
@@ -1014,17 +1015,16 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          freez (data.data);
       }
 #endif
-      if (prefix > topic)
+      if (prefix > topic && prefix[-1] == '/')
          prefix[-1] = 0;
-      if (target > topic)
+      if (target > topic && target[-1] == '/')
          target[-1] = 0;
-      if (suffix > topic)
+      if (suffix > topic && suffix[-1] == '/')
          suffix[-1] = 0;
-      if (apppart > topic)
+      if (apppart > topic && apppart[-1] == '/')
          apppart[-1] = 0;
       if (!target)
          target = "?";
-      ESP_LOGE (TAG, "prefix=%s target=%s suffix=%s", prefix, target, suffix);  // TODO
 
       jo_t j = NULL;
       if (plen)
@@ -2415,7 +2415,6 @@ const char *
 revk_mqtt_send_payload_clients (const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients)
 {                               // Send to main, and N additional MQTT servers, or only to extra server N if copy -ve
 #ifdef	CONFIG_REVK_MQTT
-   ESP_LOGE (TAG, "Send MQTT %s", suffix ? : "-");
    char *topic = NULL;
    if (!prefix)
       topic = (char *) suffix;  /* Set fixed topic */
