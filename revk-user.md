@@ -38,16 +38,30 @@ The system will connect to an MQTT server and provide information via MQTT, allo
 
 ### Topics
 
-There are two styles, which depend on a config option. One style has (`/` separated) *prefix*, then *app name*, then *device id*, then an optional suffix. The other format omits the *app name*.
+The MQTT topic is used to allow messages to be directed to the device or for mesages from the device. Some applications may accept or generate different topics as well (notably fopr Home Assistant), but the normal operation of the library uses a standard format. This format depends on some settings, so as to accommodate different ways of working.
 
-The *device id* is either a hex device ID, its MAC address, or the `hostname` setting value if set.
+The *identity* aspect of the topic identifies the device. This can be set using `hostname`, and if not set then the MAC address is used (in HEX). The device responds to the `hostname` or MAC address. If a `hostname` is set, messages from the device use the `hostanme` set (with the exception of `setting`, which always uses MAC).
 
-Where the topic has an *app name* you can command all of the device with that *app name* by using a *device name* of `*`.
-Where the topic does not have the *app name* you can command all of the devices with the same *app name* by using the *app name* as the *device name*. 
+The *prefix* aspect of the topic is what sort of message it is. `command` and `setting` are instructions to the device, whereas `info`, `error`, `state`, and `event` are for information from the device (as well as `setting` feedback). All of these can be configured to use different words if needed. 
+
+The *suffix* aspect of the topic is what sub-type of message, e.g. what `command` is to be performed.
+
+Examples of different topic formats. These are examples for a device with an application name of `GPS`, a hostname of `TEST` and a MAC of `112233445566`, doing the `command` called `status`
+
+|`prefixhost`|`prefixapp`|Topic|
+|------------|-----------|-----|
+|`false`|`false`|`command/TEST/status`|
+|`false`|`false`|`command/GPS/status` (addresses all apps of type `GPS`)|
+|`false`|`true`|`command/GPS/TEST/status`|
+|`false`|`true`|`command/GPS/*/status` (addresses all apps of type `GPS`)|
+|`true`|`false`|`TEST/command/status`|
+|`true`|`false`|`GPS/command/status` (addresses all apps of type `GPS`)|
+|`true`|`true`|`GPS/TEST/command/status`|
+|`true`|`true`|`GPS/*/command/status` (addresses all apps of type `GPS`)|
 
 #### Messages to the device
 
-In most cases the payload, if any, is JSON. This could however by a JSON data type such as a number, or string, rather than an actual object.
+In most cases the payload, if any, is JSON. This could however be a simple JSON data type such as a number, or string, rather than an actual object.
 
 |Prefix|Meaning|
 |------|-------|
@@ -60,11 +74,11 @@ In most cases the payload is JSON, usually as a JSON object.
 
 |Prefix|Meaning|
 |------|-------|
-|`state`|This is sent with *retain* and relates to the state of some aspect of the device. With no suffix, this is a top level state for the device, in JSON, including either `"up":false` or `"up":`*time*. With a suffix this is the state of some aspect of the device.|
+|`state`|This is sent with *retain* and relates to the state of some aspect of the device. With no *suffix*, this is a top level state for the device, in JSON, including either `"up":false` or `"up":`*time*. With a *suffix* this is the state of some aspect of the device.|
 |`event`|This is for an event, rather than a state change. A good example might be a key press on a device.|
-|`info`|This is information of some sort|
-|`error`|This is an error message|
-|`setting`|This is the current settings, as a JSON object, if requested|
+|`info`|This is information of some sort, and can often be used for debugging.|
+|`error`|This is an error message.|
+|`setting`|This is the current settings, as a JSON object, if requested.|
 
 ### Commands
 
@@ -74,16 +88,16 @@ The device may have any number of commands documents, but there are some command
 |-------|-------|
 |`upgrade`|This does an *over the air* upgrade from the setting defined `otahost`. You can include a URL as the argument (`http://` only, not `https`). Usually the device will be build with code signing to ensure the file is genuine.|
 |`restart`|This does a restart of the device|
-|`factory`|This does a factory reset of all settings, the argument has to be a string of the MAC address and the app name, e.g. `112233445566TestApp`|
+|`factory`|This does a factory reset of all settings, the argument has to be a string of the MAC address and the app name, e.g. `112233445566GPS`|
 |`ps`|This provides a process list, if `FREERTOS_USE_TRACE_FACILITY` is set in `sdkconfig`|
 
 ### Settings
 
 The settings system currently uses JSON, but does also have a fallback for a single setting using the full setting name.
 
-For example, setting the `otahost` could be done by sending `setting/App/Dev/otahost example.com` or by sending `setting/App/Dev {"otahost":"example.com"}`. The recommended method is to use JSON, which means no suffix on the `setting` message.
+For example, setting the `otahost` could be done by sending `setting/GPS/TEST/otahost example.com` or by sending `setting/GPS/TEST {"otahost":"example.com"}`. The recommended method is to use JSON, which means no *suffix* on the `setting` message.
 
-Sending a `setting` message with no suffix and no payload causes a `setting` response to be sent with current settings.  If the settings are too long for one message then multiple messages are sent covering all of th settings using a number of distinct objects.
+Sending a `setting` message with no suffix and no payload causes a `setting` response to be sent with current settings.  If the settings are too long for one message then multiple messages are sent covering all of the settings using a number of distinct objects.
 
 [More info on settings](revk-settings.md).
 
@@ -94,7 +108,8 @@ Sending a `setting` message with no suffix and no payload causes a `setting` res
 |`appname`|The name of the application. You do not normally want to override this.|
 |`hostname`|The name to use for this device in topic, and DHCP and so on. This defaults the hex MAC address if not set or set to an empty string.|
 |`otahost`|Hostname for *over the air* updates|
-|`otaauto`|If not `0` then check for updates periodically (this many days, approx), and do upgrade if needed. Negative is allowed, also means a number of days but no startup check.|
+|`otadays`|If not `0` then check for updates periodically (this many days, approx), and do upgrade if needed.|
+|`otastart`|If not `0` then check this many seconds from startup (plus a random amount).|
 |`wifissid`|WiFi SSID to use|
 |`wifipass`|WiFi passphrase to use|
 |`mqtthost`|MQTT hostname|
@@ -146,4 +161,4 @@ The status LED is defined by `blink`, which is an array of GPIO. It can be
 - Array of three different GPIO for Red, Green, Blue LEDs
 - First and second entry being the *same* GPIO meaning use LED STRIP (if included in managed components).
 
-There are some defaults, but the flash speed and sequence of colours can be defined by the application.
+There are some defaults, but the flash speed and sequence of colours can be defined by the application. Not all applications have this setting.

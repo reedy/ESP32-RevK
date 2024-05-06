@@ -1,6 +1,6 @@
 # Settings library
 
-This defines the *new* settings library. For the time being `CONFIG_REVK_OLD_SETTINGS` allows the old library.
+This defines the *new* settings library. For the time being `CONFIG_REVK_OLD_SETTINGS` allows the old library which is deprecated.
 
 The purpose of library is to manage *settings*, i.e. non volatile stored parameters and configuration for an application.  These are available in the C code as variables, and can be accessed and changed via MQTT.
 
@@ -9,6 +9,13 @@ The purpose of library is to manage *settings*, i.e. non volatile stored paramet
 The settings are defined in one or more files, typically `settings.def`, and built using a tool `revk_settings` in to `settings.c` and `settings.h`. The tool is normally in `components/ESP32-RevK/` and built from `revk_settings.c`.
 
 The make process needs to run `revk_settings` on the `.def` files to make `settings.c` and `settings.h`. Include `components/ESP32-RevK/settings.def` in the list of `.def` files. The command only processes files end ing `.def` so you can use `$^` in make for all the dependencies including `revk_setting` itself.
+
+e.g.
+
+```
+settings.h:     components/ESP32-RevK/revk_settings settings.def components/ESP32-RevK/settings.def
+        components/ESP32-RevK/revk_settings $^
+```
 
 The application build needs to include `settings.c` which defines the actual variables. You may want `settings.c` and `settings.h` in `.gitignore`.
 

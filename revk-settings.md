@@ -10,6 +10,8 @@ Settings are normally represented as a JSON value (i.e. string, number, boolean)
 
 There is also a short cut for a single setting, e.g. sending `setting/myapp/timeout` with a payload of `30` is the same, and changes one setting at a time.
 
+*Note that `setting/...` is the default, but the MQTT topics can be changed around to be `hostname/setting/...`*
+
 ## Seeing settings
 
 You can see settings by sending the `setting` command with no payload, e.g. `setting/myapp` might return `{"timeout":30,"a":1,"b":2,"c":3}`. If the settings would be too long they are split over more than one message, each a JSON object.

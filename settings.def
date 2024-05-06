@@ -14,13 +14,13 @@ blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1	// OTA cert of otahost
 s	ntphost		CONFIG_REVK_NTPHOST	.revk=1			// NTP host
 s	tz		CONFIG_REVK_TZ		.revk=1			// Timezone (<a href='https://gist.github.com/alwynallan/24d96091655391107939' target=_blank>info</a>)
 u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1			// Watchdog (seconds)
-s	prefix.command	command			.revk=1			// MQTT Prefix for commands (simple text, no / included)
-s	prefix.setting	setting			.revk=1			// MQTT Prefix for settings (simple text, no / included)
+s	prefix.command	command			.revk=1			// MQTT Prefix for commands 
+s	prefix.setting	setting			.revk=1			// MQTT Prefix for settings
 s	prefix.state	state			.revk=1			// MQTT Prefix for state
 s	prefix.event	event			.revk=1			// MQTT Prefix for event
 s	prefix.info	info			.revk=1			// MQTT Prefix for info
 s	prefix.error	error			.revk=1			// MQTT Prefix for error
-bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname as primary topic
+bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname as primary topic followed by prefix, not prefix/ first
 bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1			// MQTT use appname/ in front of hostname in topic
 #ifdef	CONFIG_REVK_BLINK_LIB
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
