@@ -10,7 +10,13 @@ menu "RevK"
         bool "MQTT uses appname as a prefix"
         default y
         help
-		The MQTT strings have prefix (e.g. command) then appname then the hostname. The appname can be turned off
+		Use appname/ in front of hostname in MQTT topics
+
+	config REVK_PREFIXHOST
+        bool "MQTT uses hostname primary topic"
+        default n
+        help
+		Use (appname/)hostname as primary MQTT topic followed by the usual prefix (command/status, etc)
 
 	config REVK_BLINK_LIB
 	bool "Blink LED update done in library"

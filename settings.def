@@ -20,7 +20,8 @@ s	prefix.state	state			.revk=1			// MQTT Prefix for state
 s	prefix.event	event			.revk=1			// MQTT Prefix for event
 s	prefix.info	info			.revk=1			// MQTT Prefix for info
 s	prefix.error	error			.revk=1			// MQTT Prefix for error
-bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1			// MQTT includes appname
+bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname as primary topic
+bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1			// MQTT use appname/ in front of hostname in topic
 #ifdef	CONFIG_REVK_BLINK_LIB
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif
