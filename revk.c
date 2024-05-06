@@ -951,10 +951,12 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       char *prefix = NULL;      // What type of message, e.g. command, etc, at start or after id if prefixhost set
       char *target = NULL;      // The ID (hostname or MAC or *)
       char *suffix = NULL;      // The suffix, e.g. what command, etc, optional
-      char *apppart = NULL;     // The app part (before prefix)
+      char *apppart = NULL;     // The app part (before prefix) if prefixapp set
       char *p = topic;
       void getprefix (void)
       {                         // Handle prefix (allow for / in command/setting)
+         if (!*p)
+            return;
          prefix = p;
          int l = 0;
          if (*prefixcommand && !strncmp (p, prefixcommand, l = strlen (prefixcommand)) && (!p[l] || p[l] == '/'))
@@ -969,6 +971,8 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       }
       void getapp (void)
       {
+         if (!prefixapp || !*p)
+            return;             // Not doing app prefix
          apppart = p;
          while (*p && *p != '/')
             p++;
@@ -977,6 +981,8 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       }
       void gettarget (void)
       {
+         if (!*p)
+            return;
          target = p;
          while (*p && *p != '/')
             p++;
@@ -985,15 +991,13 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       }
       if (prefixhost)
       {                         // We expect (appname/)id first
-         if (prefixapp)
-            getapp ();
+         getapp ();
          gettarget ();
          getprefix ();
       } else
       {                         // We expect prefix (command/setting) first
          getprefix ();
-         if (prefixapp)
-            getapp ();
+         getapp ();
          gettarget ();
       }
       if (*p)
@@ -1015,13 +1019,15 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          freez (data.data);
       }
 #endif
-      if (prefix > topic && prefix[-1] == '/')
+
+      // NULL terminate stuff
+      if (prefix && prefix > topic && prefix[-1] == '/')
          prefix[-1] = 0;
-      if (target > topic && target[-1] == '/')
+      if (target && target > topic && target[-1] == '/')
          target[-1] = 0;
-      if (suffix > topic && suffix[-1] == '/')
+      if (suffix && suffix > topic && suffix[-1] == '/')
          suffix[-1] = 0;
-      if (apppart > topic && apppart[-1] == '/')
+      if (apppart && apppart > topic && apppart[-1] == '/')
          apppart[-1] = 0;
       if (!target)
          target = "?";
@@ -1075,7 +1081,9 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       const char *location = NULL;
       if (!err)
       {
-         if (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id) || (*hostname && !strcmp (target, hostname)))
+         if (target && (!apppart || !strcmp (apppart, appname))
+             && (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
+                 || (*hostname && !strcmp (target, hostname))))
             target = NULL;      // Mark as us for simple testing by app_command, etc
          if (!client && prefix && !strcmp (prefix, prefixcommand) && suffix && !strcmp (suffix, "upgrade"))
             err = (err ? : revk_upgrade (target, j));   // Special case as command can be to other host
