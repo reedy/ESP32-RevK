@@ -202,7 +202,7 @@ void revk_mesh_send_json (const mac_t mac, jo_t * jp);
 #ifdef	CONFIG_REVK_MQTT
 void revk_send_subunsub (int client, const mac_t,uint8_t sub);
 #define revk_send_sub(c,m) revk_send_subunsub(c,m,1)
-#define revk_send_unsub(c,m) revk_send_subunsub(c,m,)
+#define revk_send_unsub(c,m) revk_send_subunsub(c,m,0)
 #endif
 void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink rate and colour sequence for on state (for RGB LED)
 
