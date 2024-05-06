@@ -245,7 +245,7 @@ main (int argc, const char *argv[])
                   d->attributes = p;
                   while (*p == '.')
                   {
-                     while (*p && !isspace (*p))
+                     while (*p && !is_space (*p))
                      {
                         if (*p == '"' || *p == '\'')
                         {
@@ -259,7 +259,7 @@ main (int argc, const char *argv[])
                         }
                         p++;
                      }
-                     while (*p && isspace (*p))
+                     while (*p && is_space (*p))
                         p++;
                   }
                }
