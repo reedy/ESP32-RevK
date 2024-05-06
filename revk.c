@@ -878,7 +878,6 @@ maketopic (char **topicp, const char *prefix, const char *id, const char *suffix
 {
    if (!id)
       id = hostname;
-	ESP_LOGE(TAG,"Make topic %s %s %s",prefix,id,suffix?:"-");
    const char *t[4] = { 0 };
    uint8_t tn = 0;              // count
    if (prefixhost)
@@ -896,7 +895,6 @@ maketopic (char **topicp, const char *prefix, const char *id, const char *suffix
    }
    if (suffix)
       t[tn++] = suffix;
-	ESP_LOGE(TAG,"Ready");
    if (t[3])
       return asprintf (topicp, "%s/%s/%s/%s", t[0], t[1], t[2], t[3]);
    if (t[2])
@@ -909,11 +907,11 @@ maketopic (char **topicp, const char *prefix, const char *id, const char *suffix
 void
 revk_send_subunsub (int client, const mac_t mac, uint8_t sub)
 {
-	 char id[13];
-    sprintf (id, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+   char id[13];
+   sprintf (id, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
    if (client >= CONFIG_REVK_MQTT_CLIENTS || !mqtt_client[client])
       return;
-   ESP_LOGE (TAG, "MQTT%d %s%s", client, sub ? "Subscribe" : "Unsubscribe", id);
+   ESP_LOGI (TAG, "MQTT%d %s%s", client, sub ? "Subscribe" : "Unsubscribe", id);
    void subunsub (const char *prefix)
    {
       void send (const char *id)
@@ -1183,8 +1181,7 @@ revk_mqtt_init (void)
             .callback = &mqtt_rx,
          };
          // LWT Topic
-	 ESP_LOGE(TAG,"Init MQTT");
-         if (maketopic ((void *) &config.topic, prefixstate, NULL,NULL) < 0)
+         if (maketopic ((void *) &config.topic, prefixstate, NULL, NULL) < 0)
             return;
 
          if ((strcmp (hostname, revk_id) ?      //
@@ -2418,7 +2415,7 @@ const char *
 revk_mqtt_send_payload_clients (const char *prefix, int retain, const char *suffix, const char *payload, uint8_t clients)
 {                               // Send to main, and N additional MQTT servers, or only to extra server N if copy -ve
 #ifdef	CONFIG_REVK_MQTT
-	 ESP_LOGE(TAG,"Send MQTT %s",suffix?:"-");
+   ESP_LOGE (TAG, "Send MQTT %s", suffix ? : "-");
    char *topic = NULL;
    if (!prefix)
       topic = (char *) suffix;  /* Set fixed topic */
