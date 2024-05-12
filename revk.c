@@ -410,7 +410,6 @@ mesh_encode_send (mesh_addr_t * addr, mesh_data_t * data, int flags)
    esp_aes_free (&ctx);
    // Add IV
    data->size += 16;
-   data->tos = MESH_TOS_P2P;
    return mesh_safe_send (addr, data, flags, NULL, 0);
 }
 #endif
@@ -1006,7 +1005,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
 #ifdef	CONFIG_REVK_MESH
       if (esp_mesh_is_root () && target && ((prefixapp && *target == '*') || strncmp (target, revk_id, strlen (revk_id))))
       {                         // pass on to clients as global or not for us
-         mesh_data_t data = {.proto = MESH_PROTO_MQTT };
+         mesh_data_t data = {.proto = MESH_PROTO_MQTT,.tos = MESH_TOS_P2P };
          mesh_make_mqtt (&data, client, -1, topic, plen, payload);      // Ensures MESH_PAD space one end
          mesh_addr_t addr = {.addr = {255, 255, 255, 255, 255, 255}
          };
@@ -2339,7 +2338,7 @@ mesh_make_mqtt (mesh_data_t * data, uint8_t tag, int tlen, const char *topic, in
 
 #ifdef	CONFIG_REVK_MESH
 void
-revk_mesh_send_json (const mac_t mac, jo_t * jp)
+revk_mesh_send_json (const mac_t mac, jo_t * jp, mesh_tos_t tos)
 {
    if (!jp)
       return;
@@ -2356,7 +2355,7 @@ revk_mesh_send_json (const mac_t mac, jo_t * jp)
          ESP_LOGD (TAG, "Mesh Tx JSON %02X%02X%02X%02X%02X%02X: %s", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], json);
       else
          ESP_LOGD (TAG, "Mesh Tx JSON to root node: %s", json);
-      mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen (json) };
+      mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen (json),.tos = tos };
       mesh_encode_send ((void *) mac, &data, MESH_DATA_P2P);    // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
    }
    jo_free (jp);
@@ -3685,7 +3684,7 @@ ota_task (void *pvParameters)
          {
             void send_ota (void)
             {
-               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
+               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block,.tos = mesh_data_t };
                mesh_ota_ack = 0xA0 + (*block & 0x0F);   // The ACK we want
                mesh_safe_send (&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
                int try = 10;

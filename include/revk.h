@@ -197,11 +197,11 @@ int revk_wait_wifi (int seconds);       // Wait for wifi
 #endif
 #ifdef	CONFIG_REVK_MESH
 extern uint16_t meshmax;
-void revk_mesh_send_json (const mac_t mac, jo_t * jp);
+void revk_mesh_send_json (const mac_t mac, jo_t * jp, mesh_tos_t);
 #endif
 #ifdef	CONFIG_REVK_MQTT
 int maketopic (char **topicp, const char *prefix, const char *id, const char *suffix);
-void revk_send_subunsub (int client, const mac_t,uint8_t sub);
+void revk_send_subunsub (int client, const mac_t, uint8_t sub);
 #define revk_send_sub(c,m) revk_send_subunsub(c,m,1)
 #define revk_send_unsub(c,m) revk_send_subunsub(c,m,0)
 #endif
