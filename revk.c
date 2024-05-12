@@ -2338,7 +2338,7 @@ mesh_make_mqtt (mesh_data_t * data, uint8_t tag, int tlen, const char *topic, in
 
 #ifdef	CONFIG_REVK_MESH
 void
-revk_mesh_send_json (const mac_t mac, jo_t * jp, uint8_t tos)
+revk_mesh_send_json (const mac_t mac, jo_t * jp)
 {
    if (!jp)
       return;
@@ -2355,7 +2355,7 @@ revk_mesh_send_json (const mac_t mac, jo_t * jp, uint8_t tos)
          ESP_LOGD (TAG, "Mesh Tx JSON %02X%02X%02X%02X%02X%02X: %s", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], json);
       else
          ESP_LOGD (TAG, "Mesh Tx JSON to root node: %s", json);
-      mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen (json),.tos = tos };
+      mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen (json),.tos = MESH_TOS_P2P };
       mesh_encode_send ((void *) mac, &data, MESH_DATA_P2P);    // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
    }
    jo_free (jp);
