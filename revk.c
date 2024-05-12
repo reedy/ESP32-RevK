@@ -376,7 +376,7 @@ mesh_safe_send (const mesh_addr_t * to, const mesh_data_t * data, int flag, cons
    if (e)
    {
       if (e != ESP_ERR_MESH_DISCONNECTED)
-         ESP_LOGE (TAG, "Mesh send failed:%s len=%d flag=%d", esp_err_to_name (e), data->size, flag);
+         ESP_LOGE (TAG, "Mesh send failed:%s len=%d flag=%d tos=%d", esp_err_to_name (e), data->size, flag, data - tos);
       if (e == ESP_ERR_MESH_NO_MEMORY)
       {
          if (++fails > 100)
