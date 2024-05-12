@@ -500,7 +500,7 @@ mesh_task (void *pvParameters)
          {                      // ACK (to root)
             if (ota_ack)
             {
-               mesh_data_t data = {.data = &ota_ack,.size = 1,.proto = MESH_PROTO_BIN };
+               mesh_data_t data = {.data = &ota_ack,.size = 1,.proto = MESH_PROTO_BIN,.tos = MESH_TOS_P2P };
                REVK_ERR_CHECK (mesh_safe_send (&from, &data, MESH_DATA_P2P, NULL, 0));
             }
          }
@@ -2373,7 +2373,7 @@ revk_mqtt_out (uint8_t clients, int tlen, const char *topic, int plen, const uns
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_device_active () && !esp_mesh_is_root ())
    {                            // Send via mesh
-      mesh_data_t data = {.proto = MESH_PROTO_MQTT };
+      mesh_data_t data = {.proto = MESH_PROTO_MQTT,.tos = MESH_TOS_P2P };
       mesh_make_mqtt (&data, clients | (retain << 7), tlen, topic, plen, payload);      // Ensures MESH_PAD space one end
       mesh_encode_send (NULL, &data, 0);        // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
       freez (data.data);
