@@ -855,6 +855,7 @@ mesh_init (void)
       cfg.mesh_ap.max_connection = meshwidth;
       if (meshmax && meshmax < meshwidth)
          cfg.mesh_ap.max_connection = meshmax;
+      cfg.mesh_ap.max_connection++;     // Should not be necessary
       if (*meshpass)
       {
          if ((l = strlen (meshpass)) > sizeof (cfg.mesh_ap.password))
@@ -870,6 +871,7 @@ mesh_init (void)
       revk_task ("mesh", mesh_task, NULL, 5);
    }
    REVK_ERR_CHECK (esp_mesh_start ());
+   REVK_ERR_CHECK (esp_mesh_set_self_organized (1, !meshroot));
 }
 #endif
 
