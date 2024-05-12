@@ -376,7 +376,7 @@ mesh_safe_send (const mesh_addr_t * to, const mesh_data_t * data, int flag, cons
    if (e)
    {
       if (e != ESP_ERR_MESH_DISCONNECTED)
-         ESP_LOGI (TAG, "Mesh send failed:%s (%d)", esp_err_to_name (e), data->size);
+         ESP_LOGI (TAG, "Mesh send failed:%s len=%d flag=%d", esp_err_to_name (e), data->size, flag);
       if (e == ESP_ERR_MESH_NO_MEMORY)
       {
          if (++fails > 100)
@@ -410,6 +410,7 @@ mesh_encode_send (mesh_addr_t * addr, mesh_data_t * data, int flags)
    esp_aes_free (&ctx);
    // Add IV
    data->size += 16;
+   data->tos = MESH_TOS_P2P;
    return mesh_safe_send (addr, data, flags, NULL, 0);
 }
 #endif
@@ -829,7 +830,7 @@ mesh_init (void)
       REVK_ERR_CHECK (esp_mesh_init ());
       REVK_ERR_CHECK (esp_mesh_disable_ps ());
       REVK_ERR_CHECK (esp_mesh_allow_root_conflicts (0));
-      REVK_ERR_CHECK (esp_mesh_send_block_time (100)); // Note sure if needed or what but a second it a long time - send calls should check return code
+      REVK_ERR_CHECK (esp_mesh_send_block_time (5000)); // Long timeout...
       REVK_ERR_CHECK (esp_event_handler_register (MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT ();
       memcpy ((uint8_t *) & cfg.mesh_id, meshid, 6);
