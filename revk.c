@@ -2338,7 +2338,7 @@ mesh_make_mqtt (mesh_data_t * data, uint8_t tag, int tlen, const char *topic, in
 
 #ifdef	CONFIG_REVK_MESH
 void
-revk_mesh_send_json (const mac_t mac, jo_t * jp, mesh_tos_t tos)
+revk_mesh_send_json (const mac_t mac, jo_t * jp, uint8_t tos)
 {
    if (!jp)
       return;
