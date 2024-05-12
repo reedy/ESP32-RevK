@@ -3684,7 +3684,7 @@ ota_task (void *pvParameters)
          {
             void send_ota (void)
             {
-               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block,.tos = mesh_data_t };
+               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block,.tos = MESH_TOS_P2P };
                mesh_ota_ack = 0xA0 + (*block & 0x0F);   // The ACK we want
                mesh_safe_send (&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
                int try = 10;
