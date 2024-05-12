@@ -855,7 +855,6 @@ mesh_init (void)
       cfg.mesh_ap.max_connection = meshwidth;
       if (meshmax && meshmax < meshwidth)
          cfg.mesh_ap.max_connection = meshmax;
-      cfg.mesh_ap.max_connection++;     // Should not be necessary
       if (*meshpass)
       {
          if ((l = strlen (meshpass)) > sizeof (cfg.mesh_ap.password))
