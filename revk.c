@@ -1320,7 +1320,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          if (!link_down)
             link_down = uptime ();      // Applies for non mesh, and mesh
          gotip = 0;
-         ESP_LOGI (TAG, "Lost IP");
+         ESP_LOGE (TAG, "Lost IP");
+         xEventGroupSetBits (revk_group, GROUP_OFFLINE);
          break;
       case IP_EVENT_STA_GOT_IP:
          {
