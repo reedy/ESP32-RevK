@@ -370,7 +370,8 @@ mesh_safe_send (const mesh_addr_t * to, const mesh_data_t * data, int flag, cons
    if (!to && !esp_mesh_is_root () && !b.mesh_root_known)
       return ESP_ERR_MESH_DISCONNECTED; // We are not root and root address not known
    xSemaphoreTake (mesh_mutex, portMAX_DELAY);
-   esp_err_t e = esp_mesh_send (to, data, flag | MESH_DATA_NONBLOCK | MESH_DATA_DROP, opt, opt_count);
+   flags |= MESH_DATA_NONBLOCK | MESH_DATA_DROP;
+   esp_err_t e = esp_mesh_send (to, data, flag, opt, opt_count);
    xSemaphoreGive (mesh_mutex);
    static uint8_t fails = 0;
    if (e)
