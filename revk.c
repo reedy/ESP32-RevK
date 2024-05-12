@@ -870,7 +870,6 @@ mesh_init (void)
       revk_task ("mesh", mesh_task, NULL, 5);
    }
    REVK_ERR_CHECK (esp_mesh_start ());
-   REVK_ERR_CHECK (esp_mesh_set_self_organized (1, !meshroot));
 }
 #endif
 
