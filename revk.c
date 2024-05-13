@@ -830,7 +830,7 @@ mesh_init (void)
       REVK_ERR_CHECK (esp_mesh_init ());
       REVK_ERR_CHECK (esp_mesh_disable_ps ());
       REVK_ERR_CHECK (esp_mesh_allow_root_conflicts (0));
-      REVK_ERR_CHECK (esp_mesh_send_block_time (5000)); // Long timeout...
+      REVK_ERR_CHECK (esp_mesh_send_block_time (100));
       REVK_ERR_CHECK (esp_event_handler_register (MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT ();
       memcpy ((uint8_t *) & cfg.mesh_id, meshid, 6);
