@@ -746,7 +746,7 @@ jo_strncpyd (jo_t j, void *dstv, size_t dlen, uint8_t bits, const char *alphabet
       char *q = strchr (alphabet, bits < 6 ? toupper (c) : c);
       if (!c || !q)
       {                         // Bad character
-         if (!c || isspace (c) || c == '\r' || c == '\n')
+         if (!c || isspace (c))
             continue;           // space
          jo_free (&p);
          return -1;             // Bad
@@ -773,6 +773,27 @@ jo_strdup (jo_t j)
       return NULL;
    char *str = mallocspi (len + 1);
    jo_strncpy (j, str, len + 1);
+   return str;
+}
+
+char *
+jo_strdupj (jo_t j)
+{                               // Malloc copy of whole JSON object
+   jo_t p = jo_link (j);
+   ssize_t start = p->ptr;
+   jo_skip (p);
+   ssize_t end = p->ptr;
+   if (p->err)
+      end = start - 1;
+   jo_free (&p);
+   while (end > start && (j->buf[end - 1] == ',' || isspace ((int) (unsigned char) (j->buf[end - 1]))))
+      end--;
+   ssize_t len = end - start;
+   if (len < 0)
+      return NULL;
+   char *str = mallocspi (len + 1);
+   memcpy (str, j->buf + j->ptr, len);
+   str[len] = 0;
    return str;
 }
 

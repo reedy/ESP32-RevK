@@ -76,7 +76,7 @@ typename (FILE * O, const char *type)
       fprintf (O, "revk_gpio_t");
    else if (!strcmp (type, "blob"))
       fprintf (O, "revk_settings_blob_t*");
-   else if (!strcmp (type, "s"))
+   else if (!strcmp (type, "s") || !strcmp (type, "json"))
       fprintf (O, "char*");
    else if (*type == 'c' && is_digit (type[1]))
       fprintf (O, "char");
@@ -108,7 +108,7 @@ typeinit (FILE * O, const char *type)
       fprintf (O, "\"\"");
    else if (!strcmp (type, "gpio") || (*type == 'o' && is_digit (type[1])))
       fprintf (O, "{0}");
-   else if (!strcmp (type, "blob") || !strcmp (type, "s"))
+   else if (!strcmp (type, "blob") || !strcmp (type, "s") || !strcmp (type, "json"))
       fprintf (O, "NULL");
    else
       fprintf (O, "0");
@@ -379,6 +379,7 @@ main (int argc, const char *argv[])
       char hassigned = 0;
       char hasoctet = 0;
       char hasstring = 0;
+      char hasjson = 0;
       char hasgpio = 0;
       char hasold = 0;
       char hascomment = 0;
@@ -419,6 +420,10 @@ main (int argc, const char *argv[])
          for (d = defs; d && (!d->type || strcmp (d->type, "s")); d = d->next);
       if (d)
          hasstring = 1;
+
+      for (d = defs; d && (!d->type || strcmp (d->type, "json")); d = d->next);
+      if (d)
+         hasjson = 1;
 
       fprintf (C, "\n");
       fprintf (C, "#include <stdint.h>\n");
@@ -551,6 +556,8 @@ main (int argc, const char *argv[])
          fprintf (H, " REVK_SETTINGS_BLOB,\n");
       if (hasstring)
          fprintf (H, " REVK_SETTINGS_STRING,\n");
+      if (hasjson)
+         fprintf (H, " REVK_SETTINGS_JSON,\n");
       if (hasoctet)
          fprintf (H, " REVK_SETTINGS_OCTET,\n");
       fprintf (H, "};\n");
@@ -574,6 +581,8 @@ main (int argc, const char *argv[])
          fprintf (H, "#define	REVK_SETTINGS_HAS_BLOB\n");
       if (hasstring)
          fprintf (H, "#define	REVK_SETTINGS_HAS_STRING\n");
+      if (hasjson)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_JSON\n");
       if (hasoctet)
          fprintf (H, "#define	REVK_SETTINGS_HAS_OCTET\n");
 
@@ -609,6 +618,8 @@ main (int argc, const char *argv[])
                fprintf (C, ".type=REVK_SETTINGS_BIT");
             else if (!strcmp (d->type, "blob"))
                fprintf (C, ".type=REVK_SETTINGS_BLOB");
+            else if (!strcmp (d->type, "json"))
+               fprintf (C, ".type=REVK_SETTINGS_JSON");
             else if (!strcmp (d->type, "s") || (*d->type == 'c' && is_digit (d->type[1])))
                fprintf (C, ".type=REVK_SETTINGS_STRING");
             else if (*d->type == 'o' && is_digit (d->type[1]))
@@ -629,17 +640,30 @@ main (int argc, const char *argv[])
                      errx (1, "Clash %s in %s with sub object", d->name1, d->fn);
             if (d->def)
             {
-               if (!d->config)
-                  fprintf (C, ",.def=\"%s\"", d->def);
-               else
+               if (d->config)
                   fprintf (C, ",.dq=1,.def=quote(%s)", d->def); // Always re quote, string def parsing assumes "
+               else
+               {
+                  fprintf (C, ",.def=\"");
+                  if (d->quoted && !strcmp (d->type, "json"))
+                     fprintf (C, "\\\"");
+                  for (char *p = d->def; *p; p++)
+                  {
+                     if (*p == '\\' || *p == '"')
+                        fputc ('\\', C);
+                     fputc (*p, C);
+                  }
+                  if (d->quoted && !strcmp (d->type, "json"))
+                     fprintf (C, "\\\"");
+                  fprintf (C, "\"");
+               }
             }
             if (!strcmp (d->type, "bit"))
                fprintf (C, ",.bit=REVK_SETTINGS_BITFIELD_%s", d->name);
             else
             {                   // Bits are the only one without pointers
                fprintf (C, ",.ptr=&%s", d->name);
-               if (!strcmp (d->type, "s") || !strcmp (d->type, "blob"))
+               if (!strcmp (d->type, "s") || !strcmp (d->type, "blob") || !strcmp (d->type, "json"))
                   fprintf (C, ",.malloc=1");
                else
                {                // Code allows for a .pointer and .size but none of the types we use do that at present, as all .size are fixed in situ
@@ -665,7 +689,7 @@ main (int argc, const char *argv[])
                if (d->attributes && strstr (d->attributes, ".rtc="))
                   errx (1, "Cannot do bit in RTC %s in %s", d->name, d->fn);
             }
-            if (!strcmp (d->type, "s") && d->attributes && strstr (d->attributes, ".rtc="))
+            if ((!strcmp (d->type, "s") || !strcmp (d->type, "json")) && d->attributes && strstr (d->attributes, ".rtc="))
                errx (1, "Cannot do char* in RTC %s in %s", d->name, d->fn);
          }
       fprintf (C, "{0}};\n");

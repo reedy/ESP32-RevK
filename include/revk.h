@@ -173,7 +173,9 @@ const char *revk_info_clients (const char *suffix, jo_t *, uint8_t clients);
 const char *revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients);
 #define revk_mqtt_send(p,r,t,j) revk_mqtt_send_clients(p,r,t,j,1)
 
-const char *revk_settings_store (jo_t, const char **, char passoverride);       // Store settings, return error (set location in j of error, valid while j valid), and error of "" is a non error but means some settings were changed, NULL is no change
+#define	REVK_SETTINGS_PASSOVERRIDE	1	// Ignore password
+#define	REVK_SETTINGS_JSON_STRING	2	// Expect JSON fields to be strings
+const char *revk_settings_store (jo_t, const char **, uint8_t flags);       // Store settings, return error (set location in j of error, valid while j valid), and error of "" is a non error but means some settings were changed, NULL is no change
 #define	revk_setting(j) revk_settings_store(j,NULL,0)
 const char *revk_command (const char *tag, jo_t);       // Do an internal command
 const char *revk_restart (int delay, const char *fmt, ...);     // Restart cleanly
@@ -201,7 +203,7 @@ void revk_mesh_send_json (const mac_t mac, jo_t * jp);
 #endif
 #ifdef	CONFIG_REVK_MQTT
 int maketopic (char **topicp, const char *prefix, const char *id, const char *suffix);
-void revk_send_subunsub (int client, const mac_t, uint8_t sub);
+void revk_send_subunsub (int client, const mac_t,uint8_t sub);
 #define revk_send_sub(c,m) revk_send_subunsub(c,m,1)
 #define revk_send_unsub(c,m) revk_send_subunsub(c,m,0)
 #endif

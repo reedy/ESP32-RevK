@@ -159,8 +159,13 @@ nvs_put (revk_settings_t * s, int index, void *ptr)
       }
       break;
 #endif
+#if	defined(REVK_SETTINGS_HAS_STRING) || defined(REVK_SETTINGS_HAS_JSON)
 #ifdef	REVK_SETTINGS_HAS_STRING
    case REVK_SETTINGS_STRING:
+#endif
+#ifdef	REVK_SETTINGS_HAS_JSON
+   case REVK_SETTINGS_JSON:
+#endif
       {
          if (nvs_set_str (nvs[s->revk], tag, ptr))
             return "Cannot store string";
@@ -304,8 +309,13 @@ nvs_get (revk_settings_t * s, const char *tag, int index)
          }
          break;
 #endif
+#if	defined(REVK_SETTINGS_HAS_STRING) || defined(REVK_SETTINGS_HAS_JSON)
 #ifdef  REVK_SETTINGS_HAS_STRING
       case REVK_SETTINGS_STRING:
+#endif
+#ifdef  REVK_SETTINGS_HAS_JSON
+      case REVK_SETTINGS_JSON:
+#endif
          {
             if (nvs_get_str (nvs[s->revk], tag, NULL, &len))
                return "Cannot get string len";
@@ -628,6 +638,10 @@ value_cmp (revk_settings_t * s, void *a, void *b)
       if (s->type == REVK_SETTINGS_STRING)
          return strcmp (*((char **) a), *((char **) b));
 #endif
+#ifdef	REVK_SETTINGS_HAS_JSON
+      if (s->type == REVK_SETTINGS_JSON)
+         return strcmp (*((char **) a), *((char **) b));
+#endif
    }
    return memcmp (a, b, s->size ? : 1);
 }
@@ -679,8 +693,13 @@ revk_settings_text (revk_settings_t * s, int index, int *lenp)
       }
       break;
 #endif
+#if	defined(REVK_SETTINGS_HAS_STRING) || defined(REVK_SETTINGS_HAS_JSON)
 #ifdef	REVK_SETTINGS_HAS_STRING
    case REVK_SETTINGS_STRING:
+#endif
+#ifdef	REVK_SETTINGS_HAS_JSON
+   case REVK_SETTINGS_JSON:
+#endif
       {
          if (ptr == revk_id)
             ptr = "";           // Special case, used for hostname, see as a blank hostname
@@ -833,8 +852,21 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       }
       break;
 #endif
+#if	defined(REVK_SETTINGS_HAS_STRING) || defined(REVK_SETTINGS_HAS_JSON)
+#ifdef  REVK_SETTINGS_HAS_JSON
+   case REVK_SETTINGS_JSON:
+      if (e > d)
+      {                         // Check syntax
+         jo_t j = jo_parse_mem (d, e - d);
+         jo_skip (j);
+         if (jo_error (j, NULL))
+            return "Bad JSON";
+      }
+      __attribute__((fallthrough));
+#endif
 #ifdef  REVK_SETTINGS_HAS_STRING
    case REVK_SETTINGS_STRING:
+#endif
       {
          if (!s->malloc)
          {                      // Fixed
@@ -1067,8 +1099,13 @@ revk_setting_dump (int level)
       case REVK_SETTINGS_BLOB:
          return ((revk_settings_blob_t *) (d))->len == 0;
 #endif
+#if	defined(REVK_SETTINGS_HAS_STRING) || defined(REVK_SETTINGS_HAS_JSON)
 #ifdef  REVK_SETTINGS_HAS_STRING
       case REVK_SETTINGS_STRING:
+#endif
+#ifdef  REVK_SETTINGS_HAS_JSON
+      case REVK_SETTINGS_JSON:
+#endif
          return *d == 0;
 #endif
       }
@@ -1147,6 +1184,14 @@ revk_setting_dump (int level)
 #ifdef  REVK_SETTINGS_HAS_BIT
          case REVK_SETTINGS_BIT:
             jo_lit (p, tag, data);
+            break;
+#endif
+#ifdef  REVK_SETTINGS_HAS_JSON
+         case REVK_SETTINGS_JSON:
+            {
+               jo_t v = jo_parse_str (data);
+               jo_json (p, tag, v);
+            }
             break;
 #endif
 #ifdef  REVK_SETTINGS_HAS_NUMERIC
@@ -1273,7 +1318,7 @@ revk_setting_dump (int level)
 }
 
 const char *
-revk_settings_store (jo_t j, const char **locationp, char passok)
+revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
 {
    if (!j)
       return NULL;
@@ -1283,7 +1328,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
       return "Not an object";
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
    if (!*password)
-      passok = 1;
+      flags |= REVK_SETTINGS_PASSOVERRIDE;
 #endif
    char change = 0;
    char *reload = NULL;
@@ -1297,7 +1342,11 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
    memset (bitused, 0, sizeof (revk_settings_bits));
    const char *scan (int plen, int pindex)
    {
-      while (!err && (t = jo_next (j)) == JO_TAG)
+      if (!err && jo_here (j) != JO_OBJECT)
+         err = "Not an object";
+      if (!err)
+         jo_next (j);
+      while (!err && (t = jo_here (j)) == JO_TAG)
       {
          location = jo_debug (j);
          int l = jo_strlen (j);
@@ -1391,7 +1440,31 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
 #endif
                }
             } else if (t != JO_CLOSE)
-               val = jo_strdup (j);
+            {
+#ifdef  REVK_SETTINGS_HAS_JSON
+               if (s->type == REVK_SETTINGS_JSON)
+               {                // Expect JSON
+                  if (flags & REVK_SETTINGS_JSON_STRING)
+                     val = jo_strdup (j);       // Web interface, JSON is in a string
+                  else
+                     val = jo_strdupj (j);      // Raw JSON
+                  if (!val || !*val)
+                     t = JO_NULL;       // Empty string is not sensible JSON, treat as not setting a value
+                  else
+                  {             // Check syntax
+                     jo_t test = jo_parse_str (val);
+                     jo_skip (test);
+                     err = jo_error (test, NULL);
+                     if (err)
+                     {
+                        free (val);
+                        return err;
+                     }
+                  }
+               } else
+#endif
+                  val = jo_strdup (j);
+            }
             int len = s->malloc ? sizeof (void *) : s->size ? : 1;
             uint8_t *temp = mallocspi (len);
             if (!temp)
@@ -1408,8 +1481,13 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                else
 #endif
                   ptr += index * (s->malloc ? sizeof (void *) : s->size);
-               if (s->secret && *revk_settings_secret && val && !strcmp (val, revk_settings_secret)
-                   && (!s->malloc || s->type != REVK_SETTINGS_STRING || !*(char **) ptr || **((char **) ptr)))
+               if (s->secret && *revk_settings_secret && val && !strcmp (val, revk_settings_secret) && (!s->malloc ||
+#ifdef  REVK_SETTINGS_HAS_STRING
+                                                                                                        s->type !=
+                                                                                                        REVK_SETTINGS_STRING ||
+#endif
+                                                                                                        !*(char **) ptr
+                                                                                                        || **((char **) ptr)))
                {                // Secret is dummy, unless current value is empty string in which case dummy value is allowed
                   free (val);
                   free (temp);
@@ -1488,18 +1566,18 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
          }
          t = jo_next (j);
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-         if (!passok && s->ptr == &password)
+         if (!(flags & REVK_SETTINGS_PASSOVERRIDE) && s->ptr == &password)
          {
             char *val = jo_strdup (j);
             if (!val || !*val)
                err = "Specify password";
             else if (!strcmp (val, password))
-               passok = 1;
+               flags |= REVK_SETTINGS_PASSOVERRIDE;
             else
                err = "Wrong password";
             free (val);
          }
-         if (!err && !passok)
+         if (!err && !(flags & REVK_SETTINGS_PASSOVERRIDE))
             err = "Password required to change settings";
          if (err)
          {
@@ -1508,7 +1586,10 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
          }
 #endif
          if (*tag == '_')
+         {
+            jo_skip (j);
             continue;
+         }
          void zapdef (void)
          {
             if (pindex >= 0)
@@ -1537,7 +1618,15 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
                }
             } else
                return "Invalid null";
-         } else if (t == JO_OBJECT)
+         } else
+#ifdef  REVK_SETTINGS_HAS_JSON
+         if (s->type == REVK_SETTINGS_JSON)
+         {
+            if ((err = store (pindex)))
+               return err;
+         } else
+#endif
+         if (t == JO_OBJECT)
          {                      // Object
             if (plen)
                return "Nested too far";
@@ -1620,6 +1709,7 @@ revk_settings_store (jo_t j, const char **locationp, char passok)
             }
          } else if ((err = store (pindex)))
             return err;
+         jo_skip (j);
       }
       return err;
    }

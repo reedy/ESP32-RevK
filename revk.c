@@ -370,14 +370,13 @@ mesh_safe_send (const mesh_addr_t * to, const mesh_data_t * data, int flag, cons
    if (!to && !esp_mesh_is_root () && !b.mesh_root_known)
       return ESP_ERR_MESH_DISCONNECTED; // We are not root and root address not known
    xSemaphoreTake (mesh_mutex, portMAX_DELAY);
-   flag |= MESH_DATA_NONBLOCK | MESH_DATA_DROP;
    esp_err_t e = esp_mesh_send (to, data, flag, opt, opt_count);
    xSemaphoreGive (mesh_mutex);
    static uint8_t fails = 0;
    if (e)
    {
       if (e != ESP_ERR_MESH_DISCONNECTED)
-         ESP_LOGE (TAG, "Mesh send failed:%s len=%d flag=%d tos=%d", esp_err_to_name (e), data->size, flag, data->tos);
+         ESP_LOGI (TAG, "Mesh send failed:%s (%d)", esp_err_to_name (e), data->size);
       if (e == ESP_ERR_MESH_NO_MEMORY)
       {
          if (++fails > 100)
@@ -501,7 +500,7 @@ mesh_task (void *pvParameters)
          {                      // ACK (to root)
             if (ota_ack)
             {
-               mesh_data_t data = {.data = &ota_ack,.size = 1,.proto = MESH_PROTO_BIN,.tos = MESH_TOS_P2P };
+               mesh_data_t data = {.data = &ota_ack,.size = 1,.proto = MESH_PROTO_BIN };
                REVK_ERR_CHECK (mesh_safe_send (&from, &data, MESH_DATA_P2P, NULL, 0));
             }
          }
@@ -824,13 +823,13 @@ mesh_init (void)
                       (ESP_IF_WIFI_STA,
                        WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | (meshlr ? WIFI_PROTOCOL_LR : 0)));
       REVK_ERR_CHECK (esp_mesh_set_max_layer (meshdepth));
-      REVK_ERR_CHECK (esp_mesh_set_xon_qsize (48));
+      REVK_ERR_CHECK (esp_mesh_set_xon_qsize (16));
       esp_wifi_set_mode (WIFI_MODE_NULL);       // Set by mesh
       REVK_ERR_CHECK (esp_wifi_start ());
       REVK_ERR_CHECK (esp_mesh_init ());
       REVK_ERR_CHECK (esp_mesh_disable_ps ());
       REVK_ERR_CHECK (esp_mesh_allow_root_conflicts (0));
-      REVK_ERR_CHECK (esp_mesh_send_block_time (100));
+      REVK_ERR_CHECK (esp_mesh_send_block_time (1000)); // Note sure if needed or what but a second it a long time - send calls should check return code
       REVK_ERR_CHECK (esp_event_handler_register (MESH_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
       mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT ();
       memcpy ((uint8_t *) & cfg.mesh_id, meshid, 6);
@@ -1006,7 +1005,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
 #ifdef	CONFIG_REVK_MESH
       if (esp_mesh_is_root () && target && ((prefixapp && *target == '*') || strncmp (target, revk_id, strlen (revk_id))))
       {                         // pass on to clients as global or not for us
-         mesh_data_t data = {.proto = MESH_PROTO_MQTT,.tos = MESH_TOS_P2P };
+         mesh_data_t data = {.proto = MESH_PROTO_MQTT };
          mesh_make_mqtt (&data, client, -1, topic, plen, payload);      // Ensures MESH_PAD space one end
          mesh_addr_t addr = {.addr = {255, 255, 255, 255, 255, 255}
          };
@@ -1318,8 +1317,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          if (!link_down)
             link_down = uptime ();      // Applies for non mesh, and mesh
          gotip = 0;
-         ESP_LOGE (TAG, "Lost IP");
-         xEventGroupSetBits (revk_group, GROUP_OFFLINE);
+         ESP_LOGI (TAG, "Lost IP");
          break;
       case IP_EVENT_STA_GOT_IP:
          {
@@ -2357,7 +2355,7 @@ revk_mesh_send_json (const mac_t mac, jo_t * jp)
          ESP_LOGD (TAG, "Mesh Tx JSON %02X%02X%02X%02X%02X%02X: %s", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], json);
       else
          ESP_LOGD (TAG, "Mesh Tx JSON to root node: %s", json);
-      mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen (json),.tos = MESH_TOS_P2P };
+      mesh_data_t data = {.proto = MESH_PROTO_JSON,.data = (void *) json,.size = strlen (json) };
       mesh_encode_send ((void *) mac, &data, MESH_DATA_P2P);    // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
    }
    jo_free (jp);
@@ -2375,7 +2373,7 @@ revk_mqtt_out (uint8_t clients, int tlen, const char *topic, int plen, const uns
 #ifdef	CONFIG_REVK_MESH
    if (esp_mesh_is_device_active () && !esp_mesh_is_root ())
    {                            // Send via mesh
-      mesh_data_t data = {.proto = MESH_PROTO_MQTT,.tos = MESH_TOS_P2P };
+      mesh_data_t data = {.proto = MESH_PROTO_MQTT };
       mesh_make_mqtt (&data, clients | (retain << 7), tlen, topic, plen, payload);      // Ensures MESH_PAD space one end
       mesh_encode_send (NULL, &data, 0);        // **** THIS EXPECTS MESH_PAD AVAILABLE EXTRA BYTES ON SIZE ****
       freez (data.data);
@@ -2951,7 +2949,7 @@ revk_web_settings (httpd_req_t * req)
       }
       if (jo_find (j, "_upgrade"))
       {
-         const char *e = revk_settings_store (j, &location, 0); // Saved settings
+         const char *e = revk_settings_store (j, &location, REVK_SETTINGS_JSON_STRING);  // Saved settings
          if (e && !*e && app_callback)
             app_callback (0, prefixcommand, NULL, "setting", NULL);
          if (!e || !*e)
@@ -3021,7 +3019,7 @@ revk_web_settings (httpd_req_t * req)
             ok = 1;
          if (ok)
          {
-            const char *e = revk_settings_store (j, &location, 0);
+            const char *e = revk_settings_store (j, &location, REVK_SETTINGS_JSON_STRING);
             if (e && !*e && app_callback)
                app_callback (0, prefixcommand, NULL, "setting", NULL);
             if (e && *e)
@@ -3686,7 +3684,7 @@ ota_task (void *pvParameters)
          {
             void send_ota (void)
             {
-               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block,.tos = MESH_TOS_P2P };
+               mesh_data_t data = {.proto = MESH_PROTO_BIN,.size = blockp,.data = block };
                mesh_ota_ack = 0xA0 + (*block & 0x0F);   // The ACK we want
                mesh_safe_send (&mesh_ota_addr, &data, MESH_DATA_P2P, NULL, 0);
                int try = 10;

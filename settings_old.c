@@ -928,7 +928,7 @@ revk_setting_dump (int level)
 }
 
 const char *
-revk_settings_store (jo_t j, const char **locationp, char passok)
+revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
 {
    const char *location = NULL;
    jo_rewind (j);

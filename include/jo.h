@@ -161,6 +161,9 @@ ssize_t jo_strncmp (jo_t, void *, size_t max);
 // Allocate a copy of string
 char *jo_strdup (jo_t);
 
+// Allocate a copy of raw JSON value
+char *jo_strdupj (jo_t j);
+
 // Get a number
 int64_t jo_read_int (jo_t);
 long double jo_read_float (jo_t);

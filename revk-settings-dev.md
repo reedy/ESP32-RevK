@@ -57,6 +57,7 @@ Note the basic syntax of the definition files are checked, and some invalid comb
 |`bit`|A single bit value holding `0` or `1` (also `false` or `true` in JSON). This is implemented as a bit field in C and a `#define` to allow access by name.|
 |`gpio`|A GPIO definition, see below|
 |`blob`|Binary data (up to 64K if space in NVS), see below|
+|`json`|A string `char*` internally, that is JSON in the settings|
 |`s`|String i.e. `char*`|
 |`c`*N*|String allowing up to *N* characters, null terminated in a `char [N+1]` array|
 |`o`*N*|Fixed octet array `unit8_t [N]`, typically used with `.hex=1` or `.base64=1`, data has to be full size|
