@@ -1618,12 +1618,14 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
                }
             } else
                return "Invalid null";
+            jo_next (j);        // Skip null
          } else
 #ifdef  REVK_SETTINGS_HAS_JSON
          if (s->type == REVK_SETTINGS_JSON)
          {
             if ((err = store (pindex)))
                return err;
+            jo_skip (j);        // Skip object
          } else
 #endif
          if (t == JO_OBJECT)
@@ -1646,6 +1648,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
                   if (s->group == group && !(found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))) && !s->secret)
                      zapdef (); // Not secrets, D'Oh
             }
+            jo_next (j);        // Close
          } else if (t == JO_ARRAY)
          {                      // Array
             if (pindex >= 0)
@@ -1707,9 +1710,13 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
                   index++;
                }
             }
-         } else if ((err = store (pindex)))
+            jo_next (j);        // Close
+         } else
+         {
+            err = store (pindex);
+            jo_skip (j);        // Whatever value it was
             return err;
-         jo_skip (j);
+         }
       }
       return err;
    }
