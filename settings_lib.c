@@ -1727,8 +1727,9 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
          } else
          {
             err = store (pindex);
+            if (err)
+               return err;
             jo_skip (j);        // Whatever value it was
-            return err;
          }
       }
       return err;
