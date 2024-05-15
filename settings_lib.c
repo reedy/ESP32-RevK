@@ -1390,6 +1390,44 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
             if ((s->array && (index < 0 || index >= s->array)) || (!s->array && index))
                return "Bad array index";
             char *val = NULL;
+#ifdef  REVK_SETTINGS_HAS_JSON
+            if (s->type == REVK_SETTINGS_JSON)
+            {                   // Expect JSON
+               if (flags & REVK_SETTINGS_JSON_STRING)
+               {
+                  if (t != JO_STRING)
+                     return "String expected";
+                  val = jo_strdup (j);  // Web interface, JSON is in a string
+                  if (!*val)
+                  {
+                     val = strdup ((char *) s->def ? : "");
+                     t = JO_NULL;       // This is default
+                  } else
+                  {
+                     t = JO_STRING;     // Not default
+                     // Check syntax
+                     jo_t test = jo_parse_str (val);
+                     jo_skip (test);
+                     err = jo_error (test, NULL);
+                     if (err)
+                     {
+                        free (val);
+                        return err;
+                     }
+                  }
+               } else
+               {
+                  val = jo_strdupj (j); // Raw JSON
+                  t = JO_STRING;        // Not default
+                  err = jo_error (j, NULL);
+                  if (err)
+                  {
+                     free (val);
+                     return err;
+                  }
+               }
+            } else
+#endif
             if (t == JO_NULL)
             {                   // Default
                if (s->def)
@@ -1440,31 +1478,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
 #endif
                }
             } else if (t != JO_CLOSE)
-            {
-#ifdef  REVK_SETTINGS_HAS_JSON
-               if (s->type == REVK_SETTINGS_JSON)
-               {                // Expect JSON
-                  if (flags & REVK_SETTINGS_JSON_STRING)
-                     val = jo_strdup (j);       // Web interface, JSON is in a string
-                  else
-                     val = jo_strdupj (j);      // Raw JSON
-                  if (!val || !*val)
-                     t = JO_NULL;       // Empty string is not sensible JSON, treat as not setting a value
-                  else
-                  {             // Check syntax
-                     jo_t test = jo_parse_str (val);
-                     jo_skip (test);
-                     err = jo_error (test, NULL);
-                     if (err)
-                     {
-                        free (val);
-                        return err;
-                     }
-                  }
-               } else
-#endif
-                  val = jo_strdup (j);
-            }
+               val = jo_strdup (j);
             int len = s->malloc ? sizeof (void *) : s->size ? : 1;
             uint8_t *temp = mallocspi (len);
             if (!temp)
@@ -1602,8 +1616,16 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
             } else
                err = store (-1);
          }
-         if (t == JO_NULL)
+#ifdef  REVK_SETTINGS_HAS_JSON
+         if (s->type == REVK_SETTINGS_JSON)
          {
+            if ((err = store (pindex)))
+               return err;
+            jo_skip (j);        // Skip object
+         } else
+#endif
+         if (t == JO_NULL)
+         {                      // Set to default (for JSON, an empty value, which can only happen in web settings)
             if (s->len)
                zapdef ();
             else if (!plen)
@@ -1619,16 +1641,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
             } else
                return "Invalid null";
             jo_next (j);        // Skip null
-         } else
-#ifdef  REVK_SETTINGS_HAS_JSON
-         if (s->type == REVK_SETTINGS_JSON)
-         {
-            if ((err = store (pindex)))
-               return err;
-            jo_skip (j);        // Skip object
-         } else
-#endif
-         if (t == JO_OBJECT)
+         } else if (t == JO_OBJECT)
          {                      // Object
             if (plen)
                return "Nested too far";

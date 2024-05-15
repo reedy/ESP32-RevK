@@ -2771,6 +2771,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}" //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin:3px;padding:3px 10px;font-size:100%%;}"      //
                   "tr.settingsdefault input{background:#ccc;}"  //
+                  "tr.settingsdefault textarea{background:#ccc;}"  //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;padding:2px 0 0 0px;}" //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
@@ -2899,6 +2900,13 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
                      field, field, field, revk_web_safe (&qs, value), place, s->gpio ? " (GPIO)" : "", comment);
    else
 #endif
+#ifdef  REVK_SETTINGS_HAS_JSON
+   if (s->type == REVK_SETTINGS_JSON)
+      revk_web_send (req,
+                     "<td nowrap><textarea cols=40 rows=4 id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\">%s</textarea></td><td>%s</td></tr>",
+                     field, field, field, *place ? place : "JSON", revk_web_safe (&qs, value), comment);
+   else
+#endif
       // Text
       revk_web_send (req,
                      "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
@@ -2949,7 +2957,7 @@ revk_web_settings (httpd_req_t * req)
       }
       if (jo_find (j, "_upgrade"))
       {
-         const char *e = revk_settings_store (j, &location, REVK_SETTINGS_JSON_STRING);  // Saved settings
+         const char *e = revk_settings_store (j, &location, REVK_SETTINGS_JSON_STRING); // Saved settings
          if (e && !*e && app_callback)
             app_callback (0, prefixcommand, NULL, "setting", NULL);
          if (!e || !*e)
