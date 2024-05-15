@@ -2701,7 +2701,7 @@ revk_web_query (httpd_req_t * req)
    {
       if (req->content_len <= 0)
          return NULL;
-      if (req->content_len > 2000)
+      if (req->content_len > 10000)
          return NULL;
       query = mallocspi (req->content_len + 1);
       if (!query)
