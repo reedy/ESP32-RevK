@@ -650,7 +650,7 @@ setup_ip (void)
       char *c = strrchr (i, '/');
       if (c)
          *c = 0;
-      esp_netif_dns_info_t dns = { };
+      esp_netif_dns_info_t dns = { 0 };
       if (!esp_netif_str_to_ip4 (i, &dns.ip.u_addr.ip4))
          dns.ip.type = AF_INET;
 #ifdef	CONFIG_LWIP_IPV6
@@ -2771,7 +2771,7 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}" //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin:3px;padding:3px 10px;font-size:100%%;}"      //
                   "tr.settingsdefault input{background:#ccc;}"  //
-                  "tr.settingsdefault textarea{background:#ccc;}"  //
+                  "tr.settingsdefault textarea{background:#ccc;}"       //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;padding:2px 0 0 0px;}" //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
@@ -3304,6 +3304,22 @@ revk_web_settings (httpd_req_t * req)
             if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
                revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>"   //
                               "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip), IP2STR (&ip.gw));
+         }
+         {
+            esp_netif_dns_info_t dns;
+            void dns (esp_netif_dns_type_t t)
+            {
+               if (!esp_netif_get_dns_info (sta_netif, t, &dns))
+               {
+                  if (dns.ip.type == AF_INET)
+                     revk_web_send (req, "<tr><td>DNS</td><td>" IPSTR "</td></tr>", IP2STR (&dns.ip.ip4));
+                  else if (dns.ip.type == AF_INET6)
+                     revk_web_send (req, "<tr><td>DNS</td><td>" IPV6STR "</td></tr>", IP2STR (dns.ip.ip6));
+               }
+            }
+            dns (ESP_NETIF_DNS_MAIN);
+            dns (ESP_NETIF_DNS_BACKUP);
+            dns (ESP_NETIF_DNS_FALLBACK);
          }
 #ifdef CONFIG_LWIP_IPV6
          {
