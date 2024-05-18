@@ -652,10 +652,10 @@ setup_ip (void)
          *c = 0;
       esp_netif_dns_info_t dns = { 0 };
       if (!esp_netif_str_to_ip4 (i, &dns.ip.u_addr.ip4))
-         dns.ip.type = AF_INET;
+         dns.ip.type = ESP_IPADDR_TYPE_V4;
 #ifdef	CONFIG_LWIP_IPV6
       else if (!esp_netif_str_to_ip6 (i, &dns.ip.u_addr.ip6))
-         dns.ip.type = AF_INET6;
+         dns.ip.type = ESP_IPADDR_TYPE_V6;
 #endif
       else
       {
@@ -3305,22 +3305,6 @@ revk_web_settings (httpd_req_t * req)
                revk_web_send (req, "<tr><td>IPv4</td><td>" IPSTR "</td></tr>"   //
                               "<tr><td>Gateway</td><td>" IPSTR "</td></tr>", IP2STR (&ip.ip), IP2STR (&ip.gw));
          }
-         {
-            esp_netif_dns_info_t dns;
-            void dns (esp_netif_dns_type_t t)
-            {
-               if (!esp_netif_get_dns_info (sta_netif, t, &dns))
-               {
-                  if (dns.ip.type == AF_INET)
-                     revk_web_send (req, "<tr><td>DNS</td><td>" IPSTR "</td></tr>", IP2STR (&dns.ip.ip4));
-                  else if (dns.ip.type == AF_INET6)
-                     revk_web_send (req, "<tr><td>DNS</td><td>" IPV6STR "</td></tr>", IP2STR (dns.ip.ip6));
-               }
-            }
-            dns (ESP_NETIF_DNS_MAIN);
-            dns (ESP_NETIF_DNS_BACKUP);
-            dns (ESP_NETIF_DNS_FALLBACK);
-         }
 #ifdef CONFIG_LWIP_IPV6
          {
             esp_ip6_addr_t ip;
@@ -3328,6 +3312,24 @@ revk_web_settings (httpd_req_t * req)
                revk_web_send (req, "<tr><td>IPv6</td><td>" IPV6STR "</td></tr>", IPV62STR (ip));
          }
 #endif
+         {
+            void dns (esp_netif_dns_type_t t)
+            {
+               esp_netif_dns_info_t dns;
+               if (!esp_netif_get_dns_info (sta_netif, t, &dns))
+               {
+                  if (dns.ip.type == ESP_IPADDR_TYPE_V4 && dns.ip.u_addr.ip4.addr)
+                     revk_web_send (req, "<tr><td>DNS</td><td>" IPSTR "</td></tr>", IP2STR (&dns.ip.u_addr.ip4));
+#ifdef CONFIG_LWIP_IPV6
+                  else if (dns.ip.type == ESP_IPADDR_TYPE_V6)
+                     revk_web_send (req, "<tr><td>DNS</td><td>" IPV6STR "</td></tr>", IP2STR (&dns.ip.u_addr.ip6));
+#endif
+               }
+            }
+            dns (ESP_NETIF_DNS_MAIN);
+            dns (ESP_NETIF_DNS_BACKUP);
+            dns (ESP_NETIF_DNS_FALLBACK);
+         }
       }
       revk_web_send (req, "</table>");
    }
