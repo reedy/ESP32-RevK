@@ -623,7 +623,7 @@ revk_setting_dump (int level)
       if (!j)
          return;
       char *topic = NULL;
-      if (maketopic (&topic, prefixsetting, revk_id, NULL) > 0)
+      if (maketopic (&topic, topicsetting, revk_id, NULL) > 0)
       {
          revk_mqtt_send (NULL, 0, topic, &j);
          free (topic);
@@ -895,7 +895,7 @@ revk_setting_dump (int level)
                   {
                      jo_t j = jo_make (NULL);
                      jo_string (j, "description", "Setting did not fit");
-                     jo_string (j, prefixsetting, tag);
+                     jo_string (j, topicsetting, tag);
                      if (err)
                         jo_string (j, "reason", err);
                      revk_error (TAG, &j);
@@ -915,7 +915,7 @@ revk_setting_dump (int level)
          {
             jo_t j = jo_make (NULL);
             jo_string (j, "description", "Setting did not fit");
-            jo_string (j, prefixsetting, s->name);
+            jo_string (j, topicsetting, s->name);
             if (err)
                jo_string (j, "reason", err);
             revk_error (TAG, &j);

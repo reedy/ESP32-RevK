@@ -929,12 +929,12 @@ revk_send_subunsub (int client, const mac_t mac, uint8_t sub)
       send (prefixapp ? "*" : appname); // All apps
       if (*hostname && strcmp (hostname, id))
          send (hostname);       // Hostname as well as MAC
-      if (*groupname && strcmp (groupname, id))
-         send (groupname);
+      if (*topicgroup && strcmp (topicgroup, id))
+         send (topicgroup);
    }
-   subunsub (prefixcommand);
+   subunsub (topiccommand);
    if (!client)
-      subunsub (prefixsetting);
+      subunsub (topicsetting);
 }
 #endif
 
@@ -960,9 +960,9 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
             return;
          prefix = p;
          int l = 0;
-         if (*prefixcommand && !strncmp (p, prefixcommand, l = strlen (prefixcommand)) && (!p[l] || p[l] == '/'))
+         if (*topiccommand && !strncmp (p, topiccommand, l = strlen (topiccommand)) && (!p[l] || p[l] == '/'))
             p += l;
-         else if (*prefixsetting && !strncmp (p, prefixsetting, l = strlen (prefixsetting)) && (!p[l] || p[l] == '/'))
+         else if (*topicsetting && !strncmp (p, topicsetting, l = strlen (topicsetting)) && (!p[l] || p[l] == '/'))
             p += l;
          else
             while (*p && *p != '/')
@@ -1038,7 +1038,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       {
          if (*payload != '"' && *payload != '{' && *payload != '[')
          {                      // Looks like non JSON
-            if (prefix && suffix && !strcmp (prefix, prefixsetting))
+            if (prefix && suffix && !strcmp (prefix, topicsetting))
             {                   // Special case for settings, the suffix is the setting
                j = jo_object_alloc ();
                jo_stringf (j, suffix, "%.*s", plen, payload);
@@ -1085,16 +1085,16 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          if (target && (!apppart || !strcmp (apppart, appname))
              && (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
                  || (*hostname && !strcmp (target, hostname))
-                 || (*groupname && !strcmp (target, groupname))
+                 || (*topicgroup && !strcmp (target, topicgroup))
 		 ))
             target = NULL;      // Mark as us for simple testing by app_command, etc
-         if (!client && prefix && !strcmp (prefix, prefixcommand) && suffix && !strcmp (suffix, "upgrade"))
+         if (!client && prefix && !strcmp (prefix, topiccommand) && suffix && !strcmp (suffix, "upgrade"))
             err = (err ? : revk_upgrade (target, j));   // Special case as command can be to other host
          else if (!client && !target)
          {                      // For us (could otherwise be for app callback)
-            if (prefix && !strcmp (prefix, prefixcommand))
+            if (prefix && !strcmp (prefix, topiccommand))
                err = (err ? : revk_command (suffix, j));
-            else if (prefix && !strcmp (prefix, prefixsetting))
+            else if (prefix && !strcmp (prefix, topicsetting))
             {
                err = "";
                if (!suffix && !plen)
@@ -1107,7 +1107,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                {
                   err = revk_settings_store (j, &location, 0);
                   if (err && !*err && app_callback)
-                     app_callback (0, prefixcommand, NULL, "setting", NULL);
+                     app_callback (0, topiccommand, NULL, "setting", NULL);
                }
             }
             err = (err ? : ""); // Ignore
@@ -1151,7 +1151,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          jo_t j = jo_create_alloc ();
          jo_string (j, NULL, (char *) payload);
          jo_rewind (j);
-         app_callback (client, prefixcommand, NULL, "connect", j);
+         app_callback (client, topiccommand, NULL, "connect", j);
          jo_free (&j);
       }
    } else
@@ -1162,7 +1162,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          xEventGroupClearBits (revk_group, (GROUP_MQTT << client));
          ESP_LOGI (TAG, "MQTT%d disconnected", client);
          if (app_callback)
-            app_callback (client, prefixcommand, NULL, "disconnect", NULL);
+            app_callback (client, topiccommand, NULL, "disconnect", NULL);
          // Can we flush TCP TLS stuff somehow?
       } else
       {
@@ -1192,7 +1192,7 @@ revk_mqtt_init (void)
             .callback = &mqtt_rx,
          };
          // LWT Topic
-         if (maketopic ((void *) &config.topic, prefixstate, NULL, NULL) < 0)
+         if (maketopic ((void *) &config.topic, topicstate, NULL, NULL) < 0)
             return;
 
          if ((strcmp (hostname, revk_id) ?      //
@@ -1249,7 +1249,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             jo_t j = jo_create_alloc ();
             jo_string (j, "ssid", apssid);
             jo_rewind (j);
-            app_callback (0, prefixcommand, NULL, "ap", j);
+            app_callback (0, topiccommand, NULL, "ap", j);
             jo_free (&j);
          }
          break;
@@ -1358,7 +1358,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                   jo_stringf (j, "ip", IPSTR, IP2STR (&event->ip_info.ip));
                   jo_stringf (j, "gw", IPSTR, IP2STR (&event->ip_info.gw));
                   jo_rewind (j);
-                  app_callback (0, prefixcommand, NULL, "wifi", j);
+                  app_callback (0, topiccommand, NULL, "wifi", j);
                   jo_free (&j);
                }
 #endif
@@ -1386,7 +1386,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                   jo_t j = jo_object_alloc ();
                   jo_stringf (j, "ipv6", IPV6STR, IPV62STR (event->ip6_info.ip));
                   jo_int (j, "zone", event->ip6_info.ip.zone);
-                  app_callback (0, prefixcommand, NULL, "ipv6", j);
+                  app_callback (0, topiccommand, NULL, "ipv6", j);
                   jo_free (&j);
                }
 #endif
@@ -1904,7 +1904,7 @@ revk_pre_shutdown (void)
       jo_t j = jo_create_alloc ();
       jo_string (j, NULL, restart_reason);
       jo_rewind (j);
-      app_callback (0, prefixcommand, NULL, "shutdown", j);
+      app_callback (0, topiccommand, NULL, "shutdown", j);
       jo_free (&j);
    }
    revk_mqtt_close (restart_reason);
@@ -2105,7 +2105,7 @@ revk_boot (app_callback_t * app_callback_cb)
       REVK_ERR_CHECK (nvs_open (TAG, NVS_READWRITE, &revk_nvs));
    }
    revk_register ("client", 0, 0, &clientkey, NULL, SETTING_SECRET);    // Parent
-   revk_register ("prefix", 0, 0, &prefixcommand, "command", SETTING_SECRET);   // Parent
+   revk_register ("prefix", 0, 0, &topiccommand, "command", SETTING_SECRET);   // Parent
    /* Fallback if no dedicated partition */
 #define str(x) #x
 #define s(n,d)		revk_register(#n,0,0,&n,d,0)
@@ -2128,7 +2128,7 @@ revk_boot (app_callback_t * app_callback_cb)
 #else
 #define led(n,a,d)
 #endif
-#define p(n)		revk_register("prefix"#n,0,0,&prefix##n,#n,0)
+#define p(n)		revk_register("topic"#n,0,0,&topic##n,#n,0)
 #define h(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX)
 #define hs(n,l,d)	revk_register(#n,0,l,&n,d,SETTING_BINDATA|SETTING_HEX|SETTING_SECRET)
 #define bd(n,d)		revk_register(#n,0,0,&n,d,SETTING_BINDATA)
@@ -2484,13 +2484,13 @@ revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t
 const char *
 revk_state_clients (const char *suffix, jo_t * jp, uint8_t clients)
 {                               // State message (retained)
-   return revk_mqtt_send_clients (prefixstate, 1, suffix, jp, clients);
+   return revk_mqtt_send_clients (topicstate, 1, suffix, jp, clients);
 }
 
 const char *
 revk_event_clients (const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Event message (may one day create log entries)
-   return revk_mqtt_send_clients (prefixevent, 0, suffix, jp, clients);
+   return revk_mqtt_send_clients (topicevent, 0, suffix, jp, clients);
 }
 
 const char *
@@ -2502,13 +2502,13 @@ revk_error_clients (const char *suffix, jo_t * jp, uint8_t clients)
                            GROUP_WIFI |
 #endif
                            GROUP_MQTT, false, true, 20000 / portTICK_PERIOD_MS);
-   return revk_mqtt_send_clients (prefixerror, 0, suffix, jp, clients);
+   return revk_mqtt_send_clients (topicerror, 0, suffix, jp, clients);
 }
 
 const char *
 revk_info_clients (const char *suffix, jo_t * jp, uint8_t clients)
 {                               // Info message, nothing special
-   return revk_mqtt_send_clients (prefixinfo, 0, suffix, jp, clients);
+   return revk_mqtt_send_clients (topicinfo, 0, suffix, jp, clients);
 }
 
 const char *
@@ -2542,7 +2542,7 @@ revk_restart (int delay, const char *fmt, ...)
          jo_t j = jo_create_alloc ();
          jo_string (j, NULL, reason);
          jo_rewind (j);
-         app_callback (0, prefixcommand, NULL, "restart", j);
+         app_callback (0, topiccommand, NULL, "restart", j);
          jo_free (&j);
       }
    }
@@ -2963,7 +2963,7 @@ revk_web_settings (httpd_req_t * req)
       {
          const char *e = revk_settings_store (j, &location, REVK_SETTINGS_JSON_STRING); // Saved settings
          if (e && !*e && app_callback)
-            app_callback (0, prefixcommand, NULL, "setting", NULL);
+            app_callback (0, topiccommand, NULL, "setting", NULL);
          if (!e || !*e)
             e = revk_command ("upgrade", NULL);
          if (e && *e)
@@ -3033,7 +3033,7 @@ revk_web_settings (httpd_req_t * req)
          {
             const char *e = revk_settings_store (j, &location, REVK_SETTINGS_JSON_STRING);
             if (e && !*e && app_callback)
-               app_callback (0, prefixcommand, NULL, "setting", NULL);
+               app_callback (0, topiccommand, NULL, "setting", NULL);
             if (e && *e)
             {
                if (location)

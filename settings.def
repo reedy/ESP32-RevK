@@ -2,7 +2,6 @@
 s	password				.revk=1	.secret=1	// Settings password (this is not sent securely so use with care on local networks you control)
 #endif
 s	hostname				.revk=1			// Host name
-s	groupname				.revk=1			// Alternative hostname
 // Appname is not something you should changing usually so leave as MQTT only
 s	appname		CONFIG_REVK_APPNAME	.revk=1
 
@@ -15,14 +14,15 @@ blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1	// OTA cert of otahost
 s	ntphost		CONFIG_REVK_NTPHOST	.revk=1			// NTP host
 s	tz		CONFIG_REVK_TZ		.revk=1			// Timezone (<a href='https://gist.github.com/alwynallan/24d96091655391107939' target=_blank>info</a>)
 u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1			// Watchdog (seconds)
-s	prefix.command	command			.revk=1			// MQTT Prefix for commands 
-s	prefix.setting	setting			.revk=1			// MQTT Prefix for settings
-s	prefix.state	state			.revk=1			// MQTT Prefix for state
-s	prefix.event	event			.revk=1			// MQTT Prefix for event
-s	prefix.info	info			.revk=1			// MQTT Prefix for info
-s	prefix.error	error			.revk=1			// MQTT Prefix for error
-bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname as primary topic followed by prefix, not prefix/ first
+s	topic.group				.revk=1			// Alternative hostname
+s	topic.command	command			.revk=1 .old="prefixcommand"			// MQTT Topic for commands 
+s	topic.setting	setting			.revk=1 .old="prefixsetting"			// MQTT Topic for settings
+s	topic.state	state			.revk=1 .old="prefixstate"			// MQTT Topic for state
+s	topic.event	event			.revk=1 .old="prefixevent"			// MQTT Topic for event
+s	topic.info	info			.revk=1 .old="prefixinfo"			// MQTT Topic for info
+s	topic.error	error			.revk=1 .old="prefixerror"			// MQTT Topic for error
 bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1			// MQTT use appname/ in front of hostname in topic
+bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname as primary topic followed by prefix, not prefix/ first
 #ifdef	CONFIG_REVK_BLINK_LIB
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif

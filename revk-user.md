@@ -42,7 +42,7 @@ The MQTT topic is used to allow messages to be directed to the device or for mes
 
 The *identity* aspect of the topic identifies the device. This can be set using `hostname`, and if not set then the MAC address is used (in HEX). The device responds to the `hostname` or MAC address. If a `hostname` is set, messages from the device use the `hostanme` set (with the exception of `setting`, which always uses MAC).
 
-The *prefix* aspect of the topic is what sort of message it is. `command` and `setting` are instructions to the device, whereas `info`, `error`, `state`, and `event` are for information from the device (as well as `setting` feedback). All of these can be configured to use different words if needed. 
+The *topic* aspect of the topic is what sort of message it is. `command` and `setting` are instructions to the device, whereas `info`, `error`, `state`, and `event` are for information from the device (as well as `setting` feedback). All of these can be configured to use different words if needed. 
 
 The *suffix* aspect of the topic is what sub-type of message, e.g. what `command` is to be performed.
 
@@ -144,14 +144,12 @@ Sending a `setting` message with no suffix and no payload causes a `setting` res
 |`aphide`|Do AP mode as hidden SSID|
 |`meshid`|Work in mesh mode and use this as the mesh ID, a 12 character HEX string|
 |`mesgpass`|The passphrase for mesh mode working|
-|`prefixcommand`|The prefix for `command`|
-|`prefixsetting`|The prefix for `setting`|
-|`prefixstate`|The prefix for `state`|
-|`prefixevent`|The prefix for `event`|
-|`prefixinfo`|The prefix for `info`|
-|`prefixerror`|The prefix for `error`|
-
-Note that the `prefix` settings have to be one word, i.e. no `/` included in them.
+|`topiccommand`|The topic for `command`|
+|`topicsetting`|The topic for `setting`|
+|`topicstate`|The topic for `state`|
+|`topicevent`|The topic for `event`|
+|`topicinfo`|The topic for `info`|
+|`topicerror`|The topic for `error`|
 
 #### Status LED
 
