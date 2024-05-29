@@ -14,7 +14,7 @@ blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1	// OTA cert of otahost
 s	ntphost		CONFIG_REVK_NTPHOST	.revk=1			// NTP host
 s	tz		CONFIG_REVK_TZ		.revk=1			// Timezone (<a href='https://gist.github.com/alwynallan/24d96091655391107939' target=_blank>info</a>)
 u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1			// Watchdog (seconds)
-s	topic.group				.revk=1			// Alternative hostname
+s	topic.group				.revk=1			// MQTT Alternative hostname accepted
 s	topic.command	command			.revk=1 .old="prefixcommand"			// MQTT Topic for commands 
 s	topic.setting	setting			.revk=1 .old="prefixsetting"			// MQTT Topic for settings
 s	topic.state	state			.revk=1 .old="prefixstate"			// MQTT Topic for state
