@@ -58,6 +58,7 @@ s	wifi.gw		CONFIG_REVK_WIFIGW	.revk=1			// WiFi Fixed gateway
 s	wifi.dns	CONFIG_REVK_WIFIDNS	.revk=1	.array=3	// WiFi fixed DNS
 o6	wifi.bssid	CONFIG_REVK_WIFIBSSID	.revk=1	.hex=1		// WiFI BSSID
 u8	wifi.chan	CONFIG_REVK_WIFICHAN	.revk=1			// WiFI channel
+u16	wifi.uptime	CONFIG_REVK_WIFIUPTIME	.revk=1			// WiFI turns off after this many seconds
 bit	wifi.ps		CONFIG_REVK_WIFIPS	.revk=1			// WiFi power save
 bit	wifi.maxps	CONFIG_REVK_WIFIMAXPS	.revk=1			// WiFi power save (max)
 #endif

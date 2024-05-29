@@ -1084,9 +1084,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       {
          if (target && (!apppart || !strcmp (apppart, appname))
              && (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
-                 || (*hostname && !strcmp (target, hostname))
-                 || (*topicgroup && !strcmp (target, topicgroup))
-		 ))
+                 || (*hostname && !strcmp (target, hostname)) || (*topicgroup && !strcmp (target, topicgroup))))
             target = NULL;      // Mark as us for simple testing by app_command, etc
          if (!client && prefix && !strcmp (prefix, topiccommand) && suffix && !strcmp (suffix, "upgrade"))
             err = (err ? : revk_upgrade (target, j));   // Special case as command can be to other host
@@ -1728,10 +1726,13 @@ task (void *pvParameters)
                       esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)");
 #else
 #ifdef	CONFIG_REVK_WIFI
-            ESP_LOGI (TAG, "Up %lu, Link down %lu", (unsigned long) now, (unsigned long) revk_link_down ());
+            ESP_LOGI (TAG, "Up %lu, Link %s %lu", (unsigned long) now, b.disablewifi ? "disabled" : "down",
+                      (unsigned long) revk_link_down ());
 #else
             ESP_LOGI (TAG, "Up %lu", (unsigned long) now);
 #endif
+            if (!b.disablewifi && wifiuptime && now > wifiuptime && !restart_time)
+               revk_disable_wifi ();
 #endif
          }
 #ifdef	CONFIG_REVK_MQTT
@@ -2105,7 +2106,7 @@ revk_boot (app_callback_t * app_callback_cb)
       REVK_ERR_CHECK (nvs_open (TAG, NVS_READWRITE, &revk_nvs));
    }
    revk_register ("client", 0, 0, &clientkey, NULL, SETTING_SECRET);    // Parent
-   revk_register ("prefix", 0, 0, &topiccommand, "command", SETTING_SECRET);   // Parent
+   revk_register ("prefix", 0, 0, &topiccommand, "command", SETTING_SECRET);    // Parent
    /* Fallback if no dedicated partition */
 #define str(x) #x
 #define s(n,d)		revk_register(#n,0,0,&n,d,0)

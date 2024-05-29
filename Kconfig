@@ -182,6 +182,13 @@ menu "RevK"
 	help
 		Number of seconds off line before we completely reset
 
+	config REVK_WIFIUPTIME
+	int "Turn off WiFi after this time"
+	default 0
+	depends on REVK_WIFI || REVK_MESH
+	help
+		Number of seconds before WIFI auto turns off
+
 	config REVK_WIFIPS
         bool "WiFi power save"
         default n
