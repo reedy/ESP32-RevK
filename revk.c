@@ -929,6 +929,8 @@ revk_send_subunsub (int client, const mac_t mac, uint8_t sub)
       send (prefixapp ? "*" : appname); // All apps
       if (*hostname && strcmp (hostname, id))
          send (hostname);       // Hostname as well as MAC
+      if (*groupname && strcmp (groupname, id))
+         send (groupname);
    }
    subunsub (prefixcommand);
    if (!client)
@@ -1082,7 +1084,9 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       {
          if (target && (!apppart || !strcmp (apppart, appname))
              && (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
-                 || (*hostname && !strcmp (target, hostname))))
+                 || (*hostname && !strcmp (target, hostname))
+                 || (*groupname && !strcmp (target, groupname))
+		 ))
             target = NULL;      // Mark as us for simple testing by app_command, etc
          if (!client && prefix && !strcmp (prefix, prefixcommand) && suffix && !strcmp (suffix, "upgrade"))
             err = (err ? : revk_upgrade (target, j));   // Special case as command can be to other host

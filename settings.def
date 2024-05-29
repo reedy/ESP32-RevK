@@ -2,6 +2,7 @@
 s	password				.revk=1	.secret=1	// Settings password (this is not sent securely so use with care on local networks you control)
 #endif
 s	hostname				.revk=1			// Host name
+s	groupname				.revk=1			// Alternative hostname
 // Appname is not something you should changing usually so leave as MQTT only
 s	appname		CONFIG_REVK_APPNAME	.revk=1
 
