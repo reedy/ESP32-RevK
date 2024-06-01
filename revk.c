@@ -929,8 +929,10 @@ revk_send_subunsub (int client, const mac_t mac, uint8_t sub)
       send (prefixapp ? "*" : appname); // All apps
       if (*hostname && strcmp (hostname, id))
          send (hostname);       // Hostname as well as MAC
-      if (*topicgroup && strcmp (topicgroup, id))
-         send (topicgroup);
+      if (prefix == topiccommand)
+         for (int i = 0; i < sizeof (topicgroup) / sizeof (*topicgroup); i++)
+            if (*topicgroup[i] && strcmp (topicgroup[i], id))
+               send (topicgroup[i]);
    }
    subunsub (topiccommand);
    if (!client)
@@ -1082,10 +1084,16 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       const char *location = NULL;
       if (!err)
       {
-         if (target && (!apppart || !strcmp (apppart, appname))
-             && (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
-                 || (*hostname && !strcmp (target, hostname)) || (*topicgroup && !strcmp (target, topicgroup))))
-            target = NULL;      // Mark as us for simple testing by app_command, etc
+         if (target && (!apppart || !strcmp (apppart, appname)))
+         {
+            if (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
+                || (*hostname && !strcmp (target, hostname)) || (*topicgroup && !strcmp (target, topicgroup)))
+               target = NULL;   // Mark as us for simple testing by app_command, etc
+            else
+               for (int i = 0; target && i < sizeof (topicgroup) / sizeof (*topicgroup); i++)
+                  if (*topicgroup[i] && strcmp (target, topicgroup[i]))
+                     target = NULL;     // Mark as us for simple testing by app_command, etc
+         }
          if (!client && prefix && !strcmp (prefix, topiccommand) && suffix && !strcmp (suffix, "upgrade"))
             err = (err ? : revk_upgrade (target, j));   // Special case as command can be to other host
          else if (!client && !target)
@@ -2775,8 +2783,8 @@ revk_web_head (httpd_req_t * req, const char *title)
                   "p.error{color:red;font-weight:bold;}"        //
                   "b.status{background:white;border:2px solid red;padding:3px;font-size:50%%;}" //
                   "input[type=submit],button{min-height:34px;min-width:64px;border-radius:30px;background-color:#ccc;border:1px solid gray;color:black;box-shadow:3px 3px 3px #0008;margin:3px;padding:3px 10px;font-size:100%%;}"      //
-                  "tr.settingsdefault input,tr.settingsdefault textarea{background-color:#eef;}"  //
-		  "input,textarea{margin:2px;border: 1px solid #ccc;}" //
+                  "tr.settingsdefault input,tr.settingsdefault textarea{background-color:#eef;}"        //
+                  "input,textarea{margin:2px;border: 1px solid #ccc;}"  //
                   ".switch,.box{position:relative;display:inline-block;min-width:64px;min-height:34px;margin:3px;padding:2px 0 0 0px;}" //
                   ".switch input,.box input{opacity:0;width:0;height:0;}"       //
                   ".slider,.button{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;-webkit-transition:.4s;transition:.4s;}"        //
