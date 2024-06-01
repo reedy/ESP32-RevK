@@ -931,7 +931,7 @@ revk_send_subunsub (int client, const mac_t mac, uint8_t sub)
          send (hostname);       // Hostname as well as MAC
       if (prefix == topiccommand)
          for (int i = 0; i < sizeof (topicgroup) / sizeof (*topicgroup); i++)
-            if (*topicgroup[i] && strcmp (topicgroup[i], id))
+            if (*topicgroup[i])
                send (topicgroup[i]);
    }
    subunsub (topiccommand);
@@ -1091,7 +1091,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
                target = NULL;   // Mark as us for simple testing by app_command, etc
             else
                for (int i = 0; target && i < sizeof (topicgroup) / sizeof (*topicgroup); i++)
-                  if (*topicgroup[i] && strcmp (target, topicgroup[i]))
+                  if (*topicgroup[i] && !strcmp (target, topicgroup[i]))
                      target = NULL;     // Mark as us for simple testing by app_command, etc
          }
          if (!client && prefix && !strcmp (prefix, topiccommand) && suffix && !strcmp (suffix, "upgrade"))
