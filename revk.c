@@ -1087,7 +1087,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          if (target && (!apppart || !strcmp (apppart, appname)))
          {
             if (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
-                || (*hostname && !strcmp (target, hostname)) || (*topicgroup && !strcmp (target, topicgroup)))
+                || (*hostname && !strcmp (target, hostname)))
                target = NULL;   // Mark as us for simple testing by app_command, etc
             else
                for (int i = 0; target && i < sizeof (topicgroup) / sizeof (*topicgroup); i++)
