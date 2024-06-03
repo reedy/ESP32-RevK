@@ -884,7 +884,7 @@ revk_topic (const char *name, const char *id, const char *suffix)
    uint8_t tn = 0;              // count
    if (prefixhost)
    {
-      if (prefixapp)
+      if (prefixapp && name != appname)
          t[tn++] = appname;
       if (id)
          t[tn++] = id;
@@ -894,7 +894,7 @@ revk_topic (const char *name, const char *id, const char *suffix)
    {
       if (name)
          t[tn++] = name;
-      if (prefixapp)
+      if (prefixapp && name != appname)
          t[tn++] = appname;
       if (id)
          t[tn++] = id;
