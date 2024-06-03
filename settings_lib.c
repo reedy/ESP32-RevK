@@ -1131,8 +1131,8 @@ revk_setting_dump (int level)
    {                            // Sends the settings - this deliberately uses the revk_id not the hostname as it is "seen" by any device listening
       if (!j)
          return;
-      char *topic = NULL;
-      if (maketopic (&topic, topicsetting, revk_id, level > 1 ? "-" : NULL) > 0)
+      char *topic = revk_topic (topicsetting, revk_id, level > 1 ? "-" : NULL);
+      if (topic)
       {
          revk_mqtt_send (NULL, 0, topic, &j);
          free (topic);

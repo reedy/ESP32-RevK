@@ -873,18 +873,18 @@ mesh_init (void)
 #endif
 
 #ifdef	CONFIG_REVK_MQTT
-int
-maketopic (char **topicp, const char *prefix, const char *id, const char *suffix)
-{
+char *
+revk_topic (const char *prefix, const char *id, const char *suffix)
+{                               // Construct a topic, malloc'd and return pointer to it
    if (!id)
       id = hostname;
    const char *t[4] = { 0 };
    uint8_t tn = 0;              // count
    if (prefixhost)
    {
-      t[tn++] = id;
       if (prefixapp)
          t[tn++] = appname;
+      t[tn++] = id;
       t[tn++] = prefix;
    } else
    {
@@ -895,11 +895,14 @@ maketopic (char **topicp, const char *prefix, const char *id, const char *suffix
    }
    if (suffix)
       t[tn++] = suffix;
+   char *topic = NULL;
    if (t[3])
-      return asprintf (topicp, "%s/%s/%s/%s", t[0], t[1], t[2], t[3]);
-   if (t[2])
-      return asprintf (topicp, "%s/%s/%s", t[0], t[1], t[2]);
-   return asprintf (topicp, "%s/%s", t[0], t[1]);
+      asprintf (&topic, "%s/%s/%s/%s", t[0], t[1], t[2], t[3]);
+   else if (t[2])
+      asprintf (&topic, "%s/%s/%s", t[0], t[1], t[2]);
+   else
+      asprintf (&topic, "%s/%s", t[0], t[1]);
+   return topic;
 }
 #endif
 
@@ -916,8 +919,8 @@ revk_send_subunsub (int client, const mac_t mac, uint8_t sub)
    {
       void send (const char *id)
       {
-         char *topic = NULL;    // The topic we construct to subscribe
-         if (maketopic (&topic, prefix, id, "#") < 0)
+         char *topic = revk_topic (prefix, id, "#");
+         if (!topic)
             return;
          if (sub)
             lwmqtt_subscribe (mqtt_client[client], topic);
@@ -1198,16 +1201,15 @@ revk_mqtt_init (void)
             .callback = &mqtt_rx,
          };
          // LWT Topic
-         if (maketopic ((void *) &config.topic, topicstate, NULL, NULL) < 0)
-            return;
+         if (!(config.topic = revk_topic (topicstate, NULL, NULL)))
 
-         if ((strcmp (hostname, revk_id) ?      //
-              asprintf ((void *) &config.client, "%s:%s_%s", appname, hostname, revk_id + 6) :  //
-              asprintf ((void *) &config.client, "%s:%s", appname, hostname)) < 0)
-         {
-            freez (config.topic);
-            return;
-         }
+            if ((strcmp (hostname, revk_id) ?   //
+                 asprintf ((void *) &config.client, "%s:%s_%s", appname, hostname, revk_id + 6) :       //
+                 asprintf ((void *) &config.client, "%s:%s", appname, hostname)) < 0)
+            {
+               freez (config.topic);
+               return;
+            }
          ESP_LOGI (TAG, "MQTT%d %s", client, config.hostname);
          if (mqttcert[client]->len)
          {
@@ -2439,7 +2441,7 @@ revk_mqtt_send_payload_clients (const char *prefix, int retain, const char *suff
    if (!prefix)
       topic = (char *) suffix;  /* Set fixed topic */
    else
-      maketopic (&topic, prefix, NULL, suffix);
+      topic = revk_topic (prefix, NULL, suffix);
    if (!topic)
       return "No topic";
    const char *er = revk_mqtt_send_raw (topic, retain, payload, clients);
@@ -4723,3 +4725,10 @@ revk_gpio_get (revk_gpio_t g)
    return 0;
 }
 #endif
+
+char *
+revk_strdupa (char *a, char *b)
+{                               // Return first arg after freeing second arg
+   free (b);
+   return a;
+}

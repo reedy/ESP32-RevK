@@ -202,7 +202,7 @@ extern uint16_t meshmax;
 void revk_mesh_send_json (const mac_t mac, jo_t * jp);
 #endif
 #ifdef	CONFIG_REVK_MQTT
-int maketopic (char **topicp, const char *prefix, const char *id, const char *suffix);
+char *revk_topic (const char *prefix, const char *id, const char *suffix);
 void revk_send_subunsub (int client, const mac_t,uint8_t sub);
 #define revk_send_sub(c,m) revk_send_subunsub(c,m,1)
 #define revk_send_unsub(c,m) revk_send_subunsub(c,m,0)
@@ -257,5 +257,8 @@ void revk_enable_ap (void);
 void revk_disable_ap (void);
 void revk_enable_settings (void);
 void revk_disable_settings (void);
+
+char *revk_strdupa(char *a,char *b);
+#define	strdupafree(s) revk_strdupa(strdupa(s),s)
 
 #endif
