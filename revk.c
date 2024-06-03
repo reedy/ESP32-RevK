@@ -874,24 +874,30 @@ mesh_init (void)
 
 #ifdef	CONFIG_REVK_MQTT
 char *
-revk_topic (const char *prefix, const char *id, const char *suffix)
+revk_topic (const char *name, const char *id, const char *suffix)
 {                               // Construct a topic, malloc'd and return pointer to it
    if (!id)
       id = hostname;
+   if (!*id)
+      id = NULL;
    const char *t[4] = { 0 };
    uint8_t tn = 0;              // count
    if (prefixhost)
    {
       if (prefixapp)
          t[tn++] = appname;
-      t[tn++] = id;
-      t[tn++] = prefix;
+      if (id)
+         t[tn++] = id;
+      if (name)
+         t[tn++] = name;
    } else
    {
-      t[tn++] = prefix;
+      if (name)
+         t[tn++] = name;
       if (prefixapp)
          t[tn++] = appname;
-      t[tn++] = id;
+      if (id)
+         t[tn++] = id;
    }
    if (suffix)
       t[tn++] = suffix;
@@ -900,8 +906,10 @@ revk_topic (const char *prefix, const char *id, const char *suffix)
       asprintf (&topic, "%s/%s/%s/%s", t[0], t[1], t[2], t[3]);
    else if (t[2])
       asprintf (&topic, "%s/%s/%s", t[0], t[1], t[2]);
-   else
+   else if (t[1])
       asprintf (&topic, "%s/%s", t[0], t[1]);
+   else
+      asprintf (&topic, "%s", t[0]);
    return topic;
 }
 #endif
