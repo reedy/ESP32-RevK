@@ -258,7 +258,4 @@ void revk_disable_ap (void);
 void revk_enable_settings (void);
 void revk_disable_settings (void);
 
-char *revk_strdupa(char *a,char *b);
-#define	strdupafree(s) revk_strdupa(strdupa(s),s)
-
 #endif

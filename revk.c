@@ -4733,10 +4733,3 @@ revk_gpio_get (revk_gpio_t g)
    return 0;
 }
 #endif
-
-char *
-revk_strdupa (char *a, char *b)
-{                               // Return first arg after freeing second arg
-   free (b);
-   return a;
-}
