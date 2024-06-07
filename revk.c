@@ -1218,7 +1218,7 @@ revk_mqtt_init (void)
             freez (config.topic);
             return;
          }
-         ESP_LOGE (TAG, "MQTT%d %s %s", client, config.hostname, config.client);
+         ESP_LOGE (TAG, "Connect MQTT%d %s as %s", client, config.hostname, config.client);
          if (mqttcert[client]->len)
          {
             config.ca_cert_ref = 1;     // No need to duplicate
