@@ -1210,14 +1210,14 @@ revk_mqtt_init (void)
          };
          // LWT Topic
          if (!(config.topic = revk_topic (topicstate, NULL, NULL)))
-
-            if ((strcmp (hostname, revk_id) ?   //
-                 asprintf ((void *) &config.client, "%s:%s_%s", appname, hostname, revk_id + 6) :       //
-                 asprintf ((void *) &config.client, "%s:%s", appname, hostname)) < 0)
-            {
-               freez (config.topic);
-               return;
-            }
+            return;             // No topic
+         if ((strcmp (hostname, revk_id) ?      //
+              asprintf ((void *) &config.client, "%s:%s_%s", appname, hostname, revk_id + 6) :  //
+              asprintf ((void *) &config.client, "%s:%s", appname, hostname)) < 0)
+         {
+            freez (config.topic);
+            return;
+         }
          ESP_LOGE (TAG, "MQTT%d %s %s", client, config.hostname, config.client);
          if (mqttcert[client]->len)
          {
