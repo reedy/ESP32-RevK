@@ -188,7 +188,7 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 #else
 #define	led(n,a,d)	revk_gpio_t n[a];
 #endif
-#define p(n)		char *prefix##n;
+#define p(n)		char *topic##n;
 #define h(n,l,d)	char n[l];
 #define hs(n,l,d)	uint8_t n[l];
 #define bd(n,d)		revk_bindata_t *n;
