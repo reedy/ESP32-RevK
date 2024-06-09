@@ -3217,14 +3217,7 @@ revk_web_settings (httpd_req_t * req)
                         if (g->comment && g->group == s->group)
                            add (g);
                      line = 1;
-                  } else if (strcmp (s->name, "hostname")
-#ifdef  CONFIG_REVK_SETTINGS_PASSWORD
-                             && strcmp (s->name, "password")
-#endif
-#ifdef  CONFIG_REVK_WEB_TZ
-                             && strcmp (s->name, "tz")
-#endif
-                     )          // not covered by Basic main settings, other stuff is hidden anyway or may as well repeat
+                  } else
                      add (s);
                }
          }

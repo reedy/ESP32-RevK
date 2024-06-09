@@ -1,18 +1,18 @@
 #ifdef	CONFIG_REVK_SETTINGS_PASSWORD
-s	password				.revk=1	.secret=1	// Settings password (this is not sent securely so use with care on local networks you control)
+s	password				.revk=1	.hide=1 .secret=1	// Settings password (this is not sent securely so use with care on local networks you control)
 #endif
-s	hostname				.revk=1			// Host name
+s	hostname				.revk=1 .hide=1			// Host name
 // Appname is not something you should changing usually so leave as MQTT only
 s	appname		CONFIG_REVK_APPNAME	.revk=1 .hide=1		// Application name
 
 s	ota.host	CONFIG_REVK_OTAHOST	.revk=1			// OTA hostname
 u8	ota.days	CONFIG_REVK_OTADAYS	.revk=1			// OTA auto load (days)
 u16	ota.start	600			.revk=1			// OTA check after startup (min seconds)
-bit	ota.auto	1			.revk=1	.live=1		// OTA auto upgrade
-bit	ota.beta				.revk=1	.live=1		// OTA from beta release
+bit	ota.auto	1			.revk=1	.hide=1 .live=1	// OTA auto upgrade
+bit	ota.beta				.revk=1	.hide=1 .live=1	// OTA from beta release
 blob	ota.cert	CONFIG_REVK_OTACERT	.revk=1	.base64=1	// OTA cert of otahost
 s	ntphost		CONFIG_REVK_NTPHOST	.revk=1			// NTP host
-s	tz		CONFIG_REVK_TZ		.revk=1			// Timezone (<a href='https://gist.github.com/alwynallan/24d96091655391107939' target=_blank>info</a>)
+s	tz		CONFIG_REVK_TZ		.revk=1	.hide=1		// Timezone (<a href='https://gist.github.com/alwynallan/24d96091655391107939' target=_blank>info</a>)
 u32	watchdogtime	CONFIG_REVK_WATCHDOG	.revk=1			// Watchdog (seconds)
 s	topic.group				.revk=1 .array=2	// MQTT Alternative hostname accepted for commands
 s	topic.command	command			.revk=1 .old="prefixcommand"			// MQTT Topic for commands 
@@ -51,8 +51,8 @@ blob	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.bas
 
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
 u16	wifi.reset	CONFIG_REVK_WIFIRESET	.revk=1 .hide=1		// Restart if WiFi off for this long (seconds)
-s	wifi.ssid	CONFIG_REVK_WIFISSID	.revk=1			// WiFI SSID (name)
-s	wifi.pass	CONFIG_REVK_WIFIPASS	.revk=1	.secret=1	// WiFi password
+s	wifi.ssid	CONFIG_REVK_WIFISSID	.revk=1	.hide=1		// WiFI SSID (name)
+s	wifi.pass	CONFIG_REVK_WIFIPASS	.revk=1	.hide=1 .secret=1	// WiFi password
 s	wifi.ip		CONFIG_REVK_WIFIIP	.revk=1			// WiFi Fixed IP
 s	wifi.gw		CONFIG_REVK_WIFIGW	.revk=1			// WiFi Fixed gateway
 s	wifi.dns	CONFIG_REVK_WIFIDNS	.revk=1	.array=3	// WiFi fixed DNS
