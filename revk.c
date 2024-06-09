@@ -2968,13 +2968,13 @@ revk_web_settings (httpd_req_t * req)
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
    uint8_t loggedin = 0;
 #endif
-   int8_t page = -1;           // Basic
+   int8_t page = -1;            // Basic
    if (j)
    {
       const char *location = NULL;
       if (j && jo_find (j, "_page"))
       {
-         char t[2] = "";
+         char t[4] = "";
          jo_strncpy (j, t, sizeof (t));
          page = atoi (t);
       }
