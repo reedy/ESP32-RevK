@@ -3091,7 +3091,7 @@ revk_web_settings (httpd_req_t * req)
          page = -1;             // Basic settings to get on line
       else
       {
-         void addpage (uint8_t l, const char *v)
+         void addpage (int8_t l, const char *v)
          {
             revk_web_send (req,
                            "<label class=box style=\"width:%dem\"><input type=radio name='_page' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
@@ -3219,7 +3219,7 @@ revk_web_settings (httpd_req_t * req)
 #ifdef	CONFIG_REVK_WEB_EXTRA
       default:                 // App
          {
-            extern void revk_web_extra (httpd_req_t *, int);
+            extern void revk_web_extra (httpd_req_t *, int8_t);
             revk_web_extra (req, page);
          }
          break;

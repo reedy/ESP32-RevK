@@ -440,7 +440,7 @@ menu "RevK"
 	bool "Include extra settings in web config"
 	default n
         help
-		Include extra settings in web config (call to revk_web_extra(httpd_req_t*,int page))
+		Include extra settings in web config (call to revk_web_extra(httpd_req_t*,int8_t page))
 
 	config REVK_WEB_DEFAULT
 	bool "Default web page for settings only"
