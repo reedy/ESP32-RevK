@@ -3164,8 +3164,8 @@ revk_web_settings (httpd_req_t * req)
 #ifdef	CONFIG_REVK_WEB_EXTRA
       case 1:                  // App
          {
-            extern void revk_web_extra (httpd_req_t *);
-            revk_web_extra (req);
+            extern void revk_web_extra (httpd_req_t *,int);
+            revk_web_extra (req,0);
          }
          break;
 #endif
