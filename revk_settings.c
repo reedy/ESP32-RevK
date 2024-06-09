@@ -629,7 +629,16 @@ main (int argc, const char *argv[])
                errx (1, "Unknown type %s for %s in %s", d->type, d->name, d->fn);
             fprintf (C, ",.name=\"%s\"", d->name);
             if (hascomment && d->comment)
-               fprintf (C, ",.comment=\"%s\"", d->comment);
+            {
+               fprintf (C, ",.comment=\"");
+               for (char *p = d->comment; *p; p++)
+               {
+                  if (*p == '\\' || *p == '"')
+                     fputc ('\\', C);
+                  fputc (*p, C);
+               }
+               fprintf (C, "\"");
+            }
             if (d->group)
                fprintf (C, ",.group=%d", d->group);
             fprintf (C, ",.len=%d", (int) strlen (d->name));
