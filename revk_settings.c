@@ -460,6 +460,7 @@ main (int argc, const char *argv[])
                " uint8_t malloc:1;\n"   //
                " uint8_t revk:1;\n"     //
                " uint8_t live:1;\n"     //
+               " uint8_t hide:1;\n"     //
                " uint8_t fix:1;\n"      //
                " uint8_t set:1;\n"      //
                " uint8_t hex:1;\n"      //

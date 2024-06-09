@@ -25,7 +25,7 @@ The settings are loaded in to the C variables when `revk_boot()` is called.
 
 ## Settings definitions
 
-The settings definitions file consist of a line per setting, but can also have blank lines and lines starting `//` as a comment.
+The settings definitions file consist of a line per setting, but can also have blank lines and lines starting `//` as a comment. The comment is shown on the web settings page.
 
 It can also include any lines starting with `#`. This is to allow `#ifdef CONFIG_`... Such lines are included in the output files in the appropriate place to allow conditional settings.
 This can also be used for `#define` which are then referenced in settings
@@ -102,6 +102,7 @@ Additional attributes relate to each setting as follows:-
 |---------|-------|
 |`.array`|A number defining how many entries this has, it creates an array in JSON.|
 |`.live`|This setting can be updated `live` without a reboot. If the setting is changed then it is changed in memory (as well as being stored to NVS).|
+|`.hide`|This hides the setting from Advanced tab.|
 |`.fix=1`|The setting is to be fixed, i.e. the default value is only used if not defined in NVS, and the value, even if default, is stored to NVS. This assumed for `gpio` type so could be set `.fix=0` for `gpio` if needed.|
 |`.set`|The top bit of the value is set if the value is defined.|
 |`.flags`|This is a string that are characters which can be prefixed (and/or suffixed) on a numeric value and set in the top bits of the value (see below).|
@@ -114,8 +115,6 @@ Additional attributes relate to each setting as follows:-
 |`.rtc=1`|Place in `RTC_NOINIT_ATTR`|
 
 The `.set` and `.flags` attributes can apply to a numeric value, and cause top bits in the integer value to be set. `.set` is always the top bit if present, so if you have a `u16` with `.set=1` and a value of `123` is set, it will be `32891`. The `.flags` defines a string of one or more utf-8 characters that represent bits starting from the top bit (or next bit if `.set` is used as well). When parsing, any of the flags characters can be before or after the number. When output, they are normally before rhe number, unless there is a space in the flags and those characters after the space come after the number (the space is not assigned a bit). Don't use `,` in flags, and use `-` with caution.
-
-If a setting has a comment (i.e. starting `//`) then it is included in the `Advanced` settings menu.
 
 ## JSON
 

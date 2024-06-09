@@ -3,7 +3,7 @@ s	password				.revk=1	.secret=1	// Settings password (this is not sent securely 
 #endif
 s	hostname				.revk=1			// Host name
 // Appname is not something you should changing usually so leave as MQTT only
-s	appname		CONFIG_REVK_APPNAME	.revk=1
+s	appname		CONFIG_REVK_APPNAME	.revk=1 .hide=1		// Application name
 
 s	ota.host	CONFIG_REVK_OTAHOST	.revk=1			// OTA hostname
 u8	ota.days	CONFIG_REVK_OTADAYS	.revk=1			// OTA auto load (days)
@@ -26,8 +26,8 @@ bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname/
 #ifdef	CONFIG_REVK_BLINK_LIB
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif
-blob	client.key				.revk=1	.base64=1
-blob	client.cert				.revk=1	.base64=1
+blob	client.key				.revk=1	.base64=1 .hide=1	// Client Key (OTA and MQTT TLS)
+blob	client.cert				.revk=1	.base64=1 .hide=1	// Client certificate (OTA and MQTT TLS)
 
 
 #ifdef  CONFIG_REVK_APMODE
@@ -41,16 +41,16 @@ gpio	ap.gpio		CONFIG_REVK_APGPIO	.revk=1			// Start AP on GPIO
 
 
 #ifdef  CONFIG_REVK_MQTT
-s	mqtt.host	CONFIG_REVK_MQTTHOST	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS
-u16	mqtt.port	CONFIG_REVK_MQTTPORT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS
-s	mqtt.user	CONFIG_REVK_MQTTUSER	.revk=1 .array=CONFIG_REVK_MQTT_CLIENTS
-s	mqtt.pass	CONFIG_REVK_MQTTPASS	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.secret=1
-blob	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.base64=1
+s	mqtt.host	CONFIG_REVK_MQTTHOST	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS .hide=1			// MQTT hostname
+u16	mqtt.port	CONFIG_REVK_MQTTPORT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS .hide=1			// MQTT port
+s	mqtt.user	CONFIG_REVK_MQTTUSER	.revk=1 .array=CONFIG_REVK_MQTT_CLIENTS .hide=1			// MQTT username
+s	mqtt.pass	CONFIG_REVK_MQTTPASS	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.secret=1 .hide=1	// MQTT password
+blob	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.base64=1 .hide=1	// MQTT certificate
 #endif  
 
 
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
-u16	wifi.reset	CONFIG_REVK_WIFIRESET	.revk=1
+u16	wifi.reset	CONFIG_REVK_WIFIRESET	.revk=1 .hide=1		// Restart if WiFi off for this long (seconds)
 s	wifi.ssid	CONFIG_REVK_WIFISSID	.revk=1			// WiFI SSID (name)
 s	wifi.pass	CONFIG_REVK_WIFIPASS	.revk=1	.secret=1	// WiFi password
 s	wifi.ip		CONFIG_REVK_WIFIIP	.revk=1			// WiFi Fixed IP
@@ -67,7 +67,7 @@ bit	wifi.maxps	CONFIG_REVK_WIFIMAXPS	.revk=1			// WiFi power save (max)
 #ifndef	CONFIG_REVK_MESH
 s	ap.ssid		CONFIG_REVK_APSSID	.revk=1			// AP mode SSID (name)
 s	ap.pass		CONFIG_REVK_APPASS	.revk=1	.secret=1	// AP mode password
-u8	ap.max		CONFIG_REVK_APMAX	.revk=1	
+u8	ap.max		CONFIG_REVK_APMAX	.revk=1	 .hide=1	// AP max clients
 s	ap.ip		CONFIG_REVK_APIP	.revk=1			// AP mode block
 bit	ap.lr		CONFIG_REVK_APLR	.revk=1			// AP LR mode
 bit	ap.hide		CONFIG_REVK_APHIDE	.revk=1			// AP hide SSID
@@ -76,14 +76,14 @@ bit	ap.hide		CONFIG_REVK_APHIDE	.revk=1			// AP hide SSID
 
 #ifdef	CONFIG_REVK_MESH
 //  Not something you should changing usually so leave as MQTT only
-s	nodename				.revk=1
-u16	mesh.reset	CONFIG_REVK_MESHRESET	.revk=1
-o6	mesh.id		CONFIG_REVK_MESHID	.revk=1	.hex=1
-o16	mesh.key				.revk=1	.secret=1	.hex=1
-u16	mesh.width	CONFIG_REVK_MESHWIDTH	.revk=1
-u16	mesh.depth	CONFIG_REVK_MESHDEPTH	.revk=1
-u16	mesh.max	CONFIG_REVK_MESHMAX	.revk=1
-s	mesh.pass	CONFIG_REVK_MESHPASS	.revk=1	.secret=1
-bit	mesh.lr		CONFIG_REVK_MESHLR	.revk=1
-bit	mesh.root				.revk=1
+s	nodename				.revk=1 .hide=1				// Mesh node name
+u16	mesh.reset	CONFIG_REVK_MESHRESET	.revk=1 .hide=1				// Reset if mesh off for this long (seconds)
+o6	mesh.id		CONFIG_REVK_MESHID	.revk=1	.hex=1 .hide=1			// Mesh ID (hex)
+o16	mesh.key				.revk=1	.secret=1	.hex=1 .hide=1	// Mesh key
+u16	mesh.width	CONFIG_REVK_MESHWIDTH	.revk=1 .hide=1				// Mesh width
+u16	mesh.depth	CONFIG_REVK_MESHDEPTH	.revk=1 .hide=1				// Mesh depth
+u16	mesh.max	CONFIG_REVK_MESHMAX	.revk=1 .hide=1				// Mesh max devices
+s	mesh.pass	CONFIG_REVK_MESHPASS	.revk=1	.secret=1 .hide=1		// Mesh AP password
+bit	mesh.lr		CONFIG_REVK_MESHLR	.revk=1 .hide=1				// Mesh use LR mode
+bit	mesh.root				.revk=1 .hide=1				// This is preferred mesh root
 #endif

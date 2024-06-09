@@ -3177,7 +3177,7 @@ revk_web_settings (httpd_req_t * req)
             revk_setting_group_t found = { 0 };
             int8_t line = -1;
             for (revk_settings_t * s = revk_settings; s->len; s++)
-               if (s->comment)
+               if (!s->hide)
                {
                   void add (revk_settings_t * s)
                   {
