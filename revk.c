@@ -2822,7 +2822,7 @@ revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra)
    if (wifi && !b.disablesettings)
       revk_web_send (req, "<a href=/revk-settings"      //
 #ifdef  CONFIG_REVK_WEB_EXTRA
-                     "?_level=1"
+                     "?_page=0"
 #endif
                      ">Settings</a> ");
    revk_web_send (req, appname);
@@ -2968,15 +2968,15 @@ revk_web_settings (httpd_req_t * req)
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
    uint8_t loggedin = 0;
 #endif
-   uint8_t level = 0;
+   uint8_t page = -1;           // Basic
    if (j)
    {
       const char *location = NULL;
-      if (j && jo_find (j, "_level"))
+      if (j && jo_find (j, "_page"))
       {
          char t[2] = "";
          jo_strncpy (j, t, sizeof (t));
-         level = atoi (t);
+         page = atoi (t);
       }
       if (jo_find (j, "_upgrade"))
       {
@@ -3088,25 +3088,25 @@ revk_web_settings (httpd_req_t * req)
    {
       revk_web_send (req, "<tr id=_set><td><input name=_save type=submit value='Save'></td><td nowrap>");
       if (revk_link_down ())
-         level = 0;             // Basic settings to get on line
+         page = -1;             // Basic settings to get on line
       else
       {
-         void addlevel (uint8_t l, const char *v)
+         void addpage (uint8_t l, const char *v)
          {
             revk_web_send (req,
-                           "<label class=box style=\"width:%dem\"><input type=radio name='_level' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
-                           strlen (v), l, l == level ? " checked" : "", revk_web_safe (&qs, v));
+                           "<label class=box style=\"width:%dem\"><input type=radio name='_page' value='%d' onchange=\"document.settings.submit();\"%s><span class=button>%s</span></label>",
+                           strlen (v), l, l == page ? " checked" : "", revk_web_safe (&qs, v));
          }
-         addlevel (0, "Basic");
+         addpage (-1, "Basic");
 #ifdef	CONFIG_REVK_WEB_EXTRA
-         addlevel (1, appname);
+         addpage (0, appname);
 #endif
 #ifndef  CONFIG_REVK_OLD_SETTINGS
 #ifdef	REVK_SETTINGS_HAS_COMMENT
-         addlevel (2, "Advanced");
+         addpage (-2, "Advanced");
 #endif
 #endif
-         if (!revk_link_down () && *otahost && !level)
+         if (!revk_link_down () && *otahost && page == -1)
             revk_web_send (req,
                            "</td><td id=_upgrade><input name=_upgrade type=submit value='Upgrade now from %s%s'>",
                            otahost, otabeta ? " (beta)" : "");
@@ -3118,9 +3118,9 @@ revk_web_settings (httpd_req_t * req)
 #endif
             !shutdown)
          hr ();
-      switch (level)
+      switch (page)
       {
-      case 0:                  // Basic
+      case -1:                 // Basic
          if (!revk_link_down () && *otahost)
          {
 #ifndef  CONFIG_REVK_OLD_SETTINGS
@@ -3161,17 +3161,9 @@ revk_web_settings (httpd_req_t * req)
                              "See <a href ='https://gist.github.com/alwynallan/24d96091655391107939'>list</a>");
 #endif
          break;
-#ifdef	CONFIG_REVK_WEB_EXTRA
-      case 1:                  // App
-         {
-            extern void revk_web_extra (httpd_req_t *,int);
-            revk_web_extra (req,0);
-         }
-         break;
-#endif
 #ifdef	REVK_SETTINGS_HAS_COMMENT
 #ifndef	CONFIG_REVK_OLD_SETTINGS
-      case 2:                  // Advanced
+      case -2:                 // Advanced
          {
             extern revk_settings_t revk_settings[];
             revk_setting_group_t found = { 0 };
@@ -3224,8 +3216,16 @@ revk_web_settings (httpd_req_t * req)
          break;
 #endif
 #endif
+#ifdef	CONFIG_REVK_WEB_EXTRA
+      default:                 // App
+         {
+            extern void revk_web_extra (httpd_req_t *, int);
+            revk_web_extra (req, page);
+         }
+         break;
+#endif
       }
-      if (shutdown || !level)
+      if (shutdown || level == -1)
          hr ();
    }
    revk_web_send (req, "</table></form>");
@@ -3256,7 +3256,7 @@ revk_web_settings (httpd_req_t * req)
                   "if(o.uptodate)document.getElementById('_upgrade').style.opacity=0.5;"        //
                   "};"          //
                   "};"          //
-                  "</script>", level ? "check" : "scan");
+                  "</script>", page == -1 ? "scan" : "check");
 #else
    revk_web_send (req, "<script>");
    if (shutdown && *shutdown)
@@ -3288,7 +3288,7 @@ revk_web_settings (httpd_req_t * req)
    }
    httpd_resp_sendstr_chunk (req, "</script>");
 #endif
-   if (shutdown || !level)
+   if (shutdown || page == -1)
    {                            // IP info
       revk_web_send (req, "<table>");
       int32_t up = uptime ();
