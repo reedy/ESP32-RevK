@@ -2968,7 +2968,7 @@ revk_web_settings (httpd_req_t * req)
 #ifdef  CONFIG_REVK_SETTINGS_PASSWORD
    uint8_t loggedin = 0;
 #endif
-   uint8_t page = -1;           // Basic
+   int8_t page = -1;           // Basic
    if (j)
    {
       const char *location = NULL;
@@ -3225,7 +3225,7 @@ revk_web_settings (httpd_req_t * req)
          break;
 #endif
       }
-      if (shutdown || level == -1)
+      if (shutdown || page == -1)
          hr ();
    }
    revk_web_send (req, "</table></form>");
