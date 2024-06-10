@@ -2464,38 +2464,42 @@ revk_mqtt_send_payload_clients (const char *prefix, int retain, const char *suff
 const char *
 revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients)
 {
+   const char *err = NULL;
    if (!jp)
-      return "No payload JSON";
-   int pos = 0;
-   const char *err = jo_error (*jp, &pos);
-   jo_rewind (*jp);
-   if (err)
+      err = revk_mqtt_send_payload_clients (prefix, retain, suffix, NULL, clients);
+   else
    {
-      jo_free (jp);
-      ESP_LOGE (TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
-   } else if (jo_here (*jp) == JO_STRING)
-   {
-      char *payload = NULL;
-      int len = jo_strlen (*jp);
-      if (len > 0)
+      int pos = 0;
+      err = jo_error (*jp, &pos);
+      jo_rewind (*jp);
+      if (err)
       {
-         payload = mallocspi (len + 1);
-         jo_strncpy (*jp, payload, len + 1);
-         err = revk_mqtt_send_payload_clients (prefix, retain, suffix, payload, clients);
+         jo_free (jp);
+         ESP_LOGE (TAG, "JSON error sending %s/%s (%s) at %d", prefix ? : "", suffix ? : "", err, pos);
+      } else if (jo_here (*jp) == JO_STRING)
+      {
+         char *payload = NULL;
+         int len = jo_strlen (*jp);
+         if (len > 0)
+         {
+            payload = mallocspi (len + 1);
+            jo_strncpy (*jp, payload, len + 1);
+            err = revk_mqtt_send_payload_clients (prefix, retain, suffix, payload, clients);
+         }
+         jo_free (jp);
+         free (payload);
+      } else if (jo_isalloc (*jp))
+      {
+         char *payload = jo_finisha (jp);
+         if (payload)
+            err = revk_mqtt_send_payload_clients (prefix, retain, suffix, payload, clients);
+         freez (payload);
+      } else
+      {                         // Static
+         char *payload = jo_finish (jp);
+         if (payload)
+            err = revk_mqtt_send_payload_clients (prefix, retain, suffix, payload, clients);
       }
-      jo_free (jp);
-      free (payload);
-   } else if (jo_isalloc (*jp))
-   {
-      char *payload = jo_finisha (jp);
-      if (payload)
-         err = revk_mqtt_send_payload_clients (prefix, retain, suffix, payload, clients);
-      freez (payload);
-   } else
-   {                            // Static
-      char *payload = jo_finish (jp);
-      if (payload)
-         err = revk_mqtt_send_payload_clients (prefix, retain, suffix, payload, clients);
    }
    return err;
 }
