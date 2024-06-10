@@ -888,7 +888,7 @@ revk_topic (const char *name, const char *id, const char *suffix)
          t[tn++] = appname;
       if (id)
          t[tn++] = id;
-      if (name && name != appname)
+      if (name && (!prefixapp || name != appname))
          t[tn++] = name;
    } else
    {
