@@ -884,11 +884,11 @@ revk_topic (const char *name, const char *id, const char *suffix)
    uint8_t tn = 0;              // count
    if (prefixhost)
    {
-      if (prefixapp && name != appname)
+      if (prefixapp)
          t[tn++] = appname;
       if (id)
          t[tn++] = id;
-      if (name)
+      if (name && name != appname)
          t[tn++] = name;
    } else
    {
