@@ -1171,6 +1171,11 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          app_callback (client, topiccommand, NULL, "connect", j);
          jo_free (&j);
       }
+#ifdef	CONFIG_REVK_STATE_UP
+      jo_t j = jo_create_alloc ();
+      jo_bool (j, NULL, 1);
+      revk_state_clients ("up", &j, 1 << client);
+#endif
    } else
    {
       if (xEventGroupGetBits (revk_group) & (GROUP_MQTT << client))
@@ -1203,14 +1208,23 @@ revk_mqtt_init (void)
             .arg = (void *) client,
             .hostname = mqtthost[client],
             .retain = 1,
+#ifdef	CONFIG_REVK_STATE_UP
+            .payload = (void *) "false",
+#else
             .payload = (void *) "{\"up\":false}",
+#endif
             .plen = -1,
             .keepalive = 30,
             .callback = &mqtt_rx,
          };
          // LWT Topic
+#ifdef	CONFIG_REVK_STATE_UP
+         if (!(config.topic = revk_topic (topicstate, NULL, "up")))
+            return;             // No topic
+#else
          if (!(config.topic = revk_topic (topicstate, NULL, NULL)))
             return;             // No topic
+#endif
          if ((strcmp (hostname, revk_id) ?      //
               asprintf ((void *) &config.client, "%s:%s_%s", appname, hostname, revk_id + 6) :  //
               asprintf ((void *) &config.client, "%s:%s", appname, hostname)) < 0)

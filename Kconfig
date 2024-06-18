@@ -454,6 +454,12 @@ menu "RevK"
         help
 		Include call to revk_state_extra(jo_t) to add extra state data
 
+	config REVK_STATE_UP
+	bool "Have a separate up state with just true/false"
+	default n
+        help
+		Separate .../up state with true/false as state, used as MQTT will
+
 	config REVK_MATTER
 	bool "Build in Matter"
 	default n
