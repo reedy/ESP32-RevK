@@ -1792,7 +1792,15 @@ task (void *pvParameters)
                   )
                   jo_int (j, "up", now);
                else
+               {
                   jo_bool (j, "up", 0);
+#ifdef	CONFIG_REVK_STATE_UP
+                  // Overwrite will
+                  jo_t j = jo_create_alloc ();
+                  jo_bool (j, NULL, 0);
+                  revk_state_clients ("online", &j, 1 << client);
+#endif
+               }
                {                // MQTT up
                   int i = 0;
                   for (i = 0; i < CONFIG_REVK_MQTT_CLIENTS && *mqtthost[i]; i++);
