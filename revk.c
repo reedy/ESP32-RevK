@@ -1174,7 +1174,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
 #ifdef	CONFIG_REVK_STATE_UP
       jo_t j = jo_create_alloc ();
       jo_bool (j, NULL, 1);
-      revk_state_clients ("up", &j, 1 << client);
+      revk_state_clients ("online", &j, 1 << client);
 #endif
    } else
    {
@@ -1219,7 +1219,7 @@ revk_mqtt_init (void)
          };
          // LWT Topic
 #ifdef	CONFIG_REVK_STATE_UP
-         if (!(config.topic = revk_topic (topicstate, NULL, "up")))
+         if (!(config.topic = revk_topic (topicstate, NULL, "online")))
             return;             // No topic
 #else
          if (!(config.topic = revk_topic (topicstate, NULL, NULL)))

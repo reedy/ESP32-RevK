@@ -458,7 +458,7 @@ menu "RevK"
 	bool "Have a separate up state with just true/false"
 	default n
         help
-		Separate .../up state with true/false as state, used as MQTT will
+		Separate online state with true/false as state, used as MQTT will
 
 	config REVK_MATTER
 	bool "Build in Matter"
