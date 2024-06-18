@@ -1798,7 +1798,7 @@ task (void *pvParameters)
                   // Overwrite will
                   jo_t j = jo_create_alloc ();
                   jo_bool (j, NULL, 0);
-                  revk_state_clients ("online", &j, 1 << client);
+                  revk_state_clients ("online", &j, -1);
 #endif
                }
                {                // MQTT up
