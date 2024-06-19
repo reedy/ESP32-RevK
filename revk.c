@@ -4202,7 +4202,7 @@ revk_mqtt_close (const char *reason)
          revk_state_clients ("up", &j, 1 << client);
 #else
          jo_bool (j, "up", 0);
-         if (restarttime)
+         if (restart_time)
             jo_string (j, "reason", restart_reason);
          revk_state_clients (NULL, &j, 1 << client);
 #endif
