@@ -1174,7 +1174,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
 #ifdef	CONFIG_REVK_STATE_UP
       jo_t j = jo_create_alloc ();
       jo_string (j, NULL, "online");
-      revk_state_clients ("status", &j, 1 << client);
+      revk_state_clients ("up", &j, 1 << client);
 #endif
    } else
    {
@@ -1219,7 +1219,7 @@ revk_mqtt_init (void)
          };
          // LWT Topic
 #ifdef	CONFIG_REVK_STATE_UP
-         if (!(config.topic = revk_topic (topicstate, NULL, "status")))
+         if (!(config.topic = revk_topic (topicstate, NULL, "up")))
             return;             // No topic
 #else
          if (!(config.topic = revk_topic (topicstate, NULL, NULL)))
@@ -4204,7 +4204,7 @@ revk_mqtt_close (const char *reason)
          // Overwrite will
          jo_t j = jo_create_alloc ();
          jo_string (j, NULL, "offline");
-         revk_state_clients ("status", &j, 1 << client);
+         revk_state_clients ("up", &j, 1 << client);
 #endif
          lwmqtt_end (&mqtt_client[client]);
          ESP_LOGI (TAG, "MQTT%d Closed", client);
