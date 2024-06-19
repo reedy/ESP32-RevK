@@ -1172,7 +1172,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          jo_free (&j);
       }
 #ifdef	CONFIG_REVK_STATE_UP
-      // Cancel will
+      // Cancel will as not normal state messages
       jo_t j = jo_create_alloc ();
       jo_string (j, NULL, "online");
       revk_state_clients ("up", &j, 1 << client);
@@ -1221,10 +1221,10 @@ revk_mqtt_init (void)
          // LWT Topic
 #ifdef	CONFIG_REVK_STATE_UP
          if (!(config.topic = revk_topic (topicstate, NULL, "up")))
-            return;             // No topic
+            return;             // No topic created!
 #else
          if (!(config.topic = revk_topic (topicstate, NULL, NULL)))
-            return;             // No topic
+            return;             // No topic created!
 #endif
          if ((strcmp (hostname, revk_id) ?      //
               asprintf ((void *) &config.client, "%s:%s_%s", appname, hostname, revk_id + 6) :  //
@@ -4196,11 +4196,12 @@ revk_mqtt_close (const char *reason)
       if (mqtt_client[client])
       {
          // Overwrite will
-         jo_t j = jo_create_alloc ();
 #ifdef	CONFIG_REVK_STATE_UP
+         jo_t j = jo_create_alloc ();
          jo_string (j, NULL, "offline");
          revk_state_clients ("up", &j, 1 << client);
 #else
+         jo_t j = jo_object_alloc ();
          jo_bool (j, "up", 0);
          if (restart_time)
             jo_string (j, "reason", restart_reason);
