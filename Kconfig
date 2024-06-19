@@ -454,12 +454,6 @@ menu "RevK"
         help
 		Include call to revk_state_extra(jo_t) to add extra state data
 
-	config REVK_STATE_UP
-	bool "Have a separate up state and LWT"
-	default n
-        help
-		Separate state /up with online/offline as state, used as MQTT will
-
 	config REVK_MATTER
 	bool "Build in Matter"
 	default n

@@ -1171,12 +1171,6 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          app_callback (client, topiccommand, NULL, "connect", j);
          jo_free (&j);
       }
-#ifdef	CONFIG_REVK_STATE_UP
-      // Cancel will as not normal state messages
-      jo_t j = jo_create_alloc ();
-      jo_string (j, NULL, "online");
-      revk_state_clients ("up", &j, 1 << client);
-#endif
    } else
    {
       if (xEventGroupGetBits (revk_group) & (GROUP_MQTT << client))
@@ -1209,23 +1203,14 @@ revk_mqtt_init (void)
             .arg = (void *) client,
             .hostname = mqtthost[client],
             .retain = 1,
-#ifdef	CONFIG_REVK_STATE_UP
-            .payload = (void *) "online",
-#else
             .payload = (void *) "{\"up\":false,\"reason\":\"LWT\"}",
-#endif
             .plen = -1,
             .keepalive = 30,
             .callback = &mqtt_rx,
          };
          // LWT Topic
-#ifdef	CONFIG_REVK_STATE_UP
-         if (!(config.topic = revk_topic (topicstate, NULL, "up")))
-            return;             // No topic created!
-#else
          if (!(config.topic = revk_topic (topicstate, NULL, NULL)))
             return;             // No topic created!
-#endif
          if ((strcmp (hostname, revk_id) ?      //
               asprintf ((void *) &config.client, "%s:%s_%s", appname, hostname, revk_id + 6) :  //
               asprintf ((void *) &config.client, "%s:%s", appname, hostname)) < 0)
@@ -4196,17 +4181,11 @@ revk_mqtt_close (const char *reason)
       if (mqtt_client[client])
       {
          // Overwrite will
-#ifdef	CONFIG_REVK_STATE_UP
-         jo_t j = jo_create_alloc ();
-         jo_string (j, NULL, "offline");
-         revk_state_clients ("up", &j, 1 << client);
-#else
          jo_t j = jo_object_alloc ();
          jo_bool (j, "up", 0);
          if (restart_time)
             jo_string (j, "reason", restart_reason);
          revk_state_clients (NULL, &j, 1 << client);
-#endif
          lwmqtt_end (&mqtt_client[client]);
          ESP_LOGI (TAG, "MQTT%d Closed", client);
          xEventGroupWaitBits (revk_group, GROUP_MQTT_DOWN << client, false, true, 2 * 1000 / portTICK_PERIOD_MS);
