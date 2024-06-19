@@ -1173,7 +1173,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       }
 #ifdef	CONFIG_REVK_STATE_UP
       jo_t j = jo_create_alloc ();
-      jo_bool (j, NULL, 1);
+      jo_string (j, NULL, "online");
       revk_state_clients ("status", &j, 1 << client);
 #endif
    } else
