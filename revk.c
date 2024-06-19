@@ -1172,6 +1172,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          jo_free (&j);
       }
 #ifdef	CONFIG_REVK_STATE_UP
+      // Cancel will
       jo_t j = jo_create_alloc ();
       jo_string (j, NULL, "online");
       revk_state_clients ("up", &j, 1 << client);
@@ -1785,14 +1786,8 @@ task (void *pvParameters)
                   restart_time++;       // wait
                jo_t j = jo_make (NULL);
                jo_string (j, "id", revk_id);
-               if (!restart_time || restart_time > now
-#ifdef 	CONFIG_REVK_MESH
-                   + (esp_mesh_is_root ()? 0 : 2)       // Reports the up:false sooner if a leaf node, as takes time to send...
-#endif
-                  )
-                  jo_int (j, "up", now);
-               else
-                  jo_bool (j, "up", 0);
+               jo_bool (j, "up", 1);
+               jo_int (j, "uptime", now);
                {                // MQTT up
                   int i = 0;
                   for (i = 0; i < CONFIG_REVK_MQTT_CLIENTS && *mqtthost[i]; i++);
@@ -4200,11 +4195,16 @@ revk_mqtt_close (const char *reason)
    for (int client = 0; client < CONFIG_REVK_MQTT_CLIENTS; client++)
       if (mqtt_client[client])
       {
-#ifdef	CONFIG_REVK_STATE_UP
          // Overwrite will
          jo_t j = jo_create_alloc ();
+#ifdef	CONFIG_REVK_STATE_UP
          jo_string (j, NULL, "offline");
          revk_state_clients ("up", &j, 1 << client);
+#else
+         jo_bool (j, "up", 0);
+         if (restarttime)
+            jo_string (j, "reason", restart_reason);
+         revk_state_clients (NULL, &j, 1 << client);
 #endif
          lwmqtt_end (&mqtt_client[client]);
          ESP_LOGI (TAG, "MQTT%d Closed", client);
