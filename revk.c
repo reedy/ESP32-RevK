@@ -1212,7 +1212,7 @@ revk_mqtt_init (void)
 #ifdef	CONFIG_REVK_STATE_UP
             .payload = (void *) "online",
 #else
-            .payload = (void *) "{\"up\":false}",
+            .payload = (void *) "{\"up\":false,\"reason\":\"LWT\"}",
 #endif
             .plen = -1,
             .keepalive = 30,
