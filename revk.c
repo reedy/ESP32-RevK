@@ -4180,10 +4180,7 @@ revk_mqtt_close (const char *reason)
       if (mqtt_client[client])
       {
          // Overwrite will
-         jo_t j = jo_object_alloc ();
-         time_t now = time (0);
-         if (now > 1000000000)
-            jo_datetime (j, "ts", now);
+         jo_t j = jo_make (NULL);
          jo_bool (j, "up", 0);
          if (restart_time)
             jo_string (j, "reason", restart_reason);
