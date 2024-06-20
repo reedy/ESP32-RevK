@@ -133,6 +133,7 @@ handle_close (lwmqtt_t handle)
          esp_tls_conn_destroy (tls);
    } else if (sock >= 0)
       close (sock);
+   usleep(100000);
 }
 
 static int
