@@ -1771,8 +1771,7 @@ task (void *pvParameters)
                   restart_time++;       // wait
                jo_t j = jo_make (NULL);
                jo_string (j, "id", revk_id);
-               jo_bool (j, "up", 1);
-               jo_int (j, "uptime", now);
+               jo_int (j, "up", now);
                {                // MQTT up
                   int i = 0;
                   for (i = 0; i < CONFIG_REVK_MQTT_CLIENTS && *mqtthost[i]; i++);
@@ -1788,8 +1787,7 @@ task (void *pvParameters)
                }
                if (restart_time)
                {
-                  if (restart_time > now)
-                     jo_int (j, "restart", restart_time - now);
+                  jo_int (j, "restart", restart_time >= now ? restart_time - now : 0);
                   jo_string (j, "reason", restart_reason);
                }
                if (!up_next)
@@ -4182,6 +4180,9 @@ revk_mqtt_close (const char *reason)
       {
          // Overwrite will
          jo_t j = jo_object_alloc ();
+         time_t now = time (0);
+         if (now > 1000000000)
+            jo_datetime (j, "ts", now);
          jo_bool (j, "up", 0);
          if (restart_time)
             jo_string (j, "reason", restart_reason);
