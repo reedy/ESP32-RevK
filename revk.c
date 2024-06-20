@@ -103,7 +103,7 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 		s(otahost,CONFIG_REVK_OTAHOST);		\
 		u8(otadays,CONFIG_REVK_OTADAYS);	\
 		b(otaauto,true);			\
-		b(otastart,true);			\
+		u16(otastart,600);			\
 		b(otabeta,false);			\
 		bd(otacert,CONFIG_REVK_OTACERT);	\
 		s(ntphost,CONFIG_REVK_NTPHOST);		\
@@ -1771,7 +1771,8 @@ task (void *pvParameters)
                   restart_time++;       // wait
                jo_t j = jo_make (NULL);
                jo_string (j, "id", revk_id);
-               jo_int (j, "up", now);
+               jo_bool (j, "up", 1);
+               jo_int (j, "uptime", now);
                {                // MQTT up
                   int i = 0;
                   for (i = 0; i < CONFIG_REVK_MQTT_CLIENTS && *mqtthost[i]; i++);
