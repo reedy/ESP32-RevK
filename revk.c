@@ -1895,7 +1895,7 @@ task (void *pvParameters)
             revk_settings_commit ();
             revk_nvs_time = 0;
          }
-         if (restart_time && restart_time < now)
+         if (restart_time && restart_time <= now)
          {
             revk_pre_shutdown ();
             esp_restart ();
