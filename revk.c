@@ -1162,6 +1162,11 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       xEventGroupSetBits (revk_group, (GROUP_MQTT << client));
       xEventGroupClearBits (revk_group, (GROUP_MQTT_DOWN << client));
       revk_send_sub (client, revk_mac); // Self
+      // Overwrite will
+      jo_t j = jo_make (NULL);
+      jo_bool (j, "up", 1);
+      revk_state_clients (NULL, &j, 1 << client);
+      lwmqtt_end (&mqtt_client[client]);
       up_next = 0;
       if (app_callback)
       {
