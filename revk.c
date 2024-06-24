@@ -1617,6 +1617,74 @@ revk_blinker (void)
    }
 }
 
+void
+revk_blink_init (void)
+{
+#ifdef CONFIG_REVK_LED_STRIP
+   if (blink[0].set && blink[1].set && blink[0].num == blink[1].num)
+   {
+      if (!(gpio_ok (blink[0].num) & 1))
+      {
+         ESP_LOGE (TAG, "Not using LED GPIO %d", blink[0].num);
+         blink[0].set = 0;
+      } else
+      {                         // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
+         led_strip_config_t strip_config = {
+            .strip_gpio_num = (blink[0].num),
+            .max_leds = 1,      // The number of LEDs in the strip,
+            .led_pixel_format = LED_PIXEL_FORMAT_GRB,   // Pixel format of your LED strip
+            .led_model = LED_MODEL_WS2812,      // LED strip model
+            .flags.invert_out = blink[0].invert,        // whether to invert the output signal (useful when your hardware has a level inverter)
+         };
+         led_strip_rmt_config_t rmt_config = {
+            .clk_src = RMT_CLK_SRC_DEFAULT,     // different clock source can lead to different power consumption
+            .resolution_hz = 10 * 1000 * 1000,  // 10MHz
+            // One LED so no need for DMA
+         };
+         REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &revk_strip));
+      }
+   } else
+#endif
+      for (int b = 0; b < sizeof (blink) / sizeof (*blink); b++)
+      {
+         if (blink[b].set)
+         {
+            uint8_t p = blink[b].num;
+            if (!(gpio_ok (p) & 1))
+            {
+               ESP_LOGE (TAG, "Not using LED GPIO %d", p);
+               blink[b].set = 0;
+               continue;
+            }
+            revk_gpio_output (blink[b], 0);
+         }
+      }
+}
+
+void
+revk_blink_do (void)
+{
+   if (blink[0].set)
+   {
+      uint32_t rgb = revk_blinker ();
+      if (!blink[1].set)
+         revk_gpio_set (blink[0], (rgb >> 31) & 1);
+      else if (blink[0].num != blink[1].num)
+      {                         // Separate RGB on
+         revk_gpio_set (blink[0], (rgb >> 29) & 1);
+         revk_gpio_set (blink[1], (rgb >> 27) & 1);
+         revk_gpio_set (blink[2], (rgb >> 25) & 1);
+      }
+#ifdef  CONFIG_REVK_LED_STRIP
+      else
+      {
+         revk_led (revk_strip, 0, 255, rgb);
+         led_strip_refresh (revk_strip);
+      }
+#endif
+   }
+}
+
 static void
 task (void *pvParameters)
 {                               /* Main RevK task */
@@ -1636,24 +1704,7 @@ task (void *pvParameters)
          ota_check = 86400 * otadays + (esp_random () % 3600);  // Min periodic check
    }
 #ifdef	CONFIG_REVK_BLINK_LIB
-#ifdef	CONFIG_REVK_LED_STRIP
-   if (blink[0].set && blink[1].set && blink[0].num == blink[1].num && !revk_strip)
-   {                            // Initialise the LED strip for one LED. This can, however, be pre-set by the app where we will refresh every 10th second and set 1st LED for status
-      led_strip_config_t strip_config = {
-         .strip_gpio_num = (blink[0].num),
-         .max_leds = 1,         // The number of LEDs in the strip,
-         .led_pixel_format = LED_PIXEL_FORMAT_GRB,      // Pixel format of your LED strip
-         .led_model = LED_MODEL_WS2812, // LED strip model
-         .flags.invert_out = blink[0].invert,   // whether to invert the output signal (useful when your hardware has a level inverter)
-      };
-      led_strip_rmt_config_t rmt_config = {
-         .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
-         .resolution_hz = 10 * 1000 * 1000,     // 10MHz
-         // One LED so no need for DMA
-      };
-      REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &revk_strip));
-   }
-#endif
+   revk_blink_init ();
 #endif
    while (1)
    {                            /* Idle */
@@ -1668,25 +1719,7 @@ task (void *pvParameters)
          }
          tick += 100000ULL;     /* 10th second */
 #ifdef CONFIG_REVK_BLINK_LIB
-         if (blink[0].set)
-         {
-            uint32_t rgb = revk_blinker ();
-            if (!blink[1].set)
-               revk_gpio_set (blink[0], (rgb >> 31) & 1);
-            else if (blink[0].num != blink[1].num)
-            {                   // Separate RGB on
-               revk_gpio_set (blink[0], (rgb >> 29) & 1);
-               revk_gpio_set (blink[1], (rgb >> 27) & 1);
-               revk_gpio_set (blink[2], (rgb >> 25) & 1);
-            }
-#ifdef  CONFIG_REVK_LED_STRIP
-            else
-            {
-               revk_led (revk_strip, 0, 255, rgb);
-               led_strip_refresh (revk_strip);
-            }
-#endif
-         }
+         revk_blink_do ();
 #endif
          if (b.setting_dump_requested)
          {                      // Done here so not reporting from MQTT
@@ -2237,32 +2270,6 @@ revk_boot (app_callback_t * app_callback_cb)
 void
 revk_start (void)
 {                               // Start stuff, init all done
-#ifdef CONFIG_REVK_BLINK_LIB
-#ifdef CONFIG_REVK_LED_STRIP
-   if (blink[0].set && blink[1].set && blink[0].num == blink[1].num)
-   {
-      if (!(gpio_ok (blink[0].num) & 1))
-      {
-         ESP_LOGE (TAG, "Not using LED GPIO %d", blink[0].num);
-         blink[0].set = 0;
-      }
-   } else
-#endif
-      for (int b = 0; b < sizeof (blink) / sizeof (*blink); b++)
-      {
-         if (blink[b].set)
-         {
-            uint8_t p = blink[b].num;
-            if (!(gpio_ok (p) & 1))
-            {
-               ESP_LOGE (TAG, "Not using LED GPIO %d", p);
-               blink[b].set = 0;
-               continue;
-            }
-            revk_gpio_output (blink[b], 0);
-         }
-      }
-#endif
 #ifndef CONFIG_ENABLE_WIFI_STATION
    esp_netif_init ();
 #endif
