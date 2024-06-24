@@ -239,10 +239,8 @@ char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
 static int8_t ota_percent = -1;
-#ifdef	CONFIG_REVK_BLINK_LIB
 #ifdef	CONFIG_REVK_LED_STRIP
 led_strip_handle_t revk_strip = NULL;
-#endif
 #endif
 
 /* Local */
