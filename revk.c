@@ -3105,7 +3105,8 @@ revk_web_settings (httpd_req_t * req)
          for (int p = 1; p <= CONFIG_REVK_WEB_EXTRA_PAGES; p++)
          {
             char temp[20];
-            sprintf (temp, "%d", p) addpage (p, temp);
+            sprintf (temp, "%d", p);
+            addpage (p, temp);
          }
 #endif
 #ifndef  CONFIG_REVK_OLD_SETTINGS
