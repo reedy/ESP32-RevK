@@ -442,6 +442,13 @@ menu "RevK"
         help
 		Include extra settings in web config (call to revk_web_extra(httpd_req_t*,int8_t page))
 
+	config REVK_WEB_EXTRA_PAGES
+	int "Add additional numbered pages"
+	depends on REVK_WEB_EXTRA
+	default 0
+        help
+		Include extra settings pages in web config (call to revk_web_extra(httpd_req_t*,int8_t page))
+
 	config REVK_WEB_DEFAULT
 	bool "Default web page for settings only"
 	default n
