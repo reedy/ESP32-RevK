@@ -3102,7 +3102,7 @@ revk_web_settings (httpd_req_t * req)
          addpage (-1, "Basic");
 #ifdef	CONFIG_REVK_WEB_EXTRA
          addpage (0, appname);
-         for (int p = 1; p <= REVK_WEB_EXTRA_PAGES; p++)
+         for (int p = 1; p <= CONFIG_REVK_WEB_EXTRA_PAGES; p++)
          {
             char temp[20];
             sprintf (temp, "%d", p) addpage (p, temp);
