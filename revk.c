@@ -3003,7 +3003,7 @@ revk_web_settings (httpd_req_t * req)
          else if (jo_find (j, "wifissid"))
          {                      // Test WiFi
             char ssid[33] = "";
-            char pass[33] = "";
+            char pass[64] = "";
             strcpy (pass, wifipass);
             jo_strncpy (j, ssid, sizeof (ssid));
             if (!*ssid)
