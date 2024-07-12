@@ -17,6 +17,9 @@ typedef enum
    ESP_NETIF_DNS_FALLBACK = TCPIP_ADAPTER_DNS_FALLBACK
 } esp_netif_dns_type_t;
 
+#define ESP_IPADDR_TYPE_V4 IPADDR_TYPE_V4
+#define ESP_IPADDR_TYPE_V6 IPADDR_TYPE_V6
+
 typedef tcpip_adapter_ip_info_t esp_netif_ip_info_t;
 typedef tcpip_adapter_dns_info_t esp_netif_dns_info_t;
 typedef ip6_addr_t esp_ip6_addr_t;
@@ -79,6 +82,12 @@ static inline esp_err_t
 esp_netif_dhcps_start (esp_netif_t * tcpip_if)
 {
    return tcpip_adapter_dhcps_start (tcpip_if->adapter);
+}
+
+static inline esp_err_t
+esp_netif_get_dns_info(esp_netif_t * tcpip_if, esp_netif_dns_type_t type, tcpip_adapter_dns_info_t * dns)
+{
+   return tcpip_adapter_get_dns_info (tcpip_if->adapter, type, dns);
 }
 
 static inline esp_err_t
