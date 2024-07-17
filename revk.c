@@ -295,7 +295,7 @@ static mesh_addr_t mesh_ota_addr = { };
 #endif
 
 /* Local functions */
-static char *revk_upgrade_url (const char *val);
+static char *revk_upgrade_url (const char *val, const char *ext);
 static int revk_upgrade_check (const char *url);
 #if  defined(CONFIG_REVK_APCONFIG) || defined(CONFIG_REVK_WEB_DEFAULT)
 static httpd_handle_t webserver = NULL;
@@ -3465,7 +3465,7 @@ revk_web_status (httpd_req_t * req)
    {                            // Basic settings
       if (!revk_link_down () && otaauto)
       {
-         char *url = revk_upgrade_url ("");
+         char *url = revk_upgrade_url ("", "bin");
          if (url)
          {
             int8_t check = revk_upgrade_check (url);
@@ -3884,7 +3884,7 @@ ota_task (void *pvParameters)
 }
 
 static char *
-revk_upgrade_url (const char *val)
+revk_upgrade_url (const char *val, const char *ext)
 {                               // OTA URL (malloc'd)
    char *url;                   // Passed to task
    if (!strncmp ((char *) val, "https://", 8) || !strncmp ((char *) val, "http://", 7))
@@ -3898,19 +3898,26 @@ revk_upgrade_url (const char *val)
 #endif
                 otahost, val);  // Leaf provided (ignore beta)
    else
-      asprintf (&url, "%s://%s/%s%s%s.bin?%s",
+      asprintf (&url, "%s://%s/%s%s%s.%s?%s",
 #ifdef CONFIG_SECURE_SIGNED_ON_UPDATE
                 otacert->len ? "https" : "http",
 #else
                 "http",         /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-                *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix, revk_id);     // Hostname provided
+                *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix, ext, revk_id);     // Hostname provided
    return url;
 }
 
 static int
-revk_upgrade_check (const char *url)
+revk_upgrade_check (const char *val)
 {                               // Check if upgrade needed, -ve for error, 0 for no, +ve for yes
+#ifdef CONFIG_IDF_TARGET_ESP8266
+   // On ESP8266 we store version information in accompanying .desc file
+   char *url = revk_upgrade_url (val, "desc");
+#else
+   // On ESP32 version information is stored in the .bin header
+   char *url = revk_upgrade_url (val, "bin");
+#endif
    jo_t j = jo_make (NULL);
    jo_string (j, "url", url);
    int ret = 0;
@@ -3921,11 +3928,17 @@ revk_upgrade_check (const char *url)
    esp_http_client_handle_t client = esp_http_client_init (&config);
    if (!client)
       ret = -1;
-   char data[96] = { 0 };
+   
+   esp_app_desc_t data = { 0 };
    size_t size = 0;
    int status = 0;
-   if (!ret && esp_http_client_set_header (client, "Range", "bytes=48-143"))
+#ifndef CONFIG_IDF_TARGET_ESP8266
+   // On ESP32 esp_app_desc_t structure is located in the binary at offset 16
+   // Size of the structure is 256 bytes; there's a static_assert in the SDK
+   // in order to maintain that.
+   if (!ret && esp_http_client_set_header (client, "Range", "bytes=32-287"))
       ret = -2;
+#endif
    if (!ret && esp_http_client_open (client, 0))
       ret = -3;
    if (!ret && (size = esp_http_client_fetch_headers (client)) != sizeof (data))
@@ -3938,29 +3951,31 @@ revk_upgrade_check (const char *url)
       ret = -5;
       jo_int (j, "status", status);
    }
-   if (!ret && esp_http_client_read (client, data, sizeof (data)) != sizeof (data))
+   if (!ret && esp_http_client_read (client, (char *)&data, sizeof (data)) != sizeof (data))
       ret = -6;
    REVK_ERR_CHECK (esp_http_client_cleanup (client));
+   if (data.magic_word != ESP_APP_DESC_MAGIC_WORD)
+      ret = -7;
    if (!ret)
    {                            // Check version
-      jo_stringf (j, "version", "%.32s", data + 0);
-      jo_stringf (j, "project", "%.32s", data + 32);
-      jo_stringf (j, "time", "%.16s", data + 64);
-      jo_stringf (j, "date", "%.16s", data + 80);
+      jo_stringf (j, "version", "%.32s", data.version);
+      jo_stringf (j, "project", "%.32s", data.project_name);
+      jo_stringf (j, "time", "%.16s", data.time);
+      jo_stringf (j, "date", "%.16s", data.date);
       const esp_app_desc_t *app = esp_app_get_description ();
-      if (strncmp (app->version, data + 0, 32))
+      if (strncmp (app->version, data.version, sizeof(data.version)))
       {
          ret = 1;               // Different version
          jo_string (j, "was-version", app->version);
-      } else if (strncmp (app->project_name, data + 32, 32))
+      } else if (strncmp (app->project_name, data.project_name, sizeof(data.project_name)))
       {
          ret = 2;               // Different project name
          jo_string (j, "was-project", app->project_name);
-      } else if (strncmp (app->date, data + 80, 16))
+      } else if (strncmp (app->date, data.date, sizeof(data.date)))
       {
          ret = 4;               // Different date
          jo_string (j, "was-date", app->date);
-      } else if (strncmp (app->time, data + 64, 16))
+      } else if (strncmp (app->time, data.time, sizeof(data.time)))
       {
          ret = 4;               // Different time
          jo_string (j, "was-time", app->time);
@@ -3970,6 +3985,7 @@ revk_upgrade_check (const char *url)
    } else
       jo_int (j, "fail", ret);
    revk_info ("upgrade", &j);
+   free (url);
    return ret;
 }
 
@@ -3998,15 +4014,13 @@ revk_upgrade (const char *target, jo_t j)
    else
       memcpy (mesh_ota_addr.addr, revk_mac, 6); // Us
 #endif
-   char *url = revk_upgrade_url (val);
 #ifdef CONFIG_REVK_MESH
    if (!target)                 // Us
 #endif
    {                            // Upgrading this device (upgrade check only works for this device as comparing this device details)
-      int8_t check = revk_upgrade_check (url);
+      int8_t check = revk_upgrade_check (val);
       if (check <= 0)
       {
-         free (url);
          ota_percent = check ? -3 : -2;
          return check ? "Upgrade check failed" : "Up to date";
       }
@@ -4019,6 +4033,7 @@ revk_upgrade (const char *target, jo_t j)
       esp_wifi_set_ps (WIFI_PS_NONE);   // Full wifi
 #endif
    }
+   char *url = revk_upgrade_url (val, "bin");
    ota_task_id = revk_task ("OTA", ota_task, url, 5);
    return "";
 }
