@@ -1575,6 +1575,7 @@ revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb)
 }
 #endif
 
+#ifdef  CONFIG_REVK_BLINK_SUPPORT
 uint32_t
 revk_blinker (void)
 {                               // LED blinking controls, in style of revk_rgb() but bit 30 is set if not black, and bit 31 is set for blink cycle
@@ -1614,7 +1615,9 @@ revk_blinker (void)
          (scale * (rgb & 0xFF) / 255);
    }
 }
+#endif
 
+#ifdef	CONFIG_REVK_BLINK_SUPPORT
 void
 revk_blink_init (void)
 {
@@ -1658,7 +1661,9 @@ revk_blink_init (void)
          }
       }
 }
+#endif
 
+#ifdef  CONFIG_REVK_BLINK_SUPPORT
 void
 revk_blink_do (void)
 {
@@ -1682,6 +1687,7 @@ revk_blink_do (void)
 #endif
    }
 }
+#endif
 
 static void
 task (void *pvParameters)

@@ -18,11 +18,18 @@ menu "RevK"
         help
 		Use (appname/)hostname as primary MQTT topic followed by the usual prefix (command/status, etc)
 
+	config REVK_BLINK_SUPPORT
+	bool "LED blinking support"
+	default y
+        help
+		If blinking supported at all, including blink[3] setting
+
 	config REVK_BLINK_LIB
 	bool "Blink LED update done in library"
 	default y
+	depends on REVK_BLINK_SUPPORT
         help
-		If blinking done in library. else revk_blinker() provides RGB colour to update.
+		If blinking done in library, else revk_blinker() provides RGB colour to update.
 
 	config REVK_BLINK
         string "Blink GPIOs"

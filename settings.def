@@ -23,7 +23,7 @@ s	topic.info	info			.revk=1 .old="prefixinfo"			// MQTT Topic for info
 s	topic.error	error			.revk=1 .old="prefixerror"			// MQTT Topic for error
 bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1			// MQTT use appname/ in front of hostname in topic
 bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname/topic instead of topic/(appname/)hostname
-#ifdef	CONFIG_REVK_BLINK_LIB
+#ifdef	CONFIG_REVK_BLINK_SUPPORT
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif
 blob	client.key				.revk=1	.base64=1 .hide=1	// Client Key (OTA and MQTT TLS)
