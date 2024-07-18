@@ -13,14 +13,11 @@ main (int argc, const char *argv[])
    setsid ();
    if (argc <= 1)
       errx (1, "Specify port");
-   char *cmd;
-   asprintf (&cmd, "idf.py monitor -p %s", argv[1]);
-   FILE *f = popen (cmd, "r");
+   FILE *f = fopen (argv[1], "r");
    if (!f)
-      err (1, "Cannot run %s", cmd);
+      err (1, "Cannot open %s", argv[1]);
    char *line = NULL;
    size_t len = 0;
-   warnx ("%s", cmd);
    while (1)
    {
       ssize_t l = getline (&line, &len, f);
@@ -32,6 +29,6 @@ main (int argc, const char *argv[])
    }
    free (line);
    killpg (0, SIGTERM);
-   pclose (f);
+   fclose (f);
    return 0;
 }
