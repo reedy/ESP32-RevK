@@ -19,7 +19,6 @@
 int
 main (int argc, const char *argv[])
 {
-   setsid ();
    if (argc <= 1)
       errx (1, "Specify port");
 
@@ -40,23 +39,18 @@ main (int argc, const char *argv[])
       t.c_cflag &= ~CRTSCTS;
       tcsetattr (fd, TCSANOW, &t);
 
-      FILE *f = fdopen (fd, "r");
-      char *line = NULL;
-      size_t len = 0;
+      char line[1024];
       while (1)
       {
-         ssize_t l = getline (&line, &len, f);
+         ssize_t l = read (fd, line, sizeof (line) - 1);
          if (l <= 0)
             break;
+         line[l] = 0;
          printf ("%s", line);
          if (strstr (line, "invalid header: 0xffffffff"))
-         {
-            killpg (0, SIGTERM);
-            fclose (f);
             return 0;
-         }
       }
-      free (line);
+      close (fd);
    }
    return 0;
 }
