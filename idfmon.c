@@ -1,5 +1,10 @@
 #define _GNU_SOURCE
 
+// Connect to ESP and monitor.
+// Keep reconnecting
+// Exit and abort when we find it is waiting for code (i.e. invalid header: 0xffffffff)
+// Output what it sends otherwise
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <err.h>
@@ -17,30 +22,41 @@ main (int argc, const char *argv[])
    setsid ();
    if (argc <= 1)
       errx (1, "Specify port");
-   int fd = open (argv[1], O_RDWR);
-   if (fd < 0)
-      err (1, "Cannot open %s", argv[1]);
-   struct termios t;
-   tcgetattr (fd, &t);
-   cfmakeraw (&t);
-   //t.c_cflag &= ~HUPCL;
-   t.c_cflag &= ~CRTSCTS;
-   tcsetattr (fd, TCSANOW, &t);
 
-   FILE *f = fdopen (fd, "r");
-   char *line = NULL;
-   size_t len = 0;
    while (1)
    {
-      ssize_t l = getline (&line, &len, f);
-      if (l <= 0)
-         break;
-      printf ("%s", line);
-      if (strstr (line, "invalid header: 0xffffffff"))
-         break;
+      int fd = open (argv[1], O_RDWR | O_NOCTTY);
+      if (fd < 0)
+      {
+         putchar ('.');
+         fflush (stdout);
+         sleep (1);
+         continue;
+      }
+
+      struct termios t;
+      tcgetattr (fd, &t);
+      cfmakeraw (&t);
+      t.c_cflag &= ~CRTSCTS;
+      tcsetattr (fd, TCSANOW, &t);
+
+      FILE *f = fdopen (fd, "r");
+      char *line = NULL;
+      size_t len = 0;
+      while (1)
+      {
+         ssize_t l = getline (&line, &len, f);
+         if (l <= 0)
+            break;
+         printf ("%s", line);
+         if (strstr (line, "invalid header: 0xffffffff"))
+         {
+            killpg (0, SIGTERM);
+            fclose (f);
+            return 0;
+         }
+      }
+      free (line);
    }
-   free (line);
-   killpg (0, SIGTERM);
-   fclose (f);
    return 0;
 }
