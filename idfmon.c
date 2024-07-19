@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/usbdevice_fs.h>
 
 int
 main (int argc, const char *argv[])
@@ -38,6 +40,19 @@ main (int argc, const char *argv[])
       cfmakeraw (&t);
       t.c_cflag &= ~CRTSCTS;
       tcsetattr (fd, TCSANOW, &t);
+
+      ioctl(fd, USBDEVFS_RESET, 0);
+
+      int status = 0;
+      ioctl (fd, TIOCMGET, &status);
+      status |= TIOCM_RTS;      // RTS (low)
+      ioctl (fd, TIOCMSET, &status);
+      status |= TIOCM_DTR;      // DTR (low)
+      ioctl (fd, TIOCMSET, &status);
+      status &= ~TIOCM_RTS;     // RTS (high)
+      ioctl (fd, TIOCMSET, &status);
+      status &= ~TIOCM_DTR;     // DTR (high)
+      ioctl (fd, TIOCMSET, &status);
 
       char line[1024];
       while (1)
