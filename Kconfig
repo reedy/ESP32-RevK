@@ -24,6 +24,13 @@ menu "RevK"
         help
 		If blinking supported at all, including blink[3] setting
 
+	config REVK_BLINK_DEF
+	bool "Blink LED update done in library"
+	default y
+	depends on REVK_BLINK_SUPPORT
+        help
+		If blinking defined in library settings.
+
 	config REVK_BLINK_LIB
 	bool "Blink LED update done in library"
 	default y
