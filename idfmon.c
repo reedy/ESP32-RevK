@@ -43,10 +43,13 @@ main (int argc, const char *argv[])
       int status = 0;
       status |= TIOCM_RTS;      // RTS (low)
       ioctl (fd, TIOCMSET, &status);
+      usleep(100000);
       status |= TIOCM_DTR;      // DTR (low)
       ioctl (fd, TIOCMSET, &status);
+      usleep(100000);
       status &= ~TIOCM_RTS;     // RTS (high)
       ioctl (fd, TIOCMSET, &status);
+      usleep(100000);
       status &= ~TIOCM_DTR;     // DTR (high)
       ioctl (fd, TIOCMSET, &status);
 
