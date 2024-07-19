@@ -16,7 +16,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <linux/usbdevice_fs.h>
 
 int
 main (int argc, const char *argv[])
@@ -41,10 +40,7 @@ main (int argc, const char *argv[])
       t.c_cflag &= ~CRTSCTS;
       tcsetattr (fd, TCSANOW, &t);
 
-      ioctl(fd, USBDEVFS_RESET, 0);
-
       int status = 0;
-      ioctl (fd, TIOCMGET, &status);
       status |= TIOCM_RTS;      // RTS (low)
       ioctl (fd, TIOCMSET, &status);
       status |= TIOCM_DTR;      // DTR (low)
