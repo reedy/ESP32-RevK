@@ -56,8 +56,8 @@ main (int argc, const char *argv[])
 	 usleep(100000);
          status |= TIOCM_RTS;   // RTS (low)
          ioctl (fd, TIOCMSET, &status);
+	 usleep(100000);
          status &=~TIOCM_RTS;   // RTS (high)
-         ioctl (fd, TIOCMSET, &status);
          ioctl (fd, TIOCMSET, &status);
       }
 
