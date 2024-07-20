@@ -1657,7 +1657,7 @@ revk_blink_init (void)
                blink[b].set = 0;
                continue;
             }
-            revk_gpio_output (blink[b], 0);
+            revk_gpio_output_safe (blink[b], 0);
          }
       }
 }
@@ -3910,7 +3910,7 @@ revk_upgrade_url (const char *val, const char *ext)
 #else
                 "http",         /* If not signed, use http as code should be signed and this uses way less memory  */
 #endif
-                *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix, ext, revk_id);     // Hostname provided
+                *val ? val : otahost, otabeta ? "beta/" : "", appname, revk_build_suffix, ext, revk_id);        // Hostname provided
    return url;
 }
 
@@ -3934,7 +3934,7 @@ revk_upgrade_check (const char *val)
    esp_http_client_handle_t client = esp_http_client_init (&config);
    if (!client)
       ret = -1;
-   
+
    esp_app_desc_t data = { 0 };
    size_t size = 0;
    int status = 0;
@@ -3957,7 +3957,7 @@ revk_upgrade_check (const char *val)
       ret = -5;
       jo_int (j, "status", status);
    }
-   if (!ret && esp_http_client_read (client, (char *)&data, sizeof (data)) != sizeof (data))
+   if (!ret && esp_http_client_read (client, (char *) &data, sizeof (data)) != sizeof (data))
       ret = -6;
    REVK_ERR_CHECK (esp_http_client_cleanup (client));
    if (data.magic_word != ESP_APP_DESC_MAGIC_WORD)
@@ -3969,19 +3969,19 @@ revk_upgrade_check (const char *val)
       jo_stringf (j, "time", "%.16s", data.time);
       jo_stringf (j, "date", "%.16s", data.date);
       const esp_app_desc_t *app = esp_app_get_description ();
-      if (strncmp (app->version, data.version, sizeof(data.version)))
+      if (strncmp (app->version, data.version, sizeof (data.version)))
       {
          ret = 1;               // Different version
          jo_string (j, "was-version", app->version);
-      } else if (strncmp (app->project_name, data.project_name, sizeof(data.project_name)))
+      } else if (strncmp (app->project_name, data.project_name, sizeof (data.project_name)))
       {
          ret = 2;               // Different project name
          jo_string (j, "was-project", app->project_name);
-      } else if (strncmp (app->date, data.date, sizeof(data.date)))
+      } else if (strncmp (app->date, data.date, sizeof (data.date)))
       {
          ret = 4;               // Different date
          jo_string (j, "was-date", app->date);
-      } else if (strncmp (app->time, data.time, sizeof(data.time)))
+      } else if (strncmp (app->time, data.time, sizeof (data.time)))
       {
          ret = 4;               // Different time
          jo_string (j, "was-time", app->time);
@@ -4692,65 +4692,128 @@ revk_disable_settings (void)
 }
 
 #ifdef  REVK_SETTINGS_HAS_GPIO
-void
+esp_err_t
 revk_gpio_output (revk_gpio_t g, uint8_t o)
-{
+{                               // Make pin output, and set level, return 0 if OK
+   esp_err_t e = 0;
    if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
-      return;
-   if (rtc_gpio_is_valid_gpio (g.num))
-      rtc_gpio_deinit (g.num);
-   gpio_reset_pin (g.num);
-   gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
+      e = ESP_FAIL;
+   if (!e && rtc_gpio_is_valid_gpio (g.num))
+      e = rtc_gpio_deinit (g.num);
+   if (!e)
+      e = gpio_reset_pin (g.num);
+   if (!e)
+      e = gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
 #ifndef  CONFIG_REVK_OLD_SETTINGS
-   gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
-   gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
+   if (!e)
+      e = gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
+   if (!e)
+      e = gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
    if (rtc_gpio_is_valid_gpio (g.num))
    {
-      rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
-      rtc_gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
+      if (!e)
+         e = rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
+      if (!e)
+         e = rtc_gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
    }
 #else
-   gpio_set_direction (g.num, GPIO_MODE_OUTPUT);
+   if (!e)
+      e = gpio_set_direction (g.num, GPIO_MODE_OUTPUT);
 #endif
+   return e;
 }
 
-void
+esp_err_t
+revk_gpio_output_safe (revk_gpio_t g, uint8_t o)
+{                               // Make pin output, and set level, but first, check it looks safe
+   if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
+      e = ESP_FAIL;
+   if (!e && rtc_gpio_is_valid_gpio (g.num))
+      e = rtc_gpio_deinit (g.num);
+   if (!e)
+      e = gpio_reset_pin (g.num);
+   if (!e)
+      e = gpio_set_direction (g.num, GPIO_MODE_INPUT);
+   if (!e)
+      e = gpio_pullup_en (g.num);
+   if (!e && !gpio_get_level (g.num))
+      e = ESP_FAIL;             // pull up did not work
+   if (!e)
+      e = gpio_pullup_dis (g.num);
+   if (!e)
+      e = gpio_pulldown_en (g.num);
+   if (!e && gpio_get_level (g.num))
+      e = ESP_FAIL;             // pull down did not work
+   if (e)
+      return e;
+   return revk_gpio_output (g, o);
+}
+
+esp_err_t
 revk_gpio_set (revk_gpio_t g, uint8_t o)
 {
-   if (g.set)
-      gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
+   if (!g.set)
+      return ESP_FAIL;
+   return gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
 }
 
-void
+esp_err_t
 revk_gpio_input (revk_gpio_t g)
 {
+   esp_err_t e = 0;
    if (!g.set || !GPIO_IS_VALID_GPIO (g.num))
-      return;
+      e = ESP_FAIL;
    if (rtc_gpio_is_valid_gpio (g.num))
-      rtc_gpio_deinit (g.num);
-   gpio_reset_pin (g.num);
-   gpio_set_direction (g.num, GPIO_MODE_INPUT);
+   {
+      if (!e)
+         e = rtc_gpio_deinit (g.num);
+   }
+   if (!e)
+      e = gpio_reset_pin (g.num);
+   if (!e)
+      e = gpio_set_direction (g.num, GPIO_MODE_INPUT);
 #ifndef  CONFIG_REVK_OLD_SETTINGS
    if (!g.pulldown && !g.nopull)
-      gpio_pullup_en (g.num);
-   else
-      gpio_pullup_dis (g.num);
+   {
+      if (!e)
+         e = gpio_pullup_en (g.num);
+   } else
+   {
+      if (!e)
+         e = gpio_pullup_dis (g.num);
+   }
    if (g.pulldown && !g.nopull)
-      gpio_pulldown_en (g.num);
-   else
-      gpio_pulldown_dis (g.num);
+   {
+      if (!e)
+         e = gpio_pulldown_en (g.num);
+   } else
+   {
+      if (!e)
+         e = gpio_pulldown_dis (g.num);
+   }
    if (rtc_gpio_is_valid_gpio (g.num))
    {
       if (!g.pulldown && !g.nopull)
-         rtc_gpio_pullup_en (g.num);
-      else
-         rtc_gpio_pullup_dis (g.num);
+      {
+         if (!e)
+            e = rtc_gpio_pullup_en (g.num);
+      } else
+      {
+         if (!e)
+            e = rtc_gpio_pullup_dis (g.num);
+      }
       if (g.pulldown && !g.nopull)
-         rtc_gpio_pulldown_en (g.num);
-      else
-         rtc_gpio_pulldown_dis (g.num);
+      {
+         if (!e)
+            e = rtc_gpio_pulldown_en (g.num);
+      } else
+      {
+         if (!e)
+            e = rtc_gpio_pulldown_dis (g.num);
+      }
    }
 #endif
+   return 0;
 }
 
 uint8_t
