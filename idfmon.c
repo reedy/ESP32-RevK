@@ -51,13 +51,13 @@ main (int argc, const char *argv[])
          // RTS: EN
          // DTR: GPIO0
 
-         int status = 0;  
+         int status = 0;
          ioctl (fd, TIOCMSET, &status);
-	 usleep(100000);
+         usleep (100000);
          status |= TIOCM_RTS;   // RTS (low)
          ioctl (fd, TIOCMSET, &status);
-	 usleep(100000);
-         status &=~TIOCM_RTS;   // RTS (high)
+         usleep (100000);
+         status &= ~TIOCM_RTS;  // RTS (high)
          ioctl (fd, TIOCMSET, &status);
       }
 
@@ -71,7 +71,10 @@ main (int argc, const char *argv[])
             break;
          line[l] = 0;
          if (strstr (line, "invalid header: 0xffffffff"))
+         {
+            printf ("Empty chip, ready to flash\n");
             return 0;
+         }
          printf ("%s", line);
       }
       close (fd);
