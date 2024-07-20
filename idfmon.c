@@ -70,10 +70,9 @@ main (int argc, const char *argv[])
          if (l <= 0)
             break;
          line[l] = 0;
-         printf ("%s", line);
          if (strstr (line, "invalid header: 0xffffffff"))
             return 0;
-         //if (strstr (line, "waiting for download")) reset ();
+         printf ("%s", line);
       }
       close (fd);
    }
