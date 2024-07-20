@@ -25,7 +25,7 @@ main (int argc, const char *argv[])
 
    while (1)
    {
-      int fd = open (argv[1], O_RDWR | O_NOCTTY);
+      int fd = open (argv[1], O_RDWR | O_NOCTTY | O_NDELAY);
       if (fd < 0)
       {
          putchar ('.');
@@ -33,23 +33,23 @@ main (int argc, const char *argv[])
          sleep (1);
          continue;
       }
+      fcntl (fd, F_SETFL, 0);
 
       struct termios t;
       tcgetattr (fd, &t);
       cfmakeraw (&t);
-      t.c_cflag &= ~CRTSCTS;
-      tcsetattr (fd, TCSANOW, &t);
+      t.c_cflag &= ~CRTSCTS;    // disable hardware flow control
+      t.c_cflag |= CLOCAL | CREAD;      // ignore modem controls
+      t.c_iflag &= ~(IXON | IXOFF | IXANY);     //disable software flow control
+      tcsetattr (fd, TCSAFLUSH, &t);
 
       int status = 0;
       status |= TIOCM_RTS;      // RTS (low)
       ioctl (fd, TIOCMSET, &status);
-      usleep(100000);
       status |= TIOCM_DTR;      // DTR (low)
       ioctl (fd, TIOCMSET, &status);
-      usleep(100000);
       status &= ~TIOCM_RTS;     // RTS (high)
       ioctl (fd, TIOCMSET, &status);
-      usleep(100000);
       status &= ~TIOCM_DTR;     // DTR (high)
       ioctl (fd, TIOCMSET, &status);
 
