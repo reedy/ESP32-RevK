@@ -38,8 +38,8 @@ main (int argc, const char *argv[])
       struct termios t;
       tcgetattr (fd, &t);
       cfmakeraw (&t);
-      cfsetispeed (&t, B460800);
-      cfsetospeed (&t, B460800);
+      //cfsetispeed (&t, B460800);
+      //cfsetospeed (&t, B460800);
       t.c_cflag &= ~HUPCL;      // disable hangup logic
       t.c_cflag &= ~CRTSCTS;    // disable hardware flow control
       t.c_cflag |= CLOCAL | CREAD;      // ignore modem controls
