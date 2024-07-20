@@ -1624,7 +1624,7 @@ revk_blink_init (void)
 #ifdef CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[1].set && blink[0].num == blink[1].num)
    {
-      if (!(gpio_ok (blink[0].num) & 1)||revk_gpio_output_safe(blink[0],0))
+      if (!(gpio_ok (blink[0].num) & 1) || revk_gpio_output_safe (blink[0], 0))
       {
          ESP_LOGE (TAG, "Not using LED GPIO %d", blink[0].num);
          blink[0].set = 0;
@@ -4726,7 +4726,7 @@ revk_gpio_output (revk_gpio_t g, uint8_t o)
 esp_err_t
 revk_gpio_output_safe (revk_gpio_t g, uint8_t o)
 {                               // Make pin output, and set level, but first, check it looks safe
-	     esp_err_t e = 0;
+   esp_err_t e = 0;
    if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       e = ESP_FAIL;
    if (!e && rtc_gpio_is_valid_gpio (g.num))
@@ -4737,12 +4737,14 @@ revk_gpio_output_safe (revk_gpio_t g, uint8_t o)
       e = gpio_set_direction (g.num, GPIO_MODE_INPUT);
    if (!e)
       e = gpio_pullup_en (g.num);
+   usleep (1000);
    if (!e && !gpio_get_level (g.num))
       e = ESP_FAIL;             // pull up did not work
    if (!e)
       e = gpio_pullup_dis (g.num);
    if (!e)
       e = gpio_pulldown_en (g.num);
+   usleep (1000);
    if (!e && gpio_get_level (g.num))
       e = ESP_FAIL;             // pull down did not work
    if (e)
