@@ -46,14 +46,19 @@ main (int argc, const char *argv[])
       t.c_iflag &= ~(IXON | IXOFF | IXANY);     //disable software flow control
       tcsetattr (fd, TCSANOW, &t);
 
-      // RTS: EN
-      // DTR: GPIO0
+      void reset (void)
+      {
+         // RTS: EN
+         // DTR: GPIO0
 
-      int status = 0; // DTR high
-      status |= TIOCM_RTS;     // RTS (low)
-      ioctl (fd, TIOCMSET, &status);
-      status &= ~TIOCM_RTS;     // RTS (high)
-      ioctl (fd, TIOCMSET, &status);
+         int status = 0;        // DTR high
+         status |= TIOCM_RTS;   // RTS (low)
+         ioctl (fd, TIOCMSET, &status);
+         status &= ~TIOCM_RTS;  // RTS (high)
+         ioctl (fd, TIOCMSET, &status);
+      }
+
+      reset ();
 
       char line[1024];
       while (1)
@@ -65,6 +70,8 @@ main (int argc, const char *argv[])
          printf ("%s", line);
          if (strstr (line, "invalid header: 0xffffffff"))
             return 0;
+         if (strstr (line, "waiting for download"))
+            reset ();
       }
       close (fd);
    }
