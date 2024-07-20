@@ -51,10 +51,13 @@ main (int argc, const char *argv[])
          // RTS: EN
          // DTR: GPIO0
 
-         int status = 0;        // DTR high
+         int status = 0;  
+         ioctl (fd, TIOCMSET, &status);
+	 usleep(100000);
          status |= TIOCM_RTS;   // RTS (low)
          ioctl (fd, TIOCMSET, &status);
-         status &= ~TIOCM_RTS;  // RTS (high)
+         status &=~TIOCM_RTS;   // RTS (high)
+         ioctl (fd, TIOCMSET, &status);
          ioctl (fd, TIOCMSET, &status);
       }
 
