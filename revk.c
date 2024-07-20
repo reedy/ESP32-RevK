@@ -1624,7 +1624,7 @@ revk_blink_init (void)
 #ifdef CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[1].set && blink[0].num == blink[1].num)
    {
-      if (!(gpio_ok (blink[0].num) & 1))
+      if (!(gpio_ok (blink[0].num) & 1)||revk_gpio_output_safe(blink[0],0))
       {
          ESP_LOGE (TAG, "Not using LED GPIO %d", blink[0].num);
          blink[0].set = 0;
