@@ -70,8 +70,7 @@ main (int argc, const char *argv[])
          printf ("%s", line);
          if (strstr (line, "invalid header: 0xffffffff"))
             return 0;
-         if (strstr (line, "waiting for download"))
-            reset ();
+         //if (strstr (line, "waiting for download")) reset ();
       }
       close (fd);
    }
