@@ -4734,17 +4734,21 @@ revk_gpio_output_safe (revk_gpio_t g, uint8_t o)
    if (!e)
       e = gpio_reset_pin (g.num);
    if (!e)
+   {
       e = gpio_set_direction (g.num, GPIO_MODE_INPUT);
+      if(e)return revk_gpio_output (g, o); // not an input
+   }
    if (!e)
+   {
       e = gpio_pullup_en (g.num);
-   usleep (1000);
+      if(e)return revk_gpio_output (g, o); // the pull trick not available on this pin
+   }
    if (!e && !gpio_get_level (g.num))
       e = ESP_FAIL;             // pull up did not work
    if (!e)
       e = gpio_pullup_dis (g.num);
    if (!e)
       e = gpio_pulldown_en (g.num);
-   usleep (1000);
    if (!e && gpio_get_level (g.num))
       e = ESP_FAIL;             // pull down did not work
    if (e)
