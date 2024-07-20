@@ -47,14 +47,19 @@ main (int argc, const char *argv[])
       tcsetattr (fd, TCSANOW, &t);
 
       int status = 0;
+      ioctl (fd, TIOCMGET, &status);
       status |= TIOCM_RTS;      // RTS (low)
       ioctl (fd, TIOCMSET, &status);
+      ioctl (fd, TIOCMGET, &status);
       status |= TIOCM_DTR;      // DTR (low)
       ioctl (fd, TIOCMSET, &status);
+      ioctl (fd, TIOCMGET, &status);
       status &= ~TIOCM_RTS;     // RTS (high)
       ioctl (fd, TIOCMSET, &status);
+      ioctl (fd, TIOCMGET, &status);
       status &= ~TIOCM_DTR;     // DTR (high)
       ioctl (fd, TIOCMSET, &status);
+      ioctl (fd, TIOCMGET, &status);
 
       char line[1024];
       while (1)
