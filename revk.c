@@ -4726,6 +4726,7 @@ revk_gpio_output (revk_gpio_t g, uint8_t o)
 esp_err_t
 revk_gpio_output_safe (revk_gpio_t g, uint8_t o)
 {                               // Make pin output, and set level, but first, check it looks safe
+	     esp_err_t e = 0;
    if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       e = ESP_FAIL;
    if (!e && rtc_gpio_is_valid_gpio (g.num))
