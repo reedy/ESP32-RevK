@@ -40,15 +40,18 @@ main (int argc, const char *argv[])
       cfmakeraw (&t);
       cfsetispeed (&t, B460800);
       cfsetospeed (&t, B460800);
-      t.c_cflag &= ~HUPCL;    // disable hangup logic
+      t.c_cflag &= ~HUPCL;      // disable hangup logic
       t.c_cflag &= ~CRTSCTS;    // disable hardware flow control
       t.c_cflag |= CLOCAL | CREAD;      // ignore modem controls
       t.c_iflag &= ~(IXON | IXOFF | IXANY);     //disable software flow control
       tcsetattr (fd, TCSANOW, &t);
 
-      int status = 0;           // RTS & DTR high
+      int status = 0;
+      status |= TIOCM_RTS;      // RTS (low)
       ioctl (fd, TIOCMSET, &status);
       status |= TIOCM_DTR;      // DTR (low)
+      ioctl (fd, TIOCMSET, &status);
+      status &= ~TIOCM_RTS;     // RTS (high)
       ioctl (fd, TIOCMSET, &status);
       status &= ~TIOCM_DTR;     // DTR (high)
       ioctl (fd, TIOCMSET, &status);
