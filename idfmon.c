@@ -41,14 +41,11 @@ main (int argc, const char *argv[])
       t.c_cflag &= ~CRTSCTS;    // disable hardware flow control
       t.c_cflag |= CLOCAL | CREAD;      // ignore modem controls
       t.c_iflag &= ~(IXON | IXOFF | IXANY);     //disable software flow control
-      tcsetattr (fd, TCSAFLUSH, &t);
+      tcsetattr (fd, TCSANOW, &t);
 
-      int status = 0;
-      status |= TIOCM_RTS;      // RTS (low)
+      int status = 0; // RTS & DTR high
       ioctl (fd, TIOCMSET, &status);
       status |= TIOCM_DTR;      // DTR (low)
-      ioctl (fd, TIOCMSET, &status);
-      status &= ~TIOCM_RTS;     // RTS (high)
       ioctl (fd, TIOCMSET, &status);
       status &= ~TIOCM_DTR;     // DTR (high)
       ioctl (fd, TIOCMSET, &status);
