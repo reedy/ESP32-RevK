@@ -239,6 +239,13 @@ char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
 static int8_t ota_percent = -1;
+
+static int
+ota_in_progress (void)
+{
+   return ota_percent > 0 && ota_percent <= 100;
+}
+
 #ifdef	CONFIG_REVK_LED_STRIP
 led_strip_handle_t revk_strip = NULL;
 #endif
@@ -3440,7 +3447,7 @@ revk_web_status (httpd_req_t * req)
          jo_t j = jo_create_alloc ();
          jo_int (j, NULL, n);
          wsend (&j);
-         if (ota_percent > 0 && ota_percent <= 100)
+         if (ota_in_progress ())
          {
             jo_t j = jo_create_alloc ();
             jo_stringf (j, NULL, "%s %d%%", r, ota_percent);
@@ -3497,7 +3504,12 @@ revk_web_status (httpd_req_t * req)
    const char *shutdown = NULL;
    revk_shutting_down (&shutdown);
    if (shutdown && *shutdown)
-      revk_web_send (req, shutdown);
+   {
+      if (ota_in_progress ())
+         revk_web_send (req, "%s (%d%%)", shutdown, ota_percent);
+      else
+         httpd_resp_sendstr_chunk (req, shutdown);
+   }
    httpd_resp_sendstr_chunk (req, NULL);
    return ESP_OK;
 }
