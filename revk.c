@@ -3858,8 +3858,7 @@ ota_task (void *pvParameters)
                revk_restart (3, "OTA Download complete");
             } else
             {
-               revk_restart (3, err == ESP_ERR_OTA_VALIDATE_FAILED ? "OTA Validation failed" : err == ESP_ERR_FLASH_OP_TIMEOUT
-                             || err == ESP_ERR_FLASH_OP_FAIL ? "OTA Flash failed" : "OTA failed");
+               revk_restart (3, err == ESP_ERR_OTA_VALIDATE_FAILED ? "OTA Validation failed" : "OTA Failed");
                ota_percent = -4;
                if (err == ESP_ERR_OTA_VALIDATE_FAILED && otaauto && otadays && otadays < 30)
                {                // Force long recheck delay
