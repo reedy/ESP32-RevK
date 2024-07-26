@@ -46,22 +46,17 @@ main (int argc, const char *argv[])
       t.c_iflag &= ~(IXON | IXOFF | IXANY);     //disable software flow control
       tcsetattr (fd, TCSANOW, &t);
 
-      void reset (void)
-      {
-         // RTS: EN
-         // DTR: GPIO0
+      // RTS: EN
+      // DTR: GPIO0
 
-         int status = 0;
-         ioctl (fd, TIOCMSET, &status);
-         usleep (100000);
-         status |= TIOCM_RTS;   // RTS (low)
-         ioctl (fd, TIOCMSET, &status);
-         usleep (100000);
-         status &= ~TIOCM_RTS;  // RTS (high)
-         ioctl (fd, TIOCMSET, &status);
-      }
-
-      reset ();
+      int status = 0;
+      ioctl (fd, TIOCMSET, &status);
+      usleep (100000);
+      status |= TIOCM_RTS;      // RTS (low)
+      ioctl (fd, TIOCMSET, &status);
+      usleep (100000);
+      status &= ~TIOCM_RTS;     // RTS (high)
+      ioctl (fd, TIOCMSET, &status);
 
       char line[1024];
       while (1)
