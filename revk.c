@@ -1496,6 +1496,8 @@ blink_default (const char *user)
 {                               // What blinking to do - NULL means do default, "" means off if none of the default special cases apply, otherwise the requested colour sequence, unless restarting (white)
    if (restart_time)
       return "W";               // Rebooting - override user even
+   if (uptime () < 5)
+      return "Gg";              // Startup - override user even
    if (user && *user)
       return user;
    if (!*wifissid)
