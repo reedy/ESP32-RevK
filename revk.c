@@ -1784,20 +1784,23 @@ task (void *pvParameters)
                }
             }
 #endif
-	    char mq[20]="";
+            char mq[30] = "";
 #ifdef	CONFIG_REVK_MQTT
-	    sprintf(mq," MQTT %lu",lwmqtt_connected (mqtt_client[0]));
+            sprintf (mq, " MQTT %lu", lwmqtt_connected (mqtt_client[0]));
+#if	    CONFIG_REVK_MQTT_CLIENTS>1
+            sprintf (mq + strlen (mq), "/%lu", lwmqtt_connected (mqtt_client[1]));
+#endif
 #endif
 #ifdef CONFIG_REVK_MESH
             ESP_LOGI (TAG, "Up %lu, Link down %lu, Mesh nodes %lu%s%s", (unsigned long) now, (unsigned long) revk_link_down (),
                       (unsigned long) esp_mesh_get_total_node_num (),
-                      esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)",mq);
+                      esp_mesh_is_root ()? " (root)" : b.mesh_root_known ? " (leaf)" : " (no-root)", mq);
 #else
 #ifdef	CONFIG_REVK_WIFI
             ESP_LOGI (TAG, "Up %lu, Link %s %lu%s", (unsigned long) now, b.disablewifi ? "disabled" : "down",
-                      (unsigned long) revk_link_down (),mq);
+                      (unsigned long) revk_link_down (), mq);
 #else
-            ESP_LOGI (TAG, "Up %lu%s", (unsigned long) now,mq);
+            ESP_LOGI (TAG, "Up %lu%s", (unsigned long) now, mq);
 #endif
             if (!b.disablewifi && wifiuptime && now > wifiuptime && !restart_time)
                revk_disable_wifi ();
