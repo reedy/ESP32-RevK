@@ -1786,7 +1786,7 @@ task (void *pvParameters)
 #endif
 	    char mq[20]="";
 #ifdef	CONFIG_REVK_MQTT
-	    sprintf(mq," MQTT %u",lwmqtt_connected (mqtt_client[0]));
+	    sprintf(mq," MQTT %ld",lwmqtt_connected (mqtt_client[0]));
 #endif
 #ifdef CONFIG_REVK_MESH
             ESP_LOGI (TAG, "Up %lu, Link down %lu, Mesh nodes %lu%s%s", (unsigned long) now, (unsigned long) revk_link_down (),
