@@ -1913,10 +1913,11 @@ task (void *pvParameters)
             if (wifireset && revk_link_down () > wifireset)
                revk_restart (0, "Mesh sucks");
          }
-#endif
+#else
 #ifdef	CONFIG_REVK_WIFI
          if (wifireset && revk_link_down () > wifireset)
             revk_restart (0, "Offline too long");
+#endif
 #endif
 #ifdef	CONFIG_REVK_APMODE
          if (!b.disableap && apgpio.set && (gpio_get_level (apgpio.num) ^ apgpio.invert))
