@@ -693,11 +693,9 @@ setup_ip (void)
    dns (wifidns[0], ESP_NETIF_DNS_MAIN);
    dns (wifidns[1], ESP_NETIF_DNS_BACKUP);
    dns (wifidns[2], ESP_NETIF_DNS_FALLBACK);
-#ifndef	CONFIG_REVK_MESH
 #ifdef  CONFIG_REVK_MQTT
    if (*wifiip)
       revk_mqtt_init ();        // Won't start on GOT_IP so start here
-#endif
 #endif
 }
 #endif
@@ -1200,6 +1198,10 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
 void
 revk_mqtt_init (void)
 {
+#ifdef	CONFIG_REVK_MESH
+   if (!esp_mesh_is_root ())
+      return;                   // Indirect MQTT
+#endif
    for (int client = 0; client < CONFIG_REVK_MQTT_CLIENTS; client++)
       if (*mqtthost[client] && !mqtt_client[client])
       {
@@ -1366,10 +1368,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                   sntp_init ();
 #endif
                }
-#ifndef	CONFIG_REVK_MESH
 #ifdef	CONFIG_REVK_MQTT
                revk_mqtt_init ();
-#endif
 #endif
 #ifdef  CONFIG_REVK_WIFI
                xEventGroupSetBits (revk_group, GROUP_WIFI);
@@ -4669,10 +4669,8 @@ revk_enable_wifi (void)
 #ifdef	CONFIG_REVK_WIFI
       wifi_init ();
 #endif
-#ifndef	CONFIG_REVK_MESH
 #ifdef	CONFIG_REVK_MQTT
       revk_mqtt_init ();
-#endif
 #endif
       b.disablewifi = 0;
    }
