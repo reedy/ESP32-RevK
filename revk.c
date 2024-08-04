@@ -1366,8 +1366,10 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                   sntp_init ();
 #endif
                }
+#ifndef	CONFIG_REVK_MESH
 #ifdef	CONFIG_REVK_MQTT
                revk_mqtt_init ();
+#endif
 #endif
 #ifdef  CONFIG_REVK_WIFI
                xEventGroupSetBits (revk_group, GROUP_WIFI);
@@ -4667,8 +4669,10 @@ revk_enable_wifi (void)
 #ifdef	CONFIG_REVK_WIFI
       wifi_init ();
 #endif
+#ifndef	CONFIG_REVK_MESH
 #ifdef	CONFIG_REVK_MQTT
       revk_mqtt_init ();
+#endif
 #endif
       b.disablewifi = 0;
    }
