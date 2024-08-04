@@ -506,14 +506,22 @@ lwmqtt_loop (lwmqtt_t handle)
          }
          if (!handle->tls || esp_tls_get_bytes_avail (handle->tls) <= 0)
          {                      // Wait for data to arrive
-            fd_set r;
+            fd_set r,
+              e;
             FD_ZERO (&r);
             FD_SET (handle->sock, &r);
+            FD_ZERO (&e);
+            FD_SET (handle->sock, &e);
             struct timeval to = { 1, 0 };       // Keeps us checking running but is light load at once a second
-            int sel = select (handle->sock + 1, &r, NULL, NULL, &to);
+            int sel = select (handle->sock + 1, &r, NULL, &e, &to);
             if (sel < 0)
             {
                ESP_LOGE (TAG, "Select failed");
+               break;
+            }
+            if (FD_ISSET (handle->sock, &e))
+            {
+               ESP_LOGE (TAG, "Closed");
                break;
             }
             if (!FD_ISSET (handle->sock, &r))
