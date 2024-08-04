@@ -702,8 +702,9 @@ setup_ip (void)
 
 #ifdef	CONFIG_REVK_MESH
 static void
-stop_ip (void)
+stop_ip (const char *why)
 {
+   revk_mqtt_close (why);
    dhcpc_stop ();
 }
 #endif
@@ -1443,8 +1444,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             } else
             {
                ESP_LOGI (TAG, "Mesh child");
-               stop_ip ();
-               revk_mqtt_close ("No child of mesh");
+               stop_ip ("No child of mesh");
                if (link_down)
                {
                   ESP_LOGI (TAG, "Link up");
@@ -1467,9 +1467,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             ESP_LOGI (TAG, "Mesh root lost");
             b.mesh_root_known = 0;
          }
-         stop_ip ();
+         stop_ip ("Mesh gone");
          xEventGroupSetBits (revk_group, GROUP_OFFLINE);
-         revk_mqtt_close ("Mesh gone");
          break;
       case MESH_EVENT_ROOT_ADDRESS:    // We know the root
          if (!b.mesh_root_known)
@@ -1779,7 +1778,11 @@ task (void *pvParameters)
 #endif
                   )
                {
+#ifdef	CONFIG_REVK_MESH
+                  ESP_LOGE (TAG, "Connect %s", meshroot ? wifissid : "mesh");
+#else
                   ESP_LOGE (TAG, "Connect %s", wifissid);
+#endif
                   xEventGroupClearBits (revk_group, GROUP_OFFLINE);
                   esp_wifi_connect ();  // Slowed in APSTA to allow AP mode to work
                }

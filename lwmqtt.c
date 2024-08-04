@@ -133,7 +133,7 @@ handle_close (lwmqtt_t handle)
          esp_tls_conn_destroy (tls);
    } else if (sock >= 0)
       close (sock);
-   usleep(100000);
+   usleep (100000);
 }
 
 static int
@@ -527,7 +527,7 @@ lwmqtt_loop (lwmqtt_t handle)
          int got = hread (handle, buf + pos, need - pos);
          if (got <= 0)
          {
-            ESP_LOGD (TAG, "Connection closed");
+            ESP_LOGI (TAG, "Connection closed");
             break;              // Error or close
          }
          pos += got;
@@ -540,8 +540,10 @@ lwmqtt_loop (lwmqtt_t handle)
       while (p < e && (*p & 0x80))
          p++;
       p++;
+#ifdef CONFIG_REVK_MQTT_SERVER
       if (handle->server && !handle->connected && (*buf >> 4) != 1)
          break;                 // Expect login as first message
+#endif
       switch (*buf >> 4)
       {
       case 1:
@@ -652,6 +654,7 @@ lwmqtt_loop (lwmqtt_t handle)
          break;
 #ifdef CONFIG_REVK_MQTT_SERVER
       case 14:                 // disconnect
+         ESP_LOGE (TAG, "Client disconnected");
          break;
 #endif
       default:
@@ -663,7 +666,7 @@ lwmqtt_loop (lwmqtt_t handle)
    freez (buf);
    if (!handle->server && !handle->running)
    {                            // Close connection - as was clean
-      ESP_LOGD (TAG, "Close cleanly");
+      ESP_LOGE (TAG, "Closed cleanly");
       uint8_t b[] = { 0xE0, 0x00 };     // Disconnect cleanly
       xSemaphoreTake (handle->mutex, portMAX_DELAY);
       hwrite (handle, b, sizeof (b));
@@ -700,7 +703,7 @@ client_task (void *pvParameters)
          }
       }
       // Connect
-      ESP_LOGD (TAG, "Connecting %s:%d", hostname, port);
+      ESP_LOGI (TAG, "Connecting %s:%d", hostname, port);
       // Can connect using TLS or non TLS with just sock set instead
       if (handle->ca_cert_bytes || handle->crt_bundle_attach)
       {
@@ -724,6 +727,7 @@ client_task (void *pvParameters)
          {
             handle->tls = tls;
             esp_tls_get_conn_sockfd (handle->tls, &handle->sock);
+            ESP_LOGI (TAG, "Connected %s:%d", hostname, port);
          }
       } else
       {                         // Non TLS
@@ -754,12 +758,13 @@ client_task (void *pvParameters)
                break;
             }
             freeaddrinfo (a);
+            ESP_LOGI (TAG, "Connected %s:%d", hostname, port);
             return 1;
          }
          if (!tryconnect (AF_INET6) || uptime () > 20)  // Gives IPv6 a chance to actually get started if there is IPv6 DNS for this.
             tryconnect (AF_INET);
          if (handle->sock < 0)
-            ESP_LOGD (TAG, "Could not connect to %s:%d", hostname, port);
+            ESP_LOGI (TAG, "Could not connect to %s:%d", hostname, port);
       }
       free (hostname);
       if (handle->sock < 0)
