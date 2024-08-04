@@ -871,6 +871,7 @@ mesh_init (void)
       if (meshmax == 1 || meshroot)
          esp_mesh_set_type (MESH_ROOT); // We are forcing root
       esp_mesh_set_self_organized (true, true);
+      esp_mesh_connect ();
       revk_task ("mesh", mesh_task, NULL, 5);
    }
    REVK_ERR_CHECK (esp_mesh_start ());
@@ -1504,81 +1505,81 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             b.mesh_root_known = 1;
          }
          break;
-      case MESH_EVENT_STARTED:            /**< mesh is started */
+      case MESH_EVENT_STARTED:           /**< mesh is started */
          ESP_LOGI (TAG, "Mesh STARTED");
          break;
-      case MESH_EVENT_CHANNEL_SWITCH:     /**< channel switch */
+      case MESH_EVENT_CHANNEL_SWITCH:    /**< channel switch */
          ESP_LOGI (TAG, "Mesh CHANNEL_SWITCH");
          break;
-      case MESH_EVENT_CHILD_CONNECTED:    /**< a child is connected on softAP interface */
+      case MESH_EVENT_CHILD_CONNECTED:   /**< a child is connected on softAP interface */
          ESP_LOGI (TAG, "Mesh CHILD_CONNECTED");
          break;
-      case MESH_EVENT_CHILD_DISCONNECTED: /**< a child is disconnected on softAP interface */
+      case MESH_EVENT_CHILD_DISCONNECTED:/**< a child is disconnected on softAP interface */
          ESP_LOGI (TAG, "Mesh CHILD_DISCONNECTED");
          break;
-      case MESH_EVENT_ROUTING_TABLE_ADD:  /**< routing table is changed by adding newly joined children */
+      case MESH_EVENT_ROUTING_TABLE_ADD: /**< routing table is changed by adding newly joined children */
          ESP_LOGI (TAG, "Mesh ROUTING_TABLE_ADD");
          break;
       case MESH_EVENT_ROUTING_TABLE_REMOVE:
                                            /**< routing table is changed by removing leave children */
          ESP_LOGI (TAG, "Mesh ROUTING_TABLE_REMOVE");
          break;
-      case MESH_EVENT_LAYER_CHANGE:       /**< layer changes over the mesh network */
+      case MESH_EVENT_LAYER_CHANGE:      /**< layer changes over the mesh network */
          ESP_LOGI (TAG, "Mesh LAYER_CHANGE");
          break;
-      case MESH_EVENT_TODS_STATE:         /**< state represents whether the root is able to access external IP network.
+      case MESH_EVENT_TODS_STATE:        /**< state represents whether the root is able to access external IP network.
                                                This state is a manual event that needs to be triggered with esp_mesh_post_toDS_state(). */
          ESP_LOGI (TAG, "Mesh TODS_STATE");
          break;
-      case MESH_EVENT_VOTE_STARTED:       /**< the process of voting a new root is started either by children or by the root */
+      case MESH_EVENT_VOTE_STARTED:      /**< the process of voting a new root is started either by children or by the root */
          ESP_LOGI (TAG, "Mesh VOTE_STARTED");
          break;
-      case MESH_EVENT_VOTE_STOPPED:       /**< the process of voting a new root is stopped */
+      case MESH_EVENT_VOTE_STOPPED:      /**< the process of voting a new root is stopped */
          ESP_LOGI (TAG, "Mesh VOTE_STOPPED");
          break;
-      case MESH_EVENT_ROOT_SWITCH_REQ:    /**< root switch request sent from a new voted root candidate */
+      case MESH_EVENT_ROOT_SWITCH_REQ:   /**< root switch request sent from a new voted root candidate */
          ESP_LOGI (TAG, "Mesh ROOT_SWITCH_REQ");
          break;
-      case MESH_EVENT_ROOT_SWITCH_ACK:    /**< root switch acknowledgment responds the above request sent from current root */
+      case MESH_EVENT_ROOT_SWITCH_ACK:   /**< root switch acknowledgment responds the above request sent from current root */
          ESP_LOGI (TAG, "Mesh ROOT_SWITCH_ACK");
          break;
-      case MESH_EVENT_ROOT_ASKED_YIELD:   /**< the root is asked yield by a more powerful existing root. If self organized is disabled
+      case MESH_EVENT_ROOT_ASKED_YIELD:  /**< the root is asked yield by a more powerful existing root. If self organized is disabled
                                                and this device is specified to be a root by users, users should set a new parent
                                                for this device. if self organized is enabled, this device will find a new parent
                                                by itself, users could ignore this event. */
          ESP_LOGI (TAG, "Mesh ROOT_ASKED_YIELD");
          break;
-      case MESH_EVENT_ROOT_FIXED:         /**< when devices join a network, if the setting of Fixed Root for one device is different
+      case MESH_EVENT_ROOT_FIXED:        /**< when devices join a network, if the setting of Fixed Root for one device is different
                                                from that of its parent, the device will update the setting the same as its parent's.
                                                Fixed Root Setting of each device is variable as that setting changes of the root. */
          ESP_LOGI (TAG, "Mesh ROOT_FIXED");
          break;
-      case MESH_EVENT_SCAN_DONE:          /**< if self-organized networking is disabled, user can call esp_wifi_scan_start() to trigger
+      case MESH_EVENT_SCAN_DONE:         /**< if self-organized networking is disabled, user can call esp_wifi_scan_start() to trigger
                                                this event, and add the corresponding scan done handler in this event. */
          ESP_LOGI (TAG, "Mesh SCAN_DONE");
          break;
-      case MESH_EVENT_NETWORK_STATE:      /**< network state, such as whether current mesh network has a root. */
+      case MESH_EVENT_NETWORK_STATE:     /**< network state, such as whether current mesh network has a root. */
          ESP_LOGI (TAG, "Mesh NETWORK_STATE");
          break;
-      case MESH_EVENT_STOP_RECONNECTION:  /**< the root stops reconnecting to the router and non-root devices stop reconnecting to their parents. */
+      case MESH_EVENT_STOP_RECONNECTION: /**< the root stops reconnecting to the router and non-root devices stop reconnecting to their parents. */
          ESP_LOGI (TAG, "Mesh STOP_RECONNECTION");
          break;
-      case MESH_EVENT_FIND_NETWORK:       /**< when the channel field in mesh configuration is set to zero, mesh stack will perform a
+      case MESH_EVENT_FIND_NETWORK:      /**< when the channel field in mesh configuration is set to zero, mesh stack will perform a
                                                full channel scan to find a mesh network that can join, and return the channel value
                                                after finding it. */
          ESP_LOGI (TAG, "Mesh FIND_NETWORK");
          break;
-      case MESH_EVENT_ROUTER_SWITCH:      /**< if users specify BSSID of the router in mesh configuration, when the root connects to another
+      case MESH_EVENT_ROUTER_SWITCH:     /**< if users specify BSSID of the router in mesh configuration, when the root connects to another
                                                router with the same SSID, this event will be posted and the new router information is attached. */
          ESP_LOGI (TAG, "Mesh ROUTER_SWITCH");
          break;
-      case MESH_EVENT_PS_PARENT_DUTY:     /**< parent duty */
+      case MESH_EVENT_PS_PARENT_DUTY:    /**< parent duty */
          ESP_LOGI (TAG, "Mesh PS_PARENT_DUTY");
          break;
-      case MESH_EVENT_PS_CHILD_DUTY:      /**< child duty */
+      case MESH_EVENT_PS_CHILD_DUTY:     /**< child duty */
          ESP_LOGI (TAG, "Mesh PS_CHILD_DUTY");
          break;
-      case MESH_EVENT_PS_DEVICE_DUTY:     /**< device duty */
+      case MESH_EVENT_PS_DEVICE_DUTY:    /**< device duty */
          ESP_LOGI (TAG, "Mesh PS_DEVICE_DUTY");
          break;
       default:
@@ -1870,7 +1871,7 @@ task (void *pvParameters)
             {                   // Link down, do regular connect attempts
                wifi_mode_t mode = 0;
                esp_wifi_get_mode (&mode);
-               if ((!(now % 10) && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA // Slower when APSTA
+               if ((!(now % 10) && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA    // Slower when APSTA
 #ifdef	CONFIG_REVK_MESH
                    || meshroot
 #endif
@@ -1878,7 +1879,6 @@ task (void *pvParameters)
                {
 #ifdef	CONFIG_REVK_MESH
                   ESP_LOGE (TAG, "Connect %s", meshroot ? wifissid : "mesh");
-                  //esp_mesh_connect ();
 #else
                   xEventGroupClearBits (revk_group, GROUP_OFFLINE);
                   ESP_LOGE (TAG, "Connect %s", wifissid);
