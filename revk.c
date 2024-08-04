@@ -1880,10 +1880,10 @@ task (void *pvParameters)
 #ifdef	CONFIG_REVK_MESH
                   ESP_LOGE (TAG, "Connect %s", meshroot ? wifissid : "mesh");
 #else
-                  xEventGroupClearBits (revk_group, GROUP_OFFLINE);
                   ESP_LOGE (TAG, "Connect %s", wifissid);
-                  esp_wifi_connect ();
 #endif
+                  xEventGroupClearBits (revk_group, GROUP_OFFLINE);
+                  esp_wifi_connect ();
                }
             }
 #endif
