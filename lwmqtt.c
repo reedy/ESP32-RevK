@@ -497,11 +497,7 @@ lwmqtt_loop (lwmqtt_t handle)
             uint8_t b[] = { 0xC0, 0x00 };       // Ping
             xSemaphoreTake (handle->mutex, portMAX_DELAY);
             if (hwrite (handle, b, sizeof (b)) == sizeof (b))
-            {
                handle->ka = uptime () + handle->keepalive;      // Client KA refresh
-               ESP_LOGI (TAG, "KA");
-            } else
-               ESP_LOGE (TAG, "KA cannot send");
             xSemaphoreGive (handle->mutex);
          }
          if (!handle->tls || esp_tls_get_bytes_avail (handle->tls) <= 0)
