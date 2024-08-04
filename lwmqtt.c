@@ -469,6 +469,7 @@ lwmqtt_loop (lwmqtt_t handle)
    unsigned char *buf = 0;
    int buflen = 0;
    int pos = 0;
+   uint32_t kacheck = 60;
    handle->ka = uptime () + (handle->server ? 5 : handle->keepalive);   // Server does not know KA initially
    while (handle->running)
    {                            // Loop handling messages received, and timeouts
@@ -499,6 +500,11 @@ lwmqtt_loop (lwmqtt_t handle)
             if (hwrite (handle, b, sizeof (b)) == sizeof (b))
                handle->ka = uptime () + handle->keepalive;      // Client KA refresh
             xSemaphoreGive (handle->mutex);
+            kacheck = uptime () + handle->keepalive / 2;        // Expect a reply promptly
+         } else if (kacheck && kacheck < uptime ())
+         {                      // only set for client anyway
+            ESP_LOGE (TAG, "KA fail");
+            break;
          }
          if (!handle->tls || esp_tls_get_bytes_avail (handle->tls) <= 0)
          {                      // Wait for data to arrive
@@ -541,6 +547,7 @@ lwmqtt_loop (lwmqtt_t handle)
          pos += got;
          continue;
       }
+      kacheck = 0;              // We got something (does not have to be pingresp)
       if (handle->server)
          handle->ka = uptime () + handle->keepalive * 3 / 2;    // timeout for client resent on message received
       unsigned char *p = buf + 1,
@@ -658,7 +665,7 @@ lwmqtt_loop (lwmqtt_t handle)
          break;
       case 12:                 // ping (no action as resets ka anyway)
          break;
-      case 13:                 // pingresp - no action - though we could use lack of reply to indicate broken connection I guess
+      case 13:                 // pingresp
          break;
 #ifdef CONFIG_REVK_MQTT_SERVER
       case 14:                 // disconnect
