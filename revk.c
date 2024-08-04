@@ -1870,19 +1870,20 @@ task (void *pvParameters)
             {                   // Link down, do regular connect attempts
                wifi_mode_t mode = 0;
                esp_wifi_get_mode (&mode);
-               if ((!(now % 10) && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA
+               if ((!(now % 10) && mode == WIFI_MODE_APSTA) || mode == WIFI_MODE_STA // Slower when APSTA
 #ifdef	CONFIG_REVK_MESH
                    || meshroot
 #endif
                   )
                {
+                  xEventGroupClearBits (revk_group, GROUP_OFFLINE);
 #ifdef	CONFIG_REVK_MESH
                   ESP_LOGE (TAG, "Connect %s", meshroot ? wifissid : "mesh");
+                  esp_wifi_connect ();
 #else
                   ESP_LOGE (TAG, "Connect %s", wifissid);
+                  esp_meshi_connect ();
 #endif
-                  xEventGroupClearBits (revk_group, GROUP_OFFLINE);
-                  esp_wifi_connect ();  // Slowed in APSTA to allow AP mode to work
                }
             }
 #endif
