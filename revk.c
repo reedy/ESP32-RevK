@@ -870,7 +870,7 @@ mesh_init (void)
       REVK_ERR_CHECK (esp_mesh_disable_ps ());
       if (meshmax == 1 || meshroot)
          esp_mesh_set_type (MESH_ROOT); // We are forcing root
-      esp_mesh_set_self_organized (true, false);
+      esp_mesh_set_self_organized (true, true);
       revk_task ("mesh", mesh_task, NULL, 5);
    }
    REVK_ERR_CHECK (esp_mesh_start ());
@@ -1876,11 +1876,11 @@ task (void *pvParameters)
 #endif
                   )
                {
-                  xEventGroupClearBits (revk_group, GROUP_OFFLINE);
 #ifdef	CONFIG_REVK_MESH
                   ESP_LOGE (TAG, "Connect %s", meshroot ? wifissid : "mesh");
-                  esp_mesh_connect ();
+                  //esp_mesh_connect ();
 #else
+                  xEventGroupClearBits (revk_group, GROUP_OFFLINE);
                   ESP_LOGE (TAG, "Connect %s", wifissid);
                   esp_wifi_connect ();
 #endif
