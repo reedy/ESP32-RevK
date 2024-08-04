@@ -489,7 +489,7 @@ lwmqtt_loop (lwmqtt_t handle)
          {
             if (handle->server)
                break;           // timeout
-            // client, so send ping
+            // client, so send ping - do so regularly regardless as we want pingresp regularly to detect down as a client.
             uint8_t b[] = { 0xC0, 0x00 };       // Ping
             xSemaphoreTake (handle->mutex, portMAX_DELAY);
             hwrite (handle, b, sizeof (b));
