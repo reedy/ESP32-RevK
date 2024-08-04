@@ -1331,6 +1331,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       case WIFI_EVENT_AP_STOP:
          ESP_LOGI (TAG, "WiFi AP Stop");
+         xEventGroupSetBits (revk_group, GROUP_OFFLINE);
          break;
       case WIFI_EVENT_STA_CONNECTED:
          ESP_LOGI (TAG, "WiFi STA Connected");
@@ -1339,6 +1340,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "WiFi STA Disconnect");
          if (!link_down)
             link_down = uptime ();
+         xEventGroupSetBits (revk_group, GROUP_OFFLINE);
          break;
       case WIFI_EVENT_AP_STACONNECTED:
          ESP_LOGI (TAG, "WiFi AP STA Connect");
