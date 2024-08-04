@@ -46,8 +46,8 @@ The `app_callback` is also called for a number of internal functions.
 
 |suffix|Meaning|
 |------|-------|
-|`connect`|MQTT connected|
-|`disconnect`|MQTT disconnected|
+|`connect`|MQTT connected (JSON object with `client` number and `hostname`)|
+|`disconnect`|MQTT disconnected (JSON object with `client` number)|
 |`ap`|AP mode start|
 |`wifi`|WiFi client connected|
 |`ipv6`|IPv6 assigned|
