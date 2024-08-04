@@ -1376,9 +1376,11 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
       switch (event_id)
       {
       case IP_EVENT_STA_LOST_IP:
+#ifndef CONFIG_REVK_MESH
          if (!link_down)
             link_down = uptime ();      // Applies for non mesh, and mesh
          gotip = 0;
+#endif
          ESP_LOGI (TAG, "Lost IP");
          break;
       case IP_EVENT_STA_GOT_IP:
