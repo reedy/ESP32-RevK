@@ -870,7 +870,7 @@ mesh_init (void)
       REVK_ERR_CHECK (esp_mesh_disable_ps ());
       if (meshmax == 1 || meshroot)
          esp_mesh_set_type (MESH_ROOT); // We are forcing root
-      esp_mesh_set_self_organized (1, 1);
+      esp_mesh_set_self_organized (true, false);
       revk_task ("mesh", mesh_task, NULL, 5);
    }
    REVK_ERR_CHECK (esp_mesh_start ());
