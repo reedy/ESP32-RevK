@@ -1495,15 +1495,6 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             b.mesh_root_known = 1;
          }
          break;
-#if 0
-      case MESH_EVENT_TODS_STATE:
-         {
-            mesh_event_toDS_state_t *toDs_state = (mesh_event_toDS_state_t *) event_data;
-            ESP_LOGI (TAG, "TODS %d", *toDs_state);
-            b.mesh_root_known = 1;
-         }
-         break;
-#endif
       case MESH_EVENT_STARTED:              /**< mesh is started */
          ESP_LOGI (TAG, "Mesh STARTED");
          break;
