@@ -1169,7 +1169,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       up_next = 0;
       if (app_callback)
       {
-         jo_t j = jo_create_object ();
+         jo_t j = jo_object_alloc ();
          jo_int (j, "client", client);
          jo_string (j, "hostname", (char *) payload);
          jo_rewind (j);
@@ -1185,7 +1185,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
          ESP_LOGI (TAG, "MQTT%d disconnected", client);
          if (app_callback)
          {
-            jo_t j = jo_create_object ();
+            jo_t j = jo_object_alloc ();
             jo_int (j, "client", client);
             jo_rewind (j);
             app_callback (client, topiccommand, NULL, "disconnect", j);
