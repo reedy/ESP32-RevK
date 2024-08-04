@@ -570,7 +570,7 @@ lwmqtt_loop (lwmqtt_t handle)
             handle->failed = (p[1] > 7 ? 7 : p[1]);
          } else
          {
-            ESP_LOGI (TAG, "Connected %s:%d", handle->hostname, handle->port);
+            ESP_LOGI (TAG, "Connect ack  %s:%d", handle->hostname, handle->port);
             handle->failed = 0;
             handle->backoff = 0;
             if (handle->callback)
