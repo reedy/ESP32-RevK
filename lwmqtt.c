@@ -582,10 +582,10 @@ lwmqtt_loop (lwmqtt_t handle)
             ESP_LOGI (TAG, "Connect ack  %s:%d", handle->hostname, handle->port);
             handle->failed = 0;
             handle->backoff = 0;
-            if (handle->callback)
-               handle->callback (handle->arg, NULL, strlen (handle->hostname), (void *) handle->hostname);
             handle->connected = 1;
             handle->connecttime = uptime ();
+            if (handle->callback)
+               handle->callback (handle->arg, NULL, strlen (handle->hostname), (void *) handle->hostname);
          }
          break;
       case 3:                  // pub
