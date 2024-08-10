@@ -1331,9 +1331,12 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
       case WIFI_EVENT_AP_PROBEREQRECVED:
          ESP_LOGE (TAG, "WiFi AP PROBEREQRECVED");
          break;
+#ifndef CONFIG_IDF_TARGET_ESP8266
+      // There's no such an event on 8266
       case WIFI_EVENT_HOME_CHANNEL_CHANGE:
          ESP_LOGI (TAG, "WiFi HOME_CHANNEL_CHANGE");
          break;
+#endif
 #else
 #ifdef	CONFIG_REVK_MESH
       case WIFI_EVENT_AP_START:
@@ -1918,9 +1921,9 @@ task (void *pvParameters)
 #endif
             {
 #ifdef	CONFIG_REVK_MQTT
-               sprintf (mq, " MQTT %lu", lwmqtt_connected (mqtt_client[0]));
+               sprintf (mq, " MQTT %u", lwmqtt_connected (mqtt_client[0]));
 #if	    CONFIG_REVK_MQTT_CLIENTS>1
-               sprintf (mq + strlen (mq), "/%lu", lwmqtt_connected (mqtt_client[1]));
+               sprintf (mq + strlen (mq), "/%u", lwmqtt_connected (mqtt_client[1]));
 #endif
 #endif
             }
