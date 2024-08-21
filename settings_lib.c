@@ -977,11 +977,13 @@ revk_settings_load (const char *tag, const char *appname)
                int l = strlen (info.key);
                int index = 0;
                revk_settings_t *s;
-               for (s = revk_settings; s->len && !(s->revk == revk && !s->array && s->len == l && !memcmp (s->name, info.key, l));
-                    s++);
+               for (s = revk_settings; s->len && !(s->revk == revk && s->len == l && !memcmp (s->name, info.key, l)); s++);
                if (s->len)
+               {
                   err = nvs_get (s, info.key, 0);       // Exact match
-               else
+                  if (s->array)
+                     addzap (s, 0);     // Non array as first entry in array
+               } else
                {
                   for (s = revk_settings;
                        s->len && !(s->revk == revk && s->array && s->len + 1 == l && !memcmp (s->name, info.key, s->len)
