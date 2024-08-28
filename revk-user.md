@@ -159,4 +159,6 @@ The status LED is defined by `blink`, which is an array of GPIO. It can be
 - Array of three different GPIO for Red, Green, Blue LEDs
 - First and second entry being the *same* GPIO meaning use LED STRIP (if included in managed components).
 
+At startup (until 2 seconds) the GREEN LED is on
+
 There are some defaults, but the flash speed and sequence of colours can be defined by the application. Not all applications have this setting.

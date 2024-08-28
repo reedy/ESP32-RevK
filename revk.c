@@ -1520,7 +1520,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             b.mesh_root_known = 1;
          }
          break;
-      case MESH_EVENT_STARTED:   /**< mesh is started */
+      case MESH_EVENT_STARTED:  /**< mesh is started */
          ESP_LOGI (TAG, "Mesh STARTED");
          break;
       case MESH_EVENT_CHANNEL_SWITCH:
@@ -1547,7 +1547,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                                    /**< layer changes over the mesh network */
          ESP_LOGI (TAG, "Mesh LAYER_CHANGE");
          break;
-      case MESH_EVENT_TODS_STATE:/**< state represents whether the root is able to access external IP network.
+      case MESH_EVENT_TODS_STATE:
+                                 /**< state represents whether the root is able to access external IP network.
                                                This state is a manual event that needs to be triggered with esp_mesh_post_toDS_state(). */
          ESP_LOGI (TAG, "Mesh TODS_STATE");
          break;
@@ -1574,12 +1575,13 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                                                by itself, users could ignore this event. */
          ESP_LOGI (TAG, "Mesh ROOT_ASKED_YIELD");
          break;
-      case MESH_EVENT_ROOT_FIXED:/**< when devices join a network, if the setting of Fixed Root for one device is different
+      case MESH_EVENT_ROOT_FIXED:
+                                 /**< when devices join a network, if the setting of Fixed Root for one device is different
                                                from that of its parent, the device will update the setting the same as its parent's.
                                                Fixed Root Setting of each device is variable as that setting changes of the root. */
          ESP_LOGI (TAG, "Mesh ROOT_FIXED");
          break;
-      case MESH_EVENT_SCAN_DONE: /**< if self-organized networking is disabled, user can call esp_wifi_scan_start() to trigger
+      case MESH_EVENT_SCAN_DONE:/**< if self-organized networking is disabled, user can call esp_wifi_scan_start() to trigger
                                                this event, and add the corresponding scan done handler in this event. */
          ESP_LOGI (TAG, "Mesh SCAN_DONE");
          break;
@@ -1718,7 +1720,7 @@ uint32_t
 revk_blinker (void)
 {                               // LED blinking controls, in style of revk_rgb() but bit 30 is set if not black, and bit 31 is set for blink cycle
    if (uptime () < 2)
-      return 0x00FF00;          // Green startup
+      return 0x4C00FF00;        // Green startup
    static uint32_t rgb = 0;     // Current colour (2 bits per)
    static uint8_t tick = 255;   // Blink cycle counter
    uint8_t on = blink_on,       // Current on/off times
