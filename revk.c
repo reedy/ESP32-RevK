@@ -1332,7 +1332,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGE (TAG, "WiFi AP PROBEREQRECVED");
          break;
 #ifndef CONFIG_IDF_TARGET_ESP8266
-      // There's no such an event on 8266
+         // There's no such an event on 8266
       case WIFI_EVENT_HOME_CHANNEL_CHANGE:
          ESP_LOGI (TAG, "WiFi HOME_CHANNEL_CHANGE");
          break;
@@ -1520,7 +1520,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             b.mesh_root_known = 1;
          }
          break;
-      case MESH_EVENT_STARTED:     /**< mesh is started */
+      case MESH_EVENT_STARTED:    /**< mesh is started */
          ESP_LOGI (TAG, "Mesh STARTED");
          break;
       case MESH_EVENT_CHANNEL_SWITCH:
@@ -1543,17 +1543,20 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                                            /**< routing table is changed by removing leave children */
          ESP_LOGI (TAG, "Mesh ROUTING_TABLE_REMOVE");
          break;
-      case MESH_EVENT_LAYER_CHANGE:/**< layer changes over the mesh network */
+      case MESH_EVENT_LAYER_CHANGE:
+                                   /**< layer changes over the mesh network */
          ESP_LOGI (TAG, "Mesh LAYER_CHANGE");
          break;
-      case MESH_EVENT_TODS_STATE:  /**< state represents whether the root is able to access external IP network.
+      case MESH_EVENT_TODS_STATE: /**< state represents whether the root is able to access external IP network.
                                                This state is a manual event that needs to be triggered with esp_mesh_post_toDS_state(). */
          ESP_LOGI (TAG, "Mesh TODS_STATE");
          break;
-      case MESH_EVENT_VOTE_STARTED:/**< the process of voting a new root is started either by children or by the root */
+      case MESH_EVENT_VOTE_STARTED:
+                                   /**< the process of voting a new root is started either by children or by the root */
          ESP_LOGI (TAG, "Mesh VOTE_STARTED");
          break;
-      case MESH_EVENT_VOTE_STOPPED:/**< the process of voting a new root is stopped */
+      case MESH_EVENT_VOTE_STOPPED:
+                                   /**< the process of voting a new root is stopped */
          ESP_LOGI (TAG, "Mesh VOTE_STOPPED");
          break;
       case MESH_EVENT_ROOT_SWITCH_REQ:
@@ -1571,12 +1574,12 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                                                by itself, users could ignore this event. */
          ESP_LOGI (TAG, "Mesh ROOT_ASKED_YIELD");
          break;
-      case MESH_EVENT_ROOT_FIXED:  /**< when devices join a network, if the setting of Fixed Root for one device is different
+      case MESH_EVENT_ROOT_FIXED: /**< when devices join a network, if the setting of Fixed Root for one device is different
                                                from that of its parent, the device will update the setting the same as its parent's.
                                                Fixed Root Setting of each device is variable as that setting changes of the root. */
          ESP_LOGI (TAG, "Mesh ROOT_FIXED");
          break;
-      case MESH_EVENT_SCAN_DONE:   /**< if self-organized networking is disabled, user can call esp_wifi_scan_start() to trigger
+      case MESH_EVENT_SCAN_DONE:  /**< if self-organized networking is disabled, user can call esp_wifi_scan_start() to trigger
                                                this event, and add the corresponding scan done handler in this event. */
          ESP_LOGI (TAG, "Mesh SCAN_DONE");
          break;
@@ -1588,7 +1591,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                                         /**< the root stops reconnecting to the router and non-root devices stop reconnecting to their parents. */
          ESP_LOGI (TAG, "Mesh STOP_RECONNECTION");
          break;
-      case MESH_EVENT_FIND_NETWORK:/**< when the channel field in mesh configuration is set to zero, mesh stack will perform a
+      case MESH_EVENT_FIND_NETWORK:
+                                   /**< when the channel field in mesh configuration is set to zero, mesh stack will perform a
                                                full channel scan to find a mesh network that can join, and return the channel value
                                                after finding it. */
          ESP_LOGI (TAG, "Mesh FIND_NETWORK");
@@ -1756,7 +1760,7 @@ revk_blinker (void)
 #ifdef	CONFIG_REVK_BLINK_SUPPORT
 void
 revk_blink_init (void)
-{
+{                               // LED blinking initialisation
 #ifdef CONFIG_REVK_LED_STRIP
    if (blink[0].set && blink[1].set && blink[0].num == blink[1].num)
    {
@@ -1796,13 +1800,14 @@ revk_blink_init (void)
             revk_gpio_output (blink[b], 0);
          }
       }
+   revk_blink_do ();
 }
 #endif
 
 #ifdef  CONFIG_REVK_BLINK_SUPPORT
 void
 revk_blink_do (void)
-{
+{                               // Drive LED
    if (blink[0].set)
    {
       uint32_t rgb = revk_blinker ();
