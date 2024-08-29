@@ -937,6 +937,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
 void
 revk_settings_load (const char *tag, const char *appname)
 {                               // Scan NVS to load values to settings
+   revk_setting_bits_t nvs_force = { 0 };
    for (revk_settings_t * s = revk_settings; s->len; s++)
       load_value (s, s->def, -1, NULL);
    // Scan
@@ -983,6 +984,7 @@ revk_settings_load (const char *tag, const char *appname)
                   err = nvs_get (s, info.key, 0);       // Exact match
                   if (s->array)
                      addzap (s, 0);     // Non array as first entry in array
+                  nvs_force[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));       // Save
                } else
                {
                   for (s = revk_settings;
@@ -1010,8 +1012,10 @@ revk_settings_load (const char *tag, const char *appname)
                         for (s = revk_settings;
                              s->len && !(s->revk == revk && s->old && !s->array && !strcmp (s->old, info.key)); s++);
                         if (s->len)
+                        {
                            err = nvs_get (s, info.key, 0);      // Exact match (old)
-                        else
+                           nvs_force[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));      // Save
+                        } else
 #endif
                         {
                            addzap (NULL, 0);    // Not doing old array or old style array - can add if needed
@@ -1057,7 +1061,8 @@ revk_settings_load (const char *tag, const char *appname)
       }
    }
    for (revk_settings_t * s = revk_settings; s->len; s++)
-      if (s->fix && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+      if ((s->fix && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+          || (nvs_force[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
       {                         // Fix, save to flash
          if (!s->array)
             nvs_put (s, 0, NULL);
