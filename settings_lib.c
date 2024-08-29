@@ -1004,6 +1004,7 @@ revk_settings_load (const char *tag, const char *appname)
                         {
                            err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
                            addzap (s, index);
+                           nvs_force[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));      // Save
                         } else
                            addzap (NULL, 0);
                      } else
