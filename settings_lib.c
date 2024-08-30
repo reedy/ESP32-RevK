@@ -937,7 +937,6 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
 void
 revk_settings_load (const char *tag, const char *appname)
 {                               // Scan NVS to load values to settings
-   revk_setting_bits_t nvs_force = { 0 };
    for (revk_settings_t * s = revk_settings; s->len; s++)
       load_value (s, s->def, -1, NULL);
    // Scan
@@ -964,7 +963,7 @@ revk_settings_load (const char *tag, const char *appname)
             {
                nvs_entry_info_t info = { 0 };
                void addzap (revk_settings_t * s, int index)
-               {
+               {                // Add record to delete, and record the replacement that has to be saved (s) if required
                   struct zap_s *z = malloc (sizeof (*z) + strlen (info.key) + 1);
                   strcpy ((char *) z->tag, info.key);
                   z->next = zap;
@@ -984,7 +983,6 @@ revk_settings_load (const char *tag, const char *appname)
                   err = nvs_get (s, info.key, 0);       // Exact match
                   if (s->array)
                      addzap (s, 0);     // Non array as first entry in array
-                  nvs_force[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));       // Save
                } else
                {
                   for (s = revk_settings;
@@ -1004,7 +1002,6 @@ revk_settings_load (const char *tag, const char *appname)
                         {
                            err = nvs_get (s, info.key, atoi (info.key + s->len) - 1);
                            addzap (s, index);
-                           nvs_force[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));      // Save
                         } else
                            addzap (NULL, 0);
                      } else
@@ -1015,7 +1012,6 @@ revk_settings_load (const char *tag, const char *appname)
                         if (s->len)
                         {
                            err = nvs_get (s, info.key, 0);      // Exact match (old)
-                           nvs_force[(s - revk_settings) / 8] |= (1 << ((s - revk_settings) & 7));      // Save
                         } else
 #endif
                         {
@@ -1062,8 +1058,7 @@ revk_settings_load (const char *tag, const char *appname)
       }
    }
    for (revk_settings_t * s = revk_settings; s->len; s++)
-      if ((s->fix && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
-          || (nvs_force[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
+      if (s->fix && !(nvs_found[(s - revk_settings) / 8] & (1 << ((s - revk_settings) & 7))))
       {                         // Fix, save to flash
          if (!s->array)
             nvs_put (s, 0, NULL);
