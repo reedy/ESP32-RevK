@@ -1520,7 +1520,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             b.mesh_root_known = 1;
          }
          break;
-      case MESH_EVENT_STARTED:/**< mesh is started */
+      case MESH_EVENT_STARTED:
+                              /**< mesh is started */
          ESP_LOGI (TAG, "Mesh STARTED");
          break;
       case MESH_EVENT_CHANNEL_SWITCH:
@@ -2630,6 +2631,8 @@ const char *
 revk_mqtt_send_clients (const char *prefix, int retain, const char *suffix, jo_t * jp, uint8_t clients)
 {
    const char *err = NULL;
+   if (b.disablewifi)
+      return err;
    if (!jp)
       err = revk_mqtt_send_payload_clients (prefix, retain, suffix, NULL, clients);
    else
