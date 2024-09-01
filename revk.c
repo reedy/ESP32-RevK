@@ -1520,7 +1520,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             b.mesh_root_known = 1;
          }
          break;
-      case MESH_EVENT_STARTED:  /**< mesh is started */
+      case MESH_EVENT_STARTED: /**< mesh is started */
          ESP_LOGI (TAG, "Mesh STARTED");
          break;
       case MESH_EVENT_CHANNEL_SWITCH:
@@ -1581,7 +1581,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                                                Fixed Root Setting of each device is variable as that setting changes of the root. */
          ESP_LOGI (TAG, "Mesh ROOT_FIXED");
          break;
-      case MESH_EVENT_SCAN_DONE:/**< if self-organized networking is disabled, user can call esp_wifi_scan_start() to trigger
+      case MESH_EVENT_SCAN_DONE:
+                                /**< if self-organized networking is disabled, user can call esp_wifi_scan_start() to trigger
                                                this event, and add the corresponding scan done handler in this event. */
          ESP_LOGI (TAG, "Mesh SCAN_DONE");
          break;
@@ -3098,10 +3099,15 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
                      field, field, field, *place ? place : "JSON", revk_web_safe (&qs, value), comment);
    else
 #endif
-      // Text
+      // Text (fixed)
+   if (s->size)
       revk_web_send (req,
-                     "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
-                     field, field, field, revk_web_safe (&qs, value), place, comment);
+                     "<td nowrap><input maxlength=%d size=%d id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
+                     s->size - 1, s->size < 20 ? s->size : 20, field, field, field, revk_web_safe (&qs, value), place, comment);
+   // Text
+   revk_web_send (req,
+                  "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
+                  field, field, field, revk_web_safe (&qs, value), place, comment);
    // Simple text input
    free (qs);
    free (value);
