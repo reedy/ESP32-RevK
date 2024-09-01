@@ -2054,23 +2054,26 @@ task (void *pvParameters)
             }
          }
 #endif
+         if (!b.disablewifi)
+         {
 #ifdef  CONFIG_REVK_MESH
-         if (esp_mesh_is_root ())
-         {                      // Root reset is if wifireset and alone, or mesh reset even if not alone
-            if ((wifireset && revk_link_down () > wifireset && esp_mesh_get_total_node_num () <= 1)
-                || (meshreset && revk_link_down () > meshreset))
-               revk_restart (0, "Mesh sucks");
-         } else
-         {                      // Leaf reset if only if link down (meaning alone)
-            if (wifireset && revk_link_down () > wifireset)
-               revk_restart (0, "Mesh sucks");
-         }
+            if (esp_mesh_is_root ())
+            {                   // Root reset is if wifireset and alone, or mesh reset even if not alone
+               if ((wifireset && revk_link_down () > wifireset && esp_mesh_get_total_node_num () <= 1)
+                   || (meshreset && revk_link_down () > meshreset))
+                  revk_restart (0, "Mesh sucks");
+            } else
+            {                   // Leaf reset if only if link down (meaning alone)
+               if (wifireset && revk_link_down () > wifireset)
+                  revk_restart (0, "Mesh sucks");
+            }
 #else
 #ifdef	CONFIG_REVK_WIFI
-         if (wifireset && revk_link_down () > wifireset)
-            revk_restart (0, "Offline too long");
+            if (wifireset && revk_link_down () > wifireset)
+               revk_restart (0, "Offline too long");
 #endif
 #endif
+         }
 #ifdef	CONFIG_REVK_APMODE
          if (!b.disableap && apgpio.set && (gpio_get_level (apgpio.num) ^ apgpio.invert))
          {
