@@ -275,6 +275,7 @@ menu "RevK"
 	config REVK_MQTT_CLIENTS
 	int "Number of MQTT clients"
 	default 1
+	depends on REVK_MQTT
         help
 		Number of MQTT clients
 
@@ -319,6 +320,13 @@ menu "RevK"
 	depends on REVK_MQTT
 	help
 		This defines the factory reset MQTT packet size
+
+	config REVK_HALIB
+	bool "Include Home Assistant library"
+	default y
+	depends on REVK_MQTT
+        help
+		Include Home Assistant MQTT config library
 
 	config REVK_OTAHOST
 	string "Default OTA host"
