@@ -464,6 +464,7 @@ main (int argc, const char *argv[])
                " uint8_t fix:1;\n"      //
                " uint8_t set:1;\n"      //
                " uint8_t hex:1;\n"      //
+               " uint8_t base32:1;\n"   //
                " uint8_t base64:1;\n"   //
                " uint8_t secret:1;\n"   //
                " uint8_t dq:1;\n"       //
@@ -606,6 +607,8 @@ main (int argc, const char *argv[])
                   errx (1, ".flags on no numeric for %s in %s", d->name, d->type);
                if (strstr (d->attributes, ".base64=1"))
                   errx (1, ".base64 on no numeric for %s in %s", d->name, d->type);
+               if (strstr (d->attributes, ".base32=1"))
+                  errx (1, ".base32 on no numeric for %s in %s", d->name, d->type);
                if (strstr (d->attributes, ".decimal=") && strstr (d->attributes, ".hex=1"))
                   errx (1, ".hex and .decimal on no numeric for %s in %s", d->name, d->type);
             }

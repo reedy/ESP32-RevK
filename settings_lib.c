@@ -754,7 +754,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       if (d == e)
          d = e = NULL;
    }
-   if (d < e && (s->hex || s->base64)
+   if (d < e && (s->hex || s->base32 || s->base64)
 #ifdef	REVK_SETTINGS_HAS_NUMERIC
 #ifdef  REVK_SETTINGS_HAS_SIGNED
        && s->type != REVK_SETTINGS_SIGNED
@@ -768,15 +768,16 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
       jo_t j = jo_create_alloc ();
       jo_stringn (j, NULL, d, e - d);
       jo_rewind (j);
-      ssize_t len = jo_strncpyd (j, NULL, 0, s->base64 ? 6 : 4, s->base64 ? JO_BASE64 : JO_BASE16);
+      ssize_t len =
+         jo_strncpyd (j, NULL, 0, s->base64 ? 6 : s->base32 ? 5 : 4, s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16);
       if (len <= 0)
-         err = s->base64 ? "Bad base64" : "Bad hex";
+         err = s->base64 ? "Bad base64" : s->base32 ? "Bad base32" : "Bad hex";
       if (err)
          d = e = NULL;
       else
       {
          mem = mallocspi (len);
-         jo_strncpyd (j, mem, len, s->base64 ? 6 : 4, s->base64 ? JO_BASE64 : JO_BASE16);
+         jo_strncpyd (j, mem, len, s->base64 ? 6 : s->base32 ? 5 : 4, s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16);
          d = mem;
          e = mem + len;
       }
@@ -1232,6 +1233,8 @@ revk_setting_dump (int level)
          default:
             if (s->hex)
                jo_base16 (p, tag, data ? : "", len);
+            else if (s->base32)
+               jo_base32 (p, tag, data ? : "", len);
             else if (s->base64)
                jo_base64 (p, tag, data ? : "", len);
             else

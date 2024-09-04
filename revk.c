@@ -3052,14 +3052,48 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    char *value = revk_settings_text (s, index, &len);
    if (!value)
       value = strdup ("");
-   if (s->hex)
+   if (s->hex || s->base64)
    {
+      char alphabet = s->base64 ? JO_BASE64 : JO_BASE16;
+      uint8_t bits = s->base64 ? 6 : 4;
+      int dlen = (len * 8 + bits - 1) / bits + 1;
+      uint8_t *src = value;
+      uint8_t *new = malloc (dlen);
+      uint8_t *dst = new;
+      unsigned int i = 0,
+         b = 0,
+         v = 0;
+      while (i < len)
+      {
+         b += 8;
+         v = (v << 8) + ((uint8_t *) src)[i++];
+         while (b >= bits)
+         {
+            b -= bits;
+            *dst++ = alphabet[(v >> b) & ((1 << bits) - 1)];
+         }
+      }
+      if (b)
+      {                         // final bits
+         b += 8;
+         v <<= 8;
+         b -= bits;
+         *dst++ = alphabet[(v >> b) & ((1 << bits) - 1)];
+         while (b)
+         {                      // padding
+            while (b >= bits)
+            {
+               b -= bits;
+               *dst++ = '=';
+            }
+            if (b)
+               b += 8;
+         }
+      }
+      *dst = 0;
       free (value);
-      value = strdup ("HEX here");
-   } else if (s->base64)
-   {
-      free (value);
-      value = strdup ("BASE64 here");
+      value = new;
+      len = dlen;
    }
    revk_web_send (req, "<tr%s>", revk_settings_set (s) ? "" : " class=settingsdefault");
    if (tag)
