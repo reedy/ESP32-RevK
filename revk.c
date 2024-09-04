@@ -3054,12 +3054,12 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       value = strdup ("");
    if (s->hex || s->base32 || s->base64)
    {
-      char *alphabet = s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16;
+      const char *alphabet = s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16;
       uint8_t bits = s->base64 ? 6 : s->base32 ? 5 : 4;
       int dlen = (len * 8 + bits - 1) / bits + 1;
       uint8_t *src = value;
-      uint8_t *new = malloc (dlen);
-      uint8_t *dst = new;
+      char *new = malloc (dlen);
+      char *dst = new;
       unsigned int i = 0,
          b = 0,
          v = 0;
