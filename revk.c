@@ -3105,16 +3105,31 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
                      field, field, field, *place ? place : "JSON", revk_web_safe (&qs, value), comment);
    else
 #endif
-      // Text (fixed)
-   if (s->size)
+#ifdef  REVK_SETTINGS_HAS_BLOB
+   if (s->type == REVK_SETTINGS_BLOB && (s->base64 || s->hex))
       revk_web_send (req,
-                     "<td nowrap><input maxlength=%d size=%d id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
-                     s->size - 1, s->size < 20 ? s->size : 20, field, field, field, revk_web_safe (&qs, value), place, comment);
-   // Text
+                     "<td nowrap><textarea cols=40 rows=4 id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\">%s</textarea></td><td>%s</td></tr>",
+                     field, field, field, *place ? place : s->base64 ? "Base64" : "Hex", revk_web_safe (&qs, value), comment);
    else
-      revk_web_send (req,
-                     "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
-                     field, field, field, revk_web_safe (&qs, value), place, comment);
+#endif
+   if (s->type == REVK_SETTINGS_STRING || s->base64 || s->hex)
+   {
+      int w = s->size - 1;
+      if (s->hex)
+         w *= 2;
+      if (s->base64)
+         w = 0;
+      // Text (fixed)
+      if (w)
+         revk_web_send (req,
+                        "<td nowrap><input maxlength=%d size=%d id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
+                        w + 1, w < 20 ? w : 20, field, field, field, revk_web_safe (&qs, value), place, comment);
+      // Text (variable)
+      else
+         revk_web_send (req,
+                        "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\"></td><td>%s</td></tr>",
+                        field, field, field, revk_web_safe (&qs, value), place, comment);
+   }
    // Simple text input
    free (qs);
    free (value);
