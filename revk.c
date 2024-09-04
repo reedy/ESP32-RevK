@@ -3057,7 +3057,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       const char *alphabet = s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16;
       uint8_t bits = s->base64 ? 6 : s->base32 ? 5 : 4;
       uint32_t dlen = (len * 8 + bits - 1) / bits + 1;
-      dlen += (dlen / 40) + 1; // Line breaks
+      dlen += (dlen / 40) + 1;  // Line breaks
       uint32_t dptr = 0;
       uint8_t *src = (uint8_t *) value;
       char *dst = malloc (dlen);
@@ -3072,7 +3072,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
          {
             b -= bits;
             if (dptr && !(dptr % 40))
-               dst[dptr]++ = '\n';
+               dst[dptr++] = '\n';
             dst[dptr++] = alphabet[(v >> b) & ((1 << bits) - 1)];
          }
       }
@@ -3082,7 +3082,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
          v <<= 8;
          b -= bits;
          if (dptr && !(dptr % 40))
-            dst[dptr]++ = '\n';
+            dst[dptr++] = '\n';
          dst[dptr++] = alphabet[(v >> b) & ((1 << bits) - 1)];
          while (b)
          {                      // padding
