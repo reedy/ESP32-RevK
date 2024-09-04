@@ -3051,7 +3051,16 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    char *qs = NULL;
    char *value = revk_settings_text (s, index, &len);
    if (!value)
-      return;
+      value = strdup ("");
+   if (s->hex)
+   {
+      free (value);
+      value = strdup ("HEX here");
+   } else if (s->base64)
+   {
+      free (value);
+      value = strdup ("BASE64 here");
+   }
    revk_web_send (req, "<tr%s>", revk_settings_set (s) ? "" : " class=settingsdefault");
    if (tag)
       revk_web_send (req, "<td>%s</td>", tag);
