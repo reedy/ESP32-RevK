@@ -3057,7 +3057,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       const char *alphabet = s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16;
       uint8_t bits = s->base64 ? 6 : s->base32 ? 5 : 4;
       int dlen = (len * 8 + bits - 1) / bits + 1;
-      uint8_t *src = value;
+      uint8_t *src = (uint8_t *) value;
       char *new = malloc (dlen);
       char *dst = new;
       unsigned int i = 0,
