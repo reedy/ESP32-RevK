@@ -60,7 +60,7 @@ Note the basic syntax of the definition files are checked, and some invalid comb
 |`json`|A string `char*` internally, that is JSON in the settings|
 |`s`|String i.e. `char*`|
 |`c`*N*|String allowing up to *N* characters, null terminated in a `char [N+1]` array|
-|`o`*N*|Fixed octet array `unit8_t [N]`, typically used with `.hex=1` or `.base64=1`, data has to be full size|
+|`o`*N*|Fixed octet array `unit8_t [N]`, typically used with `.hex=1` or `.base32=1` or `.base64=1`, data has to be full size|
 |`u8`|`uint8_t`|
 |`u16`|`uint16_t`|
 |`u32`|`uint32_t`|
@@ -90,7 +90,7 @@ In many cases, in JSON, the GPIO is just a number, but if it would not be valid 
 
 The `blob` format is a structure with `.len` and `.data`.
 
-The `o` type allows a fixed block of binary data, usually with `.hex` or `.base64`.
+The `o` type allows a fixed block of binary data, usually with `.hex` or `.base32` or `.base64`.
 
 Note that numeric types allow `.hex` as well, but not with `.decimal`.
 
@@ -107,6 +107,7 @@ Additional attributes relate to each setting as follows:-
 |`.set`|The top bit of the value is set if the value is defined.|
 |`.flags`|This is a string that are characters which can be prefixed (and/or suffixed) on a numeric value and set in the top bits of the value (see below).|
 |`.hex`|The value should be hex encoded in JSON. Typically used with `o`, `blob` or even numeric values.|
+|`.base32`|The value should be base32 encoded in JSON. Typically used with `o`, or `blob`|
 |`.base64`|The value should be base64 encoded in JSON. Typically used with `o`, or `blob`|
 |`.decimal`|Used with numeric types this scales by specified number of digits. E.g. `.decimal=2` will show `123` as `1.23` in JSON. A `#define` is for the variable suffixed with `_scale` defining the scale, e.g. `100` for `.decimal=2`.|
 |`.secret`|Set if this is a secret and not output in settings JSON (or output as a dummy secret)|
