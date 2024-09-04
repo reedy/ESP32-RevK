@@ -26,8 +26,6 @@ bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname/
 #ifdef	CONFIG_REVK_BLINK_DEF
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif
-blob	client.key				.revk=1	.base64=1 .hide=1	// Client Key (OTA and MQTT TLS)
-blob	client.cert				.revk=1	.base64=1 .hide=1	// Client certificate (OTA and MQTT TLS)
 
 
 #ifdef  CONFIG_REVK_APMODE
@@ -45,8 +43,10 @@ s	mqtt.host	CONFIG_REVK_MQTTHOST	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS .hide=1
 u16	mqtt.port	CONFIG_REVK_MQTTPORT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS .hide=1			// MQTT port
 s	mqtt.user	CONFIG_REVK_MQTTUSER	.revk=1 .array=CONFIG_REVK_MQTT_CLIENTS .hide=1			// MQTT username
 s	mqtt.pass	CONFIG_REVK_MQTTPASS	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.secret=1 .hide=1	// MQTT password
-blob	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.base64=1 .hide=1	// MQTT certificate
+blob	mqtt.cert	CONFIG_REVK_MQTTCERT	.revk=1	.array=CONFIG_REVK_MQTT_CLIENTS	.base64=1 		// MQTT CA certificate
 #endif  
+blob	client.key				.revk=1	.base64=1 	// Client Key (OTA and MQTT TLS)
+blob	client.cert				.revk=1	.base64=1 	// Client certificate (OTA and MQTT TLS)
 
 
 #if     defined(CONFIG_REVK_WIFI) || defined(CONFIG_REVK_MESH)
