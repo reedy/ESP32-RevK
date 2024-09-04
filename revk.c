@@ -3052,10 +3052,10 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    char *value = revk_settings_text (s, index, &len);
    if (!value)
       value = strdup ("");
-   if (s->hex || s->base64)
+   if (s->hex || s->base32 || s->base64)
    {
-      char alphabet = s->base64 ? JO_BASE64 : JO_BASE16;
-      uint8_t bits = s->base64 ? 6 : 4;
+      char *alphabet = s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16;
+      uint8_t bits = s->base64 ? 6 : s->base32 ? 5 : 4;
       int dlen = (len * 8 + bits - 1) / bits + 1;
       uint8_t *src = value;
       uint8_t *new = malloc (dlen);
@@ -3149,19 +3149,23 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    else
 #endif
 #ifdef  REVK_SETTINGS_HAS_BLOB
-   if (s->type == REVK_SETTINGS_BLOB && (s->base64 || s->hex))
+   if (s->type == REVK_SETTINGS_BLOB && (s->base64 || s->base32 || s->hex))
       revk_web_send (req,
                      "<td nowrap><textarea cols=40 rows=4 id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\">%s</textarea></td><td>%s</td></tr>",
-                     field, field, field, *place ? place : s->base64 ? "Base64" : "Hex", revk_web_safe (&qs, value), comment);
+                     field, field, field, *place ? place : s->base64 ? "Base64" : s->base32 ? "Base32" : "Hex", revk_web_safe (&qs,
+                                                                                                                               value),
+                     comment);
    else
 #endif
-   if (s->type == REVK_SETTINGS_STRING || s->base64 || s->hex)
+   if (s->type == REVK_SETTINGS_STRING || s->base64 || s->base32 || s->hex)
    {
       int w = s->size - 1;
       if (s->hex)
          w *= 2;
+      if (s->base32)
+         w = (w * 8 + 4) / 5;
       if (s->base64)
-         w = 0;
+         w = (w * 8 + 5) / 6;
       // Text (fixed)
       if (w)
          revk_web_send (req,
