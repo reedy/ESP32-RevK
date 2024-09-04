@@ -3056,10 +3056,11 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    {
       const char *alphabet = s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16;
       uint8_t bits = s->base64 ? 6 : s->base32 ? 5 : 4;
-      int dlen = (len * 8 + bits - 1) / bits + 1;
+      uint32_t dlen = (len * 8 + bits - 1) / bits + 1;
+      dlen += (dlen / 40) + 1;
+      uint32_t dptr = 0;
       uint8_t *src = (uint8_t *) value;
-      char *new = malloc (dlen);
-      char *dst = new;
+      char *dst = malloc (dlen);
       unsigned int i = 0,
          b = 0,
          v = 0;
@@ -3070,7 +3071,9 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
          while (b >= bits)
          {
             b -= bits;
-            *dst++ = alphabet[(v >> b) & ((1 << bits) - 1)];
+            if (dptr && !(dptr % 40))
+               dst[dptr]++ = '\n';
+            dst[dptr++] = alphabet[(v >> b) & ((1 << bits) - 1)];
          }
       }
       if (b)
@@ -3078,22 +3081,24 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
          b += 8;
          v <<= 8;
          b -= bits;
-         *dst++ = alphabet[(v >> b) & ((1 << bits) - 1)];
+         if (dptr && !(dptr % 40))
+            dst[dptr]++ = '\n';
+         dst[dptr++] = alphabet[(v >> b) & ((1 << bits) - 1)];
          while (b)
          {                      // padding
             while (b >= bits)
             {
                b -= bits;
-               *dst++ = '=';
+               dst[dptr++] = '=';
             }
             if (b)
                b += 8;
          }
       }
-      *dst = 0;
+      dst[dptr++] = 0;
       free (value);
-      value = new;
-      len = dlen;
+      value = dst;
+      len = dptr;
    }
    revk_web_send (req, "<tr%s>", revk_settings_set (s) ? "" : " class=settingsdefault");
    if (tag)
