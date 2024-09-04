@@ -3071,7 +3071,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
          while (b >= bits)
          {
             b -= bits;
-            if (dptr && !(dptr % 40))
+            if ((dptr % 41) == 40)
                dst[dptr++] = '\n';
             dst[dptr++] = alphabet[(v >> b) & ((1 << bits) - 1)];
          }
@@ -3081,7 +3081,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
          b += 8;
          v <<= 8;
          b -= bits;
-         if (dptr && !(dptr % 40))
+         if ((dptr % 41) == 40)
             dst[dptr++] = '\n';
          dst[dptr++] = alphabet[(v >> b) & ((1 << bits) - 1)];
          while (b)
@@ -3156,7 +3156,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
 #ifdef  REVK_SETTINGS_HAS_BLOB
    if (s->type == REVK_SETTINGS_BLOB && (s->base64 || s->base32 || s->hex))
       revk_web_send (req,
-                     "<td nowrap><textarea cols=40 rows=4 id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\">%s</textarea></td><td>%s</td></tr>",
+                     "<td nowrap><textarea style=\"font-family:monospace\" cols=40 rows=4 id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\">%s</textarea></td><td>%s</td></tr>",
                      field, field, field, *place ? place : s->base64 ? "Base64" : s->base32 ? "Base32" : "Hex", revk_web_safe (&qs,
                                                                                                                                value),
                      comment);
