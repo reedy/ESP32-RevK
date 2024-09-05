@@ -3164,7 +3164,9 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
 #endif
    if (s->type == REVK_SETTINGS_STRING || s->base64 || s->base32 || s->hex)
    {
-      int w = s->size - 1;
+      int w = s->size;
+      if (w)
+         w--;                   // Includes null
       if (s->hex)
          w *= 2;
       if (s->base32)
