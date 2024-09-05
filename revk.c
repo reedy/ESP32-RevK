@@ -3356,9 +3356,13 @@ revk_web_settings (httpd_req_t * req)
          }
 #endif
 #ifndef  CONFIG_REVK_OLD_SETTINGS
-#ifdef	REVK_SETTINGS_HAS_COMMENT
-         addpage (-2, "Advanced");
-#endif
+         for (revk_settings_t * s = revk_settings; s->len; s++)
+            if (!s->hide && !s->revk)
+            {
+               addpage (-2, "Extra");
+               break;
+            }
+         addpage (-3, "Library");
 #endif
          if (!revk_link_down () && *otahost && page == -1)
             revk_web_send (req,
@@ -3417,13 +3421,14 @@ revk_web_settings (httpd_req_t * req)
          break;
 #ifdef	REVK_SETTINGS_HAS_COMMENT
 #ifndef	CONFIG_REVK_OLD_SETTINGS
-      case -2:                 // Advanced
+      case -2:                 // Extra
+      case -3:                 // Library
          {
             extern revk_settings_t revk_settings[];
             revk_setting_group_t found = { 0 };
             int8_t line = -1;
             for (revk_settings_t * s = revk_settings; s->len; s++)
-               if (!s->hide)
+               if (!s->hide && s->revk == (page == -3 ? 1 : 0))
                {
                   void add (revk_settings_t * s)
                   {
@@ -4671,7 +4676,7 @@ sun_set (int y, int m, int d, double latitude, double longitude, double sun_alti
 }
 
   /***************************************************************************/
-  // Finds the nearest time to start_time when sun angle is wanted_altitude (degrees)
+   // Finds the nearest time to start_time when sun angle is wanted_altitude (degrees)
 
 time_t
 sun_find_crossing (time_t start_time, double latitude, double longitude, double wanted_altitude)
