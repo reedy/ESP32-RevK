@@ -3200,6 +3200,10 @@ revk_web_setting_s (httpd_req_t * req, const char *tag, const char *field, char 
 }
 #endif
 
+#ifndef  CONFIG_REVK_OLD_SETTINGS
+extern revk_settings_t revk_settings[];
+#endif
+
 esp_err_t
 revk_web_settings (httpd_req_t * req)
 {
@@ -3424,7 +3428,6 @@ revk_web_settings (httpd_req_t * req)
       case -2:                 // Extra
       case -3:                 // Library
          {
-            extern revk_settings_t revk_settings[];
             revk_setting_group_t found = { 0 };
             int8_t line = -1;
             for (revk_settings_t * s = revk_settings; s->len; s++)
