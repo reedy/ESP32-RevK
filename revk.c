@@ -139,6 +139,7 @@ const char revk_build_suffix[] = CONFIG_REVK_BUILD_SUFFIX;
 
 #define	wifisettings	\
 		u16(wifireset,CONFIG_REVK_WIFIRESET);	\
+		u16(wifiuptime,0);	\
 		s(wifissid,CONFIG_REVK_WIFISSID);	\
 		s(wifiip,CONFIG_REVK_WIFIIP);		\
 		s(wifigw,CONFIG_REVK_WIFIGW);		\
@@ -944,10 +945,12 @@ revk_send_subunsub (int client, const mac_t mac, uint8_t sub)
       send (prefixapp ? "*" : appname); // All apps
       if (*hostname && strcmp (hostname, id))
          send (hostname);       // Hostname as well as MAC
+#ifndef  CONFIG_REVK_OLD_SETTINGS
       if (prefix == topiccommand)
          for (int i = 0; i < sizeof (topicgroup) / sizeof (*topicgroup); i++)
             if (*topicgroup[i])
                send (topicgroup[i]);
+#endif
    }
    subunsub (topiccommand);
    if (!client)
@@ -1104,10 +1107,12 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
             if (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
                 || (*hostname && !strcmp (target, hostname)))
                target = NULL;   // Mark as us for simple testing by app_command, etc
+#ifndef  CONFIG_REVK_OLD_SETTINGS
             else
                for (int i = 0; target && i < sizeof (topicgroup) / sizeof (*topicgroup); i++)
                   if (*topicgroup[i] && !strcmp (target, topicgroup[i]))
                      target = NULL;     // Mark as us for simple testing by app_command, etc
+#endif
          }
          if (!client && prefix && !strcmp (prefix, topiccommand) && suffix && !strcmp (suffix, "upgrade"))
             err = (err ? : revk_upgrade (target, j));   // Special case as command can be to other host
