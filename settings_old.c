@@ -5,6 +5,7 @@
 #include <esp_mesh.h>
 #endif
 static const char __attribute__((unused)) * TAG = "Settings";
+extern char *topicsetting;
 
 typedef struct setting_s setting_t;
 struct setting_s
