@@ -599,7 +599,7 @@ main (int argc, const char *argv[])
          {
             count++;
             fprintf (C, " {");
-            if (d->attributes && !(*d->type == 's' || *d->type == 'u') && is_digit (d->type[1]))
+            if (d->attributes && !(*d->type == 's' || *d->type == 'u' || *d->type == 'o') && is_digit (d->type[1]))
             {                   // non numeric
                if (strstr (d->attributes, ".set=1"))
                   errx (1, ".set on no numeric for %s in %s", d->name, d->type);
