@@ -3057,8 +3057,15 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
    char *value = revk_settings_text (s, index, &len);
    if (!value)
       value = strdup ("");
-   if (s->hex || s->base32 || s->base64)
-   {
+   if (((s->hex || s->base32 || s->base64) && !(0
+#ifdef  REVK_SETTINGS_HAS_SIGNED
+                                                || s->type == REVK_SETTINGS_SIGNED
+#endif
+#ifdef  REVK_SETTINGS_HAS_UNSIGNED
+                                                || s->type == REVK_SETTINGS_UNSIGNED
+#endif
+        )))
+   {                            // Expand block to base coded
       const char *alphabet = s->base64 ? JO_BASE64 : s->base32 ? JO_BASE32 : JO_BASE16;
       uint8_t bits = s->base64 ? 6 : s->base32 ? 5 : 4;
       uint32_t dlen = (len * 8 + bits - 1) / bits + 1;
