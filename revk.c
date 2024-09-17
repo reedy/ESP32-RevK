@@ -3152,12 +3152,17 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
        || s->type == REVK_SETTINGS_UNSIGNED
 #endif
       )
-      // Numeric
-      revk_web_send (req,
-                     "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder=\"%s\" style=\"text-align:right%s\" size=%d>%s</td><td>%s</td></tr>",
-                     field, field, field, revk_web_safe (&qs, value), place,
-                     s->hex ? ";font-family:monospace" : "", s->hex ? s->size * 2 : 10, s->gpio ? " (GPIO)" : "", comment);
-   else
+   {                            // Numeric
+      if (s->hex)
+         revk_web_send (req,
+                        "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder=\"%s\" style=\"font-family:monospace\" size=%d maxlength=%d>%s</td><td>%s</td></tr>",
+                        field, field, field, revk_web_safe (&qs, value), place, s->size * 2, s->size * 2, s->gpio ? " (GPIO)" : "",
+                        comment);
+      else
+         revk_web_send (req,
+                        "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder=\"%s\" style=\"text-align:right\" size=10>%s</td><td>%s</td></tr>",
+                        field, field, field, revk_web_safe (&qs, value), place, s->gpio ? " (GPIO)" : "", comment);
+   } else
 #endif
 #ifdef  REVK_SETTINGS_HAS_JSON
    if (s->type == REVK_SETTINGS_JSON)
