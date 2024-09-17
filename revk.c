@@ -3171,9 +3171,9 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
                      field, field, field, *place ? place : "JSON", revk_web_safe (&qs, value), comment);
    else
 #endif
-#if defined(REVK_SETTINGS_HAS_BLOB) || defined(REVK_SETTING_HAS_OCTET)
+#if defined(REVK_SETTINGS_HAS_BLOB) || defined(REVK_SETTINGS_HAS_OCTET)
       if ((0
-#ifdef REVK_SETTING_HAS_OCTET
+#ifdef REVK_SETTINGS_HAS_OCTET
            || (s->type == REVK_SETTING_OCTET && s->size > 32)
 #endif
 #ifdef REVK_SETTINGS_HAS_BLOB
