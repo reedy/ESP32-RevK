@@ -110,6 +110,7 @@ Additional attributes relate to each setting as follows:-
 |`.base32`|The value should be base32 encoded in JSON. Typically used with `o`, or `blob`|
 |`.base64`|The value should be base64 encoded in JSON. Typically used with `o`, or `blob`|
 |`.decimal`|Used with numeric types this scales by specified number of digits. E.g. `.decimal=2` will show `123` as `1.23` in JSON. A `#define` is for the variable suffixed with `_scale` defining the scale, e.g. `100` for `.decimal=2`.|
+|`.digits`|Fixed number of zero padded digits (before decimal points)|
 |`.secret`|Set if this is a secret and not output in settings JSON (or output as a dummy secret)|
 |`.old`|Old name to be replaced|
 |`.place`|Placeholder for settings editing|

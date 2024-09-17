@@ -456,6 +456,7 @@ main (int argc, const char *argv[])
                " uint8_t len:4;\n"      //
                " uint8_t type:3;\n"     //
                " uint8_t decimal:5;\n"  //
+               " uint8_t digits:5;\n"  //
                " uint8_t array:7;\n"    //
                " uint8_t malloc:1;\n"   //
                " uint8_t revk:1;\n"     //
@@ -602,15 +603,17 @@ main (int argc, const char *argv[])
             if (d->attributes && !(*d->type == 's' || *d->type == 'u' || *d->type == 'o') && is_digit (d->type[1]))
             {                   // non numeric
                if (strstr (d->attributes, ".set=1"))
-                  errx (1, ".set on no numeric for %s in %s", d->name, d->type);
+                  errx (1, ".set on non numeric for %s in %s", d->name, d->type);
                if (strstr (d->attributes, ".flags="))
-                  errx (1, ".flags on no numeric for %s in %s", d->name, d->type);
+                  errx (1, ".flags on non numeric for %s in %s", d->name, d->type);
                if (strstr (d->attributes, ".base64=1"))
-                  errx (1, ".base64 on no numeric for %s in %s", d->name, d->type);
+                  errx (1, ".base64 on non numeric for %s in %s", d->name, d->type);
                if (strstr (d->attributes, ".base32=1"))
-                  errx (1, ".base32 on no numeric for %s in %s", d->name, d->type);
+                  errx (1, ".base32 on non numeric for %s in %s", d->name, d->type);
+               if (strstr (d->attributes, ".digits="))
+                  errx (1, ".digits on non numeric for %s in %s", d->name, d->type);
                if (strstr (d->attributes, ".decimal=") && strstr (d->attributes, ".hex=1"))
-                  errx (1, ".hex and .decimal on no numeric for %s in %s", d->name, d->type);
+                  errx (1, ".hex and .decimal on non numeric for %s in %s", d->name, d->type);
             }
             if (*d->type == 's' && is_digit (d->type[1]))
                fprintf (C, ".type=REVK_SETTINGS_SIGNED");

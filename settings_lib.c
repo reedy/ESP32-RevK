@@ -451,11 +451,12 @@ parse_numeric (revk_settings_t * s, void **pp, const char **dp, const char *e)
             return 9 + (c & 0xF);
          return -1;
       }
+      uint8_t count = 0;
       void add (char c)
       {
          uint64_t wrap = v;
          v = v * (s->hex ? 16 : 10) + dig (c);
-         if (!err && v < wrap)
+         if (!err && (v < wrap || (s->digits && ++count > s->digits + s->decimal)))
             err = "Number too large";
       }
       if (d < e && *d == '-')
@@ -596,9 +597,13 @@ text_numeric (revk_settings_t * s, void *p)
                while (*i)
                   *t++ = *i++;
             } else if (!s->hex)
-               t += sprintf (t, "%llu", val);
-            else
-               t += sprintf (t, "%0*llX", s->size*2,val);
+            {
+               if (s->digits)
+                  t += sprintf (t, "%0*llu", s->digits, val);
+               else
+                  t += sprintf (t, "%llu", val);
+            } else
+               t += sprintf (t, "%0*llX", s->digits ? : s->size * 2, val);
          }
       }
       // Suffix
