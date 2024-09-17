@@ -3154,9 +3154,9 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       )
       // Numeric
       revk_web_send (req,
-                     "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' size=10 autocorrect='off' placeholder=\"%s\" style=\"text-align:right%s\">%s</td><td>%s</td></tr>",
+                     "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder=\"%s\" style=\"text-align:right%s\" size=%d>%s</td><td>%s</td></tr>",
                      field, field, field, revk_web_safe (&qs, value), place,
-                     (s->base64 || s->base32 || s->hex) ? ";font-family:monospace" : "", s->gpio ? " (GPIO)" : "", comment);
+                     s->hex ? ";font-family:monospace" : "", s->hex ? s->size * 2 : 10, s->gpio ? " (GPIO)" : "", comment);
    else
 #endif
 #ifdef  REVK_SETTINGS_HAS_JSON
