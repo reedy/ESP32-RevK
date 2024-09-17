@@ -3171,8 +3171,15 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
                      field, field, field, *place ? place : "JSON", revk_web_safe (&qs, value), comment);
    else
 #endif
-#ifdef  REVK_SETTINGS_HAS_BLOB
-   if (s->type == REVK_SETTINGS_BLOB && (s->base64 || s->base32 || s->hex))
+#if defined(REVK_SETTINGS_HAS_BLOB) || defined(REVK_SETTING_OCTET)
+      if ((0
+#ifdef REVK_SETTING_OCTET
+           || s->type == REVK_SETTING_OCTET
+#endif
+#ifdef REVK_SETTINGS_HAS_BLOB
+           || s->type == REVK_SETTINGS_BLOB
+#endif
+          ) && (s->base64 || s->base32 || s->hex))
       revk_web_send (req,
                      "<td nowrap><textarea style=\"font-family:monospace\" cols=40 rows=4 id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" autocapitalize='off' autocomplete='off' spellcheck='false' size=40 autocorrect='off' placeholder=\"%s\">%s</textarea></td><td>%s</td></tr>",
                      field, field, field, *place ? place : s->base64 ? "Base64" : s->base32 ? "Base32" : "Hex", revk_web_safe (&qs,
