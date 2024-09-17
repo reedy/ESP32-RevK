@@ -3174,7 +3174,7 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
 #if defined(REVK_SETTINGS_HAS_BLOB) || defined(REVK_SETTINGS_HAS_OCTET)
       if ((0
 #ifdef REVK_SETTINGS_HAS_OCTET
-           || (s->type == REVK_SETTING_OCTET && s->size > 32)
+           || (s->type == REVK_SETTINGS_OCTET && s->size > 32)
 #endif
 #ifdef REVK_SETTINGS_HAS_BLOB
            || s->type == REVK_SETTINGS_BLOB
