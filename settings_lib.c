@@ -598,7 +598,7 @@ text_numeric (revk_settings_t * s, void *p)
             } else if (!s->hex)
                t += sprintf (t, "%llu", val);
             else
-               t += sprintf (t, "%*0llX", s->size*2,val);
+               t += sprintf (t, "%0*llX", s->size*2,val);
          }
       }
       // Suffix
