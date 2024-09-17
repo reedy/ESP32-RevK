@@ -595,10 +595,10 @@ text_numeric (revk_settings_t * s, void *p)
                *t++ = '.';
                while (*i)
                   *t++ = *i++;
-            } else if (s->hex)
-               t += sprintf (t, "%llX", val);
-            else
+            } else if (!s->hex)
                t += sprintf (t, "%llu", val);
+            else
+               t += sprintf (t, "%*0llX", s->size*2,val);
          }
       }
       // Suffix
