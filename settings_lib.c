@@ -872,7 +872,7 @@ load_value (revk_settings_t * s, const char *d, int index, void *ptr)
          if (!s->malloc)
          {                      // Fixed
             if (e - d + 1 > s->size)
-               err = "Too long";
+               err = "String too long";
             else
             {
                memcpy (ptr, d, e - d);
@@ -1357,7 +1357,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
          location = jo_debug (j);
          int l = jo_strlen (j);
          if (l + plen > sizeof (tag) - 1)
-            return "Too long";
+            return "Tag too long";
          jo_strncpy (j, tag + plen, l + 1);
          revk_settings_t *s;
          for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
@@ -1380,7 +1380,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
                   }
                }
                if (!s->len)
-                  return "Not found index";
+                  return "Not found";
             }
             if (index < 0)
                index = 0;
