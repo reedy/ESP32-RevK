@@ -1936,9 +1936,9 @@ task (void *pvParameters)
 #endif
             {
 #ifdef	CONFIG_REVK_MQTT
-               sprintf (mq, " MQTT %lu", lwmqtt_connected (mqtt_client[0]));
+               sprintf (mq, " MQTT %u", lwmqtt_connected (mqtt_client[0]));
 #if	    CONFIG_REVK_MQTT_CLIENTS>1
-               sprintf (mq + strlen (mq), "/%lu", lwmqtt_connected (mqtt_client[1]));
+               sprintf (mq + strlen (mq), "/%u", lwmqtt_connected (mqtt_client[1]));
 #endif
 #endif
             }
