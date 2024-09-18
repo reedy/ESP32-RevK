@@ -991,9 +991,10 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
             p++;
       }
       void getapp (void)
-      {
-         if (!prefixapp || !*p)
-            return;             // Not doing app prefix
+      { // Get app, only if app expected and correct
+         int l = strlen (appname);
+         if (!prefixapp || strncmp (p, appname, l) || (p[l] && p[l] != '/'))
+            return;             // Not a expected, or correct, app prefix
          apppart = p;
          while (*p && *p != '/')
             p++;
@@ -1102,7 +1103,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
       const char *location = NULL;
       if (!err)
       {
-         if (target && (!apppart || !strcmp (apppart, appname)))
+         if (target && (!prefixapp || apppart))
          {
             if (!strcmp (target, prefixapp ? "*" : appname) || !strcmp (target, revk_id)
                 || (*hostname && !strcmp (target, hostname)))
