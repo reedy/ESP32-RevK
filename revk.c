@@ -1936,9 +1936,11 @@ task (void *pvParameters)
 #endif
             {
 #ifdef	CONFIG_REVK_MQTT
-               sprintf (mq, " MQTT %lu", lwmqtt_connected (mqtt_client[0]));
+               // on ESP8266 uint32_t is just unsigned int, need to explicitly
+               // cast to unsigne long to avoid compiler errors
+               sprintf (mq, " MQTT %lu", (unsigned long)lwmqtt_connected (mqtt_client[0]));
 #if	    CONFIG_REVK_MQTT_CLIENTS>1
-               sprintf (mq + strlen (mq), "/%lu", lwmqtt_connected (mqtt_client[1]));
+               sprintf (mq + strlen (mq), "/%lu", (unsigned long)lwmqtt_connected (mqtt_client[1]));
 #endif
 #endif
             }
