@@ -5,7 +5,7 @@ typedef struct {
 	const char *id;	// tag/id no spaces
 	const char *name;	// name
 	const char *type;	// type
-	const char *unit;	// unit (set for stat logic)
+	const char *unit;	// unit
 	const char *stat;	// stat topic (default main status)
 	const char *field;	// field name (default id)
 
@@ -13,7 +13,7 @@ typedef struct {
 } ha_config_t;
 
 // Sensor
-#define ha_config_sensor(...)  ha_config_sensor_opts((ha_config_t){__VA_ARGS__})
-const char *ha_config_sensor_opts(ha_config_t);
+#define ha_config_sensor(...)  ha_config_opts("sensor",(ha_config_t){__VA_ARGS__})
+const char *ha_config_opts(ha_config_t);
 
 #endif
