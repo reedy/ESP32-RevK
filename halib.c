@@ -9,11 +9,20 @@ ha_config_opts (const char *config, ha_config_t h)
    if (!h.id)
       return "No name";
    char *topic;
-   if (asprintf (&topic, "homeassistant/%S/%s-%s/config", config, hostname, h.id) < 0)
+   if (asprintf (&topic, "homeassistant/%s/%s-%s/config", config, hostname, h.id) < 0)
       return "malloc fail";
    jo_t j = ha_config_make ("status", &h);
    char *hastatus = revk_topic (topicstate, NULL, NULL);
    jo_t j = jo_object_alloc ();
+   void addpath (const char *tag, const char *base, const char *path)
+   {                            // Allow path, or default base, or /suffix on base
+      if (!path)
+         j_string (j, tag, base);
+      else if (*path == '/')
+         j_stringf (j, tag, "%s%s", base, path);
+      else
+         j_string (j, tag, path);
+   }
    // ID
    jo_stringf (j, "unique_id", "%s-%s", hostname, h.id);
    jo_object (j, "dev");
@@ -31,7 +40,7 @@ ha_config_opts (const char *config, ha_config_t h)
       jo_string (j, "name", h.name);
    if (!strcmp (config, "sensor"))
    {                            // Sensor
-      jo_stringf (j, "stat_t", h.stat ? : hastatus);
+      addpath ("stat_t", hastatus, h.stat);
       if (h.unit)
          jo_string (j, "unit_of_meas", h.unit);
       jo_stringf (j, "val_tpl", "{{value_json.%s}}", h.field ? : h.id);
