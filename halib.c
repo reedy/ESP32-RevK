@@ -11,17 +11,16 @@ ha_config_opts (const char *config, ha_config_t h)
    char *topic;
    if (asprintf (&topic, "homeassistant/%s/%s-%s/config", config, hostname, h.id) < 0)
       return "malloc fail";
-   jo_t j = ha_config_make ("status", &h);
    char *hastatus = revk_topic (topicstate, NULL, NULL);
    jo_t j = jo_object_alloc ();
    void addpath (const char *tag, const char *base, const char *path)
    {                            // Allow path, or default base, or /suffix on base
       if (!path)
-         j_string (j, tag, base);
+         jo_string (j, tag, base);
       else if (*path == '/')
-         j_stringf (j, tag, "%s%s", base, path);
+         jo_stringf (j, tag, "%s%s", base, path);
       else
-         j_string (j, tag, path);
+         jo_string (j, tag, path);
    }
    // ID
    jo_stringf (j, "unique_id", "%s-%s", hostname, h.id);
