@@ -21,6 +21,7 @@ s	topic.state	state			.revk=1 .old="prefixstate"			// MQTT Topic for state
 s	topic.event	event			.revk=1 .old="prefixevent"			// MQTT Topic for event
 s	topic.info	info			.revk=1 .old="prefixinfo"			// MQTT Topic for info
 s	topic.error	error			.revk=1 .old="prefixerror"			// MQTT Topic for error
+s	topic.ha	homeassistant		.revk=1						// MQTT Topic for homeassistant
 bit	prefix.app	CONFIG_REVK_PREFIXAPP	.revk=1			// MQTT use appname/ in front of hostname in topic
 bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname/topic instead of topic/(appname/)hostname
 #ifdef	CONFIG_REVK_BLINK_DEF
