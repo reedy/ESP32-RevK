@@ -1215,7 +1215,7 @@ revk_setting_dump (int level)
                char *d = data;
                if (*d == '-')
                   d++;
-               if (!(*d == '0' && isdigit (d[1])))
+               if (!(*d == '0' && isdigit ((int) d[1])))
                {
                   if (isdigit ((int) *d))
                   {
