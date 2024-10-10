@@ -1215,21 +1215,24 @@ revk_setting_dump (int level)
                char *d = data;
                if (*d == '-')
                   d++;
-               if (isdigit ((int) *d))
+               if (!(*d == '0' && isdigit (d[1])))
                {
-                  while (isdigit ((int) *d))
-                     d++;
-                  if (*d == '.')
+                  if (isdigit ((int) *d))
                   {
-                     d++;
                      while (isdigit ((int) *d))
                         d++;
+                     if (*d == '.')
+                     {
+                        d++;
+                        while (isdigit ((int) *d))
+                           d++;
+                     }
                   }
-               }
-               if (!*d && strcmp (data, "-0"))
-               {
-                  jo_lit (p, tag, data);
-                  break;
+                  if (!*d && strcmp (data, "-0"))
+                  {
+                     jo_lit (p, tag, data);
+                     break;
+                  }
                }
             }
             jo_stringn (p, tag, data ? : "", len);
