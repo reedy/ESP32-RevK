@@ -1213,22 +1213,25 @@ revk_setting_dump (int level)
             if (len)
             {
                char *d = data;
+               if (*d == '0' && !d[1])
+               {                // 0 is only case of leading 0, and must not be -0
+                  jo_lit (p, tag, data);
+                  break;
+               }
                if (*d == '-')
                   d++;
-               if (!(*d == '0' && isdigit ((int) d[1])))
+               if (isdigit ((int) *d) && *d != '0')
                {
-                  if (isdigit ((int) *d))
+                  while (isdigit ((int) *d))
+                     d++;
+                  if (*d == '.')
                   {
+                     d++;
                      while (isdigit ((int) *d))
                         d++;
-                     if (*d == '.')
-                     {
-                        d++;
-                        while (isdigit ((int) *d))
-                           d++;
-                     }
                   }
-                  if (!*d && strcmp (data, "-0"))
+                  // We are not expecting exponents
+                  if (!*d)
                   {
                      jo_lit (p, tag, data);
                      break;
