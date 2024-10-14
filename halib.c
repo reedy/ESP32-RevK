@@ -14,7 +14,7 @@ ha_config_opts (const char *config, ha_config_t h)
    char *hastatus = revk_topic (topicstate, NULL, NULL);
    jo_t j = jo_object_alloc ();
    void addpath (const char *tag, const char *base, const char *path)
-   {                            // Allow path, or default base, or /suffix on base
+   {                            // Allow path. NULL is base, /suffix is after base, non / is absolute path
       if (!path)
          jo_string (j, tag, base);
       else if (*path == '/')
@@ -50,7 +50,7 @@ ha_config_opts (const char *config, ha_config_t h)
    jo_bool (j, "pl_avail", 1);
    jo_bool (j, "pl_not_avail", 0);
    free (hastatus);
-   revk_mqtt_send (NULL, 1, topic, &j);
+   revk_mqtt_send (NULL, 1, topic, h.delete ? NULL : &j);
    free (topic);
    return NULL;
 }
