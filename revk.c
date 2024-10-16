@@ -2186,6 +2186,16 @@ gpio_ok (uint8_t p)
       return 3 + 8;             // Serial
    return 3;                    // All input and output
 #endif
+   // ESP32 (C3)
+#ifdef	CONFIG_IDF_TARGET_ESP32C3
+   if (p > 21)
+      return 0;
+   if (p == 18 || p == 19)
+      return 4;                 // special use (USB)
+   if (p >= 12 && p <= 17)
+      return 0;
+   return 3;                    // All input and output
+#endif
    // ESP8266
 #ifdef CONFIG_IDF_TARGET_ESP8266
    // PLEASE do not remove this!!! Hitting any of these GPIOs in revk_boot()
