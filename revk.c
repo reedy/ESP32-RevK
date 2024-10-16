@@ -991,7 +991,7 @@ mqtt_rx (void *arg, char *topic, unsigned short plen, unsigned char *payload)
             p++;
       }
       void getapp (void)
-      { // Get app, only if app expected and correct
+      {                         // Get app, only if app expected and correct
          int l = strlen (appname);
          if (!prefixapp || strncmp (p, appname, l) || (p[l] && p[l] != '/'))
             return;             // Not a expected, or correct, app prefix
@@ -1938,9 +1938,9 @@ task (void *pvParameters)
 #ifdef	CONFIG_REVK_MQTT
                // on ESP8266 uint32_t is just unsigned int, need to explicitly
                // cast to unsigne long to avoid compiler errors
-               sprintf (mq, " MQTT %lu", (unsigned long)lwmqtt_connected (mqtt_client[0]));
+               sprintf (mq, " MQTT %lu", (unsigned long) lwmqtt_connected (mqtt_client[0]));
 #if	    CONFIG_REVK_MQTT_CLIENTS>1
-               sprintf (mq + strlen (mq), "/%lu", (unsigned long)lwmqtt_connected (mqtt_client[1]));
+               sprintf (mq + strlen (mq), "/%lu", (unsigned long) lwmqtt_connected (mqtt_client[1]));
 #endif
 #endif
             }
@@ -4981,8 +4981,10 @@ revk_gpio_output (revk_gpio_t g, uint8_t o)
    esp_err_t e = 0;
    if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       e = ESP_FAIL;
+#ifndef	CONFIG_IDF_TARGET_ESP32C3
    if (!e && rtc_gpio_is_valid_gpio (g.num))
       e = rtc_gpio_deinit (g.num);
+#endif
    if (!e)
       e = gpio_reset_pin (g.num);
    if (!e)
@@ -4992,6 +4994,7 @@ revk_gpio_output (revk_gpio_t g, uint8_t o)
       e = gpio_set_direction (g.num, g.pulldown ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT);
    if (!e)
       e = gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
+#ifndef	CONFIG_IDF_TARGET_ESP32C3
    if (rtc_gpio_is_valid_gpio (g.num))
    {
       if (!e)
@@ -4999,6 +5002,7 @@ revk_gpio_output (revk_gpio_t g, uint8_t o)
       if (!e)
          e = rtc_gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
    }
+#endif
 #else
    if (!e)
       e = gpio_set_direction (g.num, GPIO_MODE_OUTPUT);
@@ -5020,11 +5024,13 @@ revk_gpio_input (revk_gpio_t g)
    esp_err_t e = 0;
    if (!g.set || !GPIO_IS_VALID_GPIO (g.num))
       e = ESP_FAIL;
+#ifndef	CONFIG_IDF_TARGET_ESP32C3
    if (rtc_gpio_is_valid_gpio (g.num))
    {
       if (!e)
          e = rtc_gpio_deinit (g.num);
    }
+#endif
    if (!e)
       e = gpio_reset_pin (g.num);
    if (!e)
@@ -5048,6 +5054,7 @@ revk_gpio_input (revk_gpio_t g)
       if (!e)
          e = gpio_pulldown_dis (g.num);
    }
+#ifndef CONFIG_IDF_TARGET_ESP32C3
    if (rtc_gpio_is_valid_gpio (g.num))
    {
       if (!g.pulldown && !g.nopull)
@@ -5069,6 +5076,7 @@ revk_gpio_input (revk_gpio_t g)
             e = rtc_gpio_pulldown_dis (g.num);
       }
    }
+#endif
 #endif
    return 0;
 }
