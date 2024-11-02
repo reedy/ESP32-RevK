@@ -1643,6 +1643,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
          {
             if ((err = store (pindex)))
                return err;
+            t = jo_here (j);
             if (t == JO_OBJECT)
             {
                while ((t = jo_next (j)) == JO_TAG)
