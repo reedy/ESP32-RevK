@@ -1652,6 +1652,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
                jo_next (j);
                while ((t = jo_skip (j)) > JO_CLOSE);
             }
+            t = JO_STRING;
          } else
 #endif
          if (t == JO_NULL)
