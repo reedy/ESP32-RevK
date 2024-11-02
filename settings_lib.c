@@ -1643,12 +1643,14 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
          {
             if ((err = store (pindex)))
                return err;
-            if (t == JO_OBJECT || t == JO_ARRAY)
+            if (t == JO_OBJECT)
+            {
+               while ((t = jo_next (j)) == JO_TAG)
+                  jo_skip (j);
+            } else if (t == JO_ARRAY)
             {                   // Skip to end, not actually over end
                jo_next (j);
-               while ((t = jo_skip (j)) > JO_CLOSE)
-                  if (t == JO_TAG)
-                     t = jo_skip (j);
+               while ((t = jo_skip (j)) > JO_CLOSE);
             }
          } else
 #endif
