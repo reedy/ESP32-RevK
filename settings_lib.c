@@ -1199,7 +1199,7 @@ revk_setting_dump (int level)
          case REVK_SETTINGS_JSON:
             {
                if (!data || !*data)
-                  jo_string (p, tag, "");
+                  jo_null (p, tag);
                else
                {
                   jo_t v = jo_parse_str (data);
@@ -1439,7 +1439,10 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
                   }
                } else
                {
-                  val = jo_strdupj (j); // Raw JSON
+                  if (t == JO_NULL)
+                     val = strdup ("");
+                  else
+                     val = jo_strdupj (j);      // Raw JSON
                   t = JO_STRING;        // Not default
                   err = jo_error (j, NULL);
                   if (err)
@@ -1729,7 +1732,8 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
             else
             {
                int index = 0;
-               while (!err && (t = jo_next (j)) != JO_CLOSE && index < s->array)
+               jo_next (j);
+               while (!err && (t = jo_here (j)) != JO_CLOSE && index < s->array)
                {
                   if ((err = store (index)))
                      return err;
