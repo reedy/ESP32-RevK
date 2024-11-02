@@ -1643,7 +1643,11 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
          {
             if ((err = store (pindex)))
                return err;
-            jo_skip (j);        // Skip object
+            if (t == JO_OBJECT || t == JO_ARRAY)
+            {
+               jo_next (j);
+               while ((t = jo_skip (j)) > JO_CLOSE);
+            }
          } else
 #endif
          if (t == JO_NULL)
