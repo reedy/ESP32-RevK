@@ -1198,8 +1198,13 @@ revk_setting_dump (int level)
 #ifdef  REVK_SETTINGS_HAS_JSON
          case REVK_SETTINGS_JSON:
             {
-               jo_t v = jo_parse_str (data);
-               jo_json (p, tag, v);
+               if (!data || !*data)
+                  jo_null (p, tag);
+               else
+               {
+                  jo_t v = jo_parse_str (data);
+                  jo_json (p, tag, v);
+               }
             }
             break;
 #endif
