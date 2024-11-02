@@ -464,8 +464,8 @@ lwmqtt_loop (lwmqtt_t handle)
    unsigned char *buf = 0;
    int buflen = 0;
    int pos = 0;
-   uint32_t kacheck = uptime()+60; // Response time check
-   uint32_t ka = uptime () + (handle->server ? 5 : handle->keepalive);   // Server does not know KA initially
+   uint32_t kacheck = uptime () + 60;   // Response time check
+   uint32_t ka = uptime () + (handle->server ? 5 : handle->keepalive);  // Server does not know KA initially
    while (handle->running)
    {                            // Loop handling messages received, and timeouts
       int need = 0;
@@ -494,8 +494,8 @@ lwmqtt_loop (lwmqtt_t handle)
             xSemaphoreTake (handle->mutex, portMAX_DELAY);
             hwrite (handle, b, sizeof (b));
             xSemaphoreGive (handle->mutex);
-            ka = uptime () + handle->keepalive;      // Client KA next
-            kacheck = uptime () + 10; // Expect KA resp
+            ka = uptime () + handle->keepalive; // Client KA next
+            kacheck = uptime () + 10;   // Expect KA resp
          } else if (kacheck && kacheck < uptime ())
          {                      // only set for client anyway
             ESP_LOGE (TAG, "KA fail");

@@ -456,7 +456,7 @@ main (int argc, const char *argv[])
                " uint8_t len:4;\n"      //
                " uint8_t type:3;\n"     //
                " uint8_t decimal:5;\n"  //
-               " uint8_t digits:5;\n"  //
+               " uint8_t digits:5;\n"   //
                " uint8_t array:7;\n"    //
                " uint8_t malloc:1;\n"   //
                " uint8_t revk:1;\n"     //

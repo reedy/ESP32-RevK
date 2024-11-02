@@ -1413,7 +1413,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
                return "Bad array index";
             char *val = NULL;
 #ifdef  REVK_SETTINGS_HAS_JSON
-            if (s->type == REVK_SETTINGS_JSON)
+            if (!s->array && s->type == REVK_SETTINGS_JSON)
             {                   // Expect JSON
                if (flags & REVK_SETTINGS_JSON_STRING)
                {
