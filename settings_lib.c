@@ -1199,7 +1199,7 @@ revk_setting_dump (int level)
          case REVK_SETTINGS_JSON:
             {
                if (!data || !*data)
-                  jo_null (p, tag);
+                  jo_string (p, tag, "");
                else
                {
                   jo_t v = jo_parse_str (data);
