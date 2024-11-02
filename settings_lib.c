@@ -1378,7 +1378,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
          revk_settings_t *s;
          for (s = revk_settings; s->len && (s->len != plen + l || (plen && s->dot != plen) || strcmp (s->name, tag)); s++);
          const char *store (int index)
-         {
+         {                      // Store simple value from here - does not advance j
             if (!s->len)
             {
                if (index < 0)
@@ -1643,17 +1643,6 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
          {
             if ((err = store (pindex)))
                return err;
-            t = jo_here (j);
-            if (t == JO_OBJECT)
-            {
-               while ((t = jo_next (j)) == JO_TAG)
-                  jo_skip (j);
-            } else if (t == JO_ARRAY)
-            {                   // Skip to end, not actually over end
-               if (jo_next (j) != JO_CLOSE)
-                  while ((t = jo_skip (j)) > JO_CLOSE);
-            }
-            t = JO_STRING;
          } else
 #endif
          if (t == JO_NULL)
@@ -1744,6 +1733,7 @@ revk_settings_store (jo_t j, const char **locationp, uint8_t flags)
                {
                   if ((err = store (index)))
                      return err;
+                  jo_skip (j);  // Whatever value it was
                   index++;
                }
                if (t != JO_CLOSE)
