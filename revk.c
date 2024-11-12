@@ -1893,10 +1893,11 @@ task (void *pvParameters)
             uint8_t press = revk_gpio_get (factorygpio);
             if (press && !f.was)
             {
+               f.count++;
+               ESP_LOGE (TAG, "Pressed factory reset button %d", f.count);
                f.tick = 0;
-               if (++f.count == 3)
+               if (f.count == 3)
                {                // Do factory reset
-                  ESP_LOGE (TAG, "Button factory reset on GPIO %d", factorygpio.num);
                   esp_err_t e = nvs_flash_erase ();
                   if (!e)
                      e = nvs_flash_erase_partition (TAG);
@@ -1904,11 +1905,11 @@ task (void *pvParameters)
                      revk_restart (3, "Factory reset");
                }
             }
+            f.was = press;
             if (f.tick == 30)
                f.count = 0;     // Timeout
             if (f.tick < 31)
                f.tick++;
-            f.was = press;
          }
       }
       static uint32_t last = 0;
