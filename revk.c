@@ -1861,6 +1861,7 @@ task (void *pvParameters)
 #ifdef	CONFIG_REVK_BLINK_LIB
    revk_blink_init ();
 #endif
+   revk_gpio_input (factorygpio);
    while (1)
    {                            /* Idle */
       if (!b.wdt_test && watchdogtime)
@@ -1880,6 +1881,34 @@ task (void *pvParameters)
          {                      // Done here so not reporting from MQTT
             revk_setting_dump (b.setting_dump_requested);
             b.setting_dump_requested = 0;
+         }
+         if (factorygpio.set)
+         {                      // Factory reset control - press 3 times without a 3 second gap
+            struct
+            {
+               uint8_t was:1;
+               uint8_t count:2;
+               uint8_t tick:5;
+            } f = { 0 };
+            uint8_t press = gpio_get_level (factorygpio);
+            if (press && !f.was)
+            {
+               f.tick = 0;
+               if (++f.count == 3)
+               {                // Do factory reset
+                  ESP_LOGE (TAG, "Button factory reset on GPIO %d", factorygpio.num);
+                  esp_err_t e = nvs_flash_erase ();
+                  if (!e)
+                     e = nvs_flash_erase_partition (TAG);
+                  if (!e)
+                     revk_restart (3, "Factory reset");
+               }
+            }
+            if (f.tick == 30)
+               f.count = 0;     // Timeout
+            if (f.tick < 31)
+               f.tick++;
+            f.was = press;
          }
       }
       static uint32_t last = 0;
