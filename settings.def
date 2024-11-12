@@ -27,7 +27,7 @@ bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname/
 #ifdef	CONFIG_REVK_BLINK_DEF
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif
-b	dark					.revk=1			// Default LED off
+bit	dark					.revk=1			// Default LED off
 
 
 #ifdef  CONFIG_REVK_APMODE
