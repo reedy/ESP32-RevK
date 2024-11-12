@@ -1638,8 +1638,12 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 static const char *
 blink_default (const char *user)
 {                               // What blinking to do - NULL means do default, "" means off if none of the default special cases apply, otherwise the requested colour sequence, unless restarting (white)
-   if (b.factorycount)
-      return "XYOR"[b.factorycount];
+   if (b.factorycount == 1)
+      return "Y";
+   if (b.factorycount == 2)
+      return "O";
+   if (b.factorycount == 3)
+      return "R";
    if (restart_time)
       return "W";               // Rebooting - override user even
    if (user && *user)
