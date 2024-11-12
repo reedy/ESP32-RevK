@@ -1638,12 +1638,6 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 static const char *
 blink_default (const char *user)
 {                               // What blinking to do - NULL means do default, "" means off if none of the default special cases apply, otherwise the requested colour sequence, unless restarting (white)
-   if (b.factorycount == 1)
-      return "Y";
-   if (b.factorycount == 2)
-      return "O";
-   if (b.factorycount == 3)
-      return "R";
    if (restart_time)
       return "W";               // Rebooting - override user even
    if (user && *user)
@@ -1738,6 +1732,12 @@ revk_blinker (void)
 {                               // LED blinking controls, in style of revk_rgb() but bit 30 is set if not black, and bit 31 is set for blink cycle
    if (uptime () < 2)
       return 0x4C00FF00;        // Green startup
+   if (b.factorycount == 1)
+      return 0x7CFFFF00;        // Factory reset
+   if (b.factorycount == 2)
+      return 0x48FF8800;        // Factory reset
+   if (b.factorycount == 3)
+      return 0x70FF0000;        // Factory reset
    static uint32_t rgb = 0;     // Current colour (2 bits per)
    static uint8_t tick = 255;   // Blink cycle counter
    uint8_t on = blink_on,       // Current on/off times
