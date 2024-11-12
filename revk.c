@@ -1890,7 +1890,7 @@ task (void *pvParameters)
                uint8_t count:2;
                uint8_t tick:5;
             } f = { 0 };
-            uint8_t press = gpio_get_level (factorygpio);
+            uint8_t press = revk_gpio_get (factorygpio);
             if (press && !f.was)
             {
                f.tick = 0;
@@ -2112,7 +2112,7 @@ task (void *pvParameters)
 #endif
          }
 #ifdef	CONFIG_REVK_APMODE
-         if (!b.disableap && apgpio.set && (gpio_get_level (apgpio.num) ^ apgpio.invert))
+         if (!b.disableap && apgpio.set && revk_gpio_get (apgpio))
          {
             ap_start ();
             if (aptime)
