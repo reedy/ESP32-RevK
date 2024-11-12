@@ -262,6 +262,9 @@ static struct
 #ifdef	CONFIG_REVK_MESH
    uint8_t mesh_root_known:1;
 #endif
+   uint8_t factorywas:1;
+   uint8_t factorycount:2;
+   uint8_t factorytick:5;
 } volatile b = { 0 };
 
 static uint32_t up_next;        // next up report (uptime)
@@ -1635,6 +1638,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 static const char *
 blink_default (const char *user)
 {                               // What blinking to do - NULL means do default, "" means off if none of the default special cases apply, otherwise the requested colour sequence, unless restarting (white)
+   if (b.factorycount)
+      return "XYOR"[b.factorycount];
    if (restart_time)
       return "W";               // Rebooting - override user even
    if (user && *user)
@@ -1884,19 +1889,13 @@ task (void *pvParameters)
          }
          if (factorygpio.set)
          {                      // Factory reset control - press 3 times without a 3 second gap
-            static struct
-            {
-               uint8_t was:1;
-               uint8_t count:2;
-               uint8_t tick:5;
-            } f = { 0 };
             uint8_t press = revk_gpio_get (factorygpio);
-            if (press && !f.was)
+            if (press && !f.factorywas)
             {
-               f.count++;
-               ESP_LOGE (TAG, "Pressed factory reset button %d", f.count);
-               f.tick = 0;
-               if (f.count == 3)
+               f.factorycount++;
+               ESP_LOGE (TAG, "Pressed factory reset button %d", f.factorycount);
+               f.factorytick = 0;
+               if (f.factorycount == 3)
                {                // Do factory reset
                   esp_err_t e = nvs_flash_erase ();
                   if (!e)
@@ -1905,11 +1904,11 @@ task (void *pvParameters)
                      revk_restart (3, "Factory reset");
                }
             }
-            f.was = press;
-            if (f.tick == 30)
-               f.count = 0;     // Timeout
-            if (f.tick < 31)
-               f.tick++;
+            f.factorywas = press;
+            if (f.factorytick == 30)
+               f.factorycount = 0;      // Timeout
+            if (f.factorytick < 31)
+               f.factorytick++;
          }
       }
       static uint32_t last = 0;
