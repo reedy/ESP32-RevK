@@ -1894,12 +1894,12 @@ task (void *pvParameters)
          if (factorygpio.set)
          {                      // Factory reset control - press 3 times without a 3 second gap
             uint8_t press = revk_gpio_get (factorygpio);
-            if (press && !f.factorywas)
+            if (press && !b.factorywas)
             {
-               f.factorycount++;
-               ESP_LOGE (TAG, "Pressed factory reset button %d", f.factorycount);
-               f.factorytick = 0;
-               if (f.factorycount == 3)
+               b.factorycount++;
+               ESP_LOGE (TAG, "Pressed factory reset button %d", b.factorycount);
+               b.factorytick = 0;
+               if (b.factorycount == 3)
                {                // Do factory reset
                   esp_err_t e = nvs_flash_erase ();
                   if (!e)
@@ -1908,11 +1908,11 @@ task (void *pvParameters)
                      revk_restart (3, "Factory reset");
                }
             }
-            f.factorywas = press;
-            if (f.factorytick == 30)
-               f.factorycount = 0;      // Timeout
-            if (f.factorytick < 31)
-               f.factorytick++;
+            b.factorywas = press;
+            if (b.factorytick == 30)
+               b.factorycount = 0;      // Timeout
+            if (b.factorytick < 31)
+               b.factorytick++;
          }
       }
       static uint32_t last = 0;
