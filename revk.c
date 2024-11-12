@@ -1884,7 +1884,7 @@ task (void *pvParameters)
          }
          if (factorygpio.set)
          {                      // Factory reset control - press 3 times without a 3 second gap
-            struct
+            static struct
             {
                uint8_t was:1;
                uint8_t count:2;
