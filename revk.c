@@ -1896,7 +1896,8 @@ task (void *pvParameters)
             uint8_t press = revk_gpio_get (factorygpio);
             if (press && !b.factorywas)
             {
-               b.factorycount++;
+               if (b.factorycount < 3)
+                  b.factorycount++;
                ESP_LOGE (TAG, "Pressed factory reset button %d", b.factorycount);
                b.factorytick = 0;
                if (b.factorycount == 3)
