@@ -5035,7 +5035,7 @@ revk_gpio_output (revk_gpio_t g, uint8_t o)
    if (!e)
       e = gpio_set_drive_capability (g.num, 2 + g.strong - g.weak * 2);
 #ifndef	CONFIG_IDF_TARGET_ESP32C3
-   if (rtc_gpio_is_valid_gpio (g.num))
+   if (!e && rtc_gpio_is_valid_gpio (g.num))
    {
       if (!e)
          e = rtc_gpio_set_direction (g.num, g.pulldown ? RTC_GPIO_MODE_OUTPUT_OD : RTC_GPIO_MODE_OUTPUT_ONLY);
@@ -5053,7 +5053,7 @@ revk_gpio_output (revk_gpio_t g, uint8_t o)
 esp_err_t
 revk_gpio_set (revk_gpio_t g, uint8_t o)
 {
-   if (!g.set)
+   if (!g.set || !GPIO_IS_VALID_OUTPUT_GPIO (g.num))
       return ESP_FAIL;
    return gpio_set_level (g.num, (o ? 1 : 0) ^ g.invert);
 }
@@ -5065,11 +5065,8 @@ revk_gpio_input (revk_gpio_t g)
    if (!g.set || !GPIO_IS_VALID_GPIO (g.num))
       e = ESP_FAIL;
 #ifndef	CONFIG_IDF_TARGET_ESP32C3
-   if (rtc_gpio_is_valid_gpio (g.num))
-   {
-      if (!e)
-         e = rtc_gpio_deinit (g.num);
-   }
+   if (!e && rtc_gpio_is_valid_gpio (g.num))
+      e = rtc_gpio_deinit (g.num);
 #endif
    if (!e)
       e = gpio_reset_pin (g.num);
@@ -5118,13 +5115,13 @@ revk_gpio_input (revk_gpio_t g)
    }
 #endif
 #endif
-   return 0;
+   return e;
 }
 
 uint8_t
 revk_gpio_get (revk_gpio_t g)
 {
-   if (g.set)
+   if (g.set && GPIO_IS_VALID_GPIO (g.num))
       return gpio_get_level (g.num) ^ g.invert;
    return 0;
 }
