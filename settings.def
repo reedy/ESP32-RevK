@@ -28,7 +28,7 @@ bit	prefix.host	CONFIG_REVK_PREFIXHOST	.revk=1			// MQTT use (appname/)hostname/
 gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif
 
-bit	dark					.revk=1			// Default LED off
+bit	dark					.revk=1 .live=1			// Default LED off
 gpio	factorygpio	-21			.revk=1			// Factory reset GPIO (press 3 times)
 
 
