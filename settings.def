@@ -29,7 +29,11 @@ gpio	blink		CONFIG_REVK_BLINK	.revk=1	.array=3	// LED array
 #endif
 
 bit	dark					.revk=1 .live=1			// Default LED off
+#ifdef  CONFIG_IDF_TARGET_ESP32S3
 gpio	factorygpio	-21			.revk=1			// Factory reset GPIO (press 3 times)
+#else
+gpio	factorygpio				.revk=1			// Factory reset GPIO (press 3 times)
+#endif
 
 
 #ifdef  CONFIG_REVK_APMODE
