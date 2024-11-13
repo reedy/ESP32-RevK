@@ -5,7 +5,7 @@ s	hostname				.revk=1 .hide=1			// Host name
 // Appname is not something you should changing usually so leave as MQTT only
 s	appname		CONFIG_REVK_APPNAME	.revk=1 .hide=1		// Application name
 
-s	ota.host	CONFIG_REVK_OTAHOST	.revk=1			// OTA hostname
+s	ota.host	CONFIG_REVK_OTAHOST	.revk=1	.live=1		// OTA hostname
 u8	ota.days	CONFIG_REVK_OTADAYS	.revk=1			// OTA auto load (days)
 u16	ota.start	600			.revk=1			// OTA check after startup (min seconds)
 bit	ota.auto	1			.revk=1	.hide=1 .live=1	// OTA auto upgrade
