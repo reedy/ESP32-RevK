@@ -5125,7 +5125,7 @@ revk_gpio_input (revk_gpio_t g)
 uint8_t
 revk_gpio_get (revk_gpio_t g)
 {
-   if (g.set && GPIO_IS_VALID_GPIO (g.num))
+   if (g.set) // && GPIO_IS_VALID_GPIO (g.num))
       return gpio_get_level (g.num) ^ g.invert;
    return 0;
 }
