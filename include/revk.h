@@ -207,10 +207,16 @@ void revk_send_subunsub (int client, const mac_t,uint8_t sub);
 #define revk_send_sub(c,m) revk_send_subunsub(c,m,1)
 #define revk_send_unsub(c,m) revk_send_subunsub(c,m,0)
 #endif
-#ifdef  CONFIG_REVK_LED_STRIP
-void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink rate and colour sequence for on state (for RGB LED)
+
+void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink rate and colour sequence for on state (for RGB LED even if not LED strip)
+uint32_t revk_blinker (void);   // Return colour for blinking status LED (as per revk_rgb) plud top bit for basic blink cycle
+uint32_t revk_rgb (char c);     // Provide RGB colour for character, with scaling, and so on, in bottom 3 bytes. Top byte has 2 bits per colour.
+
+#ifdef  CONFIG_REVK_BLINK_SUPPORT
 void revk_blink_init(void);	// Start library blinker
 void revk_blink_do(void);	// Do library blinker (10Hz expected)
+extern const uint8_t gamma8[256];
+void revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb); // Set LED from RGB with scale and apply gamma
 #endif
 
 uint16_t revk_num_web_handlers (void);  // Number of handlers used by revk_web_settings_add()
@@ -225,13 +231,6 @@ esp_err_t revk_web_status (httpd_req_t * req);  // Call for web config for SSID/
 esp_err_t revk_web_wifilist (httpd_req_t * req);        // WS for list of SSIDs
 void revk_web_head (httpd_req_t * req, const char *title);      // Generic html heading
 esp_err_t revk_web_foot (httpd_req_t * req, uint8_t home, uint8_t wifi, const char *extra);     // Generic html footing and return
-
-uint32_t revk_blinker (void);   // Return colour for blinking LED (as per revk_rgb) plug top bit for basic blink cycle
-#ifdef  CONFIG_REVK_LED_STRIP
-extern const uint8_t gamma8[256];
-uint32_t revk_rgb (char c);     // Provide RGB colour for character, with scaling, and so on, in bottom 3 bytes. Top byte has 2 bits per colour.
-void revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb); // Set LED from RGB with scale and apply gamma
-#endif
 
 #ifdef	CONFIG_REVK_SEASON
 const char *revk_season (time_t now);   // Return a character for seasonal variation, E=Easter, Y=NewYear, X=Christmas, H=Halloween

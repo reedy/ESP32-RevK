@@ -1635,7 +1635,6 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #endif
 }
 
-#ifdef  CONFIG_REVK_BLINK_SUPPORT
 static const char *
 blink_default (const char *user)
 {                               // What blinking to do - NULL means do default, "" means off if none of the default special cases apply, otherwise the requested colour sequence, unless restarting (white)
@@ -1663,7 +1662,6 @@ blink_default (const char *user)
       return "K";
    return "RYGCBM";             // Idle
 }
-#endif
 
 uint32_t
 revk_rgb (char c)
@@ -1728,7 +1726,6 @@ revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb)
 }
 #endif
 
-#ifdef  CONFIG_REVK_BLINK_SUPPORT
 uint32_t
 revk_blinker (void)
 {                               // LED blinking controls, in style of revk_rgb() but bit 30 is set if not black, and bit 31 is set for blink cycle
@@ -1776,7 +1773,6 @@ revk_blinker (void)
          (scale * (rgb & 0xFF) / 255);
    }
 }
-#endif
 
 #ifdef	CONFIG_REVK_BLINK_SUPPORT
 void
