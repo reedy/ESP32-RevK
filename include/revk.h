@@ -207,9 +207,11 @@ void revk_send_subunsub (int client, const mac_t,uint8_t sub);
 #define revk_send_sub(c,m) revk_send_subunsub(c,m,1)
 #define revk_send_unsub(c,m) revk_send_subunsub(c,m,0)
 #endif
+#ifdef  CONFIG_REVK_LED_STRIP
 void revk_blink (uint8_t on, uint8_t off, const char *colours); // Set LED blink rate and colour sequence for on state (for RGB LED)
 void revk_blink_init(void);	// Start library blinker
 void revk_blink_do(void);	// Do library blinker (10Hz expected)
+#endif
 
 uint16_t revk_num_web_handlers (void);  // Number of handlers used by revk_web_settings_add()
 const char *revk_web_safe (char **temp, const char *value);     // Return safe version of text for HTML (malloced in *temp)
