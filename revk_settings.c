@@ -382,6 +382,7 @@ main (int argc, const char *argv[])
       char hasjson = 0;
       char hasgpio = 0;
       char hasold = 0;
+      char hasunit = 0;
       char hascomment = 0;
       char hasplace = 0;
 
@@ -402,6 +403,10 @@ main (int argc, const char *argv[])
       for (d = defs; d && (!d->attributes || !strstr (d->attributes, ".old=")); d = d->next);
       if (d)
          hasold = 1;
+
+      for (d = defs; d && (!d->attributes || !strstr (d->attributes, ".unit=")); d = d->next);
+      if (d)
+         hasunit = 1;
 
       for (d = defs; d && (!d->type || *d->type != 'o' || !is_digit (d->type[1])); d = d->next);
       if (d)
@@ -445,6 +450,8 @@ main (int argc, const char *argv[])
                " const char *flags;\n", maxname + 1);
       if (hasold)
          fprintf (H, " const char *old;\n");
+      if (hasunit)
+         fprintf (H, " const char *unit;\n");
       if (hascomment)
          fprintf (H, " const char *comment;\n");
       if (hasplace)
@@ -566,6 +573,8 @@ main (int argc, const char *argv[])
       fprintf (H, "};\n");
       if (hasold)
          fprintf (H, "#define	REVK_SETTINGS_HAS_OLD\n");
+      if (hasunit)
+         fprintf (H, "#define	REVK_SETTINGS_HAS_UNIT\n");
       if (hascomment)
          fprintf (H, "#define	REVK_SETTINGS_HAS_COMMENT\n");
       if (hasplace)

@@ -112,7 +112,8 @@ Additional attributes relate to each setting as follows:-
 |`.decimal`|Used with numeric types this scales by specified number of digits. E.g. `.decimal=2` will show `123` as `1.23` in JSON. A `#define` is for the variable suffixed with `_scale` defining the scale, e.g. `100` for `.decimal=2`.|
 |`.digits`|Fixed number of zero padded digits (before decimal points)|
 |`.secret`|Set if this is a secret and not output in settings JSON (or output as a dummy secret)|
-|`.old`|Old name to be replaced|
+|`.old`|Old name to be replaced (string, no dots)|
+|`.unit`|Units name (string) for numeric values|
 |`.place`|Placeholder for settings editing|
 |`.rtc=1`|Place in `RTC_NOINIT_ATTR`|
 

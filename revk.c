@@ -3203,12 +3203,20 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
       if (s->hex)
          revk_web_send (req,
                         "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder=\"%s\" style=\"font-family:monospace\" size=%d maxlength=%d>%s</td><td>%s</td></tr>",
-                        field, field, field, revk_web_safe (&qs, value), place, s->size * 2, s->size * 2, s->gpio ? " (GPIO)" : "",
+                        field, field, field, revk_web_safe (&qs, value), place, s->size * 2, s->size * 2, s->gpio ? " (GPIO)" :
+#ifdef	REVK_SETTINGS_HAS_UNIT
+			s->unit?:
+#endif
+			"",
                         comment);
       else
          revk_web_send (req,
                         "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder=\"%s\" style=\"text-align:right\" size=10>%s</td><td>%s</td></tr>",
-                        field, field, field, revk_web_safe (&qs, value), place, s->gpio ? " (GPIO)" : "", comment);
+                        field, field, field, revk_web_safe (&qs, value), place, s->gpio ? " (GPIO)" :
+#ifdef	REVK_SETTINGS_HAS_UNIT
+			s->unit?:
+#endif
+			"", comment);
    } else
 #endif
 #ifdef  REVK_SETTINGS_HAS_JSON
