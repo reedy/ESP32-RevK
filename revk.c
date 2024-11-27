@@ -1837,7 +1837,7 @@ revk_blink_do (void)
          revk_gpio_set (blink[2], (rgb >> 25) & 1);
       }
 #ifdef  CONFIG_REVK_LED_STRIP
-      else
+      else if(revk_strip)
       {
          revk_led (revk_strip, 0, 255, rgb);
          led_strip_refresh (revk_strip);
