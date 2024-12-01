@@ -18,6 +18,7 @@ typedef struct
 
 // Sensor
 #define ha_config_sensor(...)  ha_config_opts("sensor",(ha_config_t){__VA_ARGS__})
+#define ha_config_switch(...)  ha_config_opts("switch",(ha_config_t){__VA_ARGS__})
 const char *ha_config_opts (const char *, ha_config_t);
 
 #endif
