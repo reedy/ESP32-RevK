@@ -1837,7 +1837,7 @@ revk_blink_do (void)
          revk_gpio_set (blink[2], (rgb >> 25) & 1);
       }
 #ifdef  CONFIG_REVK_LED_STRIP
-      else if(revk_strip)
+      else if (revk_strip)
       {
          revk_led (revk_strip, 0, 255, rgb);
          led_strip_refresh (revk_strip);
@@ -1919,7 +1919,7 @@ task (void *pvParameters)
       if (now != last)
       {                         // Slow (once a second)
          last = now;
-         if (otaauto && ota_check && ota_check < now)
+         if (!b.disableupgrade && otaauto && ota_check && ota_check < now)
          {                      // Check for s/w update
             time_t t = time (0);
             struct tm tm = { 0 };
@@ -3203,18 +3203,17 @@ revk_web_setting (httpd_req_t * req, const char *tag, const char *field)
                         "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder=\"%s\" style=\"font-family:monospace\" size=%d maxlength=%d>%s</td><td>%s</td></tr>",
                         field, field, field, revk_web_safe (&qs, value), place, s->size * 2, s->size * 2, s->gpio ? " (GPIO)" :
 #ifdef	REVK_SETTINGS_HAS_UNIT
-			s->unit?:
+                        s->unit ? :
 #endif
-			"",
-                        comment);
+                        "", comment);
       else
          revk_web_send (req,
                         "<td nowrap><input id=\"%s\" name=\"_%s\" onchange=\"this.name='%s';\" value=\"%s\" autocapitalize='off' autocomplete='off' spellcheck='false' autocorrect='off' placeholder=\"%s\" style=\"text-align:right\" size=10>%s</td><td>%s</td></tr>",
                         field, field, field, revk_web_safe (&qs, value), place, s->gpio ? " (GPIO)" :
 #ifdef	REVK_SETTINGS_HAS_UNIT
-			s->unit?:
+                        s->unit ? :
 #endif
-			"", comment);
+                        "", comment);
    } else
 #endif
 #ifdef  REVK_SETTINGS_HAS_JSON
@@ -4983,6 +4982,18 @@ revk_enable_wifi (void)
 #endif
       b.disablewifi = 0;
    }
+}
+
+void
+revk_disable_upgrade (void)
+{
+   b.disableupgrade = 1;
+}
+
+void
+revk_enable_upgrade (void)
+{
+   b.disableupgrade = 0;
 }
 
 void

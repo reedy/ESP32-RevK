@@ -257,6 +257,8 @@ time_t sun_set (int y, int m, int d, double latitude, double longitude, double s
 #define SUN_ASTRONOMICAL_TWILIGHT       (-18.0)
 #endif
 
+void revk_enable_upgrade (void);
+void revk_disable_upgrade (void);
 void revk_enable_wifi (void);
 void revk_disable_wifi (void);
 void revk_enable_ap (void);
