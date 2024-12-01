@@ -256,6 +256,7 @@ static struct
 {                               // Flags
    uint8_t setting_dump_requested:2;
    uint8_t wdt_test:1;
+   uint8_t disableupgrade:1;
    uint8_t disablewifi:1;
    uint8_t disableap:1;
    uint8_t disablesettings:1;
