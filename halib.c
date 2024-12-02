@@ -12,6 +12,7 @@ ha_config_opts (const char *config, ha_config_t h)
    if (asprintf (&topic, "%s/%s/%s-%s/config", topicha, config, hostname, h.id) < 0)
       return "malloc fail";
    char *hastatus = revk_topic (topicstate, NULL, NULL);
+   char *hacmd = revk_topic (topiccommand, NULL, NULL);
    jo_t j = jo_object_alloc ();
    void addpath (const char *tag, const char *base, const char *path)
    {                            // Allow path. NULL is base, /suffix is after base, non / is absolute path
@@ -46,7 +47,10 @@ ha_config_opts (const char *config, ha_config_t h)
    } else if (!strcmp (config, "switch"))
    {
       if (h.cmd)
-         addpath ("cmd_t", hastatus, h.cmd);
+         addpath ("cmd_t", hacmd, h.cmd);
+      if (h.stat)
+         addpath ("stat_t", hastatus, h.stat);
+      jo_stringf (j, "val_tpl", "{{value_json.%s}}", h.field ? : h.id);
    }
    // Availability
    jo_string (j, "avty_t", hastatus);
@@ -54,6 +58,7 @@ ha_config_opts (const char *config, ha_config_t h)
    jo_bool (j, "pl_avail", 1);
    jo_bool (j, "pl_not_avail", 0);
    free (hastatus);
+   free (hacmd);
    revk_mqtt_send (NULL, 1, topic, h.delete ? NULL : &j);
    free (topic);
    return NULL;
