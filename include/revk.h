@@ -113,7 +113,7 @@ struct revk_gpio_s
    uint8_t set:1;
 };
 #endif
-int gpio_ok (uint8_t gpio);     // non 0 if OK to use in current platform (bit 0 for out, bit 1 for in, bit 2 for special use - e.g. USB)
+int gpio_ok (int8_t gpio);     // non 0 if OK to use in current platform (bit 0 for out, bit 1 for in, bit 2 for special use - e.g. USB)
 #ifdef	REVK_SETTINGS_HAS_GPIO
 esp_err_t revk_gpio_output (revk_gpio_t g, uint8_t o);
 esp_err_t revk_gpio_set (revk_gpio_t g, uint8_t o);
