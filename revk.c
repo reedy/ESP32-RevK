@@ -3699,6 +3699,7 @@ revk_web_settings (httpd_req_t * req)
                         (uint8_t) ap.bssid[5]);
          revk_web_send (req, "<tr><td>RSSI</td><td>%d</td></tr>", ap.rssi);
          revk_web_send (req, "<tr><td>Channel</td><td>%d</td></tr>", ap.primary);
+	 // TODO authmode
       }
       revk_web_send (req, "</table>");
    }
