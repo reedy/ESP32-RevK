@@ -10,6 +10,7 @@ typedef struct
    const char *type;            // type
    const char *unit;            // unit
    const char *stat;            // stat topic (default main status)
+   const char *cmd;             // command topic (default main status)
    const char *field;           // field name (default id)
 
    const char *icon;            // icon
