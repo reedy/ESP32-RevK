@@ -3697,7 +3697,7 @@ revk_web_settings (httpd_req_t * req)
          revk_web_send (req, "<tr><td>BSSID</td><td>%02X%02X%02X%02X%02X%02X</td></tr>", (uint8_t) ap.bssid[0],
                         (uint8_t) ap.bssid[1], (uint8_t) ap.bssid[2], (uint8_t) ap.bssid[3], (uint8_t) ap.bssid[4],
                         (uint8_t) ap.bssid[5]);
-         revk_web_send (req, "<tr><td>RSSI</td><td>%d</td></tr>", ap.rssid);
+         revk_web_send (req, "<tr><td>RSSI</td><td>%d</td></tr>", ap.rssi);
          revk_web_send (req, "<tr><td>Channel</td><td>%d</td></tr>", ap.primary);
       }
       revk_web_send (req, "</table>");
