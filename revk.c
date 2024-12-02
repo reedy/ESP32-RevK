@@ -2173,7 +2173,7 @@ revk_pre_shutdown (void)
 int
 gpio_ok (uint8_t p)
 {                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK. bit 2 USB (not marked in/out), bit 3 for Serial (are marked in/out as well)
-   if (!GPIO_IS_VALID_GPIO ((int)p))
+   if (!GPIO_IS_VALID_GPIO (((int)p)))
       return 0;
    // ESP32 (S1)
 #ifdef	CONFIG_IDF_TARGET_ESP32
