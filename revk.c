@@ -3938,15 +3938,12 @@ dummy_dns_task (void *pvParameters)
 
 #ifdef	CONFIG_REVK_APMODE
 static int
-revk_ap_name (char ssid[32])
-{                               // Sets AP name if in AP mode, returns length
+revk_ap_name (void *ssid)
+{                               // Sets AP name if in AP mode, returns length, ssid has to allow 32 characters
 #ifdef	CONFIG_REVK_APDNS
-   int l = snprintf (ssid, 3 s),
-      "%s-%012llX",
-      appname,
-      revk_binid);
+   int l = snprintf ((char*)ssid, 32, "%s-%012llX", appname, revk_binid);
 #else
-   int l = snprintf (ssid, 32, "%s-10.%d.%d.1", appname,
+   int l = snprintf ((char*)ssid, 32, "%s-10.%d.%d.1", appname,
                      (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
 #endif
    if (l > 32)
