@@ -3956,6 +3956,8 @@ make_ap_name (void *ssid)
 uint8_t
 revk_wifi_is_ap (void *ssid)
 {                               // Set SSID, and return length if in AP mode, else 0
+   wifi_mode_t mode = 0;
+   esp_wifi_get_mode (&mode);
    if (mode != WIFI_MODE_AP && mode != WIFI_MODE_APSTA)
       return 0;
    return make_ap_name (ssid);
