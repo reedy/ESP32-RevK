@@ -3937,6 +3937,19 @@ dummy_dns_task (void *pvParameters)
 #endif
 
 #ifdef	CONFIG_REVK_APMODE
+static uint8_t revk_ap_name(char ssid[32])
+{ // Sets AP name if in AP mode, returns length
+#ifdef	CONFIG_REVK_APDNS
+   uint8_t l= = snprintf (ssid, sizeof (ssid), "%s-%012llX", appname, revk_binid);
+#else
+   uint8_t l=
+      snprintf (ssid, sizeof (ssid), "%s-10.%d.%d.1", appname,
+                (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
+#endif
+   if(l>sizeof(ssid))l=sizeof(ssid);
+   return l;
+}
+
 static void
 ap_start (void)
 {
@@ -3952,15 +3965,7 @@ ap_start (void)
    // WiFi
    wifi_config_t cfg = { 0, };
    cfg.ap.max_connection = 2;   // We expect only one really, this is for config
-#ifdef	CONFIG_REVK_APDNS
-   cfg.ap.ssid_len = snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-%012llX", appname, revk_binid);
-#else
-   cfg.ap.ssid_len =
-      snprintf ((char *) cfg.ap.ssid, sizeof (cfg.ap.ssid), "%s-10.%d.%d.1", appname,
-                (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
-#endif
-   if (cfg.ap.ssid_len > sizeof (cfg.ap.ssid))
-      cfg.ap.ssid_len = sizeof (cfg.ap.ssid);
+   cfg.ap.ssid_len=revk_ap_name(cfg.ap.ssid);
    if (*appass)
    {
       int l;
