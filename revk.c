@@ -2174,7 +2174,7 @@ int
 gpio_ok (int8_t p)
 {                               // Return is bit 0 (i.e. value 1) for output OK, 1 (i.e. value 2) for input OK. bit 2 USB (not marked in/out), bit 3 for Serial (are marked in/out as well)
    if (!GPIO_IS_VALID_GPIO (p))
-      return 0; // Catch all
+      return 0;                 // Catch all
    // ESP32 (S1)
 #ifdef	CONFIG_IDF_TARGET_ESP32
    if (p > 39)
@@ -3699,7 +3699,7 @@ revk_web_settings (httpd_req_t * req)
                         (uint8_t) ap.bssid[5]);
          revk_web_send (req, "<tr><td>RSSI</td><td>%d</td></tr>", ap.rssi);
          revk_web_send (req, "<tr><td>Channel</td><td>%d</td></tr>", ap.primary);
-	 // TODO authmode
+         // TODO authmode
       }
       revk_web_send (req, "</table>");
    }
@@ -3937,16 +3937,20 @@ dummy_dns_task (void *pvParameters)
 #endif
 
 #ifdef	CONFIG_REVK_APMODE
-static uint8_t revk_ap_name(char ssid[32])
-{ // Sets AP name if in AP mode, returns length
+static int
+revk_ap_name (char ssid[32])
+{                               // Sets AP name if in AP mode, returns length
 #ifdef	CONFIG_REVK_APDNS
-   uint8_t l= = snprintf (ssid, sizeof (ssid), "%s-%012llX", appname, revk_binid);
+   int l = snprintf (ssid, 3 s),
+      "%s-%012llX",
+      appname,
+      revk_binid);
 #else
-   uint8_t l=
-      snprintf (ssid, sizeof (ssid), "%s-10.%d.%d.1", appname,
-                (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
+   int l = snprintf (ssid, 32, "%s-10.%d.%d.1", appname,
+                     (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
 #endif
-   if(l>sizeof(ssid))l=sizeof(ssid);
+   if (l > 32)
+      l = 32;
    return l;
 }
 
@@ -3965,7 +3969,7 @@ ap_start (void)
    // WiFi
    wifi_config_t cfg = { 0, };
    cfg.ap.max_connection = 2;   // We expect only one really, this is for config
-   cfg.ap.ssid_len=revk_ap_name(cfg.ap.ssid);
+   cfg.ap.ssid_len = revk_ap_name (cfg.ap.ssid);
    if (*appass)
    {
       int l;
