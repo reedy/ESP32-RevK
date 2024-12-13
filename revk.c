@@ -1292,7 +1292,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          {
             jo_t j = jo_create_alloc ();
             if (*apssid)
-               jo_string (j, "ssid", apssid); // TODO the generated SSID, is this not in the event?
+               jo_string (j, "ssid", apssid);   // TODO the generated SSID, is this not in the event?
             jo_rewind (j);
             app_callback (0, topiccommand, NULL, "ap", j);
             jo_free (&j);
@@ -3943,11 +3943,14 @@ make_ap_name (void *ssid)
 {                               // Sets AP name if in AP mode, returns length, ssid has to allow 32 characters
    if (!ssid)
       return 0;
+   int l = 0;
+   if (*apssid)
+      l = snprintf (ssid, 32, "%s", apssid);
+   else
 #ifdef	CONFIG_REVK_APDNS
-   int l = snprintf ((char *) ssid, 32, "%s-%012llX", appname, revk_binid);
+      l = snprintf (ssid, 32, "%s-%012llX", appname, revk_binid);
 #else
-   int l = snprintf ((char *) ssid, 32, "%s-10.%d.%d.1", appname,
-                     (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
+      l = snprintf (ssid, 32, "%s-10.%d.%d.1", appname, (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
 #endif
    if (l > 32)
       l = 32;
