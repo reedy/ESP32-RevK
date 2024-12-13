@@ -194,6 +194,7 @@ int revk_wait_mqtt (int seconds);
 uint32_t revk_link_down (void); // How long link down (no IP or no parent if mesh)
 #define MESH_PAD        32      // Max extra allocated bytes required on data
 const char *revk_wifi (void);   // Return the wifi SSID
+uint8_t revk_wifi_is_ap(void*ssid);	// Return length of stored SSID if in AP mode (allow 32 characters)
 void revk_wifi_close (void);    // Close wifi
 int revk_wait_wifi (int seconds);       // Wait for wifi
 #endif

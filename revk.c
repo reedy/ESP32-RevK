@@ -3938,17 +3938,27 @@ dummy_dns_task (void *pvParameters)
 
 #ifdef	CONFIG_REVK_APMODE
 static int
-revk_ap_name (void *ssid)
+make_ap_name (void *ssid)
 {                               // Sets AP name if in AP mode, returns length, ssid has to allow 32 characters
+   if (!ssid)
+      return 0;
 #ifdef	CONFIG_REVK_APDNS
-   int l = snprintf ((char*)ssid, 32, "%s-%012llX", appname, revk_binid);
+   int l = snprintf ((char *) ssid, 32, "%s-%012llX", appname, revk_binid);
 #else
-   int l = snprintf ((char*)ssid, 32, "%s-10.%d.%d.1", appname,
+   int l = snprintf ((char *) ssid, 32, "%s-10.%d.%d.1", appname,
                      (uint8_t) (revk_binid >> 8), (uint8_t) (revk_binid & 255));
 #endif
    if (l > 32)
       l = 32;
    return l;
+}
+
+uint8_t
+revk_wifi_is_ap (void *ssid)
+{                               // Set SSID, and return length if in AP mode, else 0
+   if (mode != WIFI_MODE_AP && mode != WIFI_MODE_APSTA)
+      return 0;
+   return make_ap_name (ssid);
 }
 
 static void
@@ -3966,7 +3976,7 @@ ap_start (void)
    // WiFi
    wifi_config_t cfg = { 0, };
    cfg.ap.max_connection = 2;   // We expect only one really, this is for config
-   cfg.ap.ssid_len = revk_ap_name (cfg.ap.ssid);
+   cfg.ap.ssid_len = make_ap_name (cfg.ap.ssid);
    if (*appass)
    {
       int l;
