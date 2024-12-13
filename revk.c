@@ -1291,7 +1291,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          if (app_callback)
          {
             jo_t j = jo_create_alloc ();
-            jo_string (j, "ssid", apssid);
+            if (*apssid)
+               jo_string (j, "ssid", apssid); // TODO the generated SSID, is this not in the event?
             jo_rewind (j);
             app_callback (0, topiccommand, NULL, "ap", j);
             jo_free (&j);
