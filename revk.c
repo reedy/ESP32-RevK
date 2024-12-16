@@ -4625,6 +4625,8 @@ revk_wait_wifi (int seconds)
    ESP_LOGD (TAG, "Wait WiFi %d", seconds);
    if (!*wifissid)
       return -1;
+   if (xEventGroupGetBits (revk_group) & GROUP_IP)
+      return 0;
    return xEventGroupWaitBits (revk_group, GROUP_IP, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_IP;
 }
 #endif
