@@ -1413,7 +1413,6 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                wifi_ap_record_t ap = { };
                REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
                ESP_LOGI (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
-               xEventGroupSetBits (revk_group, GROUP_IP);
                if (sta_netif)
                {
 #if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0
@@ -1446,6 +1445,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #endif
                gotip |= 0x80;   // Got the IPv4
             }
+            xEventGroupSetBits (revk_group, GROUP_IP);
          }
          break;
       case IP_EVENT_GOT_IP6:
@@ -4625,8 +4625,6 @@ revk_wait_wifi (int seconds)
    ESP_LOGD (TAG, "Wait WiFi %d", seconds);
    if (!*wifissid)
       return -1;
-   if (xEventGroupGetBits (revk_group) & GROUP_IP)
-      return 0;
    return xEventGroupWaitBits (revk_group, GROUP_IP, false, true, seconds * 1000 / portTICK_PERIOD_MS) & GROUP_IP;
 }
 #endif
