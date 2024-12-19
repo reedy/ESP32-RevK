@@ -254,6 +254,7 @@ led_strip_handle_t revk_strip = NULL;
 /* Local */
 static struct
 {                               // Flags
+   uint8_t die:1;               // Final die
    uint8_t setting_dump_requested:2;
    uint8_t wdt_test:1;
    uint8_t disableupgrade:1;
@@ -1731,6 +1732,8 @@ revk_led (led_strip_handle_t strip, int led, uint8_t scale, uint32_t rgb)
 uint32_t
 revk_blinker (void)
 {                               // LED blinking controls, in style of revk_rgb() but bit 30 is set if not black, and bit 31 is set for blink cycle
+   if (b.die)
+      return 0;
    if (uptime () < 2)
       return 0x4C00FF00;        // Green startup
    if (b.factorycount == 1)
@@ -1871,7 +1874,7 @@ task (void *pvParameters)
    revk_blink_init ();
 #endif
    revk_gpio_input (factorygpio);
-   while (1)
+   while (!b.die)
    {                            /* Idle */
       if (!b.wdt_test && watchdogtime)
          esp_task_wdt_reset ();
@@ -2137,17 +2140,20 @@ task (void *pvParameters)
             revk_nvs_time = 0;
          }
          if (restart_time && restart_time <= now)
-         {
-            revk_pre_shutdown ();
-            esp_restart ();
-         }
+            break;
       }
    }
+   revk_pre_shutdown ();
+#ifdef CONFIG_REVK_BLINK_LIB
+   revk_blink_do ();
+#endif
+   esp_restart ();
 }
 
 void
 revk_pre_shutdown (void)
 {                               /* Restart */
+   b.die = 1;
    if (!restart_reason)
       restart_reason = "Unknown";
    ESP_LOGI (TAG, "Restart %s", restart_reason);
