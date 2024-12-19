@@ -1079,12 +1079,14 @@ revk_settings_load (const char *tag, const char *appname)
 void
 revk_settings_factory (const char *tag, const char *appname)
 {                               // Factory reset settings
+   ESP_LOGE (tag, "Factory reset");
    for (int revk = 0; revk < 2; revk++)
       nvs_close (nvs[revk]);
    esp_err_t e = nvs_flash_erase ();
    if (!e)
-      e = nvs_flash_erase_partition (TAG);
+      e = nvs_flash_erase_partition (tag);
    // Restore fixed settings
+   ESP_LOGE (tag, "Fixed settings");
    for (int revk = 0; revk < 2; revk++)
    {
       const char *part = revk ? tag : "nvs";
@@ -1101,6 +1103,7 @@ revk_settings_factory (const char *tag, const char *appname)
                nvs_put (s, i, NULL);
       }
    revk_settings_commit ();
+   ESP_LOGE (tag, "Reset complete");
 }
 
 const char *
