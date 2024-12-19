@@ -1094,7 +1094,8 @@ revk_settings_factory (const char *tag, const char *appname)
    {
       const char *part = revk ? tag : "nvs";
       const char *ns = revk ? tag : appname;
-      nvs_open_from_partition (part, ns, NVS_READWRITE, &nvs[revk]);
+      if (nvs_open_from_partition (part, ns, NVS_READWRITE, &nvs[revk]))
+         ESP_LOGE (TAG, "Open failed %s/%s", part, ns);
    }
    for (revk_settings_t * s = revk_settings; s->len; s++)
       if (s->fix)
