@@ -1084,7 +1084,11 @@ revk_settings_factory (void)
       e = nvs_flash_erase_partition (TAG);
    // Restore fixed settings
    for (int revk = 0; revk < 2; revk++)
+   {
+      const char *part = revk ? tag : "nvs";
+      const char *ns = revk ? tag : appname;
       nvs_open_from_partition (part, ns, NVS_READWRITE, &nvs[revk]);
+   }
    for (revk_settings_t * s = revk_settings; s->len; s++)
       if (s->fix)
       {                         // Fix, save to flash
