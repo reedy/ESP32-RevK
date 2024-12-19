@@ -1089,14 +1089,19 @@ revk_settings_factory (const char *tag, const char *appname)
    if (!e)
       e = nvs_flash_erase_partition (tag);
    // Restore fixed settings
+   nvs_flash_init ();
    ESP_LOGE (tag, "Fixed settings");
    for (int revk = 0; revk < 2; revk++)
    {
       const char *part = revk ? tag : "nvs";
       const char *ns = revk ? tag : appname;
-      esp_err_t e = nvs_open_from_partition (part, ns, NVS_READWRITE, &nvs[revk]);
+      esp_err_t e = nvs_flash_init_partition (part);
+      if (!e)
+         e = nvs_open_from_partition (part, ns, NVS_READWRITE, &nvs[revk]);
+//#ifdef  CONFIG_REVK_SETTINGS_DEBUG
       if (e)
          ESP_LOGE (TAG, "Open failed %s/%s %s", part, ns, esp_err_to_name (e));
+      //#endif
    }
    for (revk_settings_t * s = revk_settings; s->len; s++)
       if (s->fix)
