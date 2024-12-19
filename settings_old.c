@@ -1137,11 +1137,11 @@ revk_settings_commit (void)
 }
 
 static void
-revk_settings_factory (const char *tag, const char *appname)
+revk_settings_factory (const char *tag, const char *appname, char full)
 {                               // Factory reset settings
    esp_err_t e = nvs_flash_erase ();
    if (!e)
-      e = nvs_flash_erase_partition (TAG);
+      e = nvs_flash_erase_partition (tag);
 }
 
 #endif
