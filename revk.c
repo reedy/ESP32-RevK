@@ -1905,6 +1905,7 @@ task (void *pvParameters)
                b.factorytick = 0;
                if (b.factorycount == 3)
                {                // Do factory reset
+                  const esp_app_desc_t *app = esp_app_get_description ();
                   revk_settings_factory (TAG, app->project_name);
                   revk_restart (3, "Factory reset");
                }
@@ -4445,6 +4446,7 @@ revk_command (const char *tag, jo_t j)
          return "Bad ID";
       if (strcmp (val + strlen (revk_id), appname))
          return "Bad appname";
+      const esp_app_desc_t *app = esp_app_get_description ();
       revk_settings_factory (TAG, app->project_name);
       revk_restart (3, "Factory reset");
       return "";
