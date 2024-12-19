@@ -1081,7 +1081,10 @@ revk_settings_factory (const char *tag, const char *appname)
 {                               // Factory reset settings
    ESP_LOGE (tag, "Factory reset");
    for (int revk = 0; revk < 2; revk++)
+   {
       nvs_close (nvs[revk]);
+      nvs[revk] = -1;
+   }
    esp_err_t e = nvs_flash_erase ();
    if (!e)
       e = nvs_flash_erase_partition (tag);
