@@ -1074,6 +1074,29 @@ revk_settings_load (const char *tag, const char *appname)
       }
 }
 
+static void
+revk_settings_factory (void)
+{                               // Factory reset settings
+   for (int revk = 0; revk < 2; revk++)
+      nvs_close (nvs[revk]);
+   esp_err_t e = nvs_flash_erase ();
+   if (!e)
+      e = nvs_flash_erase_partition (TAG);
+   // Restore fixed settings
+   for (int revk = 0; revk < 2; revk++)
+      nvs_open_from_partition (part, ns, NVS_READWRITE, &nvs[revk]);
+   for (revk_settings_t * s = revk_settings; s->len; s++)
+      if (s->fix)
+      {                         // Fix, save to flash
+         if (!s->array)
+            nvs_put (s, 0, NULL);
+         else
+            for (int i = 0; i < s->array; i++)
+               nvs_put (s, i, NULL);
+      }
+   revk_settings_commit ();
+}
+
 const char *
 revk_setting_dump (int level)
 {

@@ -1902,11 +1902,8 @@ task (void *pvParameters)
                b.factorytick = 0;
                if (b.factorycount == 3)
                {                // Do factory reset
-                  esp_err_t e = nvs_flash_erase ();
-                  if (!e)
-                     e = nvs_flash_erase_partition (TAG);
-                  if (!e)
-                     revk_restart (3, "Factory reset");
+                  revk_settings_factory ();
+                  revk_restart (3, "Factory reset");
                }
             }
             b.factorywas = press;
@@ -4442,11 +4439,8 @@ revk_command (const char *tag, jo_t j)
          return "Bad ID";
       if (strcmp (val + strlen (revk_id), appname))
          return "Bad appname";
-      esp_err_t e = nvs_flash_erase ();
-      if (!e)
-         e = nvs_flash_erase_partition (TAG);
-      if (!e)
-         revk_restart (3, "Factory reset");
+      revk_settings_factory ();
+      revk_restart (3, "Factory reset");
       return "";
    }
 #ifdef	CONFIG_REVK_MESH
