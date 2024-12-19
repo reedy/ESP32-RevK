@@ -1136,4 +1136,12 @@ revk_settings_commit (void)
    REVK_ERR_CHECK (nvs_commit (revk_nvs));
 }
 
+static void
+revk_settings_factory (const char *tag, const char *appname)
+{                               // Factory reset settings
+   esp_err_t e = nvs_flash_erase ();
+   if (!e)
+      e = nvs_flash_erase_partition (TAG);
+}
+
 #endif

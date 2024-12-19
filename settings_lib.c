@@ -1075,7 +1075,7 @@ revk_settings_load (const char *tag, const char *appname)
 }
 
 static void
-revk_settings_factory (void)
+revk_settings_factory (const char *tag, const char *appname)
 {                               // Factory reset settings
    for (int revk = 0; revk < 2; revk++)
       nvs_close (nvs[revk]);
