@@ -7,6 +7,8 @@
 #endif
 static const char __attribute__((unused)) * TAG = "Settings";
 
+#include "settings_lib.h"
+
 extern revk_settings_t revk_settings[];
 extern uint32_t revk_nvs_time;
 
