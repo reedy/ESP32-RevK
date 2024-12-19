@@ -4437,7 +4437,7 @@ revk_command (const char *tag, jo_t j)
    }
    if (!e && !strcmp (tag, "restart"))
       e = revk_restart (3, "Restart command");
-   if (!e && !strcmp (tag, "factory"))
+   if (!e && (!strcmp (tag, "factory") || !strcmp (tag, "fullfactory")))
    {
       char val[256];
       if (jo_strncpy (j, val, sizeof (val)) < 0)
@@ -4447,7 +4447,7 @@ revk_command (const char *tag, jo_t j)
       if (strcmp (val + strlen (revk_id), appname))
          return "Bad appname";
       const esp_app_desc_t *app = esp_app_get_description ();
-      revk_settings_factory (TAG, app->project_name, 0);
+      revk_settings_factory (TAG, app->project_name, tag[1] == 'u');
       revk_restart (3, "Factory reset");
       return "";
    }
