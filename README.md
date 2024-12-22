@@ -12,9 +12,13 @@ Dev guide: [Details for apps using this library](revk-dev.md)
 
 ## Flashing code
 
-My various code typically has a `release` and `betarelease` directory. In this are several `.bin` files.
+The library is the basis for all of my ESP32 code, and provides a common infrastructure for settings, and software upgades, and even the basic building process usinmg `make` built around the `idf.py` (cmake) build system in ESP IDF.
 
-You can use `esptool` to flash, but there is a simpler way for most people using a web page and Chrome browser.
+My various code typically has a `release` and `betarelease` directory. In these are several `.bin` files.
+
+- You can bnuild code with the whole ESP IDF environment, and use `idf.py` to flash.
+- You can also use `esptool` to flash, but there is a simpler way for most people using a web page and Chrome browser.
+- Or, there is a simpler way using Chrome!
 
 [https://adafruit.github.io/Adafruit_WebSerial_ESPTool/](https://adafruit.github.io/Adafruit_WebSerial_ESPTool/)
 
