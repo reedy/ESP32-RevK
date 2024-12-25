@@ -2793,6 +2793,7 @@ revk_restart (int delay, const char *fmt, ...)
       {
          jo_t j = jo_create_alloc ();
          jo_string (j, NULL, reason);
+         jo_int (j, "delay", delay);
          jo_rewind (j);
          app_callback (0, topiccommand, NULL, "restart", j);
          jo_free (&j);
