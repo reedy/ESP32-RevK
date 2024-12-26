@@ -1413,7 +1413,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             {                   // New IPv4
                wifi_ap_record_t ap = { };
                REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
-	       // Done as Error level as really useful if logging at all
+               // Done as Error level as really useful if logging at all
                ESP_LOGE (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
                if (sta_netif)
                {
@@ -1460,8 +1460,10 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
 #endif
             if (ip_index < 7 && !(gotip & (1 << ip_index)))
             {                   // New IPv6
-	       // Done as Error level as really useful if logging at all
-               ESP_LOGE (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", ip_index, IPV62STR (event->ip6_info.ip), event->ip6_info.ip.zone);
+               // Done as Error level as really useful if logging at all
+               if (!event->ip6_info.ip.zone)
+                  ESP_LOGE (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", ip_index, IPV62STR (event->ip6_info.ip),
+                            event->ip6_info.ip.zone);
 #ifdef  CONFIG_REVK_WIFI
                if (app_callback)
                {
