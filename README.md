@@ -12,13 +12,17 @@ Dev guide: [Details for apps using this library](revk-dev.md)
 
 ## Flashing code
 
+<img width="25%" align=right src="https://github.com/user-attachments/assets/0f6722e2-ea72-44d5-bd8a-17f9f7011313" />
+
 The library is the basis for all of my ESP32 code, and provides a common infrastructure for settings, and software upgades, and even the basic building process usinmg `make` built around the `idf.py` (cmake) build system in ESP IDF.
+
+Most of my designs have USB leads, but they also have a TC2030 port (see image on right) for a [TC2030-USB-NL](https://www.tag-connect.com/product/tc2030-usb-nl) lead.
 
 My various code typically has a `release` and `betarelease` directory. In these are several `.bin` files.
 
 - You can bnuild code with the whole ESP IDF environment, and use `idf.py` to flash.
 - You can also use `esptool` to flash, but there is a simpler way for most people using a web page and Chrome browser.
-- Or, there is a simpler way using Chrome!
+- Or, there is a simpler way using Chrome!  
 
 [https://adafruit.github.io/Adafruit_WebSerial_ESPTool/](https://adafruit.github.io/Adafruit_WebSerial_ESPTool/)
 
