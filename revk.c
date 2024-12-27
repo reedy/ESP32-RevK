@@ -1878,7 +1878,7 @@ task (void *pvParameters)
    revk_blink_init ();
 #endif
    revk_gpio_input (factorygpio);
-   while (!b.die)
+   while (1)
    {                            /* Idle */
       if (!b.wdt_test && watchdogtime)
          esp_task_wdt_reset ();
@@ -2149,9 +2149,6 @@ task (void *pvParameters)
       }
    }
    revk_pre_shutdown ();
-#ifdef CONFIG_REVK_BLINK_LIB
-   revk_blink_do ();
-#endif
    esp_restart ();
 }
 
@@ -2159,6 +2156,9 @@ void
 revk_pre_shutdown (void)
 {                               /* Restart */
    b.die = 1;
+#ifdef CONFIG_REVK_BLINK_LIB
+   revk_blink_do ();
+#endif
    if (!restart_reason)
       restart_reason = "Unknown";
    ESP_LOGI (TAG, "Restart %s", restart_reason);
