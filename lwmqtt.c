@@ -750,7 +750,7 @@ client_task (void *pvParameters)
             char sport[6];
             snprintf (sport, sizeof (sport), "%d", port);
             if (getaddrinfo (hostname, sport, &base, &a) || !a)
-               return 0;
+               return -1;
             for (p = a; p; p = p->ai_next)
             {
                handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
