@@ -772,9 +772,9 @@ client_task (void *pvParameters)
          if (!tryconnect (AF_INET6) || uptime () > 20)  // Gives IPv6 a chance to actually get started if there is IPv6 DNS for this.
             tryconnect (AF_INET);
          if (handle->sock < 0)
-            ESP_LOGI (TAG, "Could not connect to %s:%d", hostname, port);
+            ESP_LOGE (TAG, "Could not connect to %s:%d", hostname, port);
          else
-            ESP_LOGI (TAG, "Connected %s:%d", hostname, port);
+            ESP_LOGE (TAG, "Connected %s:%d", hostname, port);
       }
       free (hostname);
       if (handle->sock < 0)
