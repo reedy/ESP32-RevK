@@ -743,7 +743,7 @@ client_task (void *pvParameters)
          int tryconnect (int fam)
          {
             if (handle->sock >= 0)
-               return 0;        // connected
+               return 1;        // connected
           struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
             struct addrinfo *a = 0,
                *p = NULL;
@@ -765,6 +765,8 @@ client_task (void *pvParameters)
                break;
             }
             freeaddrinfo (a);
+            if (handle->sock < 0)
+               return 0;
             return 1;
          }
          if (!tryconnect (AF_INET6) || uptime () > 20)  // Gives IPv6 a chance to actually get started if there is IPv6 DNS for this.
