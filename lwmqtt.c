@@ -711,7 +711,7 @@ client_task (void *pvParameters)
       }
       // Connect
       ESP_LOGI (TAG, "Connecting %s:%d", hostname, port);
-      ui8 tried = 0;
+      uint8_t tried = 0;
       // Can connect using TLS or non TLS with just sock set instead
       if (handle->ca_cert_bytes || handle->crt_bundle_attach)
       {
