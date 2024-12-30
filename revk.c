@@ -5013,19 +5013,19 @@ revk_moon_full_next (time_t t)
 
 #endif
 
-ui8
+uint8_t
 revk_has_ip (void)
 {
    return gotip;
 }
 
-ui8
+uint8_t
 revk_has_ipv4 (void)
 {
    return gotip & 0x80;
 }
 
-ui8
+uint8_t
 revk_has_ipv6 (void)
 {
    return gotip & 0x7E;         // bit 0 is link local
