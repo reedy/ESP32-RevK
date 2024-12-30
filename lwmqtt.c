@@ -801,7 +801,7 @@ client_task (void *pvParameters)
       }
       if (!handle->running)
          break;                 // client was stopped
-      if (!triued)
+      if (!tried)
          handle->backoff = 0;   // We did not try even
       if (handle->backoff < 10)
          handle->backoff++;     // 100 seconds max
