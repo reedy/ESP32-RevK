@@ -1416,7 +1416,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                wifi_ap_record_t ap = { };
                REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
                // Done as Error level as really useful if logging at all
-               ESP_LOGE (TAG, "gOT ip " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
+               ESP_LOGE (TAG, "Got IPv4 " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
                if (sta_netif)
                {
 #if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0

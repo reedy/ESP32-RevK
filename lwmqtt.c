@@ -782,6 +782,8 @@ client_task (void *pvParameters)
          if (uptime () > 20)
             tryconnect (AF_INET);
       }
+      if (handle->backoff < 10)
+         handle->backoff++;     // 100 seconds max
       if (!tried)
          handle->backoff = 0;   // We did not try even
       else if (handle->sock < 0)
@@ -795,8 +797,6 @@ client_task (void *pvParameters)
          hwrite (handle, handle->connect, handle->connectlen);
          lwmqtt_loop (handle);
       }
-      if (handle->backoff < 10)
-         handle->backoff++;     // 100 seconds max
       free (hostname);
       // On ESP32 uint32_t, returned by this func, appears to be long, while on ESP8266 it's a pure unsigned int
       // The easiest and least ugly way to get around is to cast to long explicitly
