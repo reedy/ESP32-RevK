@@ -267,4 +267,8 @@ void revk_disable_ap (void);
 void revk_enable_settings (void);
 void revk_disable_settings (void);
 
+ui8 revk_has_ip(void);
+ui8 revk_has_ipv4(void);
+ui8 revk_has_ipv6(void);
+
 #endif

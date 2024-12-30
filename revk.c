@@ -239,7 +239,10 @@ const char *revk_app = "";      /* App name */
 char revk_id[13] = "";          /* Chip ID as hex (from MAC) */
 uint64_t revk_binid = 0;        /* Binary chip ID */
 mac_t revk_mac;                 // MAC
+
 static int8_t ota_percent = -1;
+
+static uint8_t gotip = 0;       // Avoid double reporting - bit 7 is IPv4, bits 0-6 are ipv6 index - bit 0 is normally link local
 
 static int
 ota_in_progress (void)
@@ -1385,7 +1388,6 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       }
    }
-   static uint8_t gotip = 0;    // Avoid double reporting - bit 7 is IPv4, bits 0-6 are ipv6 index
    if (event_base == IP_EVENT)
    {
       switch (event_id)
@@ -1414,7 +1416,7 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
                wifi_ap_record_t ap = { };
                REVK_ERR_CHECK (esp_wifi_sta_get_ap_info (&ap));
                // Done as Error level as really useful if logging at all
-               ESP_LOGE (TAG, "Got IP " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
+               ESP_LOGE (TAG, "gOT ip " IPSTR " from %s", IP2STR (&event->ip_info.ip), (char *) ap.ssid);
                if (sta_netif)
                {
 #if     ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 0
@@ -5010,6 +5012,24 @@ revk_moon_full_next (time_t t)
 }
 
 #endif
+
+ui8
+revk_has_ip (void)
+{
+   return gotip;
+}
+
+ui8
+revk_has_ipv4 (void)
+{
+   return gotip & 0x80;
+}
+
+ui8
+revk_has_ipv6 (void)
+{
+   return gotip & 0x7E;         // bit 0 is link local
+}
 
 void
 revk_enable_wifi (void)

@@ -711,30 +711,35 @@ client_task (void *pvParameters)
       }
       // Connect
       ESP_LOGI (TAG, "Connecting %s:%d", hostname, port);
+      ui8 tried = 0;
       // Can connect using TLS or non TLS with just sock set instead
       if (handle->ca_cert_bytes || handle->crt_bundle_attach)
       {
-         esp_tls_t *tls = NULL;
-         esp_tls_cfg_t cfg = {
-            .cacert_buf = handle->ca_cert_buf,
-            .cacert_bytes = handle->ca_cert_bytes,
-            .common_name = handle->tlsname,
-            .clientcert_buf = handle->our_cert_buf,
-            .clientcert_bytes = handle->our_cert_bytes,
-            .clientkey_buf = handle->our_key_buf,
-            .clientkey_bytes = handle->our_key_bytes,
-            .crt_bundle_attach = handle->crt_bundle_attach,
-         };
-         tls = esp_tls_init ();
-         if (esp_tls_conn_new_sync (hostname, strlen (hostname), port, &cfg, tls) != 1)
+         if (revk_has_ip ())
          {
-            ESP_LOGE (TAG, "Could not TLS connect to %s:%d", hostname, port);
-            free (tls);
-         } else
-         {
-            handle->tls = tls;
-            esp_tls_get_conn_sockfd (handle->tls, &handle->sock);
-            ESP_LOGI (TAG, "Connected %s:%d", hostname, port);
+            tried++;
+            esp_tls_t *tls = NULL;
+            esp_tls_cfg_t cfg = {
+               .cacert_buf = handle->ca_cert_buf,
+               .cacert_bytes = handle->ca_cert_bytes,
+               .common_name = handle->tlsname,
+               .clientcert_buf = handle->our_cert_buf,
+               .clientcert_bytes = handle->our_cert_bytes,
+               .clientkey_buf = handle->our_key_buf,
+               .clientkey_bytes = handle->our_key_bytes,
+               .crt_bundle_attach = handle->crt_bundle_attach,
+            };
+            tls = esp_tls_init ();
+            if (esp_tls_conn_new_sync (hostname, strlen (hostname), port, &cfg, tls) != 1)
+            {
+               ESP_LOGE (TAG, "Could not TLS connect to %s:%d", hostname, port);
+               free (tls);
+            } else
+            {
+               handle->tls = tls;
+               esp_tls_get_conn_sockfd (handle->tls, &handle->sock);
+               ESP_LOGI (TAG, "Connected %s:%d", hostname, port);
+            }
          }
       } else
       {                         // Non TLS
@@ -744,6 +749,13 @@ client_task (void *pvParameters)
          {
             if (handle->sock >= 0)
                return 1;        // connected
+            if (!revk_has_ip ())
+               return 0;
+            if (fam == AF_INET && !revk_has_ipv4 ())
+               return 0;
+            if (fam == AF_INET6 && !revk_has_ipv6 ())
+               return 0;
+            tried++;
           struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
             struct addrinfo *a = 0,
                *p = NULL;
@@ -767,9 +779,10 @@ client_task (void *pvParameters)
             freeaddrinfo (a);
             if (handle->sock < 0)
                return 0;
-            return 1;
+            return 1;           // Worked
          }
-         if (!tryconnect (AF_INET6) && uptime () > 20)  // Gives IPv6 a chance to actually get started if there is IPv6 DNS for this.
+         tryconnect (AF_INET6);
+         if (uptime () > 20)
             tryconnect (AF_INET);
          if (handle->sock < 0)
             ESP_LOGI (TAG, "Could not connect to %s:%d", hostname, port);
@@ -788,6 +801,8 @@ client_task (void *pvParameters)
       }
       if (!handle->running)
          break;                 // client was stopped
+      if (!triued)
+         handle->backoff = 0;   // We did not try even
       if (handle->backoff < 10)
          handle->backoff++;     // 100 seconds max
       // On ESP32 uint32_t, returned by this func, appears to be long, while on ESP8266 it's a pure unsigned int
