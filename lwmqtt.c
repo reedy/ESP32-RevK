@@ -731,14 +731,11 @@ client_task (void *pvParameters)
             };
             tls = esp_tls_init ();
             if (esp_tls_conn_new_sync (hostname, strlen (hostname), port, &cfg, tls) != 1)
-            {
-               ESP_LOGE (TAG, "Could not TLS connect to %s:%d", hostname, port);
                free (tls);
-            } else
+            else
             {
                handle->tls = tls;
                esp_tls_get_conn_sockfd (handle->tls, &handle->sock);
-               ESP_LOGI (TAG, "Connected %s:%d", hostname, port);
             }
          }
       } else
@@ -784,25 +781,23 @@ client_task (void *pvParameters)
          tryconnect (AF_INET6);
          if (uptime () > 20)
             tryconnect (AF_INET);
-         if (handle->sock < 0)
-            ESP_LOGI (TAG, "Could not connect to %s:%d", hostname, port);
-         else
-            ESP_LOGE (TAG, "Connected %s:%d", hostname, port);
       }
       free (hostname);
-      if (handle->sock < 0)
-      {                         // Failed before we even start
-         if (handle->callback)
-            handle->callback (handle->arg, NULL, 0, NULL);
-      } else
-      {
-         hwrite (handle, handle->connect, handle->connectlen);
-         lwmqtt_loop (handle);
-      }
       if (!handle->running)
          break;                 // client was stopped
       if (!tried)
          handle->backoff = 0;   // We did not try even
+      else if (handle->sock < 0)
+      {                         // Failed before we even start
+         ESP_LOGI (TAG, "Could not connect to %s:%d", hostname, port);
+         if (handle->callback)
+            handle->callback (handle->arg, NULL, 0, NULL);
+      } else
+      {
+         ESP_LOGE (TAG, "Connected %s:%d", hostname, port);
+         hwrite (handle, handle->connect, handle->connectlen);
+         lwmqtt_loop (handle);
+      }
       if (handle->backoff < 10)
          handle->backoff++;     // 100 seconds max
       // On ESP32 uint32_t, returned by this func, appears to be long, while on ESP8266 it's a pure unsigned int
