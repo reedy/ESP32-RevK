@@ -762,45 +762,47 @@ client_task (void *pvParameters)
             }
          } else
          {                      // Non TLS
-            int tryconnect (int fam)
+          struct addrinfo base = { ai_family: AF_UNSPEC, ai_socktype:SOCK_STREAM };
+            struct addrinfo *a = 0,
+               *p = NULL;
+            char sport[6];
+            snprintf (sport, sizeof (sport), "%d", port);
+            if (!getaddrinfo (hostname, sport, &base, &a) && a)
             {
-               if (handle->sock >= 0)
-                  return 1;     // connected
-             struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
-               struct addrinfo *a = 0,
-                  *p = NULL;
-               char sport[6];
-               snprintf (sport, sizeof (sport), "%d", port);
-               if (getaddrinfo (hostname, sport, &base, &a) || !a)
-                  return -1;
-               for (p = a; p; p = p->ai_next)
+               int tryconnect (uint8_t ip6)
                {
-                  if (p->ai_family == AF_INET6)
-                     handle->dnsipv6 = 1;
-                  if (p->ai_family == AF_INET && !revk_has_ipv4 ())
-                     continue;
-                  if (p->ai_family == AF_INET6 && !revk_has_ipv6 ())
-                     continue;
-                  handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
-                  if (handle->sock < 0)
-                     continue;
-                  if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
+                  if (handle->sock >= 0)
+                     return 1;  // connected
+                  for (p = a; p; p = p->ai_next)
                   {
-                     close (handle->sock);
-                     handle->sock = -1;
-                     continue;
+                     if (p->ai_family == AF_INET6)
+                        handle->dnsipv6 = 1;
+                     if (p->ai_family == AF_INET && (ip6 || !revk_has_ipv4 ()))
+                        continue;
+                     if (p->ai_family == AF_INET6 && (!ip6 || !revk_has_ipv6 ()))
+                        continue;
+                     handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
+                     if (handle->sock < 0)
+                        continue;
+                     if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
+                     {
+                        close (handle->sock);
+                        handle->sock = -1;
+                        continue;
+                     }
+                     if (p->ai_family == AF_INET6)
+                        handle->ipv6 = 1;
+                     break;
                   }
-                  if (p->ai_family == AF_INET6)
-                     handle->ipv6 = 1;
-                  break;
+                  if (handle->sock < 0)
+                     return 0;
+                  return 1;     // Worked
                }
-               freeaddrinfo (a);
-               if (handle->sock < 0)
-                  return 0;
-               return 1;        // Worked
+               tryconnect (1);  // Explicit try IPv6 first
+               tryconnect (0);
             }
-            tryconnect (AF_INET6);
-            tryconnect (AF_UNSPEC);
+            if (a)
+               freeaddrinfo (a);
          }
       }
       if (handle->backoff < 10)
