@@ -790,12 +790,13 @@ client_task (void *pvParameters)
                         handle->sock = -1;
                         continue;
                      }
+		     // Connected
                      if (p->ai_family == AF_INET6)
                         handle->ipv6 = 1;
                      break;
                   }
                   if (handle->sock < 0)
-                     return 0;
+                     return 0; // Not  connected
                   return 1;     // Worked
                }
                tryconnect (1);  // Explicit try IPv6 first
