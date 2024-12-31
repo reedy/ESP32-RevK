@@ -777,12 +777,12 @@ client_task (void *pvParameters)
                {
                   if (p->ai_family == AF_INET6)
                      handle->dnsipv6 = 1;
-                  handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
-                  if (handle->sock < 0)
-                     continue;
                   if (p->ai_family == AF_INET && !revk_has_ipv4 ())
                      continue;
                   if (p->ai_family == AF_INET6 && !revk_has_ipv6 ())
+                     continue;
+                  handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
+                  if (handle->sock < 0)
                      continue;
                   if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
                   {
