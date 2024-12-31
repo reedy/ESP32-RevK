@@ -1805,7 +1805,11 @@ revk_blink_init (void)
          led_strip_config_t strip_config = {
             .strip_gpio_num = (blink[0].num),
             .max_leds = 1,      // The number of LEDs in the strip,
+#ifdef	LED_STRIP_COLOR_COMPONENT_FMT_GRB
             .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
+#else
+	    .led_pixel_format = LED_PIXEL_FORMAT_GRB,
+#endif
             .led_model = LED_MODEL_WS2812,      // LED strip model
             .flags.invert_out = blink[0].invert,        // whether to invert the output signal (useful when your hardware has a level inverter)
          };
