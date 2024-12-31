@@ -1364,6 +1364,10 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          break;
       case WIFI_EVENT_STA_CONNECTED:
          ESP_LOGI (TAG, "WiFi STA Connected");
+#ifdef	CONFIG_LWIP_IPV6
+         if (sta_netif)
+            esp_netif_create_ip6_linklocal (sta_netif);
+#endif
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
          ESP_LOGI (TAG, "WiFi STA Disconnect");
