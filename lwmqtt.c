@@ -343,8 +343,8 @@ lwmqtt_reconnect6 (lwmqtt_t handle)
 {
    if (!handle)
       return;
-   if (handle->running && handle->dnsipv6 && !handle->ipv6)
-      handle->close = 1;
+   if (handle->running && (handle->tls || (handle->dnsipv6 && !handle->ipv6)))
+      handle->close = 1;        // Reconnect as IPv6 (we don't know for TLS so reconnect anyway)
 }
 
 // Subscribe (return is non null error message if failed)
