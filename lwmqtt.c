@@ -794,19 +794,18 @@ client_task (void *pvParameters)
                      }
                      // Connected
                      if (p->ai_family == AF_INET6)
-                        handle->ipv6 = 1;
+                        handle->ipv6 = 1;       // Is IPv6
                      break;
                   }
-                  if (handle->sock < 0)
-                     return 0;  // Not  connected
-                  return 1;     // Worked
                }
-               if (handle->dnsipv6)
-                  tryconnect (1);       // Explicit try IPv6 first
-               tryconnect (0);
+               if (a)
+                  freeaddrinfo (a);
+               if (handle->sock < 0)
+                  return 0;     // Not  connected
+               return 1;        // Worked
             }
-            if (a)
-               freeaddrinfo (a);
+            tryconnect (1);     // Explicit try IPv6 first
+            tryconnect (0);
          }
       }
       if (handle->backoff < 10)
