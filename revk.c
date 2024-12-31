@@ -258,7 +258,7 @@ led_strip_handle_t revk_strip = NULL;
 static struct
 {                               // Flags
    uint8_t die:1;               // Final die
-   uint8_t gotipv6:1;		// Just got an IPv6
+   uint8_t gotipv6:1;           // Just got an IPv6
    uint8_t setting_dump_requested:2;
    uint8_t wdt_test:1;
    uint8_t disableupgrade:1;
@@ -1465,11 +1465,11 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             {                   // New IPv6
                // Done as Error level as really useful if logging at all
                if (!event->ip6_info.ip.zone)
-	       {
+               {
                   ESP_LOGE (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", ip_index, IPV62STR (event->ip6_info.ip),
                             event->ip6_info.ip.zone);
-		  b.gotipv6=1;
-	       }
+                  b.gotipv6 = 1;
+               }
 #ifdef  CONFIG_REVK_WIFI
                if (app_callback)
                {
@@ -1932,14 +1932,14 @@ task (void *pvParameters)
       if (now != last)
       {                         // Slow (once a second)
          last = now;
-	 if(b.gotipv6)
-	 { // Stuff that may be useful when we get an IPv6 address
-		 b.gotipv6=0;
+         if (b.gotipv6)
+         {                      // Stuff that may be useful when we get an IPv6 address
+            b.gotipv6 = 0;
 #ifdef	CONFIG_REVK_MQTT
-                     for (i = 0; i < CONFIG_REVK_MQTT_CLIENTS;i++)
-			     lwmqtt_reconnect6(mqtt_client[i]);
+            for (int i = 0; i < CONFIG_REVK_MQTT_CLIENTS; i++)
+               lwmqtt_reconnect6 (mqtt_client[i]);
 #endif
-	 }
+         }
          if (!b.disableupgrade && otaauto && ota_check && ota_check < now)
          {                      // Check for s/w update
             time_t t = time (0);
