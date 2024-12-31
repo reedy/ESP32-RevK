@@ -1464,12 +1464,9 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
             if (ip_index < 7 && !(gotip & (1 << ip_index)))
             {                   // New IPv6
                // Done as Error level as really useful if logging at all
+               ESP_LOGE (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", ip_index, IPV62STR (event->ip6_info.ip), event->ip6_info.ip.zone);
                if (!event->ip6_info.ip.zone)
-               {
-                  ESP_LOGE (TAG, "Got IPv6 [%d] " IPV6STR " (%d)", ip_index, IPV62STR (event->ip6_info.ip),
-                            event->ip6_info.ip.zone);
                   b.gotipv6 = 1;
-               }
 #ifdef  CONFIG_REVK_WIFI
                if (app_callback)
                {
@@ -1808,7 +1805,7 @@ revk_blink_init (void)
 #ifdef	LED_STRIP_COLOR_COMPONENT_FMT_GRB
             .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
 #else
-	    .led_pixel_format = LED_PIXEL_FORMAT_GRB,
+            .led_pixel_format = LED_PIXEL_FORMAT_GRB,
 #endif
             .led_model = LED_MODEL_WS2812,      // LED strip model
             .flags.invert_out = blink[0].invert,        // whether to invert the output signal (useful when your hardware has a level inverter)
