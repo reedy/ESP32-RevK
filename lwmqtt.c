@@ -820,6 +820,8 @@ client_task (void *pvParameters)
          ESP_LOGE (TAG, "Connected %s:%d", hostname, port);
          hwrite (handle, handle->connect, handle->connectlen);
          lwmqtt_loop (handle);
+         handle->dnsipv6 = 0;
+         handle->ipv6 = 0;
       }
       free (hostname);
       // On ESP32 uint32_t, returned by this func, appears to be long, while on ESP8266 it's a pure unsigned int
