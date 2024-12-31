@@ -785,7 +785,7 @@ client_task (void *pvParameters)
                      continue;
                   if (p->ai_family == AF_INET && !revk_has_ipv4 ())
                      continue;
-                  if (p->ai_familty == AF_INET6 && !revk_has_ipv6 ())
+                  if (p->ai_family == AF_INET6 && !revk_has_ipv6 ())
                      continue;
                   if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
                   {
