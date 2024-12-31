@@ -814,7 +814,7 @@ client_task (void *pvParameters)
             handle->callback (handle->arg, NULL, 0, NULL);
       } else
       {
-         ESP_LOGE (TAG, "Connected %s:%d", hostname, port);
+         ESP_LOGE (TAG, "Connected %s:%d%s", hostname, port, handle->ipv6 ? " (IPv6)" : "");
          hwrite (handle, handle->connect, handle->connectlen);
          lwmqtt_loop (handle);
          handle->dnsipv6 = 0;
