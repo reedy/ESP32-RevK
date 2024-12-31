@@ -741,25 +741,36 @@ client_task (void *pvParameters)
       {
          if (handle->ca_cert_bytes || handle->crt_bundle_attach)
          {
-            esp_tls_t *tls = NULL;
-            esp_tls_cfg_t cfg = {
-               .cacert_buf = handle->ca_cert_buf,
-               .cacert_bytes = handle->ca_cert_bytes,
-               .common_name = handle->tlsname,
-               .clientcert_buf = handle->our_cert_buf,
-               .clientcert_bytes = handle->our_cert_bytes,
-               .clientkey_buf = handle->our_key_buf,
-               .clientkey_bytes = handle->our_key_bytes,
-               .crt_bundle_attach = handle->crt_bundle_attach,
-            };
-            tls = esp_tls_init ();
-            if (esp_tls_conn_new_sync (hostname, strlen (hostname), port, &cfg, tls) != 1)
-               free (tls);
-            else
+            int tryconnect (uint8_t ip6)
             {
+               if (handle->sock >= 0)
+                  return 1;     // connected already
+               esp_tls_t *tls = NULL;
+               esp_tls_cfg_t cfg = {
+                  .cacert_buf = handle->ca_cert_buf,
+                  .cacert_bytes = handle->ca_cert_bytes,
+                  .common_name = handle->tlsname,
+                  .clientcert_buf = handle->our_cert_buf,
+                  .clientcert_bytes = handle->our_cert_bytes,
+                  .clientkey_buf = handle->our_key_buf,
+                  .clientkey_bytes = handle->our_key_bytes,
+                  .crt_bundle_attach = handle->crt_bundle_attach,
+                  .addr_family = (ip6 ? ESP_TLS_AF_INET6 : ESP_TLS_AF_UNSPEC),
+               };
+               tls = esp_tls_init ();
+               if (esp_tls_conn_new_sync (hostname, strlen (hostname), port, &cfg, tls) != 1)
+               {
+                  free (tls);
+                  return 0;
+               }
                handle->tls = tls;
                esp_tls_get_conn_sockfd (handle->tls, &handle->sock);
+               if (handle->sock < 0)
+                  return 0;
+               return 1;
             }
+            tryconnect (1);     // Explicit try IPv6 first
+            tryconnect (0);
          } else
          {                      // Non TLS
             char sport[6];
