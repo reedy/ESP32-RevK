@@ -773,10 +773,9 @@ client_task (void *pvParameters)
                   *p = NULL;
                if (!getaddrinfo (hostname, sport, &base, &a) && a)
                {
-                  if (ip6)
-                     for (p = a; p && !handle->dnsipv6; p = p->ai_next)
-                        if (p->ai_family == AF_INET6)
-                           handle->dnsipv6 = 1;
+                  for (p = a; p && !handle->dnsipv6; p = p->ai_next)
+                     if (p->ai_family == AF_INET6)
+                        handle->dnsipv6 = 1;
                   for (p = a; p; p = p->ai_next)
                   {
                      if (p->ai_family == AF_INET && (ip6 || !revk_has_ipv4 ()))
@@ -792,7 +791,7 @@ client_task (void *pvParameters)
                         handle->close = 0;
                      }
                      //ESP_LOGE (TAG, "Try %s:%d%s", hostname, port, handle->ipv6 ? " (IPv6)" : handle->dnsipv6 ? " (Not IPv6)" : "");
-		     //ESP_LOG_BUFFER_HEX_LEVEL (TAG, p->ai_addr, p->ai_addrlen, ESP_LOG_ERROR);
+                     //ESP_LOG_BUFFER_HEX_LEVEL (TAG, p->ai_addr, p->ai_addrlen, ESP_LOG_ERROR);
                      if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
                      {
                         close (handle->sock);
