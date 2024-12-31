@@ -788,6 +788,7 @@ client_task (void *pvParameters)
                         continue;
                      if (p->ai_family == AF_INET6)
                         handle->ipv6 = 1;       // Is IPv6
+                     ESP_LOGE (TAG, "Try %s:%d%s", hostname, port, handle->ipv6 ? " (IPv6)" : handle->dnsipv6 ? " (Not IPv6)" : "");
                      if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
                      {
                         close (handle->sock);
