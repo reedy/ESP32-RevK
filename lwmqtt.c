@@ -768,7 +768,7 @@ client_task (void *pvParameters)
             {
                if (handle->sock >= 0)
                   return 1;     // connected already
-             struct addrinfo base = { ai_family: ip6 ? AF_INET6 : AF_INET, ai_socktype:SOCK_STREAM };
+             struct addrinfo base = { ai_family: ip6 ? AF_INET6 : AF_UNSPEC, ai_socktype:SOCK_STREAM };
                struct addrinfo *a = 0,
                   *p = NULL;
                if (!getaddrinfo (hostname, sport, &base, &a) && a)
@@ -781,7 +781,7 @@ client_task (void *pvParameters)
                   {
                      if (p->ai_family == AF_INET && (ip6 || !revk_has_ipv4 ()))
                         continue;
-                     if (p->ai_family == AF_INET6 && (!ip6 || !revk_has_ipv6 ()))
+                     if (p->ai_family == AF_INET6 && !revk_has_ipv6 ())
                         continue;
                      handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
                      if (handle->sock < 0)
