@@ -738,11 +738,10 @@ client_task (void *pvParameters)
       ESP_LOGI (TAG, "Connecting %s:%d", hostname, port);
       uint8_t tried = 0;
       // Can connect using TLS or non TLS with just sock set instead
-      if (handle->ca_cert_bytes || handle->crt_bundle_attach)
+      if (revk_has_ip ())
       {
-         if (revk_has_ip ())
+         if (handle->ca_cert_bytes || handle->crt_bundle_attach)
          {
-            tried++;
             esp_tls_t *tls = NULL;
             esp_tls_cfg_t cfg = {
                .cacert_buf = handle->ca_cert_buf,
@@ -762,58 +761,55 @@ client_task (void *pvParameters)
                handle->tls = tls;
                esp_tls_get_conn_sockfd (handle->tls, &handle->sock);
             }
-         }
-      } else
-      {                         // Non TLS
-         // This is annoying as it should just pick IPv6 as preferred, but it sort of works
-         // May be better as a generic connect, and we are also rather assuming TLS ^ will connect IPv6 is available
-         int tryconnect (int fam)
-         {
-            if (handle->sock >= 0)
-               return 1;        // connected
-            if (!revk_has_ip ())
-               return 0;
-            if (fam == AF_INET && !revk_has_ipv4 ())
-               return 0;
-            if (fam == AF_INET6 && !revk_has_ipv6 ())
-               return 0;
-            tried++;
-          struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
-            struct addrinfo *a = 0,
-               *p = NULL;
-            char sport[6];
-            snprintf (sport, sizeof (sport), "%d", port);
-            if (getaddrinfo (hostname, sport, &base, &a) || !a)
-               return -1;
-            for (p = a; p; p = p->ai_next)
+         } else
+         {                      // Non TLS
+            // This is annoying as it should just pick IPv6 as preferred, but it sort of works
+            // May be better as a generic connect, and we are also rather assuming TLS ^ will connect IPv6 is available
+            int tryconnect (int fam)
             {
-               if (p->ai_family == AF_INET6)
-                  handle->dnsipv6 = 1;
-               handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
-               if (handle->sock < 0)
-                  continue;
-               if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
+               if (handle->sock >= 0)
+                  return 1;     // connected
+             struct addrinfo base = { ai_family: fam, ai_socktype:SOCK_STREAM };
+               struct addrinfo *a = 0,
+                  *p = NULL;
+               char sport[6];
+               snprintf (sport, sizeof (sport), "%d", port);
+               if (getaddrinfo (hostname, sport, &base, &a) || !a)
+                  return -1;
+               for (p = a; p; p = p->ai_next)
                {
-                  close (handle->sock);
-                  handle->sock = -1;
-                  continue;
+                  if (p->ai_family == AF_INET6)
+                     handle->dnsipv6 = 1;
+                  handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
+                  if (handle->sock < 0)
+                     continue;
+                  if (p->ai_family == AF_INET && !revk_has_ipv4 ())
+                     continue;
+                  if (p->ai_familty == AF_INET6 && !revk_has_ipv6 ())
+                     continue;
+                  if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
+                  {
+                     close (handle->sock);
+                     handle->sock = -1;
+                     continue;
+                  }
+                  if (p->ai_family == AF_INET6)
+                     handle->ipv6 = 1;
+                  break;
                }
-               if (p->ai_family == AF_INET6)
-                  handle->ipv6 = 1;
-               break;
+               freeaddrinfo (a);
+               if (handle->sock < 0)
+                  return 0;
+               return 1;        // Worked
             }
-            freeaddrinfo (a);
-            if (handle->sock < 0)
-               return 0;
-            return 1;           // Worked
-         }
-         tryconnect (AF_INET6);
-         if (uptime () > 20)
+            tryconnect (AF_INET6);
+            //if (uptime () > 20)
             tryconnect (AF_INET);
+         }
       }
       if (handle->backoff < 10)
          handle->backoff++;     // 100 seconds max
-      if (!tried)
+      if (!revk_has_ip ())
          handle->backoff = 0;   // We did not try even
       else if (handle->sock < 0)
       {                         // Failed before we even start
