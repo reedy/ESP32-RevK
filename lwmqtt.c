@@ -736,7 +736,6 @@ client_task (void *pvParameters)
       }
       // Connect
       ESP_LOGI (TAG, "Connecting %s:%d", hostname, port);
-      uint8_t tried = 0;
       // Can connect using TLS or non TLS with just sock set instead
       if (revk_has_ip ())
       {
