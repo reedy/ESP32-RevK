@@ -762,8 +762,6 @@ client_task (void *pvParameters)
             }
          } else
          {                      // Non TLS
-            // This is annoying as it should just pick IPv6 as preferred, but it sort of works
-            // May be better as a generic connect, and we are also rather assuming TLS ^ will connect IPv6 is available
             int tryconnect (int fam)
             {
                if (handle->sock >= 0)
@@ -802,7 +800,6 @@ client_task (void *pvParameters)
                return 1;        // Worked
             }
             tryconnect (AF_INET6);
-            //if (uptime () > 20)
             tryconnect (AF_INET);
          }
       }
