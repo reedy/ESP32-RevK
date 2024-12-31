@@ -55,15 +55,18 @@ struct lwmqtt_s
    unsigned short seq;
    uint32_t connecttime;        // Time of connect
    uint8_t backoff:4;           // Reconnect backoff
+   uint8_t failed:3;            // Login received error
    uint8_t running:1;           // Should still run
+   uint8_t close:1;             // Close this handle cleanly and reconnect
    uint8_t server:1;            // This is a server
    uint8_t connected:1;         // Login sent/received
-   uint8_t failed:3;            // Login received error
-   uint8_t hostname_ref;        // The buf below is not malloc'd
-   uint8_t tlsname_ref;         // The buf below is not malloc'd
    uint8_t ca_cert_ref:1;       // The _buf below is not malloc'd
    uint8_t our_cert_ref:1;      // The _buf below is not malloc'd
    uint8_t our_key_ref:1;       // The _buf below is not malloc'd
+   uint8_t hostname_ref:1;      // The buf below is not malloc'd
+   uint8_t tlsname_ref:1;       // The buf below is not malloc'd
+   uint8_t dnsipv6:1;           // DNS has IPv6
+   uint8_t ipv6:1;              // Connection is IPv6
    void *ca_cert_buf;           // For checking server
    int ca_cert_bytes;
    void *our_cert_buf;          // For auth
@@ -323,6 +326,27 @@ lwmqtt_end (lwmqtt_t * handle)
    *handle = NULL;
 }
 
+void
+lwmqtt_reconnect (lwmqtt_t handle)
+{
+   if (!handle)
+      return;
+   if (handle->running)
+   {
+      ESP_LOGD (TAG, "Closing to reconnect");
+      handle->close = 1;
+   }
+}
+
+void
+lwmqtt_reconnect6 (lwmqtt_t handle)
+{
+   if (!handle)
+      return;
+   if (handle->running && handle->dnsipv6 && !handle->ipv6)
+      handle->close = 1;
+}
+
 // Subscribe (return is non null error message if failed)
 const char *
 lwmqtt_subscribeub (lwmqtt_t handle, const char *topic, char unsubscribe)
@@ -466,7 +490,7 @@ lwmqtt_loop (lwmqtt_t handle)
    int pos = 0;
    uint32_t kacheck = uptime () + 60;   // Response time check
    uint32_t ka = uptime () + (handle->server ? 5 : handle->keepalive);  // Server does not know KA initially
-   while (handle->running)
+   while (handle->running && !handle->close)
    {                            // Loop handling messages received, and timeouts
       int need = 0;
       if (pos < 2)
@@ -671,7 +695,7 @@ lwmqtt_loop (lwmqtt_t handle)
    }
    handle->connected = 0;
    freez (buf);
-   if (!handle->server && !handle->running)
+   if (!handle->server && (handle->close || !handle->running))
    {                            // Close connection - as was clean
       ESP_LOGE (TAG, "Closed cleanly");
       uint8_t b[] = { 0xE0, 0x00 };     // Disconnect cleanly
@@ -680,6 +704,7 @@ lwmqtt_loop (lwmqtt_t handle)
       xSemaphoreGive (handle->mutex);
    }
    handle_close (handle);
+   handle->close = 0;
    if (handle->callback)
       handle->callback (handle->arg, NULL, 0, NULL);
 }
@@ -762,6 +787,8 @@ client_task (void *pvParameters)
                return -1;
             for (p = a; p; p = p->ai_next)
             {
+               if (p->ai_family == AF_INET6)
+                  handle->dnsipv6 = 1;
                handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
                if (handle->sock < 0)
                   continue;
@@ -771,6 +798,8 @@ client_task (void *pvParameters)
                   handle->sock = -1;
                   continue;
                }
+               if (p->ai_family == AF_INET6)
+                  handle->ipv6 = 1;
                break;
             }
             freeaddrinfo (a);

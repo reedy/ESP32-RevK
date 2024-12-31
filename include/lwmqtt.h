@@ -81,7 +81,7 @@ struct lwmqtt_server_config_s
 // Handle for connection
 typedef struct lwmqtt_s *lwmqtt_t;
 
-uint32_t lwmqtt_connected (lwmqtt_t);        // If connected
+uint32_t lwmqtt_connected (lwmqtt_t);   // If connected
 int lwmqtt_failed (lwmqtt_t);   // If failed connect
 
 // Create a client connection (NULL if failed)
@@ -95,6 +95,9 @@ lwmqtt_t lwmqtt_server (lwmqtt_server_config_t *);
 // End connection - actually freed later as part of task. Will do a callback when closed if was connected
 // NULLs the passed handle - do not use handle after this call
 void lwmqtt_end (lwmqtt_t *);
+// Reconnect
+void lwmqtt_reconnect (lwmqtt_t);
+void lwmqtt_reconnect6 (lwmqtt_t handle);       // reconnect if it looks like we can use IPv6
 
 // Subscribe (return is non null error message if failed)
 const char *lwmqtt_subscribeub (lwmqtt_t, const char *topic, char unsubscribe);
