@@ -769,14 +769,15 @@ client_task (void *pvParameters)
             snprintf (sport, sizeof (sport), "%d", port);
             if (!getaddrinfo (hostname, sport, &base, &a) && a)
             {
+               for (p = a; p && !handle->dnsipv6; p = p->ai_next)
+                  if (p->ai_family == AF_INET6)
+                     handle->dnsipv6 = 1;
                int tryconnect (uint8_t ip6)
                {
                   if (handle->sock >= 0)
                      return 1;  // connected
                   for (p = a; p; p = p->ai_next)
                   {
-                     if (p->ai_family == AF_INET6)
-                        handle->dnsipv6 = 1;
                      if (p->ai_family == AF_INET && (ip6 || !revk_has_ipv4 ()))
                         continue;
                      if (p->ai_family == AF_INET6 && (!ip6 || !revk_has_ipv6 ()))
@@ -790,16 +791,17 @@ client_task (void *pvParameters)
                         handle->sock = -1;
                         continue;
                      }
-		     // Connected
+                     // Connected
                      if (p->ai_family == AF_INET6)
                         handle->ipv6 = 1;
                      break;
                   }
                   if (handle->sock < 0)
-                     return 0; // Not  connected
+                     return 0;  // Not  connected
                   return 1;     // Worked
                }
-               tryconnect (1);  // Explicit try IPv6 first
+               if (handle->dnsipv6)
+                  tryconnect (1);       // Explicit try IPv6 first
                tryconnect (0);
             }
             if (a)
