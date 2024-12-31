@@ -740,7 +740,6 @@ sta_init (void)
 #else
       REVK_ERR_CHECK (esp_wifi_set_ps (wifips ? wifimaxps ? WIFI_PS_MAX_MODEM : WIFI_PS_MIN_MODEM : WIFI_PS_NONE));
 #endif
-      esp_netif_create_ip6_linklocal (sta_netif);
    }
    REVK_ERR_CHECK (esp_event_handler_register (IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
    REVK_ERR_CHECK (esp_event_handler_register (WIFI_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
@@ -1321,7 +1320,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
          ESP_LOGI (TAG, "WiFi STA Connected");
          xEventGroupSetBits (revk_group, GROUP_WIFI);
 #ifdef	CONFIG_LWIP_IPV6
-         //if (sta_netif) esp_netif_create_ip6_linklocal (sta_netif);
+         if (sta_netif)
+            esp_netif_create_ip6_linklocal (sta_netif);
 #endif
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
@@ -1365,7 +1365,8 @@ ip_event_handler (void *arg, esp_event_base_t event_base, int32_t event_id, void
       case WIFI_EVENT_STA_CONNECTED:
          ESP_LOGI (TAG, "WiFi STA Connected");
 #ifdef	CONFIG_LWIP_IPV6
-         //if (sta_netif) esp_netif_create_ip6_linklocal (sta_netif);
+         if (sta_netif)
+            esp_netif_create_ip6_linklocal (sta_netif);
 #endif
          break;
       case WIFI_EVENT_STA_DISCONNECTED:
