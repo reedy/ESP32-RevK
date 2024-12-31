@@ -800,7 +800,7 @@ client_task (void *pvParameters)
                return 1;        // Worked
             }
             tryconnect (AF_INET6);
-            tryconnect (AF_INET);
+            tryconnect (AF_UNSPEC);
          }
       }
       if (handle->backoff < 10)
