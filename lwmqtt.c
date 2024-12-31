@@ -343,7 +343,7 @@ lwmqtt_reconnect6 (lwmqtt_t handle)
 {
    if (!handle)
       return;
-   if (handle->running && (handle->tls || (handle->dnsipv6 && !handle->ipv6)))
+   if (handle->running && (handle->dnsipv6 || handle->tls) && !handle->ipv6)
       handle->close = 1;        // Reconnect as IPv6 (we don't know for TLS so reconnect anyway)
 }
 
@@ -765,11 +765,11 @@ client_task (void *pvParameters)
                }
                handle->tls = tls;
                esp_tls_get_conn_sockfd (handle->tls, &handle->sock);
-               if (handle->sock < 0)
-                  return 0;
+               if (ip6)
+                  handle->ipv6 = 1;
                return 1;
             }
-            tryconnect (1);     // Explicit try IPv6 first
+            //tryconnect (1);     // Explicit try IPv6 first
             tryconnect (0);
          } else
          {                      // Non TLS
