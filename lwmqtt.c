@@ -769,7 +769,7 @@ client_task (void *pvParameters)
                   handle->ipv6 = 1;
                return 1;
             }
-            //tryconnect (1);     // Explicit try IPv6 first
+            tryconnect (1);     // Explicit try IPv6 first
             tryconnect (0);
          } else
          {                      // Non TLS
