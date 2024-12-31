@@ -792,6 +792,7 @@ client_task (void *pvParameters)
                         handle->close = 0;
                      }
                      ESP_LOGE (TAG, "Try %s:%d%s", hostname, port, handle->ipv6 ? " (IPv6)" : handle->dnsipv6 ? " (Not IPv6)" : "");
+		     ESP_LOG_BUFFER_HEX_LEVEL (TAG, p->ai_addr, p->ai_addrlen, ESP_LOG_ERROR);
                      if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
                      {
                         close (handle->sock);
