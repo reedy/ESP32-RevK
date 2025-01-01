@@ -791,9 +791,9 @@ client_task (void *pvParameters)
                   {
                      char from[INET6_ADDRSTRLEN + 1] = "";
                      if (p->ai_family == AF_INET)
-                        inet_ntop (p->ai_family, &((struct sockaddr_in *) &(p->ai_addr))->sin_addr, from, sizeof (from));
+                        inet_ntop (p->ai_family, &((struct sockaddr_in *) (p->ai_addr))->sin_addr, from, sizeof (from));
                      else
-                        inet_ntop (p->ai_family, &((struct sockaddr_in6 *) &(p->ai_addr))->sin6_addr, from, sizeof (from));
+                        inet_ntop (p->ai_family, &((struct sockaddr_in6 *) (p->ai_addr))->sin6_addr, from, sizeof (from));
                      ESP_LOGE (TAG, "%s", from);
                   }
 #endif
