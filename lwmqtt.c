@@ -785,6 +785,20 @@ client_task (void *pvParameters)
                   *p = NULL;
                if (!getaddrinfo (hostname, sport, &base, &a) && a)
                {
+#if 1
+		       ESP_LOGE(TAG,"getaddrinfo %s %s",ip6?"IPv6":"IPv4",hostname);
+                  for (p = a; p; p = p->ai_next)
+			  if(p->ai_family==AF_INET6)
+		  {
+			    struct sockaddr_in6 *a=(void*)p->ai_addr;
+
+
+		  } else  if(p->ai_family==AF_INET)
+		  {
+			    struct sockaddr_in *a=(void*)p->ai_addr;
+
+		  }
+#endif
                   for (p = a; p && !handle->dnsipv6; p = p->ai_next)
                      if (p->ai_family == AF_INET6)
                         handle->dnsipv6 = 1;
@@ -802,8 +816,6 @@ client_task (void *pvParameters)
                         handle->ipv6 = 1;       // Is IPv6
                         handle->close = 0;
                      }
-                     //ESP_LOGE (TAG, "Try %s:%d%s", hostname, port, handle->ipv6 ? " (IPv6)" : handle->dnsipv6 ? " (Not IPv6)" : "");
-                     //ESP_LOG_BUFFER_HEX_LEVEL (TAG, p->ai_addr, p->ai_addrlen, ESP_LOG_ERROR);
                      if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
                      {
                         close (handle->sock);
@@ -814,7 +826,7 @@ client_task (void *pvParameters)
                      // Connected
                      break;
                   }
-               }
+               } else ESP_LOGE(TAG,"Failed to find %s for %s",ip6?"IPv6":"IP",hostname);
                if (a)
                   freeaddrinfo (a);
                if (handle->sock < 0)
