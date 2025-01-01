@@ -697,7 +697,7 @@ lwmqtt_loop (lwmqtt_t handle)
    freez (buf);
    if (!handle->server && (handle->close || !handle->running))
    {                            // Close connection - as was clean
-      ESP_LOGE (TAG, "Closed cleanly");
+      ESP_LOGE (TAG, "Closed cleanly%s", handle->close ? " to reconnect" : "");
       uint8_t b[] = { 0xE0, 0x00 };     // Disconnect cleanly
       xSemaphoreTake (handle->mutex, portMAX_DELAY);
       hwrite (handle, b, sizeof (b));
