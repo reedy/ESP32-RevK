@@ -793,10 +793,11 @@ client_task (void *pvParameters)
 			    struct sockaddr_in6 *a=(void*)p->ai_addr;
 
 
+
 		  } else  if(p->ai_family==AF_INET)
 		  {
 			    struct sockaddr_in *a=(void*)p->ai_addr;
-
+			    ESP_LOGE(TAG,IPSTR , IP2STR (a->sin_addr));
 		  }
 #endif
                   for (p = a; p && !handle->dnsipv6; p = p->ai_next)
