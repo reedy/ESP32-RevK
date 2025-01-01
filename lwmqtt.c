@@ -808,19 +808,18 @@ client_task (void *pvParameters)
                      handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
                      if (handle->sock < 0)
                         continue;
-                     if (p->ai_family == AF_INET6)
-                     {
-                        handle->ipv6 = 1;       // Is IPv6
-                        handle->close = 0;
-                     }
                      if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
                      {
                         close (handle->sock);
                         handle->sock = -1;
-                        handle->ipv6 = 0;
                         continue;
                      }
                      // Connected
+                     if (p->ai_family == AF_INET6)
+                     {
+                        handle->ipv6 = 1;       // Is IPv6
+                        handle->close = 0;	// We only close to force IPv6, so cancel closing
+                     }
                      break;
                   }
                }
