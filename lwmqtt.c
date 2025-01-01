@@ -755,7 +755,7 @@ client_task (void *pvParameters)
                   .clientkey_buf = handle->our_key_buf,
                   .clientkey_bytes = handle->our_key_bytes,
                   .crt_bundle_attach = handle->crt_bundle_attach,
-                  .addr_family = (ip6 ? ESP_TLS_AF_INET6 : ESP_TLS_AF_UNSPEC),
+                  .addr_family = (ip6 ? ESP_TLS_AF_INET6 : ESP_TLS_AF_INET),
                };
                tls = esp_tls_init ();
                if (esp_tls_conn_new_sync (hostname, strlen (hostname), port, &cfg, tls) != 1)
@@ -769,8 +769,7 @@ client_task (void *pvParameters)
                   handle->ipv6 = 1;
                return 1;
             }
-            // OK for now, off
-            //tryconnect (1);     // Explicit try IPv6 first
+            tryconnect (1);     // Explicit try IPv6 first
             tryconnect (0);
          } else
          {                      // Non TLS
@@ -785,7 +784,7 @@ client_task (void *pvParameters)
                   *p = NULL;
                if (!getaddrinfo (hostname, sport, &base, &a) && a)
                {
-#if 1                           // Debug log the getaddrinfo result
+#if 0                           // Debug log the getaddrinfo result - it seems UNSPEC after say IP6 give only IP6,so we need to check 6 and 4 separately
                   ESP_LOGE (TAG, "getaddrinfo %s %s", ip6 ? "IPv6" : "IPv4", hostname);
                   for (p = a; p; p = p->ai_next)
                   {
@@ -824,8 +823,7 @@ client_task (void *pvParameters)
                      // Connected
                      break;
                   }
-               } else
-                  ESP_LOGE (TAG, "Failed to find %s for %s", ip6 ? "IPv6" : "IP", hostname);
+               }
                if (a)
                   freeaddrinfo (a);
                if (handle->sock < 0)
