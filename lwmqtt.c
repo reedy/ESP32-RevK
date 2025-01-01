@@ -769,7 +769,7 @@ client_task (void *pvParameters)
                   handle->ipv6 = 1;
                return 1;
             }
-	    // OK for now, off
+            // OK for now, off
             //tryconnect (1);     // Explicit try IPv6 first
             tryconnect (0);
          } else
@@ -786,19 +786,16 @@ client_task (void *pvParameters)
                if (!getaddrinfo (hostname, sport, &base, &a) && a)
                {
 #if 1
-		       ESP_LOGE(TAG,"getaddrinfo %s %s",ip6?"IPv6":"IPv4",hostname);
+                  ESP_LOGE (TAG, "getaddrinfo %s %s", ip6 ? "IPv6" : "IPv4", hostname);
                   for (p = a; p; p = p->ai_next)
-			  if(p->ai_family==AF_INET6)
-		  {
-			    struct sockaddr_in6 *a=(void*)p->ai_addr;
-
-
-
-		  } else  if(p->ai_family==AF_INET)
-		  {
-			    struct sockaddr_in *a=(void*)p->ai_addr;
-			    ESP_LOGE(TAG,IPSTR , IP2STR (a->sin_addr));
-		  }
+                  {
+                     char from[INET6_ADDRSTRLEN + 1] = "";
+                     if (addr.sin6_family == AF_INET)
+                        inet_ntop (p->ai_family, &((struct sockaddr_in *) &(p->ai_addr))->sin_addr, from, sizeof (from));
+                     else
+                        inet_ntop (p->ai_family, &((struct sockaddr_in6 *) &(p->ai_addr))->sin6_addr, from, sizeof (from));
+                     ESP_LOGE (TAG, "%s", from);
+                  }
 #endif
                   for (p = a; p && !handle->dnsipv6; p = p->ai_next)
                      if (p->ai_family == AF_INET6)
@@ -827,7 +824,8 @@ client_task (void *pvParameters)
                      // Connected
                      break;
                   }
-               } else ESP_LOGE(TAG,"Failed to find %s for %s",ip6?"IPv6":"IP",hostname);
+               } else
+                  ESP_LOGE (TAG, "Failed to find %s for %s", ip6 ? "IPv6" : "IP", hostname);
                if (a)
                   freeaddrinfo (a);
                if (handle->sock < 0)
