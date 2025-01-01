@@ -790,7 +790,7 @@ client_task (void *pvParameters)
                   for (p = a; p; p = p->ai_next)
                   {
                      char from[INET6_ADDRSTRLEN + 1] = "";
-                     if (addr.sin6_family == AF_INET)
+                     if (p->ai_family == AF_INET)
                         inet_ntop (p->ai_family, &((struct sockaddr_in *) &(p->ai_addr))->sin_addr, from, sizeof (from));
                      else
                         inet_ntop (p->ai_family, &((struct sockaddr_in6 *) &(p->ai_addr))->sin6_addr, from, sizeof (from));
