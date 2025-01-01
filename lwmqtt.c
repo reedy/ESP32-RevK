@@ -780,7 +780,7 @@ client_task (void *pvParameters)
             {
                if (handle->sock >= 0)
                   return 1;     // connected already
-             struct addrinfo base = { ai_family: ip6 ? AF_INET6 : AF_UNSPEC, ai_socktype:SOCK_STREAM };
+             struct addrinfo base = { ai_family: ip6 ? AF_INET6 : AF_INET, ai_socktype:SOCK_STREAM };
                struct addrinfo *a = 0,
                   *p = NULL;
                if (!getaddrinfo (hostname, sport, &base, &a) && a)
