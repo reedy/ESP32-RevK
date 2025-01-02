@@ -766,7 +766,11 @@ client_task (void *pvParameters)
                handle->tls = tls;
                esp_tls_get_conn_sockfd (handle->tls, &handle->sock);
                if (ip6)
+               {
                   handle->ipv6 = 1;
+                  handle->close = 0;
+               } else if (revk_has_ipv6 () && handle->dnsipv6 && handle->backoff > 4)
+                  handle->close = 1;    // This was a slow IPv4 connect when should have been IPv6
                return 1;
             }
             tryconnect (1);     // Explicit try IPv6 first
@@ -825,11 +829,12 @@ client_task (void *pvParameters)
                         continue;
                      }
                      // Connected
-                     if (p->ai_family == AF_INET6)
-                     {
+                     if (ip6)
+                     {          // IPv6 connected
                         handle->ipv6 = 1;       // Is IPv6
                         handle->close = 0;      // We only close to force IPv6, so cancel closing
-                     }
+                     } else if (revk_has_ipv6 () && handle->dnsipv6 && handle->backoff > 4)
+                        handle->close = 1;      // This was a slow IPv4 connect when should have been IPv6
                      break;
                   }
                }
@@ -840,8 +845,7 @@ client_task (void *pvParameters)
                return 1;        // Worked
             }
             tryconnect (1);     // Explicit try IPv6 first
-            if (!revk_has_ipv6 () || !handle->dnsipv6 || handle->backoff > 7)
-               tryconnect (0);  // If IPv6 then delay even trying IPv4
+            tryconnect (0);
          }
       }
       if (handle->backoff < 10)
