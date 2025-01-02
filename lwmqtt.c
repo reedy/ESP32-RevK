@@ -769,8 +769,7 @@ client_task (void *pvParameters)
                {
                   handle->ipv6 = 1;
                   handle->close = 0;
-               } else if (revk_has_ipv6 () && handle->dnsipv6 && handle->backoff > 4)
-                  handle->close = 1;    // This was a slow IPv4 connect when should have been IPv6
+               }
                return 1;
             }
             tryconnect (1);     // Explicit try IPv6 first
@@ -833,8 +832,7 @@ client_task (void *pvParameters)
                      {          // IPv6 connected
                         handle->ipv6 = 1;       // Is IPv6
                         handle->close = 0;      // We only close to force IPv6, so cancel closing
-                     } else if (revk_has_ipv6 () && handle->dnsipv6 && handle->backoff > 4)
-                        handle->close = 1;      // This was a slow IPv4 connect when should have been IPv6
+                     }
                      break;
                   }
                }
