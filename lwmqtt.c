@@ -840,7 +840,7 @@ client_task (void *pvParameters)
                return 1;        // Worked
             }
             tryconnect (1);     // Explicit try IPv6 first
-            if (!revk_has_ipv6 () || !handle->dnsipv6 || handle->backoff > 6)
+            if (!revk_has_ipv6 () || !handle->dnsipv6 || handle->backoff > 7)
                tryconnect (0);  // If IPv6 then delay even trying IPv4
          }
       }
