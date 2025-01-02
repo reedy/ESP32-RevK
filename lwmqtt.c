@@ -808,7 +808,7 @@ client_task (void *pvParameters)
                      handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
                      if (handle->sock < 0)
                         continue;
-#if 1
+#if 0
                      {          // Debug that we are trying
                         char from[INET6_ADDRSTRLEN + 1] = "";
                         if (p->ai_family == AF_INET)
@@ -840,8 +840,8 @@ client_task (void *pvParameters)
                return 1;        // Worked
             }
             tryconnect (1);     // Explicit try IPv6 first
-            if (!revk_has_ipv6 () || handle->backoff > 4)
-               tryconnect (0);
+            if (!revk_has_ipv6 () || !handle->dnsip6 || handle->backoff > 6)
+               tryconnect (0);  // If IPv6 then delay even trying IPv4
          }
       }
       if (handle->backoff < 10)
