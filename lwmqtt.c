@@ -808,6 +808,16 @@ client_task (void *pvParameters)
                      handle->sock = socket (p->ai_family, p->ai_socktype, p->ai_protocol);
                      if (handle->sock < 0)
                         continue;
+#if 1
+                     {
+                        char from[INET6_ADDRSTRLEN + 1] = "";
+                        if (p->ai_family == AF_INET)
+                           inet_ntop (p->ai_family, &((struct sockaddr_in *) (p->ai_addr))->sin_addr, from, sizeof (from));
+                        else
+                           inet_ntop (p->ai_family, &((struct sockaddr_in6 *) (p->ai_addr))->sin6_addr, from, sizeof (from));
+                        ESP_LOGE (TAG, "Try connect %s", from);
+                     }
+#endif
                      if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
                      {
                         close (handle->sock);
@@ -818,7 +828,7 @@ client_task (void *pvParameters)
                      if (p->ai_family == AF_INET6)
                      {
                         handle->ipv6 = 1;       // Is IPv6
-                        handle->close = 0;	// We only close to force IPv6, so cancel closing
+                        handle->close = 0;      // We only close to force IPv6, so cancel closing
                      }
                      break;
                   }
