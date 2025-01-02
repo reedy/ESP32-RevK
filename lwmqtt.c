@@ -784,7 +784,7 @@ client_task (void *pvParameters)
                   *p = NULL;
                if (!getaddrinfo (hostname, sport, &base, &a) && a)
                {
-#if 1                           // Debug log the getaddrinfo result - it seems UNSPEC after say IP6 give only IP6,so we need to check 6 and 4 separately
+#if 0                           // Debug log the getaddrinfo result - it seems UNSPEC after say IP6 give only IP6,so we need to check 6 and 4 separately
                   ESP_LOGE (TAG, "getaddrinfo %s %s", ip6 ? "IPv6" : "IPv4", hostname);
                   for (p = a; p; p = p->ai_next)
                   {
@@ -809,13 +809,13 @@ client_task (void *pvParameters)
                      if (handle->sock < 0)
                         continue;
 #if 1
-                     {
+                     {          // Debug that we are trying
                         char from[INET6_ADDRSTRLEN + 1] = "";
                         if (p->ai_family == AF_INET)
                            inet_ntop (p->ai_family, &((struct sockaddr_in *) (p->ai_addr))->sin_addr, from, sizeof (from));
                         else
                            inet_ntop (p->ai_family, &((struct sockaddr_in6 *) (p->ai_addr))->sin6_addr, from, sizeof (from));
-                        ESP_LOGE (TAG, "Try connect %s", from);
+                        ESP_LOGE (TAG, "Try connect %s (backoff %d)", from, handle->backoff);
                      }
 #endif
                      if (connect (handle->sock, p->ai_addr, p->ai_addrlen))
@@ -840,7 +840,8 @@ client_task (void *pvParameters)
                return 1;        // Worked
             }
             tryconnect (1);     // Explicit try IPv6 first
-            tryconnect (0);
+            if (!revk_has_ip_ipv6 () || handle->backoff > 4)
+               tryconnect (0);
          }
       }
       if (handle->backoff < 10)
@@ -857,6 +858,7 @@ client_task (void *pvParameters)
          ESP_LOGE (TAG, "Connected %s:%d%s", hostname, port, handle->ipv6 ? " (IPv6)" : handle->dnsipv6 ? " (Not IPv6)" : "");
          hwrite (handle, handle->connect, handle->connectlen);
          lwmqtt_loop (handle);
+         handle->backoff = 0;
          handle->dnsipv6 = 0;
          handle->ipv6 = 0;
       }
