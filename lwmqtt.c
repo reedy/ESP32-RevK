@@ -840,7 +840,7 @@ client_task (void *pvParameters)
                return 1;        // Worked
             }
             tryconnect (1);     // Explicit try IPv6 first
-            if (!revk_has_ip_ipv6 () || handle->backoff > 4)
+            if (!revk_has_ipv6 () || handle->backoff > 4)
                tryconnect (0);
          }
       }
