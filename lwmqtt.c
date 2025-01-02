@@ -784,7 +784,7 @@ client_task (void *pvParameters)
                   *p = NULL;
                if (!getaddrinfo (hostname, sport, &base, &a) && a)
                {
-#if 0                           // Debug log the getaddrinfo result - it seems UNSPEC after say IP6 give only IP6,so we need to check 6 and 4 separately
+#if 1                           // Debug log the getaddrinfo result - it seems UNSPEC after say IP6 give only IP6,so we need to check 6 and 4 separately
                   ESP_LOGE (TAG, "getaddrinfo %s %s", ip6 ? "IPv6" : "IPv4", hostname);
                   for (p = a; p; p = p->ai_next)
                   {
